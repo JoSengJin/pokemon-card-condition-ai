@@ -290,6 +290,9 @@ class EvidenceFiles:
 
     def read(self, path, code, where):
         _, real = self.locate(path, where)
+        kind = file_kind(path, where)
+        if real in self.cache and self.cache[real][0] != kind:
+            fail('J', f'{where} aliases a file already read in a different format')
         if real not in self.cache:
             try:
                 info = os.stat(real)
@@ -300,8 +303,8 @@ class EvidenceFiles:
                 fail('P', f'{where} is not a regular file')
             with open(real, 'rb') as stream:
                 data = stream.read()
-            self.cache[real] = (hashlib.sha256(data).hexdigest(), parse_bytes(data, file_kind(path, where), where))
-        return self.cache[real]
+            self.cache[real] = (kind, hashlib.sha256(data).hexdigest(), parse_bytes(data, kind, where))
+        return self.cache[real][1:]
 
     def exists(self, path, where):
         return os.path.lexists(self.locate(path, where)[0])

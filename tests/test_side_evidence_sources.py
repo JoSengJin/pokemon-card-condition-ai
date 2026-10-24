@@ -234,6 +234,24 @@ class SourcesTest(unittest.TestCase):
         source = self.f.ref('alias.json', '/statement')
         self.validate(self.edit(lambda d: d['rows'][1]['evidence'].append(self.f.human(source))))
 
+    def test_alias_cannot_reuse_json_cache_as_jsonl(self):
+        # This JSON document is not a JSONL record: it has no id.
+        self.f.write('both.json', {'slot': {'statement': 'synthetic'}})
+        os.symlink('both.json', self.f.root / 'alias.jsonl')
+        item = self.f.human()
+        item['source'] = self.f.ref('both.json', '/slot/statement')
+        item['origin'] = self.f.ref('alias.jsonl', '/statement', 'slot')
+        doc = self.f.sidecar()
+        doc['rows'][1]['evidence'] = [item]
+        doc['rows'][1]['summary'] = compute_summary(doc['rows'][1])
+        self.rejects('J', doc)
+        # The reverse order must not expose the JSONL row map as a JSON document.
+        self.f.write('both.json', {'id': 'syn', 'statement': 'synthetic'})
+        item['source'] = self.f.ref('alias.jsonl', '/statement', 'syn')
+        item['origin'] = self.f.ref('both.json', '/syn/statement')
+        doc['rows'][1]['summary'] = compute_summary(doc['rows'][1])
+        self.rejects('J', doc)
+
     def test_special_files_are_not_read(self):
         (self.f.root / 'folder.json').mkdir()
         os.mkfifo(self.f.root / 'pipe.json')
