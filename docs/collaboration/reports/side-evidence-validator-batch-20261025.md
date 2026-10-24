@@ -307,4 +307,3 @@ side-evidence: rejected: R11: search_scope.sha256 does not match the index file 
   - 강제 종료 시 `.<이름>.*.tmp` 임시 파일이 남을 수 있다.
   - 동시 파일 교체는 막지 않는다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 위 커밋을 역순으로 revert한다. 새 파일만 추가했으므로 기존 동작에는 영향이 없다. 실제 데이터·모델·진척률 30/100은 바뀌지 않는다.
-
