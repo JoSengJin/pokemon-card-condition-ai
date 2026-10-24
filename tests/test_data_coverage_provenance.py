@@ -38,23 +38,26 @@ class DataCoverageProvenanceTest(unittest.TestCase):
             c=self.cell(result,'corner_defect')
             self.assertEqual(dict(points=1,groups=1),c['typed_positive_points'])
             self.assertEqual(0,c['positive']['units'])
-            traced=[s for s in result['skipped']+result['projection_skipped']
-                    if s.get('card_id',s.get('card'))==r['id'] and s.get('side')=='front']
-            self.assertTrue(traced,'typed point dropped from region units without a skip reason')
+            expected=dict(card_id=r['id'],side='front',label='corner_defect',
+                          area='middle_right',reason='point_outside_target_area')
+            traced=[s for s in result['skipped'] if all(s.get(k)==v for k,v in expected.items())]
+            self.assertEqual(1,len(traced),'typed point dropped from region units without its exact skip record')
 
-    def test_one_decoded_photo_counts_on_one_side_only(self):
-        # Finding 3: a non-gradable record may reuse one photo for front and back;
-        # the audit then counts the same pixels in both side cells.
+    def test_one_decoded_photo_assigned_to_both_sides_is_rejected(self):
+        # Finding 3: a non-gradable record may reuse one photo for front and back.
+        # Choosing either side would invent provenance, so the audit must refuse the input.
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder).resolve();manifest,records=self.prepare(root)
-            r=records[0];r['back']=r['front']
+            r=records[0]
             self.assertEqual(0,r['labels']['gradable'])
-            r['side_annotations']={side:dict(image=str(root/r['front']),box=[0,0,1,1],labels=dict(r['labels']),
+            r['side_annotations']={side:dict(image=str(root/r[side]),box=[0,0,1,1],labels=dict(r['labels']),
                 visibility_issues=['blur']) for side in ('front','back')}
-            self.save(manifest,records);result=coverage_report(manifest)
-            front=self.cell(result,'observation_limited','front');back=self.cell(result,'observation_limited','back')
-            self.assertEqual(1,front['positive']['units']+back['positive']['units'],
-                             'one decoded photo was counted as both front and back')
+            # Control: distinct front/back photos with the same annotations are accepted.
+            self.save(manifest,records);coverage_report(manifest)
+            r['back']=r['front'];r['side_annotations']['back']['image']=str(root/r['front'])
+            self.save(manifest,records)
+            with self.assertRaises(ValueError,msg='one decoded photo was accepted as both front and back'):
+                coverage_report(manifest)
 
 
 if __name__ == '__main__':

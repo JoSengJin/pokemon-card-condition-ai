@@ -80,3 +80,21 @@
   2. 최신 보완 6행 `side=front`의 사람 근거가 snapshot에 없음(면미확인).
   3. 동일 사진 양면 이중 집계(실제 0건).
 - 다음 수정 1개: 발견 1의 skip reason `point_outside_target_area`를 기록한다.
+
+### 재검증 — Codex 리뷰 반영 (후속 커밋, 부모 `7c24c0924575753dd3b0f6f41d568e89a1361c7b`)
+
+위 절은 최초 감사 커밋의 기록이며 수정하지 않았다. 이번 후속 커밋은 같은 allowed_files 3개만 바꾸고, 운영 코드는 바꾸지 않는다.
+
+- 발견 1 테스트: 무엇이든 skip이 있으면 통과하던 조건을, 다섯 필드가 모두 일치하는 skip이 정확히 1개 있어야 하는 조건으로 바꿨다. 다섯 필드는 card_id, `side='front'`, `label='corner_defect'`, `area='middle_right'`, `reason='point_outside_target_area'`이다. typed point 1점/1실물과 양성 구역 0단위 단언은 유지했다.
+- 발견 3 테스트: `test_one_decoded_photo_counts_on_one_side_only`의 앞뒤 합계 1 단언을 삭제했다. 대신 `test_one_decoded_photo_assigned_to_both_sides_is_rejected`를 넣었다. 서로 다른 앞뒤 사진의 대조 입력이 정상 처리된 뒤, 같은 디코딩 사진을 양면에 지정하면 `ValueError`가 나야 한다는 계약이다.
+- 보고서: photo-4 행은 "면만 back으로 확인, 구역 대응 등 나머지 조건 미검증, primary 채택 불가"로 범위를 고쳤다. 발견 3의 계약·판정 기준·후속 설명을 거절 계약에 맞췄고, 최초/재검증 이력 절을 추가했다.
+- 실행 결과:
+  - `PYTHONPATH=tests .venv/bin/python -m unittest test_data_coverage test_point_dataset test_region_dataset test_regions test_data_coverage_provenance -v` → 31개 중 29개 통과, 2개 실패, 종료코드 1.
+    - 실패 1: `test_off_target_typed_point_is_projected_or_traced` `AssertionError: 1 != 0`. 정확한 skip 기록이 없다.
+    - 실패 2: `test_one_decoded_photo_assigned_to_both_sides_is_rejected` `AssertionError: ValueError not raised`. 대조 입력은 통과했다.
+    - 둘 다 의도한 단언 실패이고, 의존성·권한 오류는 없었다.
+  - `... test_data_coverage test_point_dataset test_region_dataset test_regions -q` → 29개 통과, 종료코드 0.
+  - 메모리 안에서 `coverage_report`를 감싼 대조 실행(운영 코드 변경 없음): 무관한 `surface_defect` skip, 다른 reason, 다른 area → 실패. 정확한 기록 → 통과.
+  - `git diff --check` 통과. 변경 파일은 allowed_files 3개 안이다.
+- skip이나 expectedFailure는 추가하지 않았다.
+- 미실행: `test_review`, 기본 checkout 재감사, `./experiment`, `./review --auto`.

@@ -10,7 +10,7 @@ task `data-coverage-provenance-20261025`. 감사 소스 기준은 `bdc8fa616d3da
 
 - 코드: `card_condition/point_dataset.py:51-53`이 점을 3×3 칸에 배정한다. `card_condition/data_coverage.py:44-50`은 `REGION_TARGET_AREAS[question]` 칸만 순회한다. `data_coverage.py:60-67`은 같은 점을 `typed_points`에 보존한다. 대상 밖 칸에 배정된 점은 `skipped`와 `projection_skipped` 어디에도 남지 않는다.
 - 실제 근거: `development-v2.json`의 train 뒷면 `corner_defect` 점 1개. 상대좌표가 middle_right 칸(모서리 대상 아님)이다. 같은 면의 upper_left 모서리 양성 단위가 이미 집계돼 있어서, 이번 snapshot의 양성 단위·실물 수 영향은 0이다. `live-v2.json`에는 0건이다.
-- 최소 반례: `tests/test_data_coverage_provenance.py::test_off_target_typed_point_is_projected_or_traced`. box `[0,0,1,1]`, `corner_defect` 점 `(0.95, 0.4)` 1개다. 결과는 typed 1점/1실물, 양성 구역 0단위, skip 기록 0개다. 현재 코드에서 마지막 단언이 실패한다.
+- 최소 반례: `tests/test_data_coverage_provenance.py::test_off_target_typed_point_is_projected_or_traced`. box `[0,0,1,1]`, `corner_defect` 점 `(0.95, 0.4)` 1개다. 결과는 typed 1점/1실물, 양성 구역 0단위다. 테스트는 `skipped`에 `card_id`·`side='front'`·`label='corner_defect'`·`area='middle_right'`·`reason='point_outside_target_area'`가 모두 일치하는 기록이 정확히 1개 있어야 통과한다. 현재 코드는 0개라서 마지막 단언이 실패한다.
 - 영향: `typed_positive_points`와 구역 양성 수가 설명 없이 어긋난다. 어떤 면의 유일한 점이 대상 밖이면, 그 실물은 구역 양성에서 빠지는데 이유를 추적할 수 없다. 점의 종류나 box가 틀렸다고 추정하지 않는다.
 
 ### 2. 최신 보완 6행의 `side=front`를 뒷받침하는 사람 근거가 snapshot에 없음 (면미확인)
@@ -22,8 +22,9 @@ task `data-coverage-provenance-20261025`. 감사 소스 기준은 `bdc8fa616d3da
 ### 3. 같은 디코딩 사진이 앞·뒤 두 셀에 동시에 집계됨 (실제 0건, 미방어 경계)
 
 - 코드: `card_condition/data.py:72-73`은 `gradable == 1`일 때만 서로 다른 앞뒤 사진을 요구한다. `card_condition/data_coverage.py:38`의 `owners`는 사진→group만 검사한다. 단위 identity(`data_coverage.py:58`)에 side가 들어 있어서, 같은 사진이 front 단위와 back 단위로 각각 남는다.
-- 최소 반례: `test_one_decoded_photo_counts_on_one_side_only`. gradable 0인 레코드의 back을 front와 같은 파일로 두고, 양면에 `visibility_issues=['blur']`를 준다. 관찰 제한 양성이 앞 1 + 뒤 1 = 2단위가 된다. 현재 코드에서 실패한다.
-- 실제 영향: development-v2·live-v2 모두 양면에 쓰인 사진 0개, 여러 card_id가 공유한 사진 0개다. 현재 부족표의 수치는 왜곡되지 않았다. 사진 하나가 한 실물의 양면일 수는 없으므로 결함 후보로 남긴다. 수정 우선순위는 1번보다 낮다.
+- 회귀 계약: 어느 면이 맞는지 감사가 임의로 고르면 안 된다. 따라서 `coverage_report`는 같은 디코딩 사진을 양면에 지정한 입력을 명시적인 `ValueError`로 거절해야 한다.
+- 최소 반례: `test_one_decoded_photo_assigned_to_both_sides_is_rejected`. 먼저 대조 입력(gradable 0, 앞뒤 서로 다른 사진, 양면 `visibility_issues=['blur']`)이 정상 처리되는지 확인한다. 그다음 back을 front와 같은 파일로 바꾸면 `ValueError`가 나야 한다. 현재 코드는 거절하지 않고 앞·뒤 단위를 각각 만든다. 그래서 `ValueError not raised`로 실패한다.
+- 실제 영향: development-v2·live-v2 모두 양면에 쓰인 사진 0개, 여러 card_id가 공유한 사진 0개다. 현재 부족표의 수치는 왜곡되지 않았다. 사진 하나가 한 실물의 양면일 수는 없으므로 결함 후보로 남긴다. 수정 우선순위는 1번보다 낮다. 이 task는 운영 코드나 정상 입력의 정책을 바꾸지 않는다. 거절 위치와 메시지는 후속 계약에서 정한다.
 
 ## 확인했지만 결함이 아닌 범위
 
@@ -47,7 +48,7 @@ task `data-coverage-provenance-20261025`. 감사 소스 기준은 `bdc8fa616d3da
 | eevee current-effective | (5) | 정정대기 | Y 모서리 행을 추가했고 pending 기록도 Y=1인데, `clarification-verification`은 `Y_unknown: true`. 기록 간 모순 |
 | golisopod-bottom-normal-20261021 | 1 | 면미확인 | anchor 동일, 사람 면 진술 없음 |
 | golisopod-normal-edge-20261021 | 1 | 면미확인 | 위와 같은 group, 범위는 끝선 한정 |
-| misdreavus-confirmed-local-intake-20261024 | 2 | photo-4 엣지: 면 확정(back), photo-3 표면: 면미확인 | "4번 뒷면" 사람 진술 + anchor 일치 / photo-3은 진술 없음 |
+| misdreavus-confirmed-local-intake-20261024 | 2 | photo-4 엣지: 면만 확인(back), 구역 대응 미확인 / photo-3 표면: 면미확인 | "4번 뒷면" 사람 진술 + anchor 일치, ROI에 카드 box 없음 / photo-3은 진술 없음 |
 | mixed-edge-batch-20261020 | 4 | 면미확인 | 1행은 anchor와 다른 사진이며 앞면으로 추정하지 않음 |
 | raichu-corner-seed-20261019 detail-rows | 7 | 역사적 | `clarified-detail-rows`가 대체함(엣지 2행 추가). 모서리 2·4는 `clarified-readiness`에서 human truth unknown |
 | raichu corner-1/-3 정상 | (2) | 정정대기(근거 누락) | 사람 응답 원문은 정상이지만, task가 언급한 모서리 정상 감사 실패 기록이 snapshot에 없음. 정상 확정으로 되살리지 않음 |
@@ -61,7 +62,7 @@ task `data-coverage-provenance-20261025`. 감사 소스 기준은 `bdc8fa616d3da
 3. 정정 이력: 최신 유효 파일과 철회 기록.
 4. 실물 관계: 새 group이라면 같은 실물 확인과 split 일관성.
 
-이 넷을 갖춘 행은 misdreavus photo-4 엣지 1행뿐이다. 그마저 카드 box가 없는 ROI이고 뒷면 엣지 양성은 이미 충족(72/30)이라 부족표 영향이 0이다. 그래서 매핑 제안 대상에서 뺐다.
+네 조건을 모두 갖춘 행은 snapshot에서 확인되지 않았다. 사람 진술로 면이 확인된 행은 misdreavus photo-4 엣지 1행뿐이고, 면은 back이다. 하지만 카드 box가 없는 ROI라서 3×3 구역 대응을 확인할 수 없다. 정정 이력과 실물·split 관계도 이 감사에서 따로 검증하지 않았다. 따라서 이 행은 면 조건만 확인된 상태이고 primary 집계에 채택할 수 없다. 뒷면 엣지 양성은 이미 수량 충족(72/30)이라, 매핑하더라도 부족표가 바뀌지 않는다. 그래서 매핑 제안 대상에서 뺐다.
 
 ## (b) 다음 수정 1개 — 사람 입력 불필요
 
@@ -74,11 +75,26 @@ task `data-coverage-provenance-20261025`. 감사 소스 기준은 `bdc8fa616d3da
   - 기존 `test_data_coverage test_point_dataset test_region_dataset test_regions test_review`가 모두 통과한다.
   - 기본 checkout에서 개발 snapshot manifest로 새 경로에 감사를 다시 냈을 때 `cells`·`units`·`typed_points`가 development-v2와 같고, `skipped` 증가분이 `point_outside_target_area` 정확히 1건이다.
 - 실패 조건: 셀 수치가 하나라도 바뀌거나, 대상 안 점이 skip으로 기록되거나, 기존 회귀가 실패하는 경우.
-- `test_one_decoded_photo_counts_on_one_side_only`(발견 3)는 이 수정 범위 밖이므로 계속 실패하는 것이 정상이다. 거절할지 skip할지는 별도 계약에서 정한다.
+- `test_one_decoded_photo_assigned_to_both_sides_is_rejected`(발견 3)는 이 수정 범위 밖이므로 계속 실패하는 것이 정상이다. 이 테스트를 통과시키는 일은 별도 후속 계약이다. 그 계약에서 동일 디코딩 사진을 양면에 지정한 입력을 `ValueError`로 거절하고, 서로 다른 앞뒤 사진의 대조 입력은 계속 받아야 한다.
 
 ## (d) Codex용 구현 프롬프트
 
-> `card_condition/data_coverage.py`만 수정한다. typed point 루프(`for point in annotation.get('defect_points', [])`)에서, 면 양성 확인을 통과한 점의 3×3 칸을 `point_dataset.py:51-53`과 같은 규칙으로 계산한다. 그 칸이 `REGION_TARGET_AREAS[label]`에 없으면 `skipped.append(dict(card_id=..., side=..., label=..., area=..., reason='point_outside_target_area'))`를 추가한다. typed point 보존과 셀 집계는 그대로 둔다. `PYTHONPATH=tests .venv/bin/python -m unittest test_data_coverage test_point_dataset test_region_dataset test_regions test_review test_data_coverage_provenance -q`에서 provenance의 off-target 테스트만 새로 통과하고 one-photo 테스트는 실패한 채 남는지 확인한다. 실제 개발 manifest 재감사는 새 출력 경로로만 낸다.
+> `card_condition/data_coverage.py`만 수정한다. typed point 루프(`for point in annotation.get('defect_points', [])`)에서, 면 양성 확인을 통과한 점의 3×3 칸을 `point_dataset.py:51-53`과 같은 규칙으로 계산한다. 그 칸이 `REGION_TARGET_AREAS[label]`에 없으면 `skipped.append(dict(card_id=..., side=..., label=..., area=..., reason='point_outside_target_area'))`를 추가한다. typed point 보존과 셀 집계는 그대로 둔다. `PYTHONPATH=tests .venv/bin/python -m unittest test_data_coverage test_point_dataset test_region_dataset test_regions test_review test_data_coverage_provenance -q`에서 provenance의 `test_off_target_typed_point_is_projected_or_traced`만 새로 통과하는지 확인한다. 이 테스트는 card_id·side·label·area·reason이 정확히 일치하는 기록 1개를 요구한다. `test_one_decoded_photo_assigned_to_both_sides_is_rejected`는 실패한 채 남아야 한다. 실제 개발 manifest 재감사는 새 출력 경로로만 낸다.
+
+## 감사 이력 — 최초와 재검증 구분
+
+- 최초 감사 `7c24c0924575753dd3b0f6f41d568e89a1361c7b`:
+  - 발견 1 테스트는 같은 card_id·side의 아무 skip이나 있으면 통과할 수 있었다.
+  - 발견 3 테스트는 앞뒤 합계 1을 단언했다. 이는 어느 면을 남길지 임의로 고르는 기대였다.
+  - 보고서는 photo-4 행을 네 조건을 모두 갖춘 행으로 기술했다.
+  - 실행 결과: 31개 중 29개 통과, 2개 실패, 종료코드 1.
+- 재검증(Codex 리뷰 반영, 후속 커밋):
+  - 발견 1은 다섯 필드가 모두 일치하는 기록을 정확히 1개 요구한다.
+  - 발견 3은 `ValueError` 거절 계약으로 바꾸고 대조 입력을 추가했다.
+  - photo-4 행은 면만 확인된 것으로 범위를 고쳤다.
+  - 운영 코드와 다른 발견·분류는 바꾸지 않았다.
+  - 실행 결과: 31개 중 29개 통과, 2개 실패(의도한 단언), 종료코드 1. 기존 4모듈 29개는 단독 실행 시 통과, 종료코드 0.
+  - 메모리 안에서 `coverage_report`를 감싸 확인한 결과: 무관한 `surface_defect` skip, 다른 reason, 다른 area로는 발견 1 테스트가 통과하지 않았다. 정확한 기록이 있을 때만 통과했다.
 
 ## 미검증·리스크·롤백
 
