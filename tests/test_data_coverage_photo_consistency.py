@@ -69,6 +69,27 @@ class CoveragePhotoConsistencyTest(unittest.TestCase):
             self.assertNotEqual(original_hash,hashlib.sha256(photo.read_bytes()).hexdigest())
             self.assertEqual(baseline,result)
 
+    def test_manifest_changed_for_projection_then_restored_is_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve();manifest,_=self.prepare(root,with_point=False)
+            rows=[json.loads(line) for line in manifest.read_text().splitlines()]
+            rows[1]['side_annotations']['front']['region_labels']={
+                'upper_left':dict(corner_defect=None,edge_defect=1,surface_defect=None)}
+            manifest.write_text('\n'.join(json.dumps(row) for row in rows))
+            original=manifest.read_bytes();output=root/'audit.json'
+            def changed_then_restored(*args,**kwargs):
+                rows[1]['side_annotations']['front']['region_labels']['upper_left']['edge_defect']=0
+                manifest.write_text('\n'.join(json.dumps(row) for row in rows))
+                try:
+                    return point_rows(*args,**kwargs)
+                finally:
+                    manifest.write_bytes(original)
+            with patch('card_condition.data_coverage.point_rows',side_effect=changed_then_restored):
+                with self.assertRaisesRegex(ValueError,'Manifest changed between'):
+                    data_coverage(manifest,output)
+            self.assertFalse(output.exists())
+            self.assertEqual(original,manifest.read_bytes())
+
 
 if __name__ == '__main__':
     unittest.main()

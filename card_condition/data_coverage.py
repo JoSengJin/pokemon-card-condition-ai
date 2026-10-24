@@ -15,6 +15,8 @@ def coverage_report(manifest):
     source_sha = hashlib.sha256(manifest.read_bytes()).hexdigest()
     records = load_manifest(manifest, splits={'train', 'val'}, require_gradable=False)
     patches, projection = point_rows(manifest, grid=True)
+    if projection['manifest_sha256'] != source_sha:
+        raise ValueError('Manifest changed between coverage audit passes')
     expected_images = {r['id']: dict(zip([s for s in ('front', 'back') if r.get(s)], r['_image_hashes']))
                        for r in records if not r.get('excluded')}
     if projection['input_image_hashes'] != expected_images:

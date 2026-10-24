@@ -40,3 +40,5 @@ point_rows가 기존에 읽은 train/val 입력의 카드 ID·면별 디코딩 �
 ## 실행 결과
 
 수정 전 2개 실패 재현, 수정 후 48개 통과. 개발/live 재감사 전체 JSON과 manifest SHA 불변을 확인하고 main 통합했다. 상세 로그·한계·롤백은 동일 task ID의 보고서를 따른다.
+
+후속 검사: manifest A→B→A 복원 경로도 별도 반례로 재현했다. point_rows의 manifest_sha256을 첫 SHA와 비교하는 최소 수정 후 관련 전체 49개가 통과했다. 개발/live 감사 전체 JSON과 원본 SHA는 유지했다.
