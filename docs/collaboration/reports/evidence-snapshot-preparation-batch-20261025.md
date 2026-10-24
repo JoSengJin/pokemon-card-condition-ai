@@ -221,3 +221,27 @@ python -m card_condition.side_evidence_prepare --inventory REL --evidence-root R
   - hardlink를 지원하지 않는 파일 시스템에서는 저장이 실패한다(종료코드 3, 파일 없음).
   - 강제 종료 시 임시 파일이 남을 수 있다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 위 커밋을 역순으로 revert한다. 신규 파일만 추가했으므로 기존 동작·데이터·모델 복구는 필요 없다. 진척률 30/100은 그대로다.
+
+
+## Codex 통합 검토
+
+dispatch acf1b6e 이후 변경 9개와 부모 순서·Claude의 깨끗한 worktree를 확인하고 전달 8개 커밋을 지정 순서로 cherry-pick -x했다. 기존 CLI/모델/관제 경로를 변경하지 않는 선택 실행 도구로 통합했다. 최초 신규37+기존검증기49+기존ML의존55=141 tests 통과.
+
+### 기존 검증기 보류 결함 보정
+
+대소문자 경로 intake/REPLY.json 및 hardlink intake/linked.json이 같은 파일을 origin 2개로 수용하는 것을 합성 fixture로 직접 재현했다. 수정 전 1개 회귀 검사의 두 subtest가 실패한 로그를 보존했다. 파일 캐시와 origin의 실제 파일 식별을 (st_dev, st_ino)로 통일했다. pointer/row_id/SHA는 여전히 origin 위치 구분에 포함된다. 같은 inode의 JSON/JSONL 형식 혼용은 기존과 같이 J로 거절하며 hardlink 형식 혼용 회귀도 추가했다. 수정 커밋: f5adffd.
+
+이 보정은 기존 검증기 파일 1개와 기존 테스트 1개를 Codex 통합 범위에서 수정한 것이며 Claude가 허용 파일을 벗어난 것은 아니다. 별개 inode의 동일 바이트는 여전히 독립 사람 판단을 입증하지 않는다. 정적 stat/open 검사여서 적대적 동시 교체를 방어하지 않는다.
+
+### 최종 실행 검증
+
+- 전체143 tests 통과: 신규37 + 검증기51 + 기존55. tests-after.log에 Ran 143 tests / OK.
+- compileall, git diff --check 통과.
+- 실제 제공 snapshot을 기본 checkout의 최종 코드로 세 CLI 순서대로 실행: 감사59/59, previous_snapshot46/additional_original13, json33/jsonl16/md10, declared missing0.
+- /latest_supplements 6행 준비와 기존 검증기 수용 확인. 모두 not_reviewed이며 front 복사는 면 확인이 아니다. 실제 source/origin 의미 검증이나 면 확정은 수행하지 않았다.
+- index 포함 입력60개의 SHA·파일 권한 전후 동일. 실행 산출물은 기본 checkout의 artifacts/evidence-preparation-integration-20261025/{audit.json,sidecar.json,validated.json,verification.json}에 보존했다. 테스트/실패 로그는 같은 폴더의 tests-before.log,origin-before.log,tests-after.log다.
+- Claude가 보고한 mutation 실행은 Codex가 재수행하지 않았다. 자체 재검증 수치로 혼용하지 않는다.
+
+학습·추론·외부 AI·사람 정답/모델/수량 변경0회. 진척률 usable-card-analysis-v1.0 30/100 유지. 원격 push 없음. 작업 트리 정리 후 인계한다.
+
+롤백: Codex 인수 문서와 f5adffd, 이어서 통합 커밋 25ef554,b0c9f67,7483029,ca0585b,3509a87,1c10bf1,97c836b,5fadd48을 역순(위에 나열한 최신→과거 순서)으로 revert한다. 원본 데이터·모델은 변경하지 않았다. 저장 위치/충돌 정책/미확인 면은 미해결로 보존한다.

@@ -2,7 +2,7 @@
 
 - task_id: `evidence-snapshot-preparation-batch-20261025`
 - owner: Claude
-- status: ready_for_review
+- status: integrated
 - base_sha: `1a6fa8f5cf1a120c8b7cdd30abdf6041676a50c6`
 - branch: `claude/evidence-snapshot-preparation-batch-20261025`
 - worktree: 로컬 경로와 dispatch SHA는 Codex 메시지에서 제공
@@ -130,3 +130,8 @@ git diff --check
   - hardlink 미지원 파일 시스템에서는 저장이 실패한다.
   - 강제 종료 시 임시 파일이 남을 수 있다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 역순으로 revert한다. 신규 파일만 추가했고 데이터·모델·진척률 30/100은 그대로다.
+
+
+## Codex 인수 결과
+
+8개 커밋을 순서대로 main에 통합했다. 기존 검증기의 case/hardlink origin 중복을 재현 후 f5adffd에서 수정했다. 전체143 tests 및 compileall/diff 검사 통과. 실제59 payload 감사→6행 not_reviewed 준비→기존 검증기 수용을 최종 코드로 재실행했고 입력60개 SHA/권한 동일을 확인했다. 근거는 기본 checkout의 artifacts/evidence-preparation-integration-20261025/와 보고서 Codex 통합 검토 절이다. 모델·사람 정답·진척 점수 변경 없음. 의미·면 확정/운영 편입은 수행하지 않았다.
