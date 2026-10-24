@@ -52,6 +52,10 @@ class RankingAbstentionContractTest(unittest.TestCase):
                         prediction(0, round((low + high) / 2, 2))]
                 trial = next(t for t in score_diagnostics(rows, [KEY])[KEY]['abstention_trials'] if t['normal_below'] == low)
                 self.assertEqual(high, trial['defect_at_least'])
+                # The per-card table applies the same half-open interval as the trial totals.
+                card = trial['by_group']['g']
+                self.assertEqual((trial['accepted'], trial['deferred_known'], trial['errors']),
+                                 (card['accepted'], card['deferred_known'], card['fp'] + card['fn']))
                 if low < high:
                     self.assertEqual((2, 2, 0), (trial['accepted'], trial['deferred_known'], trial['errors']))
                 else:
