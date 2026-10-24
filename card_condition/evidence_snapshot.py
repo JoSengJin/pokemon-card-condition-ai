@@ -59,8 +59,7 @@ def audit_snapshot(index_path, evidence_root):
     root = os.path.realpath(evidence_root)
     if not os.path.isdir(root):
         raise NotADirectoryError('evidence root is not a directory')
-    index_real = os.path.realpath(index_path)
-    originals, snapshots, reals = set(), set(), {}
+    originals, snapshots = set(), set()
     inodes = {(info.st_dev, info.st_ino): 'the index'}
     for number, entry in enumerate(entries):
         where = f'entries[{number}]'
@@ -75,17 +74,13 @@ def audit_snapshot(index_path, evidence_root):
         real = os.path.realpath(os.path.join(root, *relative_parts(entry['snapshot_path'], where)))
         if os.path.commonpath([root, real]) != root:
             fail('P', f'{where}.snapshot_path leaves the evidence root')
-        if real == index_real:
-            fail('A', f'{where}.snapshot_path is the index itself')
-        if real in reals:
-            fail('A', f'{where}.snapshot_path aliases {reals[real]}')
         payload, inode = read_regular(real, where)
         if payload is None:
             fail('M', f'{where}.snapshot_path payload is missing')
-        # Same inode catches hard links and case-only aliases on case-insensitive file systems.
+        # One inode check covers symlink, hard-link and case-only aliases, including the index itself.
         if inode in inodes:
             fail('A', f'{where}.snapshot_path is the same file as {inodes[inode]}')
-        reals[real] = inodes[inode] = f'entries[{number}]'
+        inodes[inode] = f'entries[{number}]'
         if hashlib.sha256(payload).hexdigest() != entry['sha256']:
             fail('S', f'{where}.sha256 does not match the payload bytes')
     return dict(schema=REPORT_SCHEMA, index=dict(sha256=hashlib.sha256(data).hexdigest(), entries=len(entries)),

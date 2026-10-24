@@ -41,7 +41,12 @@ class PrepareTest(unittest.TestCase):
         self.assertEqual([dict(human_side_origins=0, side_basis='not_reviewed')] * 2, check_structure(doc))
 
     def test_existing_side_and_human_evidence_do_not_promote_rows(self):
+        rows = json.loads((self.s.root / INVENTORY).read_text())['latest']
+        rows[1].update(status='reviewed', review=dict(status='reviewed'), summary=dict(side_basis='human_statement_matches_claim'))
+        self.inventory(rows)
         doc = prepare.prepare_sidecar(INVENTORY, self.s.root, '/latest')
+        self.assertEqual(['not_reviewed', 'not_reviewed'], [r['review']['status'] for r in doc['rows']])
+        self.assertEqual(['not_reviewed', 'not_reviewed'], [r['summary']['side_basis'] for r in doc['rows']])
         self.assertEqual(['front', 'front'], [r['side_claim'] for r in doc['rows']])
         text = json.dumps(doc)
         for field in ('target', 'box', 'human_evidence', 'synthetic reply', 'user_quote'):
