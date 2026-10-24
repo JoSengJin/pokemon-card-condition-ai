@@ -7,6 +7,8 @@ import { test } from 'node:test';
 import { runInfo, startReview, startTask, resumeStep, discrepancy } from '../src/runtime.ts';
 import { PAID_ENV_KEYS, sanitizedChildEnv } from '../src/executor/freeGuard.ts';
 import { alive, invocations, setup, task, waitFor, type Env } from './helpers.ts';
+// @ts-ignore plain JS helper
+import { makeVenv } from '../scripts/fixture-lib.mjs';
 
 const status = (env: Env, id: string) => env.ex.task(id).status;
 const gitOut = (cwd: string, ...a: string[]) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@l', ...a], { cwd }).toString().trim();
@@ -254,6 +256,15 @@ test('모델·worker 경로 작업은 worktree의 ./develop 잠금 안에서 실
   const env = setup();
   try {
     await env.ex.assign(task(env, 'task-a', { allowedFiles: ['card_condition/new_worker.py'], mockScenario: 'hang' }));
+    const wt0 = env.fixture.worktrees['task-a'].path;
+    // worktree는 만들어졌지만 ./develop이 쓸 자체 .venv가 없으면 실행 준비가 아님
+    assert.equal(env.ex.task('task-a').envReadiness?.ready, false);
+    await assert.rejects(startTask('task-a'), /환경: 자체 \.venv\(없음\)/);
+    assert.equal(invocations(env), 0);
+    assert.ok(env.ex.task('task-a').envReadiness!.fixes.some((f) => f.includes('python3 -m venv .venv')), '해결 명령 안내');
+    assert.equal(fs.existsSync(path.join(wt0, '.venv')), false, '가상환경을 자동으로 만들지 않음');
+    makeVenv(wt0); // 사용자가 직접 준비
+    assert.equal((await env.ex.recheckEnv('task-a'))?.ready, true);
     await startTask('task-a');
     const ex = env.ex.state.executions[env.ex.task('task-a').lastExecId!];
     assert.deepEqual(ex.display.slice(0, 2), ['./develop', '--']);

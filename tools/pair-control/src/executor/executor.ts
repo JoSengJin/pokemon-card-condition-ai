@@ -12,6 +12,7 @@ import { conflicts, effectiveGroups, isAllowed, needsDevelopLock, TaskInput, typ
 import { mockPlan, probe, realPlan, type LaunchPlan, type Probe } from './adapters.ts';
 import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
 import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
+import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
 
 export type TaskStatus =
   | 'assigned' | 'blocked' | 'starting' | 'running' | 'collecting' | 'cancelling' | 'cancelled' | 'failed'
@@ -43,6 +44,8 @@ export interface Task extends TaskInputT {
   contractPath: string;
   contractSha: string;
   contractHash: string;
+  /** worktree 생성과 별개인 실행 준비 상태(자체 .venv·import 경로·필요 모듈). */
+  envReadiness?: EnvReadiness;
   result?: {
     execId: string | null; headSha: string | null; commits: string[]; changedFiles: string[]; dirtyFiles: string[];
     outOfScope: string[]; checks: Check[]; checksPassed: boolean; collectedAt: string;
@@ -153,9 +156,11 @@ export class Executor {
     add('기준 SHA', baseOk, baseOk ? `${t.baseSha.slice(0, 12)}…는 HEAD의 조상` : '기준 SHA가 없거나 HEAD의 조상이 아님');
     const op = await G.operationInProgress(t.worktree);
     add('Git 진행 중 작업 없음', !op, op ?? '없음');
-    const venv = path.join(t.worktree, '.venv');
-    const venvLink = fs.existsSync(venv) && fs.lstatSync(venv).isSymbolicLink();
-    add('가상환경 분리', !venvLink, venvLink ? '.venv가 심볼릭 링크(공유 금지)' : fs.existsSync(venv) ? '자체 .venv 있음' : '.venv 없음(mock은 불필요, 실제 Python 검사 전 생성 필요)');
+    if (t.contractSha) {
+      // 실행 준비: worktree가 있어도 자체 가상환경·import 경로가 준비되지 않으면 시작하지 않는다.
+      t.envReadiness = await checkVenv(t.worktree, neededEnv(t, t.usesDevelopLock), t.requiredModules);
+      for (const e of t.envReadiness.checks) add(`환경: ${e.name}`, e.ok, e.detail);
+    }
     if (t.usesDevelopLock) {
       const dev = path.join(t.worktree, 'develop');
       let ok = false; try { fs.accessSync(dev, fs.constants.X_OK); ok = true; } catch { /* missing */ }
@@ -387,6 +392,14 @@ export class Executor {
     }
   }
 
+  /** 사용자가 가상환경 등을 준비한 뒤 실행 준비 상태를 다시 확인한다(설치는 하지 않음). */
+  async recheckEnv(taskId: string) {
+    const t = this.task(taskId);
+    t.preflight = await this.preflightChecks(t);
+    this.save();
+    return t.envReadiness;
+  }
+
   /** 결과 불명 확정: 프로세스 그룹이 없음을 확인한 뒤에만 잠금을 해제한다. */
   acknowledgeUnknown(taskId: string) {
     const t = this.task(taskId);
@@ -505,6 +518,9 @@ export class Executor {
       if (dirty.length || op) return this.endIntegration(t, 'integration_blocked', `통합 checkout이 깨끗하지 않음: ${op ?? dirty.join(', ')}`, true);
       const develop = path.join(checkout, 'develop');
       if (!fs.existsSync(develop)) return this.endIntegration(t, 'integration_blocked', '통합 checkout에 ./develop 없음', true);
+      // ./develop은 통합 checkout 자체의 .venv/bin/python으로 실행된다.
+      const integEnv = await checkVenv(checkout, 'python');
+      if (!integEnv.ready) return this.endIntegration(t, 'integration_blocked', `통합 checkout 실행 환경 미준비: ${integEnv.checks.filter((c) => !c.ok).map((c) => `${c.name}(${c.detail})`).join(', ')}`, true);
       const commits = await G.commitsBetween(t.worktree, t.baseSha, a.sha);
       const r = await G.run(develop, ['--', 'git', 'cherry-pick', '-x', ...commits], checkout, 120_000, sanitizedChildEnv());
       if (r.code === 0) {
