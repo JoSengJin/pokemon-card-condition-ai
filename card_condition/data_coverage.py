@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .data import load_manifest
 from .point_dataset import point_rows
-from .regions import REGION_LABELS, REGION_TARGET_AREAS, validate_annotations
+from .regions import GLARE_AREAS, REGION_LABELS, REGION_TARGET_AREAS, validate_annotations
 
 QUESTIONS = ('centering_defect', *REGION_LABELS, 'observation_limited')
 
@@ -17,6 +17,7 @@ def coverage_report(manifest):
     patches, projection = point_rows(manifest, grid=True)
     projected = {(p['card_id'], p['side'], p['area']): p for p in patches}
     units, points, owners, skipped = {}, {}, {}, []
+    photo_sides = {}
 
     def put(store, identity, item):
         previous = store.get(identity)
@@ -28,6 +29,9 @@ def coverage_report(manifest):
         if record.get('excluded'):
             continue
         hashes = dict(zip([s for s in ('front', 'back') if record.get(s)], record['_image_hashes']))
+        for side, digest in hashes.items():
+            if photo_sides.setdefault(digest, side) != side:
+                raise ValueError('Identical decoded photo is assigned to both front and back')
         annotations = validate_annotations(record.get('side_annotations', {}), record)
         for side in ('front', 'back'):
             annotation = annotations.get(side)
@@ -63,6 +67,13 @@ def coverage_report(manifest):
                     skipped.append(dict(card_id=record['id'], side=side, label=label,
                                         reason='point_face_not_positive'))
                     continue
+                left, top, right, bottom = annotation['box']
+                col = sum(point['x'] >= left+i*((right-left)/3) for i in (1, 2))
+                line = sum(point['y'] >= top+i*((bottom-top)/3) for i in (1, 2))
+                area = GLARE_AREAS[line*3+col]
+                if area not in REGION_TARGET_AREAS[label]:
+                    skipped.append(dict(card_id=record['id'], side=side, label=label, area=area,
+                                        reason='point_outside_target_area'))
                 identity = (base['split'], label, side, digest, point['x'], point['y'])
                 put(points, identity, dict(base, label=label, point=point, target=1))
     cells = []

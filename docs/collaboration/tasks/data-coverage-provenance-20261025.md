@@ -2,7 +2,7 @@
 
 - task_id: `data-coverage-provenance-20261025`
 - owner: Claude
-- status: ready_for_review
+- status: integrated
 - base_sha: `bdc8fa616d3da756524927c6a4bd6637a8f38b08`
 - branch: `claude/data-coverage-provenance-20261025`
 - worktree: 로컬 경로는 Codex의 전달 메시지를 사용한다. 개인 절대경로를 커밋하지 않는다.
@@ -98,3 +98,8 @@
   - `git diff --check` 통과. 변경 파일은 allowed_files 3개 안이다.
 - skip이나 expectedFailure는 추가하지 않았다.
 - 미실행: `test_review`, 기본 checkout 재감사, `./experiment`, `./review --auto`.
+
+
+## Codex 인수 결과
+
+보완 커밋 e90a9aa를 재검토하고 두 결함을 수정했다. 통합 검사 42개 통과, 개발/live 집계 불변과 manifest SHA 불변을 검증했다. 세부 근거·리스크·롤백은 감사 보고서의 Codex 통합 검증 절을 따른다. Claude 브랜치의 과거 실패 재현 이력은 보존한다.
