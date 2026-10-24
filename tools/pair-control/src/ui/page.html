@@ -67,6 +67,13 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 #msg { min-height: 20px; }
 .connBar { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .small { font-size: 12px; }
+.specRow { display: grid; grid-template-columns: 1fr 120px; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 4px; }
+.specRow textarea { grid-column: 1 / -1; min-height: 40px; }
+.stage { border-top: 1px solid var(--line); padding: 8px 0; }
+.stage h3, .grid2 h3 { font-size: 13px; margin: 0 0 6px; }
+.runrow { font-size: 13px; padding: 2px 0; }
+pre.cmd { margin: 2px 0; padding: 4px 6px; max-height: none; }
+button.link { border: 0; background: none; color: var(--info); padding: 0 2px; text-decoration: underline; }
 .seg label.dis { opacity: .45; cursor: not-allowed; }
 @media (max-width: 640px) { main { padding: 12px 16px; } th:nth-child(4), td:nth-child(4) { display: none; } }
 </style>
@@ -120,7 +127,8 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
           <div class="step">
             <div class="stepTitle">2. 무엇을 하나요?</div>
             <label>목표 (한 줄)<input name="goal" required placeholder="예: 데이터 부족표 집계 오류 수정"></label>
-            <label>에이전트에게 줄 설명 (선택, 실제 CLI에만 전달)<textarea name="prompt" placeholder="자세한 지시가 있으면 적으세요"></textarea></label>
+            <label>완료 조건 (한 줄에 하나)<textarea name="doneCriteria" placeholder="예: data-coverage 집계가 side 없는 행을 front로 추정하지 않음"></textarea></label>
+            <label>상세 지시 (선택, 계약 파일에 기록 — 실제 CLI는 계약 파일을 읽음)<textarea name="prompt" placeholder="자세한 지시가 있으면 적으세요"></textarea></label>
           </div>
           <div class="step">
             <div class="stepTitle">3. 어디를 고쳐도 되나요?</div>
@@ -128,6 +136,15 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
             <div id="fileList" class="fileList muted">불러오는 중…</div>
             <div class="row"><input id="newPath" placeholder="목록에 없는 새 파일 경로 직접 추가 (예: tools/new_audit.py)"><button type="button" id="addPath">추가</button></div>
             <div id="picked" class="picked muted">선택한 경로 없음</div>
+          </div>
+          <div class="step">
+            <div class="stepTitle">4. 어떻게 확인하나요?</div>
+            <div class="muted small">에이전트가 끝난 뒤 실행기가 따로 실행할 작업 테스트. 셸 없이 실행 파일 + 인자(한 줄에 하나). <code>{contract}</code>=계약 커밋, <code>{head}</code>=결과 SHA, <code>{base}</code>=기준 SHA</div>
+            <div id="checkRows"></div>
+            <div class="row"><button type="button" id="addCheck">검사 추가</button></div>
+            <label>실행 환경<select name="env">
+              <option value="auto">자동 (파일·검사 명령으로 판단)</option><option value="none">Python 불필요</option>
+              <option value="python">자체 .venv (표준 라이브러리)</option><option value="python-project">자체 .venv + 프로젝트 import</option></select></label>
           </div>
         </div>
         <details class="advanced">
@@ -137,7 +154,11 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
             <label>기준 SHA 직접 지정<input name="baseSha" class="mono" placeholder="비우면 통합 브랜치 최신 커밋"></label>
             <label>이미 있는 worktree 사용<input name="worktree" placeholder="비우면 새로 만듦"></label>
             <label>충돌 그룹 (같은 API·설정을 건드리는 작업끼리 순서대로, 쉼표)<input name="conflictGroups" placeholder="api:observation"></label>
+            <label>필요 모듈 (python-project, 쉼표)<input name="requiredModules" placeholder="numpy, torch"></label>
           </div>
+          <div class="small" style="margin-top:8px"><b>통합 후 검사</b> <span class="muted">통합 checkout에서 ./develop 잠금 안으로 실행(cwd=루트)</span></div>
+          <div id="postRows"></div>
+          <div class="row"><button type="button" id="addPost">통합 후 검사 추가</button></div>
         </details>
         <div class="preview" id="preview"><div class="muted">입력하면 자동으로 준비될 값이 여기에 보입니다.</div></div>
         <div class="row"><button class="primary" type="submit" id="prepareBtn" disabled>준비하고 배정</button>
@@ -162,6 +183,7 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let logChoice = null;
 let state = null, selected = null, logExec = null, logNext = 0, logText = '', diffFor = null, diffText = '';
 
 async function api(path, body) {
@@ -183,26 +205,46 @@ async function act(label, fn, describe) {
 
 const STATUS = {
   assigned: ['배정됨', 'muted'], blocked: ['시작 차단', 'warn'], starting: ['시작 중', 'info'],
-  running: ['CLI 실행 중', 'info'], collecting: ['결과 수집 중', 'info'], cancelling: ['중단 중', 'warn'], cancelled: ['중단됨', 'muted'],
-  failed: ['실패', 'bad'], orphan_running: ['재시작 전 프로세스 실행 중', 'warn'], exit_observed: ['재시작 후 종료 관찰 · 확인 필요', 'warn'],
+  running: ['에이전트 실행 중', 'info'], collecting: ['결과 수집 중', 'info'], cancelling: ['중단 중', 'warn'], cancelled: ['중단됨', 'muted'],
+  failed: ['에이전트 실패', 'bad'], orphan_running: ['재시작 전 프로세스 실행 중', 'warn'], exit_observed: ['재시작 후 종료 관찰 · 확인 필요', 'warn'],
   unknown: ['결과 불명', 'bad'], abandoned: ['결과 불명 확정(미완료)', 'muted'],
-  review_pending: ['사람 승인 대기(검토)', 'warn'], approved: ['통합 실행 대기', 'warn'], rejected: ['거절됨', 'muted'],
-  integrating: ['통합 중', 'info'], integrated: ['통합 완료', 'ok'], integration_refused: ['통합 거절(승인 무효화)', 'bad'],
-  integration_conflict: ['통합 충돌(abort)', 'bad'], integration_blocked: ['통합 대기(잠금)', 'warn'],
+  review_pending: ['검토 단계', 'warn'], approved: ['승인됨 · 통합 실행 대기', 'warn'], rejected: ['거절됨', 'muted'],
+  integrating: ['통합 중', 'info'], integrated: ['통합 완료', 'ok'], integrated_check_failed: ['통합됨 · 통합 후 검사 실패', 'bad'],
+  integration_refused: ['통합 거절(승인 무효화)', 'bad'], integration_conflict: ['통합 충돌(abort)', 'bad'], integration_blocked: ['통합 대기(잠금)', 'warn'],
 };
+const CHECK = { pending: ['대기', 'muted'], running: ['실행 중', 'info'], passed: ['통과', 'ok'], failed: ['실패', 'bad'], cancelled: ['중단', 'warn'], unknown: ['결과 불명', 'bad'], not_run: ['미실행', 'muted'] };
+const VSTATUS = { running: ['실행 중', 'info'], passed: ['통과', 'ok'], failed: ['실패', 'bad'], cancelled: ['중단', 'warn'], unknown: ['결과 불명', 'bad'], interrupted: ['재시작으로 중단 · 다시 실행 필요', 'warn'] };
+const VERDICT = { approve: ['승인 의견', 'ok'], changes_requested: ['수정 필요', 'bad'], insufficient_evidence: ['근거 부족', 'warn'] };
+const lbl = (pair) => '<span class="' + pair[1] + '">' + esc(pair[0]) + '</span>';
+
 function waitKind(t) {
   const m = t.mastra;
   if (!m) return '';
   const where = m.status + (m.suspendedStep ? '@' + m.suspendedStep : '');
-  if (m.suspendedStep === 'await-exit') return 'workflow: CLI 종료 대기 (' + where + ')';
-  if (m.suspendedStep === 'review-gate' || m.suspendedStep === 'integrate-gate') return 'workflow: 사람 승인 대기 (' + where + ')';
+  if (m.suspendedStep === 'await-exit') return 'workflow: 에이전트 종료 대기 (' + where + ')';
+  if (m.suspendedStep === 'review-gate' || m.suspendedStep === 'integrate-gate') return 'workflow: 사람 결정 대기 (' + where + ')';
   return 'workflow: ' + where;
 }
+/** 현재 HEAD 기준 작업 테스트 상태. 다른 SHA·계약의 결과는 '이전 SHA'로 표시해 통과로 보이지 않게 한다. */
+function testState(t) {
+  const v = t.verification, sha = t.result && t.result.headSha;
+  if (!v) return ['미실행', 'muted'];
+  if (v.sha !== sha || v.contractHash !== t.contractHash) return ['이전 SHA 결과 · 다시 실행 필요', 'warn'];
+  return VSTATUS[v.status] || [v.status, ''];
+}
+function reviewState(t) {
+  const r = t.review, sha = t.result && t.result.headSha;
+  if (!r) return ['미실행', 'muted'];
+  if (r.status === 'running') return ['실행 중', 'info'];
+  if (r.sha !== sha) return ['이전 SHA 리뷰', 'warn'];
+  if (r.status === 'done') return VERDICT[r.verdict] || [r.verdict, ''];
+  return [{ failed: '리뷰 실패(판정 없음)', cancelled: '중단', unknown: '결과 불명' }[r.status] || r.status, 'bad'];
+}
 function checkSummary(t) {
-  const c = (t.result && t.result.checks) || t.preflight || [];
-  if (!c.length) return '<span class="muted">—</span>';
-  const bad = c.filter((x) => !x.ok);
-  return bad.length ? '<span class="bad">' + bad.length + '개 실패</span>' : '<span class="ok">' + c.length + '개 통과</span>';
+  const r = t.result;
+  const git = r ? (r.checksPassed ? ['Git ✓', 'ok'] : ['Git ✗', 'bad']) : ['Git —', 'muted'];
+  const env = t.envReadiness ? (t.envReadiness.ready ? ['환경 ✓', 'ok'] : ['환경 ✗', 'bad']) : ['환경 —', 'muted'];
+  return [env, git, ['테스트 ' + testState(t)[0], testState(t)[1]], ['리뷰 ' + reviewState(t)[0], reviewState(t)[1]]].map(lbl).join('<br>');
 }
 
 function renderRows() {
@@ -216,13 +258,20 @@ function renderRows() {
       '<td class="mono">' + t.allowedFiles.map(esc).join('<br>') + (t.groups.length ? '<br><span class="chip">' + t.groups.map(esc).join(', ') + '</span>' : '') + '</td>' +
       '<td><span class="' + cls + '">' + esc(label) + '</span><br><span class="muted">' + esc(waitKind(t)) + '</span>' +
         (t.mismatch ? '<br><span class="bad">⚠ 불일치: ' + esc(t.mismatch) + '</span>' : '') + '</td>' +
-      '<td>' + checkSummary(t) + '</td></tr>';
+      '<td class="small">' + checkSummary(t) + '</td></tr>';
   });
   $('#rows').innerHTML = rows.join('') || '<tr><td colspan="7" class="muted">배정된 작업 없음</td></tr>';
-  document.querySelectorAll('#rows tr[data-id]').forEach((tr) => tr.onclick = () => { selected = tr.dataset.id; render(); });
+  document.querySelectorAll('#rows tr[data-id]').forEach((tr) => tr.onclick = () => { selected = tr.dataset.id; logChoice = null; render(); });
 }
 
 function btn(id, label, enabled, cls) { return '<button id="' + id + '" ' + (cls ? 'class="' + cls + '" ' : '') + (enabled ? '' : 'disabled') + '>' + esc(label) + '</button>'; }
+const checkRow = (c) => '<div><span class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + esc(c.name) + ' <span class="muted">' + esc(c.detail) + '</span></div>';
+function runRow(i) {
+  return '<div class="runrow">' + lbl(CHECK[i.status] || [i.status, '']) + ' <b>' + esc(i.name) + '</b> <span class="mono muted">' + esc(i.display.join(' ')) + '</span>' +
+    ' <span class="muted small">code ' + esc(i.exitCode ?? '—') + ' · SHA ' + esc((i.sha || '').slice(0, 12)) + (i.startedAt ? ' · ' + esc(i.startedAt) : '') + '</span>' +
+    (i.execId ? ' <button class="link" data-log="' + esc(i.execId) + '">로그</button>' : i.logPath ? ' <span class="muted small">로그: 상태 폴더</span>' : '') + '</div>';
+}
+const specLine = (c) => '<div class="mono small">' + esc(c.id) + ': ' + esc([c.executable].concat(c.args).join(' ')) + ' <span class="muted">(cwd ' + esc(c.cwd) + ')</span></div>';
 
 function renderDetail() {
   const t = state.tasks.find((x) => x.taskId === selected);
@@ -234,61 +283,79 @@ function renderDetail() {
   const sha = r && r.headSha;
   const diffSeen = diffFor === t.taskId + ':' + sha && sha;
   const [label, cls] = STATUS[s] || [s, ''];
+  const ts = testState(t), testsOk = ts[0] === '통과';
+  const v = t.verification;
+  const rv = t.review;
+  const envr = t.envReadiness;
+  const integ = t.integration;
+  const canApprove = s === 'review_pending' && r && r.checksPassed && testsOk && diffSeen;
+  const approveWhy = s !== 'review_pending' ? '' : !r || !r.checksPassed ? 'Git 계약 검사 실패' : !testsOk ? '작업 테스트 ' + ts[0] : !diffSeen ? 'diff 확인 필요' : '';
   box.innerHTML =
     '<h2>' + esc(t.taskId) + ' — <span class="' + cls + '">' + esc(label) + '</span></h2>' +
     '<div class="muted">' + esc(t.statusReason || '') + '</div>' +
     (t.mismatch ? '<div class="bad">⚠ Mastra 실행 기록과 실제 CLI 상태 불일치: ' + esc(t.mismatch) + '</div>' : '') +
-    '<div class="actions">' +
-      btn('bStart', '시작', startable, 'primary') +
-      btn('bCancel', '실행 중단(이 실행기 프로세스만)', ['running', 'cancelling', 'orphan_running'].includes(s), 'danger') +
-      btn('bApply', '재시작 후 결과 반영(await-exit 재개)', s === 'exit_observed') +
-      btn('bAck', '결과 불명 확정(완료 아님)', s === 'unknown', 'danger') +
-      btn('bDiff', 'diff 보기', !!sha) +
-      btn('bApprove', diffSeen ? '이 SHA 승인' : '승인(diff 확인 후)', s === 'review_pending' && r && r.checksPassed && diffSeen, 'primary') +
-      btn('bReject', '거절', ['review_pending', 'approved', 'integration_refused', 'integration_blocked'].includes(s), 'danger') +
-      btn('bIntegrate', '통합 실행(./develop 잠금)', s === 'approved', 'primary') +
-      btn('bReview', '재검토(CLI 재실행 없음)', s === 'integration_refused') +
-    '</div>' +
-    '<div class="grid2"><div>' +
-      '<h2>실행</h2><div class="kv">' +
+    '<div class="stage"><h3>계약 <span class="muted small mono">' + esc(t.contractPath) + ' @ ' + esc((t.contractSha || '').slice(0, 12)) + '</span></h3>' +
+      '<div class="kv"><div>목표</div><div>' + esc(t.goal) + '</div>' +
+      '<div>완료 조건</div><div>' + ((t.doneCriteria || []).map(esc).join('<br>') || '<span class="muted">(지정 없음)</span>') + '</div>' +
+      '<div>작업 테스트</div><div>' + ((t.checks || []).map(specLine).join('') || '<span class="bad">없음 — 승인 불가</span>') + '</div>' +
+      '<div>통합 후 검사</div><div>' + ((t.postChecks || []).map(specLine).join('') || '<span class="muted">없음(미실행으로 표시)</span>') + '</div></div></div>' +
+    '<div class="stage"><h3>0. 실행 준비 ' + (envr ? lbl(envr.ready ? ['준비됨', 'ok'] : ['준비 안 됨', 'bad']) : '') + ' <span class="muted small">worktree 생성과 별개</span></h3>' +
+      (envr ? envr.checks.map(checkRow).join('') + (envr.fixes.length ? '<div class="small">직접 실행할 준비 명령(자동 실행 안 함):' + envr.fixes.map((f) => '<pre class="cmd">' + esc(f) + '</pre>').join('') + '</div>' : '') : '') +
+      '<div class="actions">' + btn('bEnv', '준비 상태 다시 확인', true) + btn('bStart', '에이전트 시작', startable && (!envr || envr.ready), 'primary') +
+        btn('bCancel', '실행 중단(이 실행기 프로세스만)', !!state.tasks && (['running', 'cancelling', 'orphan_running'].includes(s) || (v && v.status === 'running') || (rv && rv.status === 'running')), 'danger') +
+        btn('bApply', '재시작 후 결과 반영', s === 'exit_observed') + btn('bAck', '결과 불명 확정(완료 아님)', s === 'unknown', 'danger') + '</div></div>' +
+    '<div class="stage"><h3>1. Git 계약 검사 ' + (r ? lbl(r.checksPassed ? ['통과', 'ok'] : ['실패', 'bad']) : lbl(['에이전트 종료 후', 'muted'])) + ' <span class="muted small">브랜치·커밋·계약 불변·허용 파일 — 코드가 맞는지는 검사하지 않음</span></h3>' +
+      (r ? r.checks.map(checkRow).join('') + '<div class="kv small" style="margin-top:4px"><div>전달 HEAD SHA</div><div class="mono">' + esc(sha || '—') + '</div><div>변경 파일</div><div class="mono">' + (r.changedFiles.map(esc).join('<br>') || '—') + '</div></div>' : '') +
+      '<div class="actions">' + btn('bDiff', diffSeen ? 'diff 다시 보기' : 'diff 보기', !!sha) + '</div></div>' +
+    '<div class="stage"><h3>2. 작업 테스트 ' + lbl(ts) + ' <span class="muted small">실행기가 별도 프로세스로 실행 · 미실행은 통과 아님</span></h3>' +
+      (v ? v.items.map(runRow).join('') + (v.note ? '<div class="warn small">' + esc(v.note) + '</div>' : '') : '') +
+      '<div class="actions">' + btn('bChecks', '작업 테스트 실행', s === 'review_pending' && (t.checks || []).length > 0 && !(v && v.status === 'running'), 'primary') + '</div></div>' +
+    '<div class="stage"><h3>3. 독립 리뷰 ' + lbl(reviewState(t)) + ' <span class="muted small">다른 에이전트의 별도 CLI 실행 · Codex 앱 대화로 보내지 않음 · 사람 승인을 대신하지 않음</span></h3>' +
+      (rv ? '<div class="small">' + esc(rv.reviewer) + ' (' + esc(rv.mode) + ') · SHA ' + esc(rv.sha.slice(0, 12)) + (rv.summary ? ' · ' + esc(rv.summary) : '') + (rv.note ? ' · <span class="warn">' + esc(rv.note) + '</span>' : '') +
+        (rv.execId ? ' <button class="link" data-log="' + esc(rv.execId) + '">로그</button>' : '') + '</div>' : '') +
+      '<div class="actions"><select id="revScenario" title="fake 리뷰 CLI 시나리오"><option value="approve">fake: 승인 의견</option><option value="changes_requested">fake: 수정 필요</option><option value="insufficient_evidence">fake: 근거 부족</option><option value="garbage">fake: 형식 오류</option><option value="hang">fake: 끝나지 않음</option></select>' +
+        btn('bReviewJob', (t.agent === 'claude' ? 'Codex' : 'Claude') + ' 리뷰 작업 실행 (mock)', s === 'review_pending' && !(rv && rv.status === 'running')) +
+        '<span class="muted small">실제 리뷰 CLI는 상단 차단 원인 해결 전까지 사용 불가</span></div></div>' +
+    '<div class="stage"><h3>4. 사람 승인 · 통합</h3>' +
+      (s === 'review_pending' && approveWhy ? '<div class="warn small">승인 불가: ' + esc(approveWhy) + '</div>' : '') +
+      (s === 'review_pending' && !approveWhy && reviewState(t)[0] !== '승인 의견' ? '<div class="warn small">리뷰 ' + esc(reviewState(t)[0]) + ' — 승인은 가능하지만 확인하세요</div>' : '') +
+      '<div class="kv small"><div>승인</div><div class="mono">' + esc(t.approval ? t.approval.sha + ' (기준 ' + t.approval.baseBranch + '@' + t.approval.baseHead.slice(0, 12) + ', 리뷰 ' + (t.approval.reviewVerdict || '없음') + ')' : '—') + '</div></div>' +
+      '<div class="actions">' + btn('bApprove', '이 SHA 승인', canApprove, 'primary') +
+        btn('bReject', '거절', ['review_pending', 'approved', 'integration_refused', 'integration_blocked'].includes(s), 'danger') +
+        btn('bIntegrate', '통합 실행(./develop 잠금)', s === 'approved', 'primary') + btn('bReview', '재검토(에이전트 재실행 없음)', s === 'integration_refused') + '</div></div>' +
+    '<div class="stage"><h3>5. 통합 후 검사 ' + (integ && integ.postStatus ? lbl(integ.postStatus === 'passed' ? ['통과', 'ok'] : integ.postStatus === 'failed' ? ['실패', 'bad'] : ['미지정 · 미실행', 'muted']) : lbl(['통합 전', 'muted'])) + '</h3>' +
+      (integ ? '<div class="kv small"><div>결과</div><div>' + esc(integ.outcome) + ' · ' + esc((integ.detail || '').slice(0, 400)) + '</div>' +
+        (integ.preHead ? '<div>통합 전 SHA(복구 기준)</div><div class="mono">' + esc(integ.preHead) + '</div>' : '') +
+        (integ.newHead ? '<div>통합 후 SHA</div><div class="mono">' + esc(integ.newHead) + '</div>' : '') + '</div>' + (integ.postChecks || []).map(runRow).join('') : '') + '</div>' +
+    '<div class="grid2"><div><h3>에이전트 실행</h3><div class="kv small">' +
         '<div>Mastra 실행 ID</div><div class="mono">' + esc(t.runId || '—') + '</div>' +
         '<div>Mastra 상태</div><div>' + esc(t.mastra ? t.mastra.status + (t.mastra.suspendedStep ? ' @ ' + t.mastra.suspendedStep : '') : '—') + '</div>' +
         '<div>실행 ID</div><div class="mono">' + esc(e ? e.execId : '—') + '</div>' +
         '<div>PID / PGID</div><div class="mono">' + esc(e ? e.pid + ' / ' + e.pgid + (e.groupAlive ? ' (살아 있음)' : ' (종료)') : '—') + '</div>' +
         '<div>명령</div><div class="mono">' + esc(e ? e.display.join(' ') : '—') + '</div>' +
-        '<div>실행 상태</div><div>' + esc(e ? e.status + (e.observedAfterRestart ? ' · 재시작 후 관찰' : '') : '—') + '</div>' +
         '<div>종료코드 / 신호</div><div class="mono">' + esc(e ? (e.exitCode ?? '—') + ' / ' + (e.signal ?? '—') : '—') + '</div>' +
-        '<div>시작 · 종료</div><div class="mono">' + esc(e ? e.startedAt + ' · ' + (e.endedAt || '—') : '—') + '</div>' +
-        '<div>토큰 · 비용</div><div>' + esc(e ? e.tokens + ' · ' + e.cost : '미측정') + '</div>' +
+        '<div>토큰 · 비용</div><div>미측정</div>' +
         '<div>실행 권한</div><div>' + esc(t.permission || '—') + '</div>' +
-        '<div>./develop 잠금</div><div>' + (t.usesDevelopLock ? '사용(모델·worker 경로)' : '해당 없음') + '</div>' +
-      '</div>' +
-      '<h2 style="margin-top:12px">결과</h2><div class="kv">' +
-        '<div>전달 HEAD SHA</div><div class="mono">' + esc(sha || '—') + '</div>' +
-        '<div>커밋</div><div class="mono">' + (r ? r.commits.map(esc).join('<br>') || '—' : '—') + '</div>' +
-        '<div>변경 파일</div><div class="mono">' + (r ? r.changedFiles.map(esc).join('<br>') || '—' : '—') + '</div>' +
-        '<div>범위 밖</div><div class="mono bad">' + (r ? r.outOfScope.map(esc).join('<br>') : '') + '</div>' +
-        '<div>승인</div><div class="mono">' + esc(t.approval ? t.approval.sha + ' (기준 ' + t.approval.baseBranch + '@' + t.approval.baseHead.slice(0, 12) + ')' : '—') + '</div>' +
-        '<div>통합</div><div>' + esc(t.integration ? t.integration.outcome + ' · ' + (t.integration.newHead || '') + ' ' + (t.integration.detail || '').slice(0, 300) : '—') + '</div>' +
-      '</div>' +
-    '</div><div>' +
-      '<h2>검사</h2>' + ((r ? r.checks : t.preflight) || []).map((c) => '<div><span class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + esc(c.name) + ' <span class="muted">' + esc(c.detail) + '</span></div>').join('') +
-      (r ? '<div class="muted" style="margin-top:4px">사전 검사</div>' + (t.preflight || []).map((c) => '<div><span class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + esc(c.name) + ' <span class="muted">' + esc(c.detail) + '</span></div>').join('') : '') +
-      '<h2 style="margin-top:12px">실시간 로그</h2><pre id="log">' + esc(logText || '(없음)') + '</pre>' +
-    '</div></div>' +
-    (diffSeen ? '<h2>diff ' + esc(t.baseSha.slice(0, 12)) + '..' + esc(sha.slice(0, 12)) + '</h2><pre>' + esc(diffText) + '</pre>' : '');
+      '</div></div><div><h3>로그 <span class="muted small" id="logWhich">' + esc(logChoice ? '선택한 검사/리뷰' : '에이전트') + '</span>' + (logChoice ? ' <button class="link" id="logAgent">에이전트 로그로</button>' : '') + '</h3><pre id="log">' + esc(logText || '(없음)') + '</pre></div></div>' +
+    (diffSeen ? '<h3>diff ' + esc(t.baseSha.slice(0, 12)) + '..' + esc(sha.slice(0, 12)) + ' (계약 커밋 포함)</h3><pre>' + esc(diffText) + '</pre>' : '');
 
   const id = t.taskId;
+  const cmds = (list) => list.map((c) => '  ' + [c.executable].concat(c.args).join(' ')).join('\n');
+  $('#bEnv').onclick = () => act('준비 상태 확인', () => api('tasks/' + id + '/recheck-env', {}), (d) => [d && d.ready ? '실행 준비됨' : '아직 준비 안 됨 — 안내된 명령을 직접 실행하세요', d && d.ready ? 'ok' : 'warn']);
   $('#bStart').onclick = () => act('시작', () => api('tasks/' + id + '/start', {}));
-  $('#bCancel').onclick = () => confirm('이 실행기가 만든 프로세스 그룹 ' + (e && e.pgid) + '을 종료합니다.') && act('중단', () => api('tasks/' + id + '/cancel', {}));
+  $('#bCancel').onclick = () => confirm('이 작업에서 이 실행기가 만든 실행 중 프로세스 그룹만 종료합니다.') && act('중단', () => api('tasks/' + id + '/cancel', {}));
   $('#bApply').onclick = () => act('결과 반영', () => api('tasks/' + id + '/apply-exit', {}));
   $('#bAck').onclick = () => confirm('결과 불명을 확정합니다. 완료로 보지 않고 잠금만 해제합니다.') && act('결과 불명 확정', () => api('tasks/' + id + '/ack-unknown', {}));
   $('#bDiff').onclick = async () => { const d = await act('diff', () => api('tasks/' + id + '/diff')); if (d) { diffFor = id + ':' + sha; diffText = d.diff || '(변경 없음)'; render(); } };
-  $('#bApprove').onclick = () => confirm('승인 SHA ' + sha + '\n이 SHA·기준 브랜치·관련 파일이 바뀌면 승인은 무효화됩니다.') && act('승인', () => api('tasks/' + id + '/approve', { sha }));
+  $('#bChecks').onclick = () => confirm('worktree에서 아래 명령을 셸 없이 차례로 실행합니다(SHA ' + (sha || '').slice(0, 12) + '):\n' + cmds(t.checks) + '\n\n계속할까요?') && act('작업 테스트 실행', () => api('tasks/' + id + '/run-checks', {}), () => ['작업 테스트 시작 — 결과는 2단계에서 확인', 'ok']);
+  $('#bReviewJob').onclick = () => act('리뷰 작업', () => api('tasks/' + id + '/review', { mode: 'mock', mockScenario: $('#revScenario').value }), () => ['fake 리뷰 CLI 시작(모델 요청 없음)', 'ok']);
+  $('#bApprove').onclick = () => confirm('승인 SHA ' + sha + '\n코드·계약·기준 브랜치·관련 파일이 바뀌면 승인은 무효화됩니다.') && act('승인', () => api('tasks/' + id + '/approve', { sha }));
   $('#bReject').onclick = () => { const reason = prompt('거절 사유'); if (reason !== null) act('거절', () => api('tasks/' + id + '/reject', { reason })); };
-  $('#bIntegrate').onclick = () => confirm('승인 SHA를 재검증한 뒤 통합 checkout에서 ./develop -- git cherry-pick -x 를 실행합니다. push는 하지 않습니다.') && act('통합', () => api('tasks/' + id + '/integrate', {}),
+  $('#bIntegrate').onclick = () => confirm('승인 SHA를 재검증한 뒤 통합 checkout에서 ./develop -- git cherry-pick -x 를 실행합니다. push는 하지 않습니다.' + (t.postChecks.length ? '\n이어서 통합 후 검사:\n' + cmds(t.postChecks) : '\n통합 후 검사 없음(미실행으로 표시)')) && act('통합', () => api('tasks/' + id + '/integrate', {}),
     (d) => ['통합 결과: ' + (STATUS[d.status] || [d.status])[0] + ' — ' + (d.statusReason || ''), d.status === 'integrated' ? 'ok' : 'bad']);
   $('#bReview').onclick = () => act('재검토', () => api('tasks/' + id + '/rereview', {}));
+  box.querySelectorAll('[data-log]').forEach((b) => b.onclick = () => { logChoice = b.dataset.log; render(); pollLog(); });
+  const la = $('#logAgent'); if (la) la.onclick = () => { logChoice = null; render(); pollLog(); };
 }
 
 function renderConnection() {
@@ -332,7 +399,7 @@ function render() {
 
 async function pollLog() {
   const t = state && state.tasks.find((x) => x.taskId === selected);
-  const id = t && t.exec && t.exec.execId;
+  const id = logChoice || (t && t.exec && t.exec.execId);
   if (!id) return;
   if (id !== logExec) { logExec = id; logNext = 0; logText = ''; }
   try {
@@ -351,11 +418,33 @@ const picked = new Set();
 let files = [], planTimer = null, lastPlan = null;
 const form = $('#assign');
 
+const DEFAULT_CHECK = () => ({ name: '공백 오류 검사', executable: 'git', args: ['diff', '--check', '{contract}', '{head}'], cwd: '.' });
+let checkSpecs = [DEFAULT_CHECK()], postSpecs = [];
+function specRows(list, el, prefix) {
+  el.innerHTML = list.map((c, i) => '<div class="specRow" data-i="' + i + '">' +
+    '<input data-k="name" value="' + esc(c.name) + '" placeholder="이름">' +
+    '<select data-k="executable">' + ['git', 'node', '.venv/bin/python'].map((x) => '<option' + (x === c.executable ? ' selected' : '') + '>' + x + '</option>').join('') + '</select>' +
+    '<textarea data-k="args" placeholder="인자 한 줄에 하나">' + esc(c.args.join('\n')) + '</textarea>' +
+    (prefix === 'c' ? '<input data-k="cwd" value="' + esc(c.cwd) + '" title="worktree 기준 cwd">' : '') +
+    '<button type="button" data-rm="' + i + '">빼기</button></div>').join('') || '<div class="muted small">없음</div>';
+  el.querySelectorAll('.specRow').forEach((row) => {
+    const c = list[Number(row.dataset.i)];
+    row.querySelectorAll('[data-k]').forEach((inp) => inp.oninput = inp.onchange = () => {
+      const k = inp.dataset.k; c[k] = k === 'args' ? inp.value.split('\n').map((x) => x.trim()).filter(Boolean) : inp.value; schedulePlan();
+    });
+  });
+  el.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { list.splice(Number(b.dataset.rm), 1); renderSpecs(); schedulePlan(); });
+}
+function renderSpecs() { specRows(checkSpecs, $('#checkRows'), 'c'); specRows(postSpecs, $('#postRows'), 'p'); }
 function formBody() {
   const f = new FormData(form);
   const b = Object.fromEntries(f.entries());
   b.allowedFiles = [...picked];
   b.conflictGroups = String(b.conflictGroups || '').split(',').map((x) => x.trim()).filter(Boolean);
+  b.requiredModules = String(b.requiredModules || '').split(',').map((x) => x.trim()).filter(Boolean);
+  b.doneCriteria = String(b.doneCriteria || '').split('\n').map((x) => x.trim()).filter(Boolean);
+  b.checks = checkSpecs.map((c, i) => ({ id: 'c' + (i + 1), name: c.name || ('검사 ' + (i + 1)), executable: c.executable, args: c.args, cwd: c.cwd || '.' }));
+  b.postChecks = postSpecs.map((c, i) => ({ id: 'p' + (i + 1), name: c.name || ('통합 후 검사 ' + (i + 1)), executable: c.executable, args: c.args, cwd: '.' }));
   return b;
 }
 function renderPicked() {
@@ -393,7 +482,10 @@ async function updatePlan() {
       '<div>브랜치</div><div class="mono">' + esc(t.branch) + (p.createWorktree ? ' <span class="chip">새로 만듦</span>' : '') + '</div>' +
       '<div>작업 폴더</div><div class="mono">' + esc(t.worktree) + (p.createWorktree ? ' <span class="chip">새로 만듦</span>' : '') + '</div>' +
       '<div>시작 시점</div><div><span class="mono">' + esc(t.baseSha.slice(0, 12)) + '</span> · ' + esc(p.baseRef) + ' · ' + esc(p.baseSubject) + '</div>' +
-      '<div>고칠 수 있는 곳</div><div class="mono">' + t.allowedFiles.map(esc).join(', ') + '</div></div>' : '';
+      '<div>고칠 수 있는 곳</div><div class="mono">' + t.allowedFiles.map(esc).join(', ') + '</div>' +
+      '<div>실행 환경</div><div>' + esc({ none: 'Python 불필요', python: '자체 .venv 필요', 'python-project': '자체 .venv + 프로젝트 import 필요' }[t.env]) + (p.envAuto ? ' <span class="chip">자동</span>' : '') + '</div>' +
+      '<div>작업 테스트</div><div class="mono small">' + (t.checks.map((c) => esc([c.executable].concat(c.args).join(' '))).join('<br>') || '<span class="bad">없음 — 승인할 수 없음</span>') + '</div>' +
+      '<div>계약 파일</div><div class="mono">docs/collaboration/tasks/' + esc(t.taskId) + '.md <span class="chip">작업 브랜치에 커밋</span></div></div>' : '';
     const bad = p.checks.filter((c) => !c.ok);
     $('#preview').innerHTML = '<b>자동으로 준비될 값</b>' + kv +
       (bad.length ? bad.map((c) => '<div class="bad">✗ ' + esc(c.name) + ': ' + esc(c.detail) + '</div>').join('') : '<div class="ok">✓ 준비 가능</div>') +
@@ -403,16 +495,18 @@ async function updatePlan() {
 }
 form.addEventListener('input', (ev) => { if (ev.target.id === 'fileSearch') renderFiles(); else if (ev.target.id !== 'newPath') schedulePlan(); });
 form.addEventListener('change', () => { if (state) renderConnection(); schedulePlan(); });
+$('#addCheck').onclick = () => { checkSpecs.push({ name: '', executable: 'git', args: [], cwd: '.' }); renderSpecs(); schedulePlan(); };
+$('#addPost').onclick = () => { postSpecs.push({ name: '', executable: 'git', args: [], cwd: '.' }); renderSpecs(); schedulePlan(); };
 $('#addPath').onclick = () => { const v = $('#newPath').value.trim(); if (v) { picked.add(v); $('#newPath').value = ''; renderPicked(); schedulePlan(); } };
 form.onsubmit = (ev) => {
   ev.preventDefault();
   $('#prepareBtn').disabled = true;
   act('준비·배정', () => api('tasks', formBody()), (d) => ['준비 완료: ' + d.detail, 'ok']).then((d) => {
-    if (d) { selected = d.taskId; form.reset(); picked.clear(); renderPicked(); loadFiles(); }
+    if (d) { selected = d.taskId; form.reset(); picked.clear(); checkSpecs = [DEFAULT_CHECK()]; postSpecs = []; renderSpecs(); renderPicked(); loadFiles(); }
     updatePlan();
   });
 };
-loadFiles(); updatePlan();
+renderSpecs(); loadFiles(); updatePlan();
 $('#probe').onclick = () => act('CLI 확인', () => api('probes', {}));
 
 // 배정 폼은 render()가 다시 그리지 않으므로 입력 중에도 상태 갱신을 계속한다.
