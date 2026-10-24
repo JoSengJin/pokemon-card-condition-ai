@@ -218,3 +218,16 @@ task `evaluation-metrics-contract-batch-20261025`. 기준은 base `aa3e74583f8d2
   - AP는 동점 묶음을 한 단계로 처리하는 비보간 정의다. 다른 정의(보간 AP 등)와 수치가 다를 수 있다.
   - micro 위험과 실물 평균 위험의 차이는 의도된 가중 차이이며 결함이 아니다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 위 커밋을 역순으로 revert한다. 테스트·문서만 추가했으므로 모델·라벨 복구가 필요 없다. 진척률 30/100·배점·품질 기준은 그대로다.
+
+
+## Codex 통합 검토·HTML 보고
+
+전달6개 커밋의 부모 순서·dispatch 이후 허용 파일6개·깨끗한 Claude worktree를 확인해 지정 순서로 main에 cherry-pick -x했다. 검증 소스 SHA: cfe98412fd1f6248a0589c69fa97d167a3d9ce99. 신규21+기존수치13+기존통합143=177 tests가 기본 checkout에서 통과했다. 실제 모델 source 세 파일은 aa3e745 대비 diff0이다. AST로 신규 테스트 함수 수 5/7/7/6을 확인했다. 작은 전수 검사는 지정 테스트의 일부로 재실행됐다. Claude의 mutation13개는 이번에 재실행하지 않았다.
+
+근거: artifacts/evaluation-metrics-integration-20261025/tests.log 및 verification.json. 합성 손계산과 실제 테스트 기대값을 대조했으며 재현된 source 결함은 없다. 새 모델 학습·추론·실자료 평가·외부 AI0회, 일반화/품질 개선 미평가, usable-card-analysis-v1.0 30/100 유지.
+
+Claude 인계에는 추가 HTML이 없으므로 Codex가 사용자 요청의 HTML 보완 계약에 따라 같은 이름의 .html 보고서를 작성했다. 실제 로그·고정 진척 정본을 대조했고 외부 의존·개인 경로·실자료 없이 정적 HTML로 기록한다. 열기 요청/렌더 확인 결과는 최종 인계에서 별도로 보고한다. 테스트한 SHA와 HTML/문서 커밋 SHA는 구분한다.
+
+롤백: 이번 Codex 보고서/HTML 커밋과 통합 커밋 cfe9841,7e15b56,3a5c6a3,780a318,aab81e9,082c90b을 최신부터 revert하고 관련 검사 후 일반 push한다. 원본 모델/라벨 변경이 없어 별도 복구는 필요 없다.
+
+HTML 열기 결과: macOS open -a Google Chrome 명령 종료코드0으로 열기 요청에 성공했다. 브라우저 자동화가 선택한 표면은 별도 in-app browser여서 Chrome의 실제 렌더링은 확인하지 못했다. 파일 내용/외부 의존/로그 일치는 검사했으며 화면 확인 성공으로 보고하지 않는다.

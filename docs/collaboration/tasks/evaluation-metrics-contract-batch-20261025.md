@@ -2,7 +2,7 @@
 
 - task_id: evaluation-metrics-contract-batch-20261025
 - owner: Claude
-- status: ready_for_review
+- status: integrated
 - base_sha: aa3e74583f8d2213b9dbad8f664c0a1ce0f8f703
 - branch: claude/evaluation-metrics-contract-batch-20261025
 - worktree/dispatch: Codex 전달 메시지 참조
@@ -11,7 +11,7 @@
 
 고정된 합성 정답·이미 계산된 확률만 사용해 누락/오탐 분모, paired 비교 대상 동일성, 순위 지표, 보류와 실물별 집계가 거짓 개선 결론을 만들지 않는지 검증한다. 모델 실행이나 새 평가 도구를 만드는 작업이 아니다. 기존 동작이 맞으면 반례·회귀 검사만 남긴다. 실제 결함이 재현된 경우만 허용된 세 소스에 최소 수정한다. Mastra와 snapshot/sidecar 도구에는 손대지 않는다.
 
-## allowed_files (9개)
+## allowed_files (10개, HTML 보완 계약 포함)
 
 - card_condition/quality_rates.py (기존: 함수 정의 2개)
 - card_condition/regression_audit.py (기존: 중첩 포함 함수 정의 3개)
@@ -22,6 +22,7 @@
 - tests/test_metric_metamorphic_contract.py (신규)
 - docs/collaboration/tasks/evaluation-metrics-contract-batch-20261025.md
 - docs/collaboration/reports/evaluation-metrics-contract-batch-20261025.md (신규)
+- docs/collaboration/reports/evaluation-metrics-contract-batch-20261025.html (Codex HTML 보완)
 
 기존 tests/test_quality_rates.py,test_regression_audit.py,test_score_diagnostics.py 및 모든 호출자는 읽기 전용이다. 추가 소스 파일·추상화·새 지표/기준·경로 탐색·HTML/UI·실험 실행기는 만들지 않는다. 호출자에서 해결해야 하는 문제면 정확한 재현과 수정 제안만 기록해 Codex에 인계한다.
 
@@ -110,3 +111,8 @@ git diff --check
   - upstream 전제 밖 입력(NaN 확률·필드 누락·혼합 ID 타입): 오류 종류를 바꾸지 않고 전제로 기록
 - 리스크: 합성 검증이며 실제 성능을 말하지 않는다. AP는 비보간·동점 묶음 정의다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 역순으로 revert한다. 모델·라벨 복구는 필요 없고 진척률 30/100은 그대로다.
+
+
+## Codex 인수
+
+부모/파일 범위와 깨끗한 worktree 확인 후6커밋을 main에 통합했다. 기본 환경177 tests 통과, source 세 파일 diff0, 신규 테스트 정의 수5/7/7/6을 재검증했다. Codex가 HTML 보완 계약에 따라 성과·고정 진척 보고서를 추가했다. 실제 모델 성능 미평가·진척30/100 유지. 상세는 보고서 Codex 절과 artifacts/evaluation-metrics-integration-20261025/를 참조한다.
