@@ -62,3 +62,8 @@
 ## 성과·진척 HTML 보고
 
 - 다음 개발 작업부터 Codex와 Claude 모두 docs/collaboration/HTML_REPORTING.md를 따른다. 실제 성과·고정 기준 진척률 HTML을 갱신하고 사용자에게 열며, 합성 검사와 모델 성능을 구분한다. 새 task의 산출물·checks·handoff에 HTML 경로와 열기/렌더 확인 결과를 포함한다.
+
+
+## 검증한 main 통합과 원격 동기화
+
+- 사용자 상시 승인: Claude 페어코딩 결과를 검증해 main에 통합한 뒤에는 일반 git push로 origin/main까지 반영한다. 로컬 통합만으로 완료 처리하지 않는다. PAIR_CODING.md의 원격 동기화 절차를 따른다. force push·이력 재작성은 별도 명시 요청 없이는 금지한다.
