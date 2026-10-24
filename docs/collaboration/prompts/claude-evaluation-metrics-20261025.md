@@ -5,3 +5,5 @@ AGENTS.md, PAIR_CODING.md와 docs/collaboration/tasks/evaluation-metrics-contrac
 기존 평가 수치의 분모·paired 대상 동일성·AUROC/AP·보류·실물별 집계를 손계산과 작은 전수/변환 검사로 독립 검증하세요. 실제 결함만 실패 검사부터 남기고 허용된 세 소스에서 최소 수정하세요. 근거 없이 소스를 바꾸거나 또 다른 감사 도구를 만들지 마세요.
 
 허용9파일·파일당 함수7개·호출 전이4회 제한을 지키세요. 표준 라이브러리 자체 venv만 사용하고 모델 학습/추론·실자료·외부 AI·Mastra·main 통합/push는 금지합니다. 단계별 커밋 후 다음 독립 단계를 계속하세요. 최종 전체 SHA 순서·손계산 근거·검사·구조·미검증·리스크·롤백을 한 번에 인계하세요.
+
+추가 사용자 요구: docs/collaboration/HTML_REPORTING.md와 docs/collaboration/tasks/evaluation-metrics-html-addendum-20261025.md를 적용하세요. 최종 성과·진척 HTML을 생성·내용 검증하고 실제로 연 뒤 인계하세요. 진행 중인 worktree에 이 문서가 없으면 기본 checkout의 같은 문서를 읽기 전용으로 확인하세요.

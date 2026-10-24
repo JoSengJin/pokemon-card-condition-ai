@@ -57,3 +57,8 @@
 - 독립 심판 없이 토론이 끝나면 `automation.json`의 `unjudged_candidate`와 `next_steps.md`에 Codex 수정안이 남는다. 심판 미승인이므로 자동 실행하지 않았고, Codex가 직접 대조해 채택 여부를 정한다.
 - Codex 응답의 실패 가설·완료 진단 ID는 `failed_N`/`completed_diagnostic_N` 별칭이어도 프로그램이 실제 가설 ID로 정규화한다(`automation.json`의 `normalizations`에 기록, 원문은 호출 기록에 보존). 사람 정답·실험 내용·수치 기준은 정규화하지 않는다.
 - 변경 근거·롤백: `artifacts/claude-review-loop-fix-20261024/REPORT.md`.
+
+
+## 성과·진척 HTML 보고
+
+- 다음 개발 작업부터 Codex와 Claude 모두 docs/collaboration/HTML_REPORTING.md를 따른다. 실제 성과·고정 기준 진척률 HTML을 갱신하고 사용자에게 열며, 합성 검사와 모델 성능을 구분한다. 새 task의 산출물·checks·handoff에 HTML 경로와 열기/렌더 확인 결과를 포함한다.
