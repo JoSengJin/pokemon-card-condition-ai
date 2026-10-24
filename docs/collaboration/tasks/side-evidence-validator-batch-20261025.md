@@ -2,7 +2,7 @@
 
 - task_id: `side-evidence-validator-batch-20261025`
 - owner: Claude
-- status: assigned
+- status: implementing
 - base_sha: `357891e1435076378a85b695c7027c9769d871b0` (아래 기준 안내 참조)
 - branch: `claude/side-evidence-validator-batch-20261025`
 - worktree: Codex 전달 메시지에서만 로컬 경로 제공
