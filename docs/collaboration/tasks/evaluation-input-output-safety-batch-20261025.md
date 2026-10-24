@@ -2,7 +2,7 @@
 
 - task_id: evaluation-input-output-safety-batch-20261025
 - owner: Claude
-- status: implementing
+- status: ready_for_review
 - base_sha: 9369ea5ff2ea6f0a86181688afa27825658ded17
 - branch: claude/evaluation-input-output-safety-batch-20261025
 - worktree/dispatch: Codex 전달 메시지 참조. 완료된 최초 provenance worktree를 재사용하되 새 브랜치로 시작한다.
@@ -97,3 +97,23 @@ status ready_for_review, 전체 SHA 순서/부모/변경 파일/검사/HTML 경�
 실제 학습·모델 추론·실자료·사람 라벨 변경·외부 AI/Codex CLI/review --auto·API 호출·자동 수집·Mastra·main 통합/push 금지. 이 작업은 mock 소프트웨어 검증이므로 새 성능 실험을 시작하지 않는다. 실제 모델 실험이 필요하면 별도 계약/공통 실행기 계획이 필요하다.
 
 6단계 완료 또는 실제 근거/권한/컨텍스트 한계에서 체크포인트를 남긴다. 한 항목만 막히면 독립 단계를 계속한다. 임의 기능으로 범위를 늘리지 않는다. 롤백은 미통합 또는 전달 커밋 역순 revert이며 실제 모델·라벨 변경은 없어야 한다. 진척 점수·배점·수치 기준 불변. main 통합·관련 검증·일반 push는 Codex가 담당한다.
+
+## Claude 실행 결과
+
+2026-10-25, 재사용한 최초 provenance worktree의 새 브랜치에서 실행. 상세: `docs/collaboration/reports/evaluation-input-output-safety-batch-20261025.md`, HTML: `docs/collaboration/reports/evaluation-input-output-safety-batch-20261025.html`.
+
+- 기준: 브랜치 `claude/evaluation-input-output-safety-batch-20261025`, 시작 HEAD `771a7a93a79b0f2c987f030f8a7d18c921c2d322`. `merge-base --is-ancestor 9369ea5… HEAD` 종료코드 0. 임의 rebase·reset 없이 이 고정 기준으로 인계한다.
+- 커밋 순서:
+  1. `ad83431f1b307aa418cbcbb0fed86060695d24f9` docs: 읽기 순서·출력 계약·수정 전 기준
+  2. `07d583b513878db64fb31dd5098dd0e90c9ecfe6` test: 개발 이력·identity (source 변경 없음)
+  3. `b1a7ef36be19c97fa64619e0e86714a1b6b5f0a8` test: 읽기 단계 반례 재현
+  4. `add4601ac4dc0ffa6eca0f1b7a427988589d77c8` test: 저장 실패 반례 재현
+  5. `f8463f54c74082068a657fce529780e1b89f9ca0` fix: source 최소 수정 (검증 코드 SHA)
+  6. 이후 문서 커밋(최종 보고·HTML·열기 결과)
+- 결론: 재현된 결함 3건을 수정했다. (1) 사진 디코드와 SHA 기록 사이 변경, (2) analyzer가 기록과 다른 checkpoint를 읽는 경우, (3) 저장 실패 시 부분 보고서 잔존. 개발 이력·identity 중복 거절은 이미 올바르게 동작해 검사만 남겼다.
+- 검사: 지정 명령 → 20개 통과(기존 5, 신규 15), 종료코드 0. `compileall` 0, `git diff --check` 통과. 정상 입력 JSON 바이트는 수정 전후 동일(권한 0644 → 0600만 변경). mutation 11가지 모두 검출.
+- 구조 제한: 소스 함수 정의 4→5, 1→1, 1→1, 신규 1. 신규 테스트 6·6·7·7. 최대 호출 전이 2.
+- 실행하지 않음: test_side_evaluation, test_region_evaluation, test_point_final_evaluation, test_pipeline 전체. 실제 학습·추론·실자료·외부 AI·Mastra·main 통합·push 모두 0회.
+- 모델 성능: 평가하지 않았다. mock API 보호 검증이며 전체 진척률 30/100은 그대로다.
+- 미해결: A→B→A 변경은 막지 못한다. 권한 0600 유지 여부는 Codex 결정. `point_probe`의 `track_photos` 경로는 실제 모델이 필요해 검사하지 못했다.
+- 롤백: 미통합이면 반영하지 않는다. 통합 후에는 수정 커밋 `f8463f5…`를 revert한다. 모델·라벨 복구는 필요 없다.
