@@ -2,7 +2,7 @@
 
 - task_id: `evidence-snapshot-preparation-batch-20261025`
 - owner: Claude
-- status: assigned
+- status: implementing
 - base_sha: `1a6fa8f5cf1a120c8b7cdd30abdf6041676a50c6`
 - branch: `claude/evidence-snapshot-preparation-batch-20261025`
 - worktree: 로컬 경로와 dispatch SHA는 Codex 메시지에서 제공
