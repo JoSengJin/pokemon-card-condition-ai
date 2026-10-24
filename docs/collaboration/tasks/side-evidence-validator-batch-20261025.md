@@ -2,7 +2,7 @@
 
 - task_id: `side-evidence-validator-batch-20261025`
 - owner: Claude
-- status: implementing
+- status: ready_for_review
 - base_sha: `357891e1435076378a85b695c7027c9769d871b0` (아래 기준 안내 참조)
 - branch: `claude/side-evidence-validator-batch-20261025`
 - worktree: Codex 전달 메시지에서만 로컬 경로 제공
@@ -78,3 +78,40 @@ git diff --check
 단계별 의미 단위로 feat/test/fix/docs(scope): 내용 형식으로 커밋한다. task/result 문서만 갱신하며 같은 파일의 타 작업 변경을 덮어쓰지 않는다. 전체 git add . 금지. 깨끗한 작업 트리로 인계한다. 이 5개 단계의 수용 조건 충족 또는 실제 권한/근거/컨텍스트 한계에서 체크포인트를 남긴다. 작업을 늘리려고 모델 실험·임의 기능을 시작하지 않는다. 장시간 상시 실행·자동 깨우기를 설정하지 않는다.
 
 리스크: 도구는 구조·파일 일치 검증이지 사람 의미/독립성 보증이 아니다. hardlink 미지원 저장 실패·강제 종료 임시 파일 잔존은 명시한다. 롤백은 미통합 또는 전달 커밋을 역순 revert. 실제 데이터·모델은 바뀌지 않는다. 진척 점수 30/100/배점/기준 불변.
+
+## Claude 실행 결과
+
+2026-10-25, 배정 worktree에서 실행. 상세: `docs/collaboration/reports/side-evidence-validator-batch-20261025.md`.
+
+- 기준:
+  - 브랜치 `claude/side-evidence-validator-batch-20261025`, 시작 HEAD `7e61e150696432e83c730899e8e889185552ae4a`.
+  - `merge-base --is-ancestor 357891e… HEAD` 종료코드 0. 시작 시 작업 트리가 깨끗했다.
+  - base 이후 Codex 변경은 prompt·task 문서뿐이었다.
+- 단계별 커밋(순서대로):
+  1. `aa0c95093c60ff623d006e58d60dc12159945f4f` docs: v0.1 계약
+  2. `f42aca44babab59b5f20afbee346a77429d0087c` feat: 구조·요약 검증
+  3. `a3da1d84dece21f644f03f3d3ba39d42e926637e` feat: 원본 SHA·참조·경로 대조
+  4. `662c34850bef5d816d7eee2f04afd2a6b4be46f8` feat: 독립 CLI·출력 보존
+  5. `1bc6303d7d9b2d45c26ed78e96b1dc3b17d88128` test: 자체 반례 3건(당시 실패 3·오류 1)
+  6. `b45349e15a8cac767133c08ad652669160a8de21` fix: 반례 최소 수정
+  7. 이 문서 커밋(docs: 최종 보고·인계)
+- 검사:
+  - `PYTHONPATH=tests .venv/bin/python -m unittest test_side_evidence test_side_evidence_sources test_side_evidence_cli -v` → 48개 통과(구조 16, 원본 대조 23, CLI 9), 종료코드 0.
+  - `compileall` 종료코드 0. `git diff --check` 통과.
+  - mutation 14가지 모두 검출(살아남은 변형 0).
+- 미실행:
+  - 기존 ML 의존 테스트 55개(Codex 통합 후. 이 venv에는 torch가 없다)
+  - 실제 inventory·snapshot 대상 실행
+  - 학습·추론·사진 열람·외부 AI 호출
+- 미해결(사람·Codex 결정):
+  - sidecar 저장 위치·작성자·버전 정책
+  - 한 응답이 여러 사진을 다룰 때 사진별 대응
+  - anchor·slot을 evidence에서 context로 분리할지
+  - 충돌을 경고로 둘지 A3 차단으로 둘지
+  - snapshot 밖 원본 참조 정책
+- 리스크:
+  - 구조·파일 일치 검증일 뿐 의미·독립성 보증이 아니다(`semantic_verification: false`).
+  - hardlink 미지원 파일 시스템에서는 저장이 실패한다.
+  - 강제 종료 시 임시 파일이 남을 수 있다.
+  - TOCTOU(검사와 open 사이의 파일 교체)는 막지 않는다.
+- 롤백: 미통합이면 반영하지 않는다. 통합 후에는 위 커밋을 역순으로 revert한다. 신규 파일만 추가했으며 데이터·모델·진척률 30/100은 바뀌지 않는다.
