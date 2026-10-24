@@ -291,20 +291,21 @@ class EvidenceFiles:
     def read(self, path, code, where):
         _, real = self.locate(path, where)
         kind = file_kind(path, where)
-        if real in self.cache and self.cache[real][0] != kind:
+        try:
+            info = os.stat(real)
+        except FileNotFoundError:
+            fail(code, f'{where} file is missing')
+        # Checked before open so a FIFO or device is never read.
+        if not stat.S_ISREG(info.st_mode):
+            fail('P', f'{where} is not a regular file')
+        identity = (info.st_dev, info.st_ino)
+        if identity in self.cache and self.cache[identity][0] != kind:
             fail('J', f'{where} aliases a file already read in a different format')
-        if real not in self.cache:
-            try:
-                info = os.stat(real)
-            except FileNotFoundError:
-                fail(code, f'{where} file is missing')
-            # Checked before open so a FIFO or device is never read.
-            if not stat.S_ISREG(info.st_mode):
-                fail('P', f'{where} is not a regular file')
+        if identity not in self.cache:
             with open(real, 'rb') as stream:
                 data = stream.read()
-            self.cache[real] = (kind, hashlib.sha256(data).hexdigest(), parse_bytes(data, kind, where))
-        return self.cache[real][1:]
+            self.cache[identity] = (kind, hashlib.sha256(data).hexdigest(), parse_bytes(data, kind, where))
+        return self.cache[identity][1:]
 
     def exists(self, path, where):
         return os.path.lexists(self.locate(path, where)[0])
@@ -374,8 +375,9 @@ def check_files(doc, files):
                 referenced_value(files, item[name], 'R9', f'{where}.evidence[{index}].{name}')
             if item['type'] == 'human_statement':
                 real = files.locate(item['origin']['path'], f'{where}.evidence[{index}].origin.path')[1]
-                locations.add((real, *origin_key(item['origin'])[1:]))
-        # Symlink aliases of one declared origin location are the same location.
+                info = os.stat(real)
+                locations.add(((info.st_dev, info.st_ino), *origin_key(item['origin'])[1:]))
+        # Case, symlink and hard-link aliases refer to the same origin file.
         if len(locations) != row['summary']['human_side_origins']:
             fail('R8', f'{where} declared origins alias the same file location')
         for index, item in enumerate(row['missing_sources']):

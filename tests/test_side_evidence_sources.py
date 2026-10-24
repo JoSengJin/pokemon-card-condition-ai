@@ -252,6 +252,17 @@ class SourcesTest(unittest.TestCase):
         doc['rows'][1]['summary'] = compute_summary(doc['rows'][1])
         self.rejects('J', doc)
 
+    def test_hardlink_cannot_mix_cached_file_formats(self):
+        self.f.write('both.json', {'slot': {'statement': 'synthetic'}})
+        os.link(self.f.root / 'both.json', self.f.root / 'linked.jsonl')
+        item = self.f.human()
+        item['source'] = self.f.ref('both.json', '/slot/statement')
+        item['origin'] = self.f.ref('linked.jsonl', '/statement', 'slot')
+        doc = self.f.sidecar()
+        doc['rows'][1]['evidence'] = [item]
+        doc['rows'][1]['summary'] = compute_summary(doc['rows'][1])
+        self.rejects('J', doc)
+
     def test_special_files_are_not_read(self):
         (self.f.root / 'folder.json').mkdir()
         os.mkfifo(self.f.root / 'pipe.json')
@@ -285,6 +296,17 @@ class SourcesTest(unittest.TestCase):
         os.symlink(self.f.root / 'intake/reply.json', self.f.root / 'alias.json')
         aliased = dict(self.f.human(), origin=self.f.ref('alias.json', '/statement'))
         self.rejects('R8', self.edit(lambda d: d['rows'][1]['evidence'].append(aliased)))
+
+    def test_case_and_hardlink_origins_cannot_inflate_count(self):
+        original = self.f.root / 'intake/reply.json'
+        os.link(original, self.f.root / 'intake/linked.json')
+        for name in ('intake/REPLY.json', 'intake/linked.json'):
+            with self.subTest(name=name):
+                # Case-sensitive volumes cannot resolve the uppercase alias.
+                if not (self.f.root / name).exists():
+                    continue
+                aliased = dict(self.f.human(), origin=self.f.ref(name, '/statement'))
+                self.rejects('R8', self.edit(lambda d: d['rows'][1]['evidence'].append(aliased)))
 
     def test_shorter_missing_path_cannot_hide_a_present_source(self):
         # Self-review counterexample: a shorter suffix must not declare a present file missing.
