@@ -2,7 +2,7 @@
 
 - task_id: `provenance-source-followup-20261025`
 - owner: Claude
-- status: ready_for_review
+- status: integrated
 - base_sha: `fccc7099f027918fb4b718d70c6f6c09a3db8f32`
 - branch: `claude/provenance-source-followup-20261025`
 - dispatch_sha: 이 계약 커밋의 SHA를 Codex 전달 메시지에서 확인한다. 소스 기준 이후에는 계약 문서만 추가한다.
@@ -60,3 +60,8 @@
 - 다음 조치 1개: inventory에 면 근거 종류 필드를 추가한다(Codex 별도 계약, 값·수량 불변).
 - 검사: `git diff --check` 통과. 변경 파일은 allowed_files 2개다. 문서에 홈 절대경로·비밀값이 없다. 사람 응답 원문 인용은 짧은 조각만 썼다.
 - 미실행·금지 준수: 사진 열람·추론·학습·외부 AI·라벨 변경·합산·Python 소스·테스트 변경 모두 0회.
+
+
+## Codex 인수 결과
+
+원본 SHA 59개·핵심 필드·부모 SHA·문서 2개 범위를 재검증했다. 파생 기록의 독립성 표현과 검증 시점 단정을 보정하고 통합했다. side_evidence는 제안 상태이며 원본 inventory·정답·면·수량은 변경하지 않았다. 미해결 원본·시점은 후속 근거가 필요하다.

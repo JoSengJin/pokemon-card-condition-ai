@@ -39,8 +39,8 @@ photo-3에 대해 새로 확인한 원본은 `misdreavus-surface-exact-review-20
 | `eevee-normal-edge-training-20261019/label-clarification-pending.json` | 같은 사람 응답 원문으로 W null, X 1, Y 1을 기록한다 | 현재 rows와 일치 |
 | `eevee-normal-edge-training-20261019/clarification-verification.json` | `effective_corner_positive_detail_rows: 4`, `Y_unknown: true`. 검증 대상으로 역사적 파일 3개의 SHA만 담고 있고, current-effective의 SHA는 없다 | 현재 rows(5행, Y 포함)와 불일치 |
 
-- 결론: Y=corner 1이 우측 상단 모서리 존재로 정정됐다는 사실은 확인 가능하다. 사람 응답 원문과 서로 독립된 기록 4개가 일치한다.
-- `clarification-verification.json`의 수치(4행, Y unknown)는 Y 행이 추가되기 전 상태를 기술한 것으로 판단한다. `LABEL_CORRECTION_WY_20261019.md`의 변경 목록에는 eevee의 pending·current-effective·clearance가 있지만 이 verification 파일은 없다. 즉 정정 때 갱신되지 않았다. 이 판단은 수정시각을 쓰지 않고 내용 불일치와 변경 목록만으로 내렸다.
+- 결론: Y=corner 1이 우측 상단 모서리 존재로 정정됐다는 사실은 확인 가능하다. 사람 응답 원문과 그 응답을 반영한 후속 기록 4개가 일치한다. 동일 응답에서 파생된 기록의 일치이며, 독립된 사람 판정 4회라는 뜻은 아니다.
+- `clarification-verification.json`의 수치(4행, Y unknown)는 현재 유효 rows와 다르므로 현재 상태를 증명하는 자료로 쓰지 않는다. `LABEL_CORRECTION_WY_20261019.md`의 변경 목록에는 eevee의 pending·current-effective·clearance가 있지만 이 verification 파일은 없어 갱신 누락 가능성이 있다. 다만 당시 current-effective SHA와 직접적인 실행 순서가 없으므로 정정 전 작성됐거나 정정 때 갱신되지 않았다고 확정하지 않는다. 수정시각은 판단에 쓰지 않았다.
 - 미해결: 이 verification이 작성된 정확한 시점과, 당시 current-effective가 4행이었다는 직접 증거(그 시점 파일 SHA)는 snapshot에 없다.
 - 범위 주의: Y는 해당 crop의 모서리 존재 양성일 뿐이다. 실제점·다른 부위·면 전체 정답이 아니다. W는 unknown이며 정상이나 손상으로 바꾸지 않는다.
 
@@ -82,3 +82,12 @@ photo-3에 대해 새로 확인한 원본은 `misdreavus-surface-exact-review-20
   - 소비 프로젝트 TODO의 raichu 관련 원문.
 - 리스크: "근거 부족"은 front가 틀렸다는 뜻이 아니다. 근거가 확인되지 않았다는 뜻이다. 이 보고서를 근거로 면을 back으로 바꾸거나 primary에 편입하면 안 된다.
 - 롤백: 이 브랜치는 문서 2개만 바꾼다. 미통합이면 반영하지 않고, 통합 후에는 해당 커밋만 revert한다. 원본 데이터·모델은 건드리지 않았다.
+
+
+## Codex 인수 검증 — 2026-10-25
+
+전달 커밋 e07c317의 부모·허용 파일 2개·근거 SHA 59/59를 확인했다. 검토 슬롯과 사람 면 판정을 구별하고, eevee 현재 유효 rows 두 사본의 바이트 일치·5행과 과거 verification의 4행 불일치, raichu 모서리 정답 유지와 평가 한계를 대조했다.
+
+같은 사람 응답의 파생 기록을 독립된 증거라고 부르지 않도록 표현을 보정했다. verification의 불일치와 그 발생 시점의 추정도 분리했다. 이 보정은 사람 정답이나 현재 유효 rows를 변경하지 않는다.
+
+side_evidence는 검토 제안이며 구현·채택되지 않았다. 원본 inventory·라벨·모델·수량·Python 소스는 변경하지 않았고 전체 개발 진척률 30/100을 유지했다. 문서만 통합하여 기능 테스트·사진 열람·학습·추론·외부 AI 호출은 실행하지 않았다. 원본이 없는 photo-1·photo-3의 면과 과거 검증 시점은 여전히 미해결이다.
