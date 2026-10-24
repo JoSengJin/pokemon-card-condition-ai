@@ -82,8 +82,9 @@ def audit_snapshot(index_path, evidence_root):
         payload, inode = read_regular(real, where)
         if payload is None:
             fail('M', f'{where}.snapshot_path payload is missing')
+        # Same inode catches hard links and case-only aliases on case-insensitive file systems.
         if inode in inodes:
-            fail('A', f'{where}.snapshot_path is a hard link of {inodes[inode]}')
+            fail('A', f'{where}.snapshot_path is the same file as {inodes[inode]}')
         reals[real] = inodes[inode] = f'entries[{number}]'
         if hashlib.sha256(payload).hexdigest() != entry['sha256']:
             fail('S', f'{where}.sha256 does not match the payload bytes')

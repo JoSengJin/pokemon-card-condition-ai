@@ -123,6 +123,14 @@ class AuditTest(unittest.TestCase):
             self.s.write_index(entries=self.entries() + [extra])
             self.rejects('A')
 
+    def test_case_only_alias_is_never_a_second_payload(self):
+        # On a case-insensitive file system this is the same file (A); elsewhere it is absent (M).
+        entry = dict(self.s.entry('sources/artifacts/intake/REPORT.md'), snapshot_path='sources/artifacts/intake/report.md',
+                     original_relative_path='artifacts/other/report.md')
+        self.s.write_index(entries=self.entries() + [entry])
+        with self.assertRaisesRegex(ValueError, '^(A|M):'):
+            audit_snapshot(self.s.index, self.s.root)
+
     def test_index_listed_as_its_own_payload(self):
         os.link(self.s.index, self.s.root / 'sources/index-copy.json')
         for path in ('index.json', 'sources/index-copy.json'):
