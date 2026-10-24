@@ -2,7 +2,7 @@
 
 - task_id: evaluation-metrics-contract-batch-20261025
 - owner: Claude
-- status: assigned
+- status: implementing
 - base_sha: aa3e74583f8d2213b9dbad8f664c0a1ce0f8f703
 - branch: claude/evaluation-metrics-contract-batch-20261025
 - worktree/dispatch: Codex 전달 메시지 참조
