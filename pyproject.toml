@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pokemon-card-condition"
+version = "0.4.99"
+description = "Experimental independent front/back card condition model"
+requires-python = ">=3.11"
+dependencies = ["torch>=2.6,<3", "torchvision>=0.21,<1", "Pillow>=11,<13"]
+
+[project.optional-dependencies]
+cross-review = ["langgraph>=1,<2", "langgraph-checkpoint-sqlite>=3,<4", "google-genai>=1,<2", "httpx>=0.28,<1"]
+
+[project.scripts]
+card-condition = "card_condition.cli:main"
+card-condition-cross-review = "card_condition.cross_review:main"
+
+[tool.setuptools.packages.find]
+include = ["card_condition*"]
+
+[tool.setuptools.package-data]
+card_condition = ["review.html", "review_chat.html", "nvidia_dashboard.html"]

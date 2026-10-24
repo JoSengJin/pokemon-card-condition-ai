@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>카드 상태 · 라벨 검토</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f5f8;color:#172537;font:16px/1.55 system-ui,sans-serif}header,main{max-width:1200px;margin:auto;padding:24px}h1{margin:0;font-size:28px}p{margin:8px 0}button,select,input,textarea{font:inherit;border:1px solid #aab5c5;border-radius:8px;padding:9px;background:white;color:inherit}button{cursor:pointer}button:disabled{opacity:.45;cursor:default}button.primary{background:#164bd8;color:white}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #ffb52e}nav{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}nav button[aria-current=true]{background:#dfe9ff;border-color:#164bd8}.panel{background:white;border:1px solid #dce2eb;padding:20px;border-radius:14px;margin-bottom:16px}.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}figure{margin:0;overflow:hidden}figure img{width:100%;height:340px;object-fit:contain;background:#edf0f4;border-radius:8px}figcaption{font-size:13px;overflow-wrap:anywhere}.form{display:grid;gap:12px}label{display:grid;gap:4px;font-weight:600}label.check{display:flex;align-items:center}small{font-weight:400;color:#4b5b70}textarea{width:100%;min-height:75px}.muted{color:#506078}.notice{border-left:4px solid #d99a18;background:#fff7e3;padding:12px}.status{white-space:pre-wrap;overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;font-size:14px}td,th{text-align:left;padding:6px;border-bottom:1px solid #ddd}.actions{position:sticky;bottom:0;background:#fff;padding:16px;border-top:1px solid #ddd;display:flex;gap:12px;flex-wrap:wrap}.actions span{align-self:center}details{margin-top:12px}code{overflow-wrap:anywhere}@media(max-width:800px){header,main{padding:16px}figure img{height:260px}}
+.region-photo{position:relative;line-height:0;cursor:crosshair}.region-photo img{display:block;width:100%;height:auto}.region-box{position:absolute;border:3px solid #e52b32;pointer-events:none}.region-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.region-inputs input{width:100%}.side-block{border-top:1px solid #ccc;margin-top:18px;padding-top:12px}.side-block select{max-width:100%}
+[aria-invalid="true"]{border:2px solid #b42318!important;background:#fff1f0}.field-error{color:#b42318;font-weight:600;line-height:1.5}
+.review-target{border:2px solid #164bd8;padding:12px}.review-task{color:#164bd8;font-weight:600}
+.defect-marker{position:absolute;transform:translate(-50%,-50%);border:2px solid white;border-radius:50%;background:#b42318;color:white;font:600 12px/20px system-ui;min-width:24px;text-align:center;pointer-events:none;box-shadow:0 0 0 1px #b42318}.point-tools{border:1px solid #aab5c5;padding:10px;margin:8px 0}.point-tools input[type=number]{width:100%}.point-tools ol{padding-left:24px}.point-tools button{margin:4px}
+.region-guide{position:absolute;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);pointer-events:none}.region-guide[hidden]{display:none}.region-guide div{border:1px dashed #0284c7;line-height:1.4}.region-guide span{display:inline-block;margin:4px;padding:2px 5px;background:#e0f2fe;color:#075985;font-size:12px;font-weight:600}
+#workspace{max-width:900px;margin:auto}.region-photo{max-width:700px;margin:auto}.management{max-width:900px;margin:16px auto}.management summary{cursor:pointer;font-weight:600}.point-tools label{margin-bottom:8px}
+</style>
+<header><h1>포켓몬 카드 상태 · 라벨 검토</h1><p class="muted">사진을 확인하고 사람이 정답을 기록합니다. 저장과 모델 학습은 별도 단계입니다.</p>
+<p class="notice">카드 영역 확인 → 결함 위치 클릭 또는 AI 초안 승인 → 저장. 안 보이는 곳은 미확인, 빛 반사는 손상이 아닙니다.</p><nav id="items" aria-label="검토 항목"></nav></header>
+<main><div id="error" role="alert" class="status"></div><section id="workspace" hidden>
+<div class="panel"><h2 id="heading"></h2><details><summary>등록 사진·원본 보기</summary><div id="gallery" class="gallery"></div></details></div>
+<div class="panel form" id="form">
+<details id="card-management"><summary>카드·데이터 관리</summary><div class="form">
+<label>같은 실물 그룹 ID<input id="group"><small>동일 실물/중복 사진에는 같은 ID를 사용합니다.</small></label>
+<label>앞면<select id="front"></select></label><label>뒷면<select id="back"></select></label>
+<label class="check"><input type="checkbox" id="pair_verified">동일 실물의 전체 앞·뒷면임을 확인함</label>
+<details><summary>전체 카드 라벨 · 추가 관리</summary><div id="labels" class="form"></div></details>
+<label>데이터 분할<select id="split"><option value="">미지정</option><option value="train">train · 학습</option><option value="val">val · 모델 선택</option><option value="test">test · 별도 평가 후보</option></select><small>동일 실물은 같은 분할에 두세요. 이미 본 자료는 새 시험용으로 바꾸지 않습니다.</small></label>
+<label class="check"><input id="excluded" type="checkbox">이번 학습 데이터에서 제외</label>
+</div></details>
+<p id="aggregate-warning" class="field-error" role="status" hidden></p>
+<label>검토자<input id="reviewed_by" placeholder="이름 또는 이니셜"></label>
+<div id="side-editor"></div>
+<details><summary>관찰 메모 · 선택 사항</summary>
+<label>관찰 근거 / 판단 불가 사유<textarea id="notes" placeholder="예: 뒷면 우측 하단 반사로 백화·흠집 미확인, 보이는 부분은 양호"></textarea></label>
+</details>
+</div></section>
+<details class="panel management"><summary>전체 카드 학습·내보내기 관리</summary><div id="readiness" class="status">불러오는 중…</div><details><summary>분할별 라벨 개수</summary><div id="counts"></div></details><button id="normal-review" disabled>수동 정상 구역 검토</button><button id="export" disabled>검증 후 JSONL 내보내기</button></details>
+<div class="actions"><button id="save" class="primary" disabled>라벨 저장</button><span id="status" role="status" aria-live="polite"></span></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const titles={gradable:'전체 상태 평가 가능 여부',centering_defect:'센터링 불균형',corner_defect:'모서리 결함',edge_defect:'엣지 결함',surface_defect:'표면 결함 (기스·구겨짐·오염)'};
+const visibilityIssues={glare:'빛 반사',blur:'흐림',obstruction:'가림',cropped:'사진 잘림',low_resolution:'저해상도',perspective:'비스듬한 촬영·원근 왜곡',shadow:'그늘·어두움'};
+const glareAreas={upper_left:'좌측 상단',upper_center:'상단 중앙',upper_right:'우측 상단',middle_left:'좌측 중간',center:'중앙',middle_right:'우측 중간',lower_left:'좌측 하단',lower_center:'하단 중앙',lower_right:'우측 하단'};
+const clickKinds={corner_defect:'모서리',edge_defect:'엣지',scratch:'기스',crease:'구겨짐',stain:'오염',surface_defect:'표면 결함 (종류 미지정)',...visibilityIssues};
+const pointKinds=new Map();
+let state=null, active=0, dirty=false, busy=false, normalReview=false, normalRound=[], normalTask=null, normalRoundSize=0;
+function options(select,values,value){select.replaceChildren();for(const [v,t] of values){const o=document.createElement('option');o.value=v;o.textContent=t;select.append(o)}select.value=value??''}
+function buttons(){ $('save').disabled=busy||!state||!dirty;$('normal-review').disabled=busy||!state||dirty;$('export').disabled=busy||!state||dirty||!state.readiness.exportable; }
+function changed(event){const row=state.rows[active];if(event?.target?.dataset.regionControl)return;const previous={front:row.front,back:row.back};for(const key of ['group','reviewed_by','notes'])row[key]=$(key).value;for(const key of ['front','back','split'])row[key]=$(key).value||null;for(const key of ['pair_verified','excluded'])row[key]=$(key).checked;for(const key of Object.keys(titles)){const v=$('label-'+key).value;row.labels[key]=v===''?null:Number(v)}for(const side of ['front','back'])if(previous[side]!==row[side]){if(row.side_annotations)delete row.side_annotations[side];renderSides()}markDirty()}
+function render(){
+ $('workspace').hidden=false;$('items').replaceChildren();state.rows.forEach((r,i)=>{const b=document.createElement('button');b.textContent='카드 '+(i+1)+(r.excluded?' · 제외':'');b.title=r.id;b.setAttribute('aria-current',String(i===active));b.onclick=()=>{active=i;render()};$('items').append(b)});
+ const row=state.rows[active];$('heading').textContent='카드 '+(active+1)+' / '+state.rows.length;$('gallery').replaceChildren();row.images.forEach((im,i)=>{const fig=document.createElement('figure'),a=document.createElement('a'),img=document.createElement('img'),cap=document.createElement('figcaption');a.href='/image/'+active+'/'+i;a.target='_blank';a.rel='noopener';img.src=a.href;img.alt='사진 '+(i+1)+' — '+im.path.split('/').pop();cap.textContent=(i+1)+'. '+im.path.split('/').pop()+' · '+im.size.join(' × ');a.append(img);fig.append(a,cap);$('gallery').append(fig)});
+ for(const key of ['front','back'])options($(key),[['','미지정 / 없음'],...row.images.map((im,i)=>[im.path,(i+1)+'. '+im.path.split('/').pop()])],row[key]);
+ for(const key of ['group','reviewed_by','notes'])$(key).value=row[key]||'';for(const key of ['pair_verified','excluded'])$(key).checked=!!row[key];$('split').value=row.split||'';
+ $('labels').replaceChildren();for(const [key,title] of Object.entries(titles)){const label=document.createElement('label'),select=document.createElement('select');select.id='label-'+key;label.append(document.createTextNode(title),select);options(select,[['','미확인'],['1',key==='gradable'?'평가 가능':'결함 관찰됨'],['0',key==='gradable'?'평가 불가':'충분히 확인했으며 결함 없음']],row.labels[key]);$('labels').append(label)}
+ renderSides();refreshAggregateWarning();const r=state.readiness;$('readiness').textContent=(r.ready_for_training?'최소 학습 실행 조건 충족':'아직 학습 준비가 되지 않았습니다.')+'\n'+r.issues.join('\n')+'\n'+(r.note||'')+(r.has_test===false?'\n독립 test 데이터도 준비해야 합니다.':'');
+ const table=document.createElement('table');for(const [split,labels] of Object.entries(r.counts)){for(const [key,c]of Object.entries(labels)){const tr=document.createElement('tr');for(const text of [split,titles[key], '0: '+c['0'],'1: '+c['1'],'미확인: '+c.None]){const td=document.createElement('td');td.textContent=text;tr.append(td)}table.append(tr)}}$('counts').replaceChildren(table);buttons();
+}
+
+function markDirty(){clearFieldErrors();refreshAggregateWarning();dirty=true;$('status').textContent='저장하지 않은 변경이 있습니다.';buttons()}
+function pointInsideCard(box,x,y){return Array.isArray(box)&&Number.isFinite(x)&&Number.isFinite(y)&&x>=box[0]&&x<=box[2]&&y>=box[1]&&y<=box[3]}
+function pointKind(annotation){return pointKinds.get(annotation.image)||''}
+function aggregateLabelWarning(row){
+ const conflicts=Object.keys(titles).filter(key=>key!=='gradable'&&row.labels?.[key]===0&&Object.values(row.side_annotations||{}).some(a=>a.labels?.[key]===1));
+ return conflicts.length?'전체 라벨의 '+conflicts.map(key=>titles[key]).join('·')+'은 결함 없음이지만 면별 라벨에는 결함 관찰됨이 있습니다. 실제 관찰에 맞게 전체·면별 항목을 확인하세요. 저장 시 자동으로 정답을 바꾸지 않습니다.':'';
+}
+function refreshAggregateWarning(){const text=aggregateLabelWarning(state.rows[active]);$('aggregate-warning').textContent=text;$('aggregate-warning').hidden=!text}
+function pointLabelWarning(annotation){const kinds=[...new Set((annotation.defect_points||[]).filter(p=>annotation.labels[p.label]!==1).map(p=>titles[p.label]))];return kinds.length?'표시한 '+kinds.join('·')+' 지점은 저장되지만 해당 면 라벨이 미확인 또는 결함 없음이어서 학습·평가에 사용되지 않습니다. 실제 결함을 확인했다면 아래 면별 항목을 결함 관찰됨으로 선택하세요. 판단이 어려운 지점은 미확인으로 유지하세요.':''}
+function clickedArea(annotation,x,y){
+ if(!pointInsideCard(annotation.box,x,y))return null;
+ const [l,t,r,b]=annotation.box,col=Math.min(2,Math.floor(3*(x-l)/(r-l))),line=Math.min(2,Math.floor(3*(y-t)/(b-t)));
+ return Object.keys(glareAreas)[line*3+col];
+}
+function recordDefectPoint(annotation,point){
+ const area=clickedArea(annotation,point.x,point.y);if(!area)return false;
+ annotation.defect_points??=[];annotation.labels??={};
+ const existing=annotation.defect_points.find(p=>p.x===point.x&&p.y===point.y&&p.label===point.label);
+ if(!existing)annotation.defect_points.push({...point});else if(point.types)existing.types=[...new Set([...(existing.types||[]),...point.types])];
+ annotation.labels[point.label]=1;
+ if(annotation.region_labels?.[area]?.[point.label]===0)annotation.region_labels[area][point.label]=null;
+ return true;
+}
+function recordRegionClick(annotation,x,y,kind,value){
+ const area=clickedArea(annotation,x,y);if(!area)return '카드 영역 안을 선택하세요.';
+ if(kind==='corner_defect'&&!['upper_left','upper_right','lower_left','lower_right'].includes(area)||kind==='edge_defect'&&area==='center')return '선택한 결함 종류가 적용되는 테두리·모서리 구역을 선택하세요.';
+ if((annotation.defect_points||[]).some(p=>p.label===kind&&clickedArea(annotation,p.x,p.y)===area))return '이 구역에 같은 종류의 결함점이 있습니다. 지점 종류를 수정하거나 삭제한 뒤 확인하세요.';
+ if(value===0&&((annotation.visibility_issues||[]).some(k=>k!=='glare'&&k!=='perspective')||(annotation.visibility_issues||[]).includes('perspective')&&!annotation.box_reviewed||(annotation.visibility_issues||[]).includes('glare')&&(!(annotation.glare_areas||[]).length||annotation.glare_areas.includes(area))))return '관찰 제한이 있는 구역은 정상으로 기록할 수 없습니다. 미확인으로 남기세요.';
+ annotation.region_labels??={};annotation.region_labels[area]??={corner_defect:null,edge_defect:null,surface_defect:null};annotation.region_labels[area][kind]=value;
+ return null;
+}
+function togglePointLabel(annotation,point,kind,checked){
+ const matches=p=>p.x===point.x&&p.y===point.y&&p.label===kind;
+ annotation.defect_points??=[];
+ if(checked)recordDefectPoint(annotation,{label:kind,x:point.x,y:point.y});
+ else annotation.defect_points=annotation.defect_points.filter(p=>!matches(p));
+}
+function clickTarget(kind){return ['scratch','crease','stain'].includes(kind)?'surface_defect':kind}
+function recordObservationClick(annotation,issue,x,y){
+ const area=clickedArea(annotation,x,y);if(!area)return false;
+ const wholeGlare=issue==='glare'&&(annotation.visibility_issues||[]).includes('glare')&&!(annotation.glare_areas||[]).length;
+ annotation.visibility_issues??=[];if(!annotation.visibility_issues.includes(issue))annotation.visibility_issues.push(issue);
+ annotation.visibility_points??=[];if(!annotation.visibility_points.some(p=>p.issue===issue&&p.x===x&&p.y===y))annotation.visibility_points.push({issue,x,y});
+ if(issue==='glare'&&!wholeGlare){annotation.glare_areas??=[];if(!annotation.glare_areas.includes(area))annotation.glare_areas.push(area)}
+ return true;
+}
+function renderDefectPoints(section,photo,annotation,side,commit){
+ const tools=document.createElement('details'),summary=document.createElement('summary');tools.className='point-tools';tools.id='points-'+side;tools.open=true;summary.textContent='사진에서 결함 여러 곳 연속 클릭';tools.append(summary);section.insertBefore(tools,photo);
+ const origin=document.createElement('p');origin.className='muted';origin.textContent='빨강: 사람이 찍은 결함 · 파랑: 촬영 제한 · 보라: AI 초안';section.insertBefore(origin,photo);
+ const note=document.createElement('p');note.textContent='영역 지정 후 클릭 모드를 켜고 손상·촬영 제한을 표시하세요. 빨간 번호는 손상, 파란 번호는 촬영 제한입니다. 화이트닝은 카드 바깥 끝선의 손상이면 엣지, 테두리 안쪽 인쇄면의 손상이면 표면 결함입니다. 정상 구역은 충분히 확인한 곳만 선택하세요. 표면 정상은 기스·구겨짐·오염 모두 확인한 뜻입니다. 미선택은 미확인, 빛 반사는 손상이 아닙니다. 반사 외 제한은 현재 면 전체 판단 보류에 사용합니다.';const instructions=document.createElement('details'),instructionsTitle=document.createElement('summary');instructionsTitle.textContent='종류 선택·입력 도움말';instructions.append(instructionsTitle,note);tools.append(instructions);
+ const toggleLabel=document.createElement('label'),toggle=document.createElement('input');toggle.type='checkbox';toggle.dataset.regionControl='1';toggle.id='point-mode-'+side;toggle.checked=!!annotation.box&&!geometryClickActive(side);toggleLabel.className='check';toggleLabel.append(toggle,document.createTextNode('사진 클릭으로 라벨 입력 켜기'));tools.append(toggleLabel);const multiHint=document.createElement('p');multiHint.textContent='같은 종류는 계속 클릭해 여러 점을 찍고 마지막에 라벨 저장을 한 번 누르세요. 점마다 종류를 바꿀 수 있고, 찍지 않은 곳은 미확인으로 유지합니다. 엣지는 손상 위치이며 마모·화이트닝도 포함합니다.';tools.append(multiHint);
+ if(annotation.box&&geometryClickActive(side)){const switchMode=document.createElement('button');switchMode.type='button';switchMode.textContent='현재 영역으로 결함 표시하기';switchMode.onclick=()=>enablePointInput(side);tools.append(switchMode)}
+ const kindLabel=document.createElement('label'),kind=document.createElement('select');kind.dataset.regionControl='1';kind.id='point-kind-'+side;kindLabel.append(document.createTextNode('손상 또는 촬영 제한'),kind);options(kind,[['','종류를 먼저 선택하세요'],...Object.entries(clickKinds)],pointKind(annotation));kind.onchange=()=>pointKinds.set(annotation.image,kind.value);tools.append(kindLabel);
+ const modeLabel=document.createElement('label'),mode=document.createElement('select');mode.dataset.regionControl='1';mode.id='click-action-'+side;options(mode,[['defect','손상·촬영 제한 위치 표시'],['normal','선택한 종류의 정상 구역 확인'],['unknown','선택한 종류의 구역 미확인']], 'defect');modeLabel.append(document.createTextNode('입력 방식'),mode);tools.append(modeLabel);mode.onchange=()=>{const guide=$('guide-'+side);if(guide){guide.checked=mode.value!=='defect';if(guide.onchange)guide.onchange()}};
+ const saveClick=()=>{commit();const row=state.rows[active];for(const key of ['corner_defect','edge_defect','surface_defect']){const select=$('side-'+side+'-'+key);if(select)select.value=annotation.labels[key]??'';if(annotation.labels[key]===1&&(annotation.defect_points||[]).some(p=>p.label===key)){row.labels[key]=1;const overall=$('label-'+key);if(overall)overall.value='1'}}for(const [area,labels] of Object.entries(annotation.region_labels||{}))for(const [key,value] of Object.entries(labels)){const field=$('region-'+side+'-'+area+'-'+key);if(field)field.value=value??''}refreshAggregateWarning()};
+ const originalModeChange=mode.onchange;mode.onchange=()=>{if(mode.value!=='defect'&&['scratch','crease','stain'].includes(kind.value)){kind.value='surface_defect';pointKinds.set(annotation.image,kind.value)}originalModeChange()};kind.onchange=()=>{if(mode.value!=='defect'&&['scratch','crease','stain'].includes(kind.value))kind.value='surface_defect';pointKinds.set(annotation.image,kind.value)};
+ const whole=document.createElement('button');whole.type='button';whole.textContent='선택한 촬영 제한을 이 면 전체에 기록';whole.onclick=()=>{if(!Object.hasOwn(visibilityIssues,kind.value)){status.textContent='빛 반사·흐림 등 촬영 제한을 먼저 선택하세요.';return}annotation.visibility_issues??=[];if(!annotation.visibility_issues.includes(kind.value))annotation.visibility_issues.push(kind.value);if(kind.value==='glare'&&annotation.box)annotation.glare_areas=Object.keys(glareAreas);saveClick();renderSides();$('status').textContent='촬영 제한 기록 완료 · 손상 라벨은 변경하지 않았습니다.'};tools.append(whole);
+ const coords=document.createElement('div');coords.className='region-inputs';const fields=[];
+ for(const axis of ['x','y']){const label=document.createElement('label'),field=document.createElement('input');field.type='number';field.min=0;field.max=100;field.step=.01;field.dataset.regionControl='1';field.id='point-'+side+'-'+axis;label.append(document.createTextNode((axis==='x'?'가로':'세로')+' 위치 % (키보드 입력)'),field);fields.push(field);coords.append(label)}const keyboard=document.createElement('details'),keyboardTitle=document.createElement('summary');keyboardTitle.textContent='키보드로 위치 입력';keyboard.append(keyboardTitle,coords);tools.append(keyboard);
+ const addButton=document.createElement('button');addButton.type='button';addButton.textContent='좌표로 지점 추가';keyboard.append(addButton);
+ const status=document.createElement('p'),list=document.createElement('ol');status.setAttribute('role','status');status.style.minHeight='3.1em';tools.append(status);const pointDetails=document.createElement('details'),pointSummary=document.createElement('summary');pointSummary.textContent='표시한 위치 수정·삭제';pointDetails.append(pointSummary,list);photo.after(pointDetails);
+ const warning=document.createElement('p');warning.className='field-error';warning.setAttribute('role','status');section.insertBefore(warning,photo);
+ const refresh=()=>{warning.textContent=pointLabelWarning(annotation);warning.hidden=!warning.textContent;photo.querySelectorAll('.defect-marker').forEach(el=>el.remove());list.replaceChildren();toggle.disabled=!annotation.box||geometryClickActive(side);addButton.disabled=!annotation.box;
+  photo.querySelectorAll('.visibility-marker').forEach(el=>el.remove());for(const [i,p] of (annotation.visibility_points||[]).entries()){const marker=document.createElement('span');marker.className='defect-marker visibility-marker';marker.style.background='#075985';marker.textContent='제한'+(i+1);marker.style.left=p.x*100+'%';marker.style.top=p.y*100+'%';photo.append(marker);const item=document.createElement('li'),remove=document.createElement('button');item.textContent=visibilityIssues[p.issue]+' 위치 '+(i+1)+' ';remove.type='button';remove.textContent='위치 삭제 (면 제한은 유지)';remove.onclick=()=>{annotation.visibility_points.splice(i,1);commit();refresh()};item.append(remove);list.append(item)}
+  const locations=[...new Map((annotation.defect_points||[]).map(p=>[p.x+':'+p.y,p])).values()];
+  locations.forEach((p,i)=>{const marker=document.createElement('span');marker.className='defect-marker';marker.textContent=i+1;marker.style.left=p.x*100+'%';marker.style.top=p.y*100+'%';marker.setAttribute('aria-hidden','true');photo.append(marker);
+   const item=document.createElement('li'),remove=document.createElement('button');remove.type='button';remove.textContent='지점 '+(i+1)+' 삭제';remove.onclick=()=>{annotation.defect_points=annotation.defect_points.filter(q=>q.x!==p.x||q.y!==p.y);commit();refresh()};
+   item.append(document.createTextNode('지점 '+(i+1)+' · 가로 '+(p.x*100).toFixed(2)+'%, 세로 '+(p.y*100).toFixed(2)+'% '));
+   for(const key of ['corner_defect','edge_defect','surface_defect']){const label=document.createElement('label'),check=document.createElement('input');label.className='check';check.type='checkbox';check.dataset.regionControl='1';check.checked=annotation.defect_points.some(q=>q.x===p.x&&q.y===p.y&&q.label===key);check.onchange=()=>{togglePointLabel(annotation,p,key,check.checked);saveClick();refresh()};label.append(check,document.createTextNode(titles[key]));item.append(label)}
+   const surface=annotation.defect_points.find(q=>q.x===p.x&&q.y===p.y&&q.label==='surface_defect');
+   if(surface)for(const type of ['scratch','crease','stain']){const label=document.createElement('label'),check=document.createElement('input');label.className='check';check.type='checkbox';check.dataset.regionControl='1';check.checked=(surface.types||[]).includes(type);check.onchange=()=>{const types=['scratch','crease','stain'].filter(t=>t===type?check.checked:(surface.types||[]).includes(t));if(types.length)surface.types=types;else delete surface.types;saveClick()};label.append(check,document.createTextNode(clickKinds[type]));item.append(label)}
+   item.append(remove);list.append(item);
+  });
+ };
+ const add=(x,y)=>{if(!kind.value){status.textContent='모서리·엣지·기스 등 표시할 종류를 먼저 선택하세요.';kind.focus();return}if(!pointInsideCard(annotation.box,x,y)){status.textContent='카드 영역 안을 선택하세요.';return}
+  if(Object.hasOwn(visibilityIssues,kind.value)){if(mode.value!=='defect'){status.textContent='촬영 제한은 위치 표시 모드로 기록하세요. 제한 해제는 추가 관리에서 직접 확인하세요.';return}recordObservationClick(annotation,kind.value,x,y);saveClick();refresh();status.textContent=visibilityIssues[kind.value]+' 위치 기록 · 손상은 추정하지 않음 · 저장을 눌러주세요.';return}
+  const target=clickTarget(kind.value);
+  if(mode.value!=='defect'){const error=recordRegionClick(annotation,x,y,target,mode.value==='normal'?0:null);if(error){status.textContent=error;return}saveClick();refresh();status.textContent=glareAreas[clickedArea(annotation,x,y)]+' · '+titles[target]+' '+(mode.value==='normal'?'정상 확인':'미확인')+' · 표면 정상은 기스·구겨짐·오염 모두 충분히 확인한 경우만 기록하세요.';return}
+  recordDefectPoint(annotation,{label:target,x,y,...(target!==kind.value?{types:[kind.value]}:{})});saveClick();refresh();status.textContent='결함 '+annotation.defect_points.length+'점 기록 · 계속 클릭하거나 마지막에 라벨 저장을 눌러주세요.'};
+ addButton.onclick=()=>{if(fields.some(f=>f.value==='')){status.textContent='가로·세로 위치를 모두 입력하세요.';return}add(Number(fields[0].value)/100,Number(fields[1].value)/100)};
+ toggle.onchange=()=>{status.textContent=toggle.checked?'선택한 입력 방식으로 사진을 클릭하세요.':'클릭 모드 꺼짐 · 사진 클릭은 카드 영역 지정입니다.'};refresh();
+ return {enabled:()=>toggle.checked,add,refresh};
+}
+function confirmNormalEdges(annotation){
+ if(!annotation.box||annotation.labels.edge_defect!==0||(annotation.visibility_issues||[]).length||(annotation.glare_areas||[]).length||(annotation.defect_points||[]).some(p=>p.label==='edge_defect')||Object.values(annotation.region_labels||{}).some(r=>r.edge_defect===1))return false;
+ annotation.region_labels??={};
+ for(const area of Object.keys(glareAreas).filter(area=>area!=='center')){annotation.region_labels[area]??={corner_defect:null,edge_defect:null,surface_defect:null};annotation.region_labels[area].edge_defect=0}
+ return true;
+}
+function renderDrafts(section,photo,annotation,side){
+ const drafts=(state.drafts||[]).filter(p=>p.card===state.rows[active].id&&p.side===side&&p.blocked_reason!=='이미 검토한 초안');
+ if(!drafts.length)return;
+ const panel=document.createElement('section');panel.className='point-tools';const heading=document.createElement('h4');heading.textContent='AI가 제안한 확인 항목';panel.append(heading);
+ const help=document.createElement('p');help.textContent='출처: '+drafts[0].author+' · 보라색 사각형은 AI 제안이며 정답이 아닙니다. 사진을 보고 맞는 제안만 선택하세요. 정상 승인은 해당 구역 전체를 충분히 확인했다는 뜻입니다. 기존 입력을 먼저 저장한 뒤 승인하세요.';panel.append(help);
+ const reviewer=$('reviewed_by');
+ const checks=[];
+ for(const proposal of drafts){
+  const label=document.createElement('label'),check=document.createElement('input');label.className='check';check.type='checkbox';check.dataset.regionControl='1';check.disabled=!proposal.available;check.value=proposal.id;checks.push(check);label.title=proposal.reason;
+  label.append(check,document.createTextNode(glareAreas[proposal.area]+' · '+({corner_defect:'모서리',edge_defect:'바깥 테두리',surface_defect:'표면'})[proposal.label]+' · '+(proposal.value===0?'정상 후보':'손상 의심')+(proposal.available?'':' ['+proposal.blocked_reason+']')));panel.append(label);
+  if(proposal.available){const [left,top,right,bottom]=proposal.box,index=Object.keys(glareAreas).indexOf(proposal.area),marker=document.createElement('div');marker.className='ai-draft';Object.assign(marker.style,{position:'absolute',pointerEvents:'none',border:'2px dashed #7c3aed',background:'#7c3aed18',left:(left+(index%3)*(right-left)/3)*100+'%',top:(top+Math.floor(index/3)*(bottom-top)/3)*100+'%',width:(right-left)/3*100+'%',height:(bottom-top)/3*100+'%',color:'#5b21b6',font:'bold 12px/1.3 system-ui'});marker.textContent='AI? '+(proposal.value===0?'정상':'결함');marker.title=proposal.reason;photo.append(marker)}
+ }
+ const all=document.createElement('button');all.type='button';all.textContent='이 면의 검토 가능한 제안 모두 선택';all.onclick=()=>checks.forEach(c=>{if(!c.disabled)c.checked=true});panel.append(all);
+ for(const [decision,title] of [['approve','선택한 항목이 맞아요 · 저장'],['reject','선택한 항목이 틀려요 · 저장']]){const button=document.createElement('button');button.type='button';button.textContent=title;button.onclick=async()=>{if(busy)return;if(dirty){$('status').textContent='입력 중인 라벨을 먼저 저장한 뒤 초안을 승인하세요.';return}const ids=checks.filter(c=>c.checked&&!c.disabled).map(c=>c.value);if(!ids.length){const first=checks.find(c=>!c.disabled);if(first)showFieldError(first,'사진을 확인한 제안을 선택하세요.');return}if(!reviewer.value.trim()){showFieldError(reviewer,'초안을 확인한 검토자 이름 또는 이니셜을 입력하세요.');return}busy=true;buttons();try{state=await request('/api/draft-review',{revision:state.revision,ids,decision,reviewed_by:reviewer.value.trim()});dirty=false;render();$('status').textContent=decision==='approve'?'사람 확인 정답으로 승인·저장했습니다. 아직 모델을 학습하지 않았습니다.':'제안을 거절했습니다. 기존 라벨은 보존했습니다.'}catch(e){$('error').textContent=e.message}finally{busy=false;buttons()}};panel.append(button)}
+ section.append(panel);
+}
+function renderSides(){
+ const row=state.rows[active],host=$('side-editor');host.replaceChildren();
+ for(const side of ['front','back']){
+  const title=side==='front'?'앞면':'뒷면',section=document.createElement('section');section.className='side-block';
+  const heading=document.createElement('h3');heading.textContent=title;section.append(heading);host.append(section);
+  if(!row[side]){const msg=document.createElement('p');msg.textContent='사진 없음 — 면별 상태를 추정하지 않습니다.';section.append(msg);continue}
+  let annotation=row.side_annotations?.[side]||{image:row[side],box:null,labels:Object.fromEntries(Object.keys(titles).map(k=>[k,null])),visibility_issues:[]};
+  annotation.visibility_issues??=[];
+  annotation.glare_areas??=[];
+  annotation.region_labels??={};
+  let reviewedBox=JSON.stringify(annotation.box);
+  const commit=()=>{if(JSON.stringify(annotation.box)!==reviewedBox){invalidateBoxReview(annotation);reviewedBox=JSON.stringify(annotation.box)}row.side_annotations??={};row.side_annotations[side]=annotation;markDirty()};
+  const photo=document.createElement('div'),img=document.createElement('img'),outline=document.createElement('div');photo.className='region-photo';outline.className='region-box';
+  img.src='/image/'+active+'/'+row.images.findIndex(im=>im.path===row[side]);img.alt=title+' 카드 영역 지정용 사진';photo.append(img,outline);section.append(photo);
+  const guide=document.createElement('div');guide.className='region-guide';guide.hidden=true;guide.setAttribute('aria-hidden','true');
+  for(const name of Object.values(glareAreas)){const cell=document.createElement('div'),text=document.createElement('span');text.textContent=name;cell.append(text);guide.append(cell)}photo.append(guide);
+  const guideLabel=document.createElement('label'),guideToggle=document.createElement('input');guideLabel.className='check';guideToggle.type='checkbox';guideToggle.id='guide-'+side;guideToggle.dataset.regionControl='1';guideLabel.append(guideToggle,document.createTextNode(title+' 사진에 3×3 구역 안내선 표시 (라벨 변경 없음)'));section.insertBefore(guideLabel,photo);
+  const pointEditor=renderDefectPoints(section,photo,annotation,side,commit);
+  renderDrafts(section,photo,annotation,side);
+  const help=document.createElement('p');help.textContent='카드를 감싸는 좌상단 → 우하단을 클릭하세요. 키보드는 아래 비율(0~100%)을 입력하세요.';section.append(help);
+  const verifiedLabel=document.createElement('label'),verified=document.createElement('input');verifiedLabel.className='check';verified.type='checkbox';verified.id='box-reviewed-'+side;verified.checked=annotation.box_reviewed===true;verified.disabled=!annotation.box;verified.onchange=()=>{annotation.box_reviewed=verified.checked;commit()};verifiedLabel.append(verified,document.createTextNode('카드 네 변·모서리가 잘리지 않도록 영역을 확인함'));section.insertBefore(verifiedLabel,$('points-'+side));
+  const coordinates=document.createElement('details'),coordinateTitle=document.createElement('summary');coordinateTitle.textContent='영역 좌표 직접 입력';coordinates.append(coordinateTitle);section.append(coordinates);const inputs=document.createElement('div');inputs.className='region-inputs';coordinates.append(inputs);const fields=[];
+  let first=null;const glareInputs=[],regionSelects=[];
+  const draw=()=>{guideToggle.disabled=!annotation.box;guide.hidden=!annotation.box||!guideToggle.checked;verified.checked=annotation.box_reviewed===true;verified.disabled=!annotation.box;pointEditor.refresh();outline.hidden=!annotation.box;if(annotation.box){const [x,y,r,b]=annotation.box;const geometry={left:x*100+'%',top:y*100+'%',width:(r-x)*100+'%',height:(b-y)*100+'%'};Object.assign(outline.style,geometry);Object.assign(guide.style,geometry);}fields.forEach((f,i)=>f.value=annotation.box?+(annotation.box[i]*100).toFixed(2):'');glareInputs.forEach(input=>{input.disabled=!annotation.box||!annotation.visibility_issues.includes('glare');input.checked=annotation.glare_areas.includes(input.value)});regionSelects.forEach(select=>select.disabled=!annotation.box||select.dataset.notApplicable==='1')};
+  ['왼쪽','위','오른쪽','아래'].forEach((name,i)=>{const label=document.createElement('label'),input=document.createElement('input');input.type='number';input.min=0;input.max=100;input.step=.01;input.dataset.regionControl='1';input.id='box-'+side+'-'+i;input.setAttribute('aria-label',title+' 영역 '+name+' %');label.append(document.createTextNode(name+' %'),input);fields.push(input);inputs.append(label);
+   input.oninput=input.onchange=()=>{fields.forEach(f=>f.setCustomValidity(''));const values=fields.map(f=>f.value===''?null:Number(f.value)/100);if(values.some(v=>v===null)) {fields[0].setCustomValidity('네 좌표를 모두 입력하거나 영역 지우기를 누르세요.');help.textContent='네 좌표를 모두 입력해야 영역이 저장됩니다.';return}if(values.every(v=>Number.isFinite(v)&&v>=0&&v<=1)&&values[0]<values[2]&&values[1]<values[3]){annotation.box=values;commit();draw();help.textContent='영역 지정 완료 — 라벨 저장을 눌러주세요.'}else {fields[0].setCustomValidity('좌표 순서와 범위를 확인하세요.');help.textContent='좌상단보다 우하단이 커야 하며 0~100% 범위여야 합니다.'}};
+  });
+  photo.onclick=event=>{const rect=img.getBoundingClientRect(),point=[Math.max(0,Math.min(1,(event.clientX-rect.left)/rect.width)),Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height))];if(pointEditor.enabled()&&!geometryClickActive(side)){pointEditor.add(...point);return}if(!first){first=point;help.textContent='이제 우하단을 클릭하세요.';return}if(point[0]<=first[0]||point[1]<=first[1]){first=null;help.textContent='좌상단부터 다시 지정하세요.';return}annotation.box=[...first,...point];first=null;commit();draw();help.textContent='영역 지정 완료 — 라벨 저장을 눌러주세요.'};
+  const reset=document.createElement('button');reset.type='button';reset.textContent=title+' 영역·위치 라벨 지우기';reset.onclick=()=>{annotation.box=null;delete annotation.defect_points;delete annotation.visibility_points;annotation.glare_areas=[];annotation.region_labels={};first=null;fields.forEach(f=>f.setCustomValidity(''));commit();renderSides()};coordinates.append(reset);
+  const advanced=document.createElement('details'),advancedTitle=document.createElement('summary');advancedTitle.textContent='면별 라벨·촬영 제한 추가 관리';advanced.append(advancedTitle);section.append(advanced);
+  for(const [key,name] of Object.entries(titles)){const label=document.createElement('label'),select=document.createElement('select');select.dataset.regionControl='1';select.id='side-'+side+'-'+key;label.append(document.createTextNode(title+' '+(key==='gradable'?'이 면 평가 가능 여부':name)),select);options(select,[['','미확인'],['1',key==='gradable'?'평가 가능':'결함 관찰됨'],['0',key==='gradable'?'평가 불가':'충분히 확인했으며 결함 없음']],annotation.labels[key]);select.onchange=()=>{annotation.labels[key]=select.value===''?null:Number(select.value);commit();pointEditor.refresh()};if(key==='centering_defect'){section.insertBefore(label,$('points-'+side));options(select,[['','센터링 미확인'],['0','센터링 정상'],['1','센터링 불균형']],annotation.labels[key])}else advanced.append(label)}
+  const issueTitle=document.createElement('p');issueTitle.textContent=title+' 관찰 제한 사유 (복수 선택)';advanced.append(issueTitle);
+  for(const [key,name] of Object.entries(visibilityIssues)){const label=document.createElement('label'),input=document.createElement('input');label.className='check';input.type='checkbox';input.dataset.regionControl='1';input.checked=annotation.visibility_issues.includes(key);input.onchange=()=>{annotation.visibility_issues=Object.keys(visibilityIssues).filter(issue=>issue===key?input.checked:annotation.visibility_issues.includes(issue));if(!input.checked)annotation.visibility_points=(annotation.visibility_points||[]).filter(p=>p.issue!==key);if(key==='glare'&&!input.checked)annotation.glare_areas=[];commit();draw()};label.append(input,document.createTextNode(name));advanced.append(label)}
+  const areaTitle=document.createElement('p');areaTitle.textContent=title+' 빛 반사로 확인 어려운 위치 (선택 사항 · 복수 선택)';advanced.append(areaTitle);
+  for(const [key,name] of Object.entries(glareAreas)){const label=document.createElement('label'),input=document.createElement('input');label.className='check';input.type='checkbox';input.value=key;input.dataset.regionControl='1';input.checked=annotation.glare_areas.includes(key);input.onchange=()=>{annotation.glare_areas=Object.keys(glareAreas).filter(area=>area===key?input.checked:annotation.glare_areas.includes(area));commit()};glareInputs.push(input);label.append(input,document.createTextNode(name));advanced.append(label)}
+  const regionDetails=document.createElement('details'),summary=document.createElement('summary');regionDetails.id='regions-'+side;regionDetails.tabIndex=-1;summary.textContent=title+' 구역별 결함 위치 (선택 사항)';regionDetails.append(summary);section.append(regionDetails);
+  const regionHelp=document.createElement('p');regionHelp.textContent='카드 영역을 가로·세로 3등분한 위치입니다. 반사로 안 보이는 항목은 미확인으로 남기세요. 실제 관찰한 결함만 1로 표시하고 해당 면의 같은 결함도 관찰됨으로 확인하세요. 영역을 다시 지정하면 위치 라벨을 재확인하세요.';regionDetails.append(regionHelp);
+  const normalEdges=document.createElement('button');normalEdges.type='button';normalEdges.textContent=title+' 테두리 전체를 확인했으며 엣지 8구역 정상으로 입력';normalEdges.onclick=()=>{if(!window.confirm('바깥 테두리 전체를 충분히 확인했고 정상인가요? 엣지 8구역만 정상으로 입력합니다. 라벨 저장은 별도로 눌러주세요.'))return;if(!confirmNormalEdges(annotation)){$('status').textContent='카드 영역을 지정하고 이 면의 엣지를 결함 없음으로 선택하세요. 관찰 제한이나 엣지 결함 기록이 있으면 구역별로 직접 확인하세요.';return}commit();renderSides();$('status').textContent=title+' 엣지 8구역 정상 입력 완료 · 라벨 저장을 눌러주세요.'};regionDetails.append(normalEdges);
+  for(const [area,name] of Object.entries(glareAreas)){
+   const group=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent=name;group.append(legend);regionDetails.append(group);
+   for(const key of ['corner_defect','edge_defect','surface_defect']){
+    const label=document.createElement('label'),select=document.createElement('select');select.dataset.regionControl='1';select.id='region-'+side+'-'+area+'-'+key;label.append(document.createTextNode(titles[key]),select);group.append(label);
+    const applicable=key==='surface_defect'||(key==='edge_defect'?area!=='center':['upper_left','upper_right','lower_left','lower_right'].includes(area));if(!applicable)select.dataset.notApplicable='1';
+    options(select,[['','미확인'],['1','이 구역에서 결함 관찰됨'],['0','이 구역을 충분히 확인했으며 결함 없음']],annotation.region_labels[area]?.[key]);regionSelects.push(select);
+    select.onchange=()=>{annotation.region_labels[area]??={corner_defect:null,edge_defect:null,surface_defect:null};annotation.region_labels[area][key]=select.value===''?null:Number(select.value);if(Object.values(annotation.region_labels[area]).every(v=>v===null))delete annotation.region_labels[area];commit()};
+   }
+  }guideToggle.onchange=draw;draw();
+ }
+}
+
+function clearFieldErrors(){
+ document.querySelectorAll('[aria-invalid="true"]').forEach(el=>{el.removeAttribute('aria-invalid');el.removeAttribute('aria-describedby')});
+ document.querySelectorAll('#field-error-message').forEach(el=>el.remove());
+}
+function showFieldError(input,message,related=[]){
+ clearFieldErrors();for(let parent=input.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+ [input,...related].forEach(el=>el.setAttribute('aria-invalid','true'));
+ const note=document.createElement('p');note.className='field-error';note.id='field-error-message';note.textContent=message;input.closest('label').append(note);input.setAttribute('aria-describedby',note.id);
+ $('error').textContent=message;$('status').textContent='저장 실패: '+message;
+ input.focus({preventScroll:true});input.scrollIntoView({block:'center',behavior:'instant'});
+}
+function regionValidationIssue(rows){
+ for(let index=0;index<rows.length;index++)for(const [side,a] of Object.entries(rows[index].side_annotations||{})){
+  const regions=a.region_labels||{},hasRegions=Object.keys(regions).length>0;
+  if((a.visibility_points||[]).some(p=>!pointInsideCard(a.box,p.x,p.y)))return {index,field:'box-'+side+'-0',related:[],message:rows[index].id+': 촬영 제한 지점이 카드 영역 밖에 있습니다. 영역이나 표시한 위치를 확인하세요.'};
+  if(!a.box&&(hasRegions||a.glare_areas?.length))return {index,field:'box-'+side+'-0',related:[],message:rows[index].id+' · '+(side==='front'?'앞면':'뒷면')+': 위치 라벨을 저장하려면 카드 영역을 먼저 지정하세요.'};
+  for(const [area,labels] of Object.entries(regions))for(const [key,value] of Object.entries(labels))if(value===1&&a.labels[key]!==1)return {index,field:'side-'+side+'-'+key,related:['region-'+side+'-'+area+'-'+key],message:rows[index].id+' · '+(side==='front'?'앞면':'뒷면')+' '+glareAreas[area]+'의 '+titles[key]+'이 관찰됨인데 해당 면은 미확인 또는 결함 없음입니다. 실제 관찰했다면 면별 항목도 관찰됨으로, 확인이 어렵다면 구역별 항목을 미확인으로 수정하세요.'};
+ }
+ return null;
+}
+
+function nextRegionTask(rows,current){
+ for(let offset=1;offset<=rows.length;offset++){
+  const index=(current+offset)%rows.length,row=rows[index];
+  if(row.excluded||!['train','val'].includes(row.split))continue;
+  for(const side of ['front','back']){
+   const a=row.side_annotations?.[side];if(!a||!row[side])continue;
+   for(const key of ['corner_defect','edge_defect','surface_defect'])if(a.labels[key]===1&&!Object.values(a.region_labels||{}).some(labels=>labels[key]===1)&&!(a.defect_points||[]).some(p=>p.label===key&&pointInsideCard(a.box,p.x,p.y)))return {index,side,key};
+  }
+ }
+ return null;
+}
+function normalRegionKeys(row,side){
+ const a=row.side_annotations?.[side];if(row.excluded||row.split!=='train'||!a||!row[side])return [];
+ return ['corner_defect','edge_defect','surface_defect'].filter(key=>a.labels[key]===0&&!Object.values(a.region_labels||{}).some(labels=>labels[key]===0)&&!Object.values(a.region_reviews||{}).some(keys=>keys.includes(key)));
+}
+function requestedRegionTarget(rows,params){
+ const index=rows.findIndex(row=>row.id===params.card),row=rows[index],a=row?.side_annotations?.[params.side];
+ if(!row||row.excluded||row.split!=='train'||!['front','back'].includes(params.side)||!a?.box||!row[params.side]||params.image!==row[params.side]||!Object.hasOwn(glareAreas,params.area)||!['corner_defect','edge_defect','surface_defect'].includes(params.label))return null;
+ if(a.labels.gradable!==1||a.labels[params.label]!==0||Object.values(a.region_labels||{}).some(labels=>labels[params.label]===0)||a.region_labels?.[params.area]?.[params.label]!=null)return null;
+ if(params.label==='corner_defect'&&!['upper_left','upper_right','lower_left','lower_right'].includes(params.area)||params.label==='edge_defect'&&params.area==='center')return null;
+ if((a.visibility_issues||[]).some(issue=>issue!=='glare')||(a.visibility_issues||[]).includes('glare')&&(!(a.glare_areas||[]).length||a.glare_areas.includes(params.area)))return null;
+ return {index,side:params.side,area:params.area,key:params.label};
+}
+async function showRequestedRegion(target){
+ const input=$('region-'+target.side+'-'+target.area+'-'+target.key),row=state.rows[active],a=row.side_annotations[target.side];
+ for(let parent=input;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+ input.classList.add('review-target');
+ const source=$('side-editor').querySelector('#regions-'+target.side).closest('.side-block').querySelector('img');await source.decode();
+ const position=Object.keys(glareAreas).indexOf(target.area),x=position%3,y=Math.floor(position/3),w=(a.box[2]-a.box[0])/3,h=(a.box[3]-a.box[1])/3;
+ const preview=document.createElement('div'),img=document.createElement('img'),note=document.createElement('p');
+ note.textContent=row.id+' · '+(target.side==='front'?'앞면':'뒷면')+' · '+glareAreas[target.area]+' 확대 — '+titles[target.key]+'만 확인하세요.';
+ Object.assign(preview.style,{position:'relative',overflow:'hidden',width:'min(100%,280px)',aspectRatio:String(source.naturalWidth*w/(source.naturalHeight*h)),border:'2px solid #164bd8'});
+ img.src=source.src;img.alt=note.textContent;Object.assign(img.style,{position:'absolute',maxWidth:'none',width:100/w+'%',left:-(a.box[0]+x*w)/w*100+'%',top:-(a.box[1]+y*h)/h*100+'%'});preview.append(img);
+ input.parentElement.before(note,preview);await img.decode();input.focus({preventScroll:true});preview.scrollIntoView({block:'center',behavior:'instant'});
+ const doneLabel=document.createElement('label'),done=document.createElement('input');doneLabel.className='check';done.type='checkbox';done.dataset.regionControl='1';done.id='review-complete-'+target.side+'-'+target.area+'-'+target.key;done.checked=(a.region_reviews?.[target.area]||[]).includes(target.key);
+ done.onchange=()=>{a.region_reviews??={};const keys=new Set(a.region_reviews[target.area]||[]);if(done.checked)keys.add(target.key);else keys.delete(target.key);if(keys.size)a.region_reviews[target.area]=[...keys];else delete a.region_reviews[target.area];markDirty()};
+ doneLabel.append(done,document.createTextNode('이 항목 검토 완료 · 체크만 하면 정상으로 학습되지 않습니다. 정상·결함은 위 선택값으로 지정하고, 안 보이면 미확인으로 완료하세요.'));input.parentElement.after(doneLabel);
+ $('status').textContent='이번 확인: '+row.id+' · '+glareAreas[target.area]+' · '+titles[target.key]+'. 모델은 후보만 골랐습니다. 보이지 않으면 미확인으로 유지하세요.';
+}
+function buildNormalReviewRound(rows,current,limit=3){
+ const coverage=Object.fromEntries(['corner_defect','edge_defect','surface_defect'].map(key=>[key,new Set()]));
+ const sideCoverage=Object.fromEntries(['front','back'].map(side=>[side,Object.fromEntries(Object.keys(coverage).map(key=>[key,new Set()]))]));
+ for(const row of rows)if(!row.excluded&&row.split==='train')for(const [side,a] of Object.entries(row.side_annotations||{}))for(const key of Object.keys(coverage))if(Object.values(a.region_labels||{}).some(labels=>labels[key]===0)){coverage[key].add(row.group||row.id);sideCoverage[side][key].add(row.group||row.id)}
+ const candidates=[];
+ for(let offset=1;offset<=rows.length;offset++){
+  const row=rows[(current+offset)%rows.length];
+  for(const side of ['front','back']){
+   const keys=normalRegionKeys(row,side);if(!keys.length)continue;
+   candidates.push({id:row.id,group:row.group||row.id,side,image:row[side],keys,
+    priority:keys.reduce((sum,key)=>sum+(coverage[key].has(row.group||row.id)?0:1/(1+coverage[key].size))+(sideCoverage[side][key].has(row.group||row.id)?0:1/(1+sideCoverage[side][key].size)),0)});
+  }
+ }
+ candidates.sort((a,b)=>b.priority-a.priority);
+ const groups=new Set(),round=[];
+ for(const task of candidates)if(!groups.has(task.group)){groups.add(task.group);round.push(task);if(round.length===limit)break}
+ return round;
+}
+function nextNormalRegionTask(rows,current,round=null){
+ for(let offset=1;offset<=rows.length;offset++){
+  const index=(current+offset)%rows.length,row=rows[index];
+  for(const side of ['front','back']){
+   const planned=round?.find(task=>task.id===row.id&&task.group===(row.group||row.id)&&task.side===side&&task.image===row[side]);
+   if(round&&!planned)continue;
+   const keys=normalRegionKeys(row,side).filter(key=>!planned||planned.keys.includes(key));
+   if(keys.length)return {index,side,key:keys[0],keys};
+  }
+ }
+ return null;
+}
+async function advanceRegionReview(current=active){
+ const task=normalReview?nextNormalRegionTask(state.rows,current,normalRound):nextRegionTask(state.rows,current);
+ if(normalReview)normalTask=task;
+ if(!task){if(normalReview)$('normal-review').textContent='새 묶음 · 최대 3장 시작';$('status').textContent+=normalReview?' · 이번 보강 묶음이 끝났습니다. 여기서 멈추고 재학습 결과를 확인하세요. 건너뛴 항목은 미확인으로 유지됩니다.':' · 남은 결함 위치 확인 항목이 없습니다.';window.scrollTo({top:0,left:0,behavior:'instant'});return}
+ active=task.index;render();const panel=$('regions-'+task.side);panel.classList.add('review-target');
+ const note=document.createElement('p');note.className='review-task';note.textContent='이번 확인: '+state.rows[active].id+' · '+(task.side==='front'?'앞면':'뒷면')+' '+(normalReview?task.keys.map(key=>titles[key]).join(' / '):titles[task.key])+(normalReview?' — 이번 묶음은 서로 다른 카드 최대 '+normalRoundSize+'장입니다. 충분히 보이는 구역의 항목만 결함 없음으로 저장하세요. 모든 칸을 채울 필요는 없습니다. 반사·흐림·가림은 미확인 유지. 실제 결함은 사람 판단대로 기록하세요. 확인이 어려우면 이번 카드 넘기기를 누르세요. 후보는 면별 라벨 기준이며 정상임을 보증하지 않습니다.':' 위치. 실제 보이는 구역의 해당 항목을 관찰됨으로 지정하세요. 확인이 어렵다면 면별 라벨을 재확인하세요.');panel.insertBefore(note,panel.children[1]);
+ for(let parent=panel;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+ await Promise.all([...$('workspace').querySelectorAll('img')].map(img=>img.decode().catch(()=>{})));
+ panel.focus({preventScroll:true});panel.scrollIntoView({block:'start',behavior:'instant'});
+ if(normalReview){const remaining=normalRound.filter(planned=>nextNormalRegionTask(state.rows,-1,[planned])).length;$('status').textContent='이번 묶음 남은 후보 '+remaining+'/'+normalRoundSize+'장 · '+state.rows[active].id+' '+(task.side==='front'?'앞면':'뒷면')}else $('status').textContent+=' · 다음 확인: '+state.rows[active].id+' '+(task.side==='front'?'앞면':'뒷면')+' '+titles[task.key];
+}
+
+let geometryRound=null,geometryCurrent=null;
+function geometryClickActive(side){const params=new URLSearchParams(window.location.search);return geometryCurrent?.side===side&&geometryCurrent.card===state.rows[active]?.id||params.get('geometry')===side&&params.get('card')===state.rows[active]?.id}
+function invalidateBoxReview(annotation){delete annotation.region_reviews;annotation.box_reviewed=false}
+function geometryTargetMatches(row,params){return !!row&&['front','back'].includes(params.geometry)&&!!row[params.geometry]&&(params.image===undefined||params.image===row[params.geometry])}
+function geometryTasks(rows,requested=null,side=null){if(requested&&requested.split!=='train'){const a=requested.side_annotations?.[side];return ['front','back'].includes(side)&&requested[side]&&a&&a.box_reviewed!==true&&!requested.excluded?[{card:requested.id,side,image:requested[side]}]:[]}const tasks=[],groups=new Set();for(const row of rows){if(row.split!=='train'||row.excluded)continue;for(const side of ['front','back']){const a=row.side_annotations?.[side];if(!a||a.box_reviewed===true||(JSON.stringify(a.box)!=='[0,0,1,1]'&&a.box_reviewed!==false)||!(a.visibility_issues||[]).length||Object.keys(a.region_labels||{}).length)continue;if(!groups.has(row.group)&&groups.size===3)continue;groups.add(row.group);tasks.push({card:row.id,side,image:row[side]})}}return tasks}
+function geometryConfirmationIssue(rows,task,index){const row=rows[index];return task&&row.id===task.card&&row[task.side]===task.image&&row.side_annotations?.[task.side]?.box_reviewed!==true?'box-reviewed-'+task.side:null}
+function enablePointInput(side){
+ const params=new URLSearchParams(window.location.search);params.delete('geometry');params.set('points',side);
+ geometryCurrent=null;geometryRound=null;history.replaceState(null,'','?'+params);render();
+ const panel=$('points-'+side);if(panel){panel.open=true;panel.scrollIntoView({block:'start',behavior:'instant'})}
+ $('status').textContent='결함 표시 모드 — 종류를 선택한 뒤 사진을 클릭하세요. 카드 영역 확인은 자동 처리하지 않습니다. 영역도 확인한 뒤 저장하세요.';
+}
+async function advanceGeometryReview(){const task=geometryRound.find(t=>{const row=state.rows.find(r=>r.id===t.card);return row?.[t.side]===t.image&&row.side_annotations?.[t.side]?.box_reviewed!==true});if(!task){const params=new URLSearchParams(window.location.search),side=geometryCurrent?.side||params.get('geometry');geometryCurrent=null;geometryRound=null;params.delete('geometry');if(['front','back'].includes(side))params.set('points',side);history.replaceState(null,'','?'+params);render();const panel=$('points-'+side);if(panel){panel.open=true;panel.scrollIntoView({block:'start',behavior:'instant'})}$('status').textContent='카드 영역 확인 완료 — 이제 사진 클릭으로 결함 위치를 표시할 수 있습니다.';return}geometryCurrent=task;active=state.rows.findIndex(r=>r.id===task.card);render();const input=$('box-reviewed-'+task.side),section=input.closest('.side-block');for(let p=section;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;await Promise.all([...section.querySelectorAll('img')].map(i=>i.decode().catch(()=>{})));section.scrollIntoView({block:'start',behavior:'instant'});$('status').textContent='카드 영역만 확인: '+task.card+' '+(task.side==='front'?'앞면':'뒷면')+' · 네 모서리를 포함하는 좌상단→우하단 클릭 후 확인 체크·저장. 기존 결함/관찰 사유는 유지하세요.'}
+async function request(path,payload){const res=await fetch(path,payload?{method:'POST',headers:{'Content-Type':'application/json','X-Review-Token':state.token},body:JSON.stringify(payload)}:{});const data=await res.json();if(!res.ok)throw new Error(data.error||'요청 실패');return data}
+$('form').addEventListener('change',changed);$('form').addEventListener('input',changed);
+$('normal-review').onclick=async()=>{if(busy||dirty)return;let current=active;if(normalReview&&normalTask){const row=state.rows[active];normalRound=normalRound.filter(task=>task.id!==row.id)}else{normalRound=buildNormalReviewRound(state.rows,active-1);normalRoundSize=normalRound.length;current=normalRound.length?state.rows.findIndex(row=>row.id===normalRound[0].id)-1:active}normalReview=true;busy=true;buttons();$('normal-review').textContent='이번 카드 넘기기';try{await advanceRegionReview(current)}finally{busy=false;buttons()}};
+$('save').onclick=async()=>{clearFieldErrors();if(geometryRound){const missing=geometryConfirmationIssue(state.rows,geometryCurrent,active);if(missing){showFieldError($(missing),'카드 영역을 확인한 뒤 이 체크를 선택하고 저장하세요.');return}}for(const input of $('side-editor').querySelectorAll('input'))if(!input.checkValidity()){showFieldError(input,input.validationMessage);return}const issue=regionValidationIssue(state.rows);if(issue){if(active!==issue.index){active=issue.index;render()}showFieldError($(issue.field),issue.message,issue.related.map(id=>$(id)));return}busy=true;buttons();$('error').textContent='';try{state=await request('/api/save',{revision:state.revision,rows:state.rows});dirty=false;render();$('status').textContent='저장 완료 · 수정 전 파일은 백업되었습니다.';if(geometryRound)await advanceGeometryReview();else if(normalReview||requestedRegionTarget(state.rows,Object.fromEntries(new URLSearchParams(window.location.search))))await advanceRegionReview();else window.scrollTo({top:0,left:0,behavior:'instant'})}catch(e){$('error').textContent=e.message;$('status').textContent='저장 실패: '+e.message}finally{busy=false;buttons()}};
+$('export').onclick=async()=>{busy=true;buttons();$('error').textContent='';try{const r=await request('/api/export',{revision:state.revision});$('status').textContent='내보내기 완료: '+r.output+(r.readiness.ready_for_training?'':' · 학습 전 데이터 보완 필요')}catch(e){$('error').textContent=e.message}finally{busy=false;buttons()}};
+window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+request('/api/review').then(async data=>{state=data;const params=Object.fromEntries(new URLSearchParams(window.location.search)),target=requestedRegionTarget(state.rows,params);const selected=state.rows.findIndex(row=>row.id===params.card);if(selected>=0)active=selected;if(target)active=target.index;render();$('status').textContent='사람이 확인한 내용만 저장하세요.';if(selected>=0&&geometryTargetMatches(state.rows[active],params)){geometryRound=geometryTasks(state.rows,state.rows[active],params.geometry);const first=geometryRound.findIndex(t=>t.card===params.card&&t.side===params.geometry);if(first>=0)geometryRound=[...geometryRound.slice(first),...geometryRound.slice(0,first)];await advanceGeometryReview()}if(target)await showRequestedRegion(target);if(['front','back'].includes(params.points)&&params.image===state.rows[active][params.points]){const panel=$('points-'+params.points);if(panel){for(let parent=panel;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;panel.scrollIntoView({block:'start',behavior:'instant'})}}}).catch(e=>{$('error').textContent=e.message});
+</script></html>

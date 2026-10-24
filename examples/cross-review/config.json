@@ -1,0 +1,11 @@
+{
+  "model": "gemini-3.5-flash-lite",
+  "max_calls": 2,
+  "input_budget": 16000,
+  "output_budget": 2048,
+  "total_budget": 18048,
+  "max_output_tokens": 1024,
+  "seconds": 180,
+  "free_tier_verification": null,
+  "thinking_level": "minimal"
+}

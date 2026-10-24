@@ -1,0 +1,2 @@
+{"id":"listing-001","group":"physical-card-001","split":"train","front":"data/001-front.jpg","back":"data/001-back.jpg","labels":{"gradable":1,"centering_defect":0,"corner_defect":1,"edge_defect":1,"surface_defect":null}}
+{"id":"listing-002","group":"physical-card-002","split":"val","front":"data/002-front.jpg","back":null,"labels":{"gradable":0,"centering_defect":null,"corner_defect":null,"edge_defect":null,"surface_defect":null}}
