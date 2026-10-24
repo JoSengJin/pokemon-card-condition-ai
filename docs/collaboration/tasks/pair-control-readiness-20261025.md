@@ -2,7 +2,7 @@
 
 - task_id: `pair-control-readiness-20261025`
 - owner: Claude
-- status: implementing
+- status: ready_for_review
 - base_sha: `4194bf54d3af8901741cabc653e8f58a0cea068b` (시작 시 HEAD, 미커밋 변경 없음 확인)
 - branch: `claude/pair-control`
 - worktree: 로컬 경로는 세션에서만 전달한다.
@@ -48,4 +48,8 @@ mock 관제 도구를 실제 프로젝트의 작업 배정·검증·통합에 �
 
 ## 결과
 
-(인계 시 갱신)
+- 구현 커밋: `145bba9` → `b568bcb` → `69b7f7f` → `16224c5` → `ed68b89` → `7226656` → `67d38f3` → `c152ace`, 이후 인계 기록 커밋. 전체 SHA·부모는 보고서 참조.
+- 검사: `npm run typecheck` 오류 없음, `npm test` 31/31 통과(Node 24.21.0), `git diff --check` 통과, 변경 파일 전부 allowed_files 안.
+- 브라우저: 데모 저장소에서 준비→계약 커밋→실행→Git 검사→작업 테스트→fake 리뷰→승인→통합 흐름과 환경 미준비 차단 확인.
+- 미검증: 실제 Codex/Claude 실행·리뷰, CLI 옵션 값, 실제 저장소 적용. 상세는 `docs/collaboration/reports/pair-control-readiness-20261025.md`.
+- 인계 직후 작업 트리: 깨끗함(`git status --short` 출력 없음).
