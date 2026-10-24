@@ -2,7 +2,7 @@
 
 - task_id: `cross-review-auto-split-20261025`
 - owner: Codex
-- status: ready_for_review
+- status: integrated
 - base_sha: `b4d3ddd`
 - branch: `codex/cross-review-auto-split-20261025`
 - worktree: session-local managed worktree
@@ -23,3 +23,5 @@
 - 저장된 `978cc047dc49`의 correction payload digest `01e63b4f631387af`를 mock backend로 재구성한 Codex preflight는 31,809/32,000 bytes였다. 실제 Codex 응답은 검증하지 않았다. 여유 191 bytes로 여전히 작다.
 - 실제 Codex·Gemini·NVIDIA 호출, 학습, 사진 추론 없음. 성능 변화 미측정.
 - 위험: 새 모듈이 격리 worker에 함께 있어야 하는 import 경계, 좁은 입력 크기 여유, 기존 저장 `stopped` 응답의 재사용. rollback: 통합 커밋을 `./develop -- git revert <SHA>`로 되돌리고, 사용자 미커밋 문서는 보존한다.
+
+- 2026-10-25 Codex main 통합: worker-only `68b9c84`, 모듈 분리 `0c35167`; 전체 739개 회귀 통과. 실제 AI 호출·모델 학습 없음.

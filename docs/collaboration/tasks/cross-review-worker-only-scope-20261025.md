@@ -2,7 +2,7 @@
 
 - task_id: `cross-review-worker-only-scope-20261025`
 - owner: Claude
-- status: ready_for_review
+- status: integrated
 - base_sha: `aa3e745` (main, 시작 시점)
 - branch: `claude/cross-review-worker-only-scope-20261025`
 - worktree: 세션 전달 메시지에서만 로컬 경로 제공
@@ -87,3 +87,5 @@
 ### 롤백
 
 미통합이면 브랜치 폐기, 통합 후면 `./develop -- git revert <SHA>`.
+
+- 2026-10-25 Codex main 통합: worker-only `68b9c84`, 모듈 분리 `0c35167`; 전체 739개 회귀 통과. 실제 AI 호출·모델 학습 없음.
