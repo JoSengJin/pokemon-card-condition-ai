@@ -2,7 +2,7 @@
 
 - task_id: `evidence-snapshot-preparation-batch-20261025`
 - owner: Claude
-- status: implementing
+- status: ready_for_review
 - base_sha: `1a6fa8f5cf1a120c8b7cdd30abdf6041676a50c6`
 - branch: `claude/evidence-snapshot-preparation-batch-20261025`
 - worktree: 로컬 경로와 dispatch SHA는 Codex 메시지에서 제공
@@ -91,3 +91,42 @@ git diff --check
 학습/사진 추론/외부 AI/Codex CLI/review --auto/라벨 변경/완료 라벨 재질문/모델 다운로드/자동 수집/관제 UI/main merge/push 금지. 진척 30/100·배점 불변. 의미 결정에 막힌 항목만 기록하고 독립 단계를 계속한다. 6단계 완료 또는 실제 권한·컨텍스트 한계에서 체크포인트를 남긴다. 단계가 끝났다는 이유로 임의 기능을 추가하지 않는다.
 
 커밋은 feat/test/fix/docs(scope): 내용. 전체 git add . 금지. 롤백은 미통합 또는 전달 커밋 역순 revert이며 입력 데이터·모델 복구는 필요 없어야 한다. 파일 무결성 검사는 원본 진실성·독립성 검증이 아니다. hardlink/강제 종료/정적 경로 검사 한계를 그대로 밝힌다.
+
+## Claude 실행 결과
+
+2026-10-25, 배정 worktree에서 실행. 상세: `docs/collaboration/reports/evidence-snapshot-preparation-batch-20261025.md`.
+
+- 기준:
+  - 브랜치 `claude/evidence-snapshot-preparation-batch-20261025`, 시작 HEAD `acf1b6e57544ba4eb887a94738b6467bc89cdb06`.
+  - `merge-base --is-ancestor 1a6fa8f… HEAD` 종료코드 0.
+  - base 이후 Codex 변경은 prompt·task 문서뿐이었다.
+- 커밋 순서:
+  1. `437e5211394a4201f61d9d93d55e2d378623c112` docs: 계약
+  2. `012a05471a51187ba040986190c4036e9f6f79d3` feat: snapshot 감사
+  3. `1c12cc87e5650f2801616157dd936b085841429a` feat: not_reviewed 준비 API·CLI
+  4. `c1f9b6df6521bc14696f15f63a542105db672848` feat: snapshot CLI
+  5. `848f405f48e630101ed5a289f26a43ec77a1885f` test: end-to-end
+  6. `711bbf85424c26f82896b89e13907513ddb908e5` fix: 별칭 메시지·대소문자 회귀
+  7. `bae1a52e5719400cab901e856996ddd40cf1d4b4` fix: 중복 분기 정리·승격 시도 검사
+  8. 이 문서 커밋
+- 검사:
+  - 표준 검증 명령 → 86개 통과(신규 37, 기존 검증기 49), 종료코드 0.
+  - `compileall` 0, `git diff --check` 통과.
+  - mutation: 위험 분기 10개 중 7개가 처음부터 검출됐다. 살아남은 3개 중 2개는 중복 분기라 제거했고, 1개는 검사를 보강한 뒤 검출된다.
+- 실자료 smoke(최종 코드로 재실행):
+  - 59/59 무결성 통과, 6행 scaffold 모두 `not_reviewed`, 기존 검증기 수용. 사전 기대값과 차이 없음.
+  - 입력 60개 파일의 SHA·권한 불변.
+  - 출력은 Git 제외 경로 `runs/`에 있다.
+  - `side_claim` front 6개는 inventory 값의 복사이며 면 확인이 아니다.
+- 기존 검증기 반례(보류):
+  - 대소문자를 구분하지 않는 파일 시스템에서 origin을 대소문자만 바꿔 적으면 origin이 2개로 수용된다.
+  - 최소 제안: origin·캐시 키를 inode로 바꾼다. 기존 파일은 변경하지 않았다.
+- 미실행:
+  - 기존 ML 의존 테스트 55개(torch 없음, Codex 통합 후)
+  - 학습·추론·사진 열람·외부 AI
+- 리스크:
+  - 무결성 통과는 진실성·완전성·독립성 증명이 아니다.
+  - TOCTOU는 막지 않는다.
+  - hardlink 미지원 파일 시스템에서는 저장이 실패한다.
+  - 강제 종료 시 임시 파일이 남을 수 있다.
+- 롤백: 미통합이면 반영하지 않는다. 통합 후에는 역순으로 revert한다. 신규 파일만 추가했고 데이터·모델·진척률 30/100은 그대로다.
