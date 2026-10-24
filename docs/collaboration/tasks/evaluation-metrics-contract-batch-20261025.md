@@ -2,7 +2,7 @@
 
 - task_id: evaluation-metrics-contract-batch-20261025
 - owner: Claude
-- status: implementing
+- status: ready_for_review
 - base_sha: aa3e74583f8d2213b9dbad8f664c0a1ce0f8f703
 - branch: claude/evaluation-metrics-contract-batch-20261025
 - worktree/dispatch: Codex 전달 메시지 참조
@@ -82,3 +82,31 @@ git diff --check
 ## 금지·종료·롤백
 
 모델 학습·추론·실제 평가·외부 AI/Codex CLI/review --auto·test split 실자료 열람·사람 라벨 변경·Mastra 작업·main merge/push 금지. 기존 30/100과 배점·품질기준 불변. 의미 결정을 요구하는 항목만 보류하고 남은 독립 단계를 계속한다. 6단계 완료 또는 실제 권한/컨텍스트 한계에서 체크포인트를 남긴다. 롤백은 미통합 또는 전달 커밋 역순 revert이며 모델·라벨 복구가 필요 없어야 한다.
+
+## Claude 실행 결과
+
+2026-10-25, 배정 worktree에서 실행. 상세: `docs/collaboration/reports/evaluation-metrics-contract-batch-20261025.md`.
+
+- 기준:
+  - 브랜치 `claude/evaluation-metrics-contract-batch-20261025`, 시작 HEAD `024e64fad3bc397eeae80a294f2d63a916e78a57`.
+  - `merge-base --is-ancestor aa3e745… HEAD` 종료코드 0.
+  - base 이후 Codex 변경은 prompt·task 문서뿐이었다.
+- 커밋 순서:
+  1. `383d13dfa1484a7dad2168e73687ce10a041362e` docs: 입력 경계·손계산·구조
+  2. `247b7a9662c686784a5375044b54313cf3900415` test: 분모·paired
+  3. `66b2c3e8abbb89428d24c9748ed72f2331a216df` test: 순위·보류
+  4. `65c394c227877ff2a18c94988f3e93575af47a21` test: 전수·변환
+  5. `085a498c08aba52504fa9fd454a45b5cc0aa881f` test: 실물별 경계 대조 보강
+  6. 이 문서 커밋
+- 결론: 재현된 소스 결함 없음. 세 소스 diff 0, 회귀 검사만 추가했다.
+- 검사:
+  - 지정 명령 → 34개 통과(기존 13, 신규 21), 종료코드 0.
+  - `compileall` 0, `git diff --check` 통과.
+  - 작은 전수 1,818개 cohort, 약 0.2초.
+  - mutation 13개 중 12개가 처음부터 검출됐다. 나머지 1개는 검사 빈틈이었고, 보강한 뒤 검출된다.
+- 구조 제한: 소스 함수 수 2/3/2(전후 동일), 신규 테스트 5/7/7/6. 최대 호출 전이는 소스 2, 테스트 경로 3.
+- 미검증:
+  - 기존 ML 의존 통합 검사(Codex 몫)
+  - upstream 전제 밖 입력(NaN 확률·필드 누락·혼합 ID 타입): 오류 종류를 바꾸지 않고 전제로 기록
+- 리스크: 합성 검증이며 실제 성능을 말하지 않는다. AP는 비보간·동점 묶음 정의다.
+- 롤백: 미통합이면 반영하지 않는다. 통합 후에는 역순으로 revert한다. 모델·라벨 복구는 필요 없고 진척률 30/100은 그대로다.

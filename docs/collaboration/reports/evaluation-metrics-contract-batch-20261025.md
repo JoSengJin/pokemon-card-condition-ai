@@ -110,4 +110,111 @@ task `evaluation-metrics-contract-batch-20261025`. 기준은 base `aa3e74583f8d2
 
 ## 2–6단계 결과
 
-(단계별 커밋 후 기록한다.)
+### 커밋 순서
+
+| 단계 | 커밋 | 내용 |
+|---|---|---|
+| 1 | `383d13dfa1484a7dad2168e73687ce10a041362e` | 이 보고서 1절: 입력 경계·손계산 기준·구조 제한(전) 고정, task status `implementing` |
+| 2 | `247b7a9662c686784a5375044b54313cf3900415` | `tests/test_metric_denominator_contract.py`, `tests/test_paired_population_contract.py` |
+| 3 | `66b2c3e8abbb89428d24c9748ed72f2331a216df` | `tests/test_ranking_abstention_contract.py` |
+| 4 | `65c394c227877ff2a18c94988f3e93575af47a21` | `tests/test_metric_metamorphic_contract.py` |
+| 5 | `085a498c08aba52504fa9fd454a45b5cc0aa881f` | mutation 대조로 드러난 검사 빈틈 보강(보류 경계에 실물별 집계 대조) |
+| 6 | 이 문서 커밋 | 최종 보고·task 기록, status `ready_for_review` |
+
+**결론: 재현된 소스 결함은 없다.** 세 소스(`quality_rates.py`, `regression_audit.py`, `score_diagnostics.py`)는 base 대비 diff가 0이다. 계약에 따라 회귀 검사만 남겼다.
+
+### 사례별 검사 대응
+
+| 계약 항목 | 검사(파일::이름) | 결과 |
+|---|---|---|
+| 클래스별 분모, 분모 0 → None | denominator::`test_each_class_has_its_own_denominator_and_zero_is_none` | 통과 |
+| 같은 분모의 %p, 함께 개선·악화, accuracy만 개선, 변화 없음 | denominator::`test_percentage_points_on_identical_denominators` | 통과 |
+| 한 종류만 평가 가능하면 jointly false | denominator::`test_one_class_change_is_not_a_joint_improvement` | 통과 |
+| 비율이 같아도 분모가 다르면 거절 | denominator::`test_equal_rates_on_other_denominators_are_refused` | 통과 |
+| 잘못된 counts 거절 | denominator::`test_malformed_counts_are_rejected` | 통과 |
+| 행별 전이(새 누락·새 오탐·회복) | paired::`test_transitions_are_counted_per_row` | 통과 |
+| aggregate / informative / no_new_errors 구분 | paired::`test_improvement_flags_have_different_meanings` | 통과 |
+| 행 순서 불변(ID 정렬) | paired::`test_row_order_does_not_change_the_result` | 통과 |
+| group·side·split·image_sha256·card_box·box 변경, ID 누락·추가·교체·중복, 길이 불일치 거절 | paired::`test_changed_population_or_evidence_is_refused` | 통과 |
+| unknown이 정상 0이 되지 않음, 양쪽 unknown은 전체 거절 | paired::`test_unknown_truth_never_becomes_normal` | 통과 |
+| 유효 입력 손계산 | paired::`test_valid_paired_input_is_counted_by_hand` | 통과 |
+| AUROC·AP 손계산 6사례 × 행 순서 3가지, 독립 쌍별 계산 | ranking::`test_auroc_and_ap_match_hand_calculation` | 통과 |
+| 한 종류·unknown만·빈 자료 → None | ranking::`test_single_class_or_unknown_only_sets_report_none` | 통과 |
+| 5개 `(low, high)`의 반열린 경계와 실물별 집계 일치 | ranking::`test_each_trial_uses_half_open_boundaries` | 통과 |
+| `.5/.5` = raw 0.5 판정 | ranking::`test_raw_half_trial_agrees_with_rates_at_05` | 통과 |
+| micro 위험·실물 평균·accepted_groups·전부 보류된 실물·unknown만 있는 실물 | ranking::`test_micro_risk_card_mean_and_deferred_cards_are_distinct` | 통과 |
+| 작은 전수: AUROC = 쌍별 계산(동점 포함), 동점 없는 AP = 순위별 precision 평균 | metamorphic::`test_exhaustive_auroc_and_untied_ap_match_independent_formulas` | 통과 |
+| 행 순열 불변(지표·보류·paired 전이) | metamorphic::`test_row_permutations_change_nothing` | 통과 |
+| cohort 복제: 개수는 2배, 비율·순위·위험은 불변 | metamorphic::`test_duplicated_cohort_doubles_counts_but_keeps_rates` | 통과 |
+| before = after → 새 오류 0, %p 0, 개선 아님 | metamorphic::`test_identical_runs_report_no_change` | 통과 |
+| 0.5 경계를 넘으면 혼동행렬 한 칸만 이동 | metamorphic::`test_crossing_the_threshold_moves_exactly_one_confusion_cell` | 통과 |
+
+손계산 기대값은 1절 표에서 가져왔다. 기대값을 구현 함수로 다시 만들지 않았다.
+- 독립 비교: AUROC는 쌍별 승·무·패 계산, 동점 없는 AP는 순위별 precision 평균 공식이다.
+- 복제 검사는 순수 집계(`score_diagnostics`, `error_rates`)에만 적용했다. `compare_runs`의 중복 ID 거절과 섞지 않았다.
+- 작성 중 제 손계산 실수(전이 표 혼동행렬의 tn·fn) 1건을 실행 전에 바로잡았다. 코드 결함이 아니다.
+
+### 작은 전수 범위와 시간
+
+- 동점 포함 cohort: 점수 `{.2, .5, .8}`, 2–4행, 두 정답 종류 포함. 18 + 162 + 1,134 = 1,314개.
+- 동점 없는 cohort: 점수 `{.1, .3, .6, .9}`의 순열, 2–4행. 24 + 144 + 336 = 504개.
+- 순열·복제 검사는 3행 cohort 162개 × 순열 6가지.
+- 무작위·대량 fuzz·새 라이브러리 없음. 시간 상한을 30초로 단언했으며, 실제 신규·기존 7모듈 전체가 약 0.22초다.
+
+### mutation 대조 (임시 복사본, 신규 4모듈만 실행)
+
+13개 변형 중 12개가 처음부터 검출됐다.
+- FNR 분모를 전체로 바꿈
+- 분모 동일 검사 제거
+- jointly 판정에 감소 조건 제거
+- 임계값을 `>`로 바꿈
+- 새 누락과 새 오탐을 서로 바꿈
+- side 비교 제거
+- ID 정렬 제거
+- AUROC를 사각형 적분으로 바꿈
+- AP precision 변형
+- 수용 조건을 `v <= low`로 바꿈
+- 실물 평균을 micro로 바꿈
+- unknown만 있는 실물을 zero_accepted로 셈
+
+`group_abstention`의 보류 구간을 `low < value < high`로 연 변형은 살아남았다. 새 경계 검사가 실물별 집계를 대조하지 않았기 때문이다. 기존 `test_score_diagnostics`는 이를 잡지만, 새 검사만으로는 빈틈이었다. 5단계(`085a498`)에서 실물별 대조를 추가했고, 이후 같은 변형이 실패 4건으로 검출된다. 이 보강은 소스 결함 수정이 아니다.
+
+### 구조 제한 (후)
+
+| 파일 | 함수 정의 수 (전 → 후) |
+|---|---|
+| card_condition/quality_rates.py | 2 → 2 (변경 없음) |
+| card_condition/regression_audit.py | 3 → 3 (변경 없음) |
+| card_condition/score_diagnostics.py | 2 → 2 (변경 없음) |
+| tests/test_metric_denominator_contract.py | 신규 5 |
+| tests/test_paired_population_contract.py | 신규 7 (`rows` 1 + 검사 6) |
+| tests/test_ranking_abstention_contract.py | 신규 7 (`prediction`, `pairwise_auc` + 검사 5) |
+| tests/test_metric_metamorphic_contract.py | 신규 6 (`cohorts` 1 + 검사 5) |
+
+- 모두 7개 이하이며 lambda는 없다.
+- 주요 호출 경로는 1절과 같다(최대 전이 2). 소스를 바꾸지 않았으므로 변화가 없다.
+- 신규 테스트의 경로: `test_metric_metamorphic_contract` → `test_ranking_abstention_contract.prediction/pairwise_auc`(1) → `score_diagnostics` → `group_abstention`·`error_rates`(최대 3). 제한 4 이내다.
+- 정적으로 미확인인 호출이나 순환은 없다.
+
+### 검사 결과
+
+- `PYTHONPATH=tests .venv/bin/python -m unittest test_quality_rates test_regression_audit test_score_diagnostics test_metric_denominator_contract test_paired_population_contract test_ranking_abstention_contract test_metric_metamorphic_contract -v` → 34개 통과, 종료코드 0.
+  - 기존 13개: 1 / 8 / 4
+  - 신규 21개: 5 / 6 / 5 / 5
+- `.venv/bin/python -m compileall -q card_condition/quality_rates.py card_condition/regression_audit.py card_condition/score_diagnostics.py` → 종료코드 0.
+- `git diff --check aa3e745… HEAD` → 통과.
+- base 이후 변경 파일: allowed_files 중 신규 테스트 4개와 문서 2개, 그리고 Codex 배정 커밋의 prompt 문서. 세 소스는 변경하지 않았다.
+- 가상환경: 이 worktree의 `.venv`. 세 모듈 import 시 torch·PIL이 로드되지 않는 것을 확인했다.
+
+### 미검증·리스크·롤백
+
+- 미검증:
+  - 기존 ML 의존 통합 검사(Codex 몫)
+  - 실제 평가 결과와 실자료(이번 범위 밖, 열람하지 않음)
+  - upstream 전제를 벗어난 입력: `score_diagnostics`의 NaN·범위 밖 확률, `compare_runs`의 필드 누락(`KeyError`), 정수·문자열이 섞인 ID(`TypeError`). 계약대로 오류 종류를 바꾸지 않고 전제로만 기록했다.
+- 보류·결정 필요: 없음.
+- 리스크:
+  - 합성 cohort 검증이며 실제 모델 성능이나 일반화를 말하지 않는다.
+  - AP는 동점 묶음을 한 단계로 처리하는 비보간 정의다. 다른 정의(보간 AP 등)와 수치가 다를 수 있다.
+  - micro 위험과 실물 평균 위험의 차이는 의도된 가중 차이이며 결함이 아니다.
+- 롤백: 미통합이면 반영하지 않는다. 통합 후에는 위 커밋을 역순으로 revert한다. 테스트·문서만 추가했으므로 모델·라벨 복구가 필요 없다. 진척률 30/100·배점·품질 기준은 그대로다.
