@@ -307,3 +307,28 @@ side-evidence: rejected: R11: search_scope.sha256 does not match the index file 
   - 강제 종료 시 `.<이름>.*.tmp` 임시 파일이 남을 수 있다.
   - 동시 파일 교체는 막지 않는다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 위 커밋을 역순으로 revert한다. 새 파일만 추가했으므로 기존 동작에는 영향이 없다. 실제 데이터·모델·진척률 30/100은 바뀌지 않는다.
+
+
+## 9. Codex 통합 검토
+
+전달 8개 커밋을 지정 순서로 cherry-pick -x했다. dispatch 7e61e15 이후의 변경은 허용 파일 7개이며, base 대비 추가 prompt는 Codex 배정 커밋에서 온 것이다. Claude worktree는 인계 HEAD에서 깨끗함을 확인했다. 실제 사용 경계는 표준 라이브러리의 선택 실행 검증기이며 기존 공용 CLI/모델 경로에는 연결하지 않았다.
+
+### 검토 중 재현·수정
+
+기존 cache는 realpath만 키로 사용했다. 같은 실제 파일을 both.json과 alias.jsonl symlink로 읽으면 JSON 파싱 결과가 JSONL 행 색인처럼 재사용됐다. 예를 들어 {"slot":{"statement":"synthetic"}}는 JSONL에 필수인 id가 없는데도 row_id=slot 참조로 수용됐다. 역순에서는 JSONL 내부 행 색인이 JSON 문서처럼 노출됐다.
+
+회귀 검사 test_alias_cannot_reuse_json_cache_as_jsonl가 수정 전에 실패했음을 cache-before.log로 보존했다. 파일 cache에 읽은 형식을 함께 기록해, 동일 realpath에 다른 형식을 적용하면 J로 거절한다. 하나의 파일에 동일 형식의 별칭을 쓰는 기존 지원은 유지한다. 수정 커밋은 바로 앞 fix(side-evidence) 커밋이다.
+
+### 실행 검증
+
+- 최초 main 통합: 신규 48 + 기존 55 = 103 tests 통과.
+- 캐시 우회 수정 후: 신규 49 + 기존 55 = 104 tests 통과. 신규 회귀는 JSON→JSONL/JSONL→JSON 양방향을 검사한다.
+- compileall, git diff --check 통과. Claude의 mutation 14개 실행은 이번에 재수행하지 않았으며 자체 재검증 수치로 사용하지 않는다.
+- 실제 supplemental inventory의 latest_supplements 6행에 not_reviewed만 기록한 로컬 임시 sidecar로 독립 CLI 실행 성공. side/image SHA/행 결합을 확인했지만 사람 면 증거를 추가하지 않았다.
+- 기존 snapshot index의 바이트 동일 복사본을 search_scope로 검사했다. index SHA 대조만 실행했으며 snapshot 본문/source/origin의 실제 의미/참조를 확인한 것은 아니다. 실제 source/origin claim 검사 0개, snapshot payload 파일 검사 0개. 검색 완전성은 미확인이다.
+- 실제 inventory와 원래 snapshot index 바이트 SHA 불변. development/live data-coverage JSON 전체도 이전 기준과 동일하다.
+- 근거: artifacts/side-evidence-batch-integration-20261025/{tests-before.log,cache-before.log,tests-after.log,verification.json,inventory-smoke-report.json}.
+
+원본 자료·사람 정답·면·수량·모델·공용 CLI 변경 없음. 학습·추론·외부 AI 호출 0회. 진척률 usable-card-analysis-v1.0 30/100 유지. 선택 실행 도구로 통합한 것이며 A3 판정 연결·primary 편입·면 확정은 아니다. 미해결 정책과 TOCTOU/강제 종료/hardlink 한계는 보존한다.
+
+롤백은 검토 보정/수정 커밋과 위 통합 8개 커밋을 역순 revert한다. 작업 문서는 남기고 싶으면 소스·테스트 변경 커밋만 의존 관계를 확인해 되돌린다. 원격 push는 하지 않았다.

@@ -2,7 +2,7 @@
 
 - task_id: `side-evidence-validator-batch-20261025`
 - owner: Claude
-- status: ready_for_review
+- status: integrated
 - base_sha: `357891e1435076378a85b695c7027c9769d871b0` (아래 기준 안내 참조)
 - branch: `claude/side-evidence-validator-batch-20261025`
 - worktree: Codex 전달 메시지에서만 로컬 경로 제공
@@ -115,3 +115,8 @@ git diff --check
   - 강제 종료 시 임시 파일이 남을 수 있다.
   - TOCTOU(검사와 open 사이의 파일 교체)는 막지 않는다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 위 커밋을 역순으로 revert한다. 신규 파일만 추가했으며 데이터·모델·진척률 30/100은 바뀌지 않는다.
+
+
+## Codex 통합 결과
+
+8개 커밋 순서·부모·dispatch 이후 허용 파일 7개·Claude의 깨끗한 worktree를 확인해 main에 반영했다. 최초 103 tests 통과 후 JSON/JSONL 별칭 캐시 우회를 독립 재현하여 최소 수정했다. 신규 49+기존 55=104 tests 통과, compileall/diff 검사 통과. 실제 inventory 6행은 not_reviewed sidecar로 CLI 실행했고 기존 snapshot index 복사본의 SHA만 대조했다. 실제 source/origin 주장·snapshot 본문 검증은 하지 않았다. 원본 SHA·기존 development/live 감사 JSON 전체 불변. 상세는 보고서 9절과 artifacts/side-evidence-batch-integration-20261025/를 참조한다. 선택 실행 검증기로 통합하며 사람 의미/독립성/면 정답/운영 편입을 승인하지 않는다. 실제 모델 호출·학습·추론 0회, 진척 30/100 유지.
