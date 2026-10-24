@@ -1,0 +1,84 @@
+# pair-control — Codex·Claude 병렬 개발 관제 (로컬, mock 기본)
+
+사람이 작업 배정·시작·중단·검토·통합 승인을 제어하는 로컬 도구다. 관리용 LLM은 없다. 모든 단계는 결정적인 workflow 단계와 실행기 함수다.
+
+| 구성 | 역할 |
+|---|---|
+| Mastra Workflow `pair-task` (`src/workflow.ts`) | `launch → await-exit → collect → review-gate → integrate-gate` 단계·분기(bail)·사람 승인 대기(suspend/resume)·실행 기록(LibSQL) |
+| Node 실행기 (`src/executor/`) | 계약 검증, 충돌·중복 차단(O_EXCL 잠금), detached 감독 프로세스, 취소, 재시작 복구, Git 검사, `./develop` 안 cherry-pick |
+| Mastra Studio (`/`) | workflow 그래프·실행 목록·trace (Mastra 기본 기능 그대로 사용) |
+| 관제 화면 (`/pair`) | Studio에 없는 작업 배정·프로세스 제어·결과 검토·통합 승인만 담당하는 단일 HTML |
+
+## 실행
+
+```sh
+cd tools/pair-control
+npm ci
+npm test                      # mock 프로세스 검증(모델 요청 없음)
+npm run demo:fixture          # .demo/에 합성 저장소·worktree 생성
+npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0.0.1:4111/
+```
+
+실제 저장소에 쓰려면 `config.example.json`을 `config.local.json`(Git 제외)으로 복사해 절대경로를 넣고 `npm start`. 상태·로그·Mastra DB는 `.state/`(Git 제외)에 저장된다. `npm install` 시 npm 11 기본 정책으로 esbuild/fsevents install script가 막히지만 optional 바이너리 패키지로 동작한다(이 환경에서 확인).
+
+## 작업 계약
+
+UI의 "작업 배정"은 `PAIR_CODING.md` 계약 필드를 받는다: task ID, 담당(codex/claude), 실행 모드(mock/real), 브랜치(`<담당>/…`), worktree 절대경로, 기준 SHA(40자), 허용 파일(정확한 파일 또는 `dir/`), 충돌 그룹, 목표, 프롬프트.
+
+- 배정 거절: glob·`..`·절대경로, `data/`·`artifacts/`·라벨·비밀 설정 경로, 담당과 다른 브랜치 접두어, `requiresExperiment=true`(학습·모델 비교·사진 추론·라벨 수정·자동 교차 검토는 기본 checkout 단일 담당자 소관).
+- 시작 거절: 저장소 worktree 목록에 없는 경로, 기본/통합 checkout, 브랜치 불일치, 기준 SHA가 HEAD의 조상이 아님, Git 진행 중 작업, `.venv` 심볼릭 링크(가상환경 공유), 무료 가드 발동.
+- 동시 실행 직렬화: 진행 중(실행·검토 대기·통합 대기 포함) 작업과 허용 파일이 겹치거나, 충돌 그룹(API 계약 등)이 같거나, 공용 설정(`pyproject.toml`, `AGENTS.md` 등 → 암묵 그룹 `shared-config`)을 함께 허용하거나, worktree/브랜치가 같으면 시작하지 않는다.
+- 중복 시작: 같은 프로세스 안에서는 동기 구간에서 상태 검사+잠금 획득, 프로세스·재시작을 넘어서는 `task:`/`worktree:`/`branch:` O_EXCL 잠금 파일. 잠금은 종료 확인 또는 사용자의 결과 불명 확정 때만 해제한다.
+- `card_condition/`·`tools/experiments/`를 허용한 작업은 해당 worktree의 `./develop -- <CLI>`로 실행해 기존 잠금을 따른다.
+
+## 상태 의미
+
+| 화면 표시 | 의미 |
+|---|---|
+| CLI 실행 중 (workflow `await-exit`) | 실제 프로세스 실행 중. workflow는 종료를 기다릴 뿐 사람 승인 대기가 아니다. **CLI 일시정지는 지원하지 않는다**(중단만). |
+| 사람 승인 대기 (`review-gate`/`integrate-gate`) | CLI는 종료됨. 사람이 diff를 열어 본 뒤에만 승인 버튼이 활성화된다. |
+| 재시작 전 프로세스 실행 중 | 서버 재시작 후 이전 실행이 살아 있음. 관찰만 하며 재실행하지 않는다. |
+| 재시작 후 종료 관찰 · 확인 필요 | 서버가 없는 동안 끝난 실행. 자동 반영하지 않고 "결과 반영"으로만 `await-exit`를 재개한다. |
+| 결과 불명 | 감독 프로세스와 종료 기록이 모두 없음. 완료로 보지 않으며 잠금 유지. "결과 불명 확정"은 그룹 종료를 확인한 뒤 잠금만 해제(abandoned). |
+| ⚠ 불일치 | 실행기 상태와 Mastra 실행 기록의 기대 관계가 다름. |
+
+중단은 실행기가 만든 감독 프로세스 그룹에만 `SIGTERM`(3초 후 남으면 `SIGKILL`)을 보낸다. 리더 PID는 `ps`의 PGID와 명령행의 spec 경로로 소유를 확인한다(PID 재사용 방지). 다른 세션·서버·에이전트는 대상이 아니다.
+
+## 통합
+
+1. 결과는 전체 HEAD SHA로 고정. 검사(종료코드·브랜치 HEAD·기준 위 커밋·미커밋 없음·허용 파일 범위)가 모두 통과해야 승인 가능.
+2. 승인 시 SHA·기준 브랜치 HEAD·관련 파일 목록 해시를 기록. 통합 직전 하나라도 바뀌면 승인 무효화(`integration_refused`) → "재검토"(CLI 재실행 없음).
+3. 통합은 `integration` O_EXCL 잠금 + 통합 checkout의 `./develop -- git cherry-pick -x <커밋…>`. checkout이 깨끗하지 않거나 `./develop` 잠금 사용 중이면 승인 유지 후 같은 단계에서 대기.
+4. 충돌 시 충돌 파일을 기록하고 `./develop -- git cherry-pick --abort`만 수행. ours/theirs 자동 선택·`reset --hard`·push·force push·브랜치 삭제는 구현하지 않았다.
+
+## 무료 전용 가드
+
+유료 전환 신호가 보이면 서비스(이 실행기의 `mastra dev` 프로세스 그룹과 그 자식 실행)를 종료하고 macOS 알림 + 콘솔 + `.state/alerts/paid-risk.json`으로 알린다. 알림을 `npm run guard:ack`로 확인하기 전에는 다시 시작하지 않는다.
+
+- 시작 시 환경변수 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `CODEX_API_KEY`, `GEMINI_API_KEY`, `MASTRA_CLOUD_ACCESS_TOKEN` 등(`src/executor/paidSignals.mjs`)이 있으면 시작 거부. 값은 기록하지 않는다.
+- 실행 로그에서 `credit balance`, `insufficient_quota`, `billing`, `extra usage`, `upgrade to pro/max` 등 문구 감지 → 모든 실행 중단 후 서버 종료.
+- 자식 프로세스 환경은 허용 목록(PATH/HOME 등)만 전달하고 위 키를 항상 제거. `MASTRA_TELEMETRY_DISABLED=1`.
+- real 모드는 `allowRealModelCalls=true`와 `confirmedSubscriptionAuth=true`(사용자가 CLI가 API 키가 아닌 기존 구독 로그인임을 직접 확인)가 모두 있어야 시작.
+- `mastra deploy`/`server`/`auth`/`connect` 등 클라우드 명령은 호출하지 않는다.
+
+한계: 실제 청구 여부는 provider 계정에서만 알 수 있다. 이 가드는 신호 기반 차단이며, 신호 없이 과금되는 경로(예: 구독 플랜 자체의 초과 사용 정책)는 감지하지 못한다. `billing` 같은 단어가 정상 코드 출력에 나와도 중단한다(오탐 쪽으로 보수적).
+
+## 보안
+
+`127.0.0.1`에만 바인딩. 모든 요청의 Host는 `127.0.0.1/localhost:<port>`만 허용(DNS rebinding 차단). 상태 변경 요청은 같은 출처 Origin만, `/pair/api/*` POST는 추가로 `X-Pair-Control: 1` 헤더와 Origin이 필수. CORS도 같은 출처로 제한. 임의 셸 명령 API는 없다: 실행 파일은 mock 스크립트, `--help`로 확인한 codex/claude, `./develop`, `git`뿐이며 모두 execFile/spawn 인자 배열이다. 감독 프로세스는 출력의 `sk-…`, `ghp_…`, `Bearer …` 등을 가린 뒤 로그에 쓴다.
+
+Mastra Studio의 workflow 실행(`/api/workflows/...`)도 같은 결정적 단계를 거치므로 등록된 task만 시작할 수 있다. Mastra 서버 자체 API(에이전트·도구 등)는 이 도구에서 정의하지 않았다.
+
+## 실제 CLI 어댑터 상태
+
+`codex`·`claude` 실행 파일을 PATH 또는 설정에서 찾고 `--version`과 `--help`(codex는 `exec --help`)만 실행해 `--cd`/`--sandbox`, `--print`/`--permission-mode` 옵션 이름을 확인한다. 옵션 **값**(`workspace-write`, `acceptEdits`)과 인증 방식은 확인하지 않았다. 이 개발 환경에는 두 CLI 모두 설치되어 있지 않아(호스트 PATH 없음, Claude 앱 내장 바이너리는 Linux용) 화면에 "미설치"로 표시된다. 실제 모델 호출 연동은 별도 승인 작업이다.
+
+## 검증 (2026-10-25, mock)
+
+`npm test` 10개 통과: 병렬 실행 2개, 파일·API 그룹·공용 설정 충돌과 동시 중복 시작, 손자 프로세스 포함 취소(외부 프로세스 생존 확인), 서버 재시작 3종(살아 있음·종료됨·결과 불명) 무재실행, 승인 SHA/기준 브랜치 변경 시 통합 거절 → 재검토 → 통합(`-x` 기록), 통합 충돌 abort와 `./develop` 잠금 사용 중 대기, 실패·범위 밖 변경 표시, 계약 검증, `./develop` 잠금 경유 실행, 무료 가드. `./develop`은 이 저장소의 `card_condition/workspace_lock.py` 복사본을 합성 저장소에서 실행한다.
+
+브라우저(`/pair`)에서 배정 → 병렬 시작 → 충돌 시작 거절 → 중단 → (dev 서버 hot reload로 인한 실제 재시작 후) 관찰 상태 → 결과 반영 → diff → 승인 → 통합, 기준 브랜치 이동 후 승인 무효화 → 재검토 → 통합, 과금 문구로 서비스 종료·재시작 거부까지 확인했다. mock 성공은 실제 에이전트 연동 성공이 아니다.
+
+## 롤백
+
+도구는 `tools/pair-control/` 아래에 독립되어 있다. `git revert <커밋>`으로 도구와 루트 README 링크를 함께 되돌린다. 로컬 산출물은 `tools/pair-control/{node_modules,.state,.mastra,.demo,config.local.json}`을 지우면 된다. 다른 Python 코드·데이터·잠금 파일은 변경하지 않는다.

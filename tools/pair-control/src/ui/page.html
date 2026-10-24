@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pair-control 관제</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc;
+  --ok: #1f7a4d; --warn: #9a6200; --bad: #b3261e; --info: #2457a6; --chip: #efeee9; --code: #f1f0ec;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f99; --line: #34332f;
+    --ok: #5cc28d; --warn: #e0a83a; --bad: #f07a70; --info: #7aa7f0; --chip: #2a2a27; --code: #262623; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
+header { padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+header h1 { font-size: 16px; margin: 0; }
+main { padding: 16px; display: grid; gap: 16px; max-width: 1400px; margin: 0 auto; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+h2 { font-size: 14px; margin: 0 0 8px; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; white-space: nowrap; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .info { color: var(--info); } .muted { color: var(--muted); }
+.banner { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--bad); color: var(--bad); background: var(--panel); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+tr.sel td { background: var(--chip); }
+tr { cursor: pointer; }
+td:first-child { white-space: nowrap; }
+a { color: var(--info); }
+.scroll { overflow-x: auto; }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+pre { background: var(--code); padding: 8px; border-radius: 6px; overflow: auto; max-height: 360px; margin: 6px 0; white-space: pre-wrap; word-break: break-all; }
+button { font: inherit; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--info); color: #fff; border-color: var(--info); }
+button.danger { border-color: var(--bad); color: var(--bad); }
+button:disabled { opacity: .4; cursor: not-allowed; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 12px; }
+label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+input, select, textarea { font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); width: 100%; }
+textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 13px; }
+.kv div:nth-child(odd) { color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.legend { font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+#msg { min-height: 20px; }
+@media (max-width: 640px) { main { padding: 12px 16px; } th:nth-child(4), td:nth-child(4) { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>pair-control</h1>
+  <span id="mode" class="chip">…</span>
+  <span id="guard" class="chip">…</span>
+  <span class="muted">Workflow 그래프·실행 기록·trace는 <a href="/" target="_blank" rel="noopener">Mastra Studio</a>에서 확인</span>
+</header>
+<main>
+  <div id="guardBanner" hidden class="banner"></div>
+  <section>
+    <div class="legend">
+      <div><b>사람 승인 대기</b>: Mastra workflow가 <code>review-gate</code>/<code>integrate-gate</code>에서 suspend. CLI 프로세스는 이미 종료됨.</div>
+      <div><b>CLI 실행 중</b>: workflow는 <code>await-exit</code>에서 종료를 기다림. 실제 프로세스가 실행 중이며 <b>CLI 일시정지는 지원하지 않음</b>(중단만 가능).</div>
+      <div><b>격리 한계</b>: 허용 파일은 실행 후 diff로만 검사. 실행 중 파일 쓰기를 막지 않으며, 프롬프트·목록만으로 격리를 보장하지 않음.</div>
+      <div><b>토큰·비용</b>: mock과 미확인 CLI는 모두 <b>미측정</b>.</div>
+    </div>
+  </section>
+  <section>
+    <details id="assignBox">
+      <summary><b>작업 배정</b></summary>
+      <form id="assign">
+        <label>task ID<input name="taskId" required placeholder="cache-audit-001"></label>
+        <label>담당 에이전트<select name="agent"><option>claude</option><option>codex</option></select></label>
+        <label>실행 모드<select name="mode"><option value="mock">mock (모델 요청 없음)</option><option value="real">real (별도 승인 필요 · 기본 차단)</option></select></label>
+        <label>mock 시나리오<select name="mockScenario"><option>success</option><option>slow-success</option><option>fail</option><option>hang</option><option>spawn-child</option><option>touch-forbidden</option><option>paid-message</option></select></label>
+        <label>브랜치<input name="branch" required placeholder="claude/cache-audit-001"></label>
+        <label>worktree 절대경로<input name="worktree" required></label>
+        <label>기준 SHA (40자)<input name="baseSha" required pattern="[0-9a-f]{40}" class="mono"></label>
+        <label>허용 파일 (한 줄에 하나, 디렉터리는 끝에 /)<textarea name="allowedFiles" required></textarea></label>
+        <label>충돌 그룹 (API 계약·공용 설정, 쉼표)<input name="conflictGroups" placeholder="api:observation"></label>
+        <label>목표<input name="goal" required></label>
+        <label>프롬프트 (real 모드 CLI 인자 하나로 전달)<textarea name="prompt"></textarea></label>
+        <div style="align-self:end"><button class="primary" type="submit">배정</button></div>
+      </form>
+    </details>
+  </section>
+  <div id="msg"></div>
+  <section>
+    <h2>작업 목록</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>task</th><th>에이전트</th><th>브랜치 / worktree</th><th>기준 SHA</th><th>허용 파일</th><th>상태</th><th>검사</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="7" class="muted">불러오는 중…</td></tr></tbody>
+    </table></div>
+  </section>
+  <section id="detail" hidden></section>
+  <section>
+    <h2>CLI 어댑터 확인 <button id="probe" style="margin-left:8px">다시 확인(--version/--help만)</button></h2>
+    <div id="probes" class="muted"></div>
+  </section>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let state = null, selected = null, logExec = null, logNext = 0, logText = '', diffFor = null, diffText = '';
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json', 'x-pair-control': '1' }, body: JSON.stringify(body) };
+  const r = await fetch('/pair/api/' + path, opt);
+  const j = await r.json().catch(() => ({ ok: false, error: 'HTTP ' + r.status }));
+  if (!j.ok) throw new Error(j.error || 'HTTP ' + r.status);
+  return j.data;
+}
+function say(text, cls) { $('#msg').innerHTML = text ? '<span class="' + (cls || '') + '">' + esc(text) + '</span>' : ''; }
+async function act(label, fn, describe) {
+  try {
+    say(label + ' 요청 중…', 'muted'); const d = await fn();
+    if (describe) { const [text, cls] = describe(d); say(text, cls); } else say(label + ' 요청 처리됨', 'ok');
+    await refresh(); return d;
+  }
+  catch (e) { say(label + ' 실패: ' + e.message, 'bad'); await refresh(); }
+}
+
+const STATUS = {
+  assigned: ['배정됨', 'muted'], blocked: ['시작 차단', 'warn'], starting: ['시작 중', 'info'],
+  running: ['CLI 실행 중', 'info'], collecting: ['결과 수집 중', 'info'], cancelling: ['중단 중', 'warn'], cancelled: ['중단됨', 'muted'],
+  failed: ['실패', 'bad'], orphan_running: ['재시작 전 프로세스 실행 중', 'warn'], exit_observed: ['재시작 후 종료 관찰 · 확인 필요', 'warn'],
+  unknown: ['결과 불명', 'bad'], abandoned: ['결과 불명 확정(미완료)', 'muted'],
+  review_pending: ['사람 승인 대기(검토)', 'warn'], approved: ['통합 실행 대기', 'warn'], rejected: ['거절됨', 'muted'],
+  integrating: ['통합 중', 'info'], integrated: ['통합 완료', 'ok'], integration_refused: ['통합 거절(승인 무효화)', 'bad'],
+  integration_conflict: ['통합 충돌(abort)', 'bad'], integration_blocked: ['통합 대기(잠금)', 'warn'],
+};
+function waitKind(t) {
+  const m = t.mastra;
+  if (!m) return '';
+  const where = m.status + (m.suspendedStep ? '@' + m.suspendedStep : '');
+  if (m.suspendedStep === 'await-exit') return 'workflow: CLI 종료 대기 (' + where + ')';
+  if (m.suspendedStep === 'review-gate' || m.suspendedStep === 'integrate-gate') return 'workflow: 사람 승인 대기 (' + where + ')';
+  return 'workflow: ' + where;
+}
+function checkSummary(t) {
+  const c = (t.result && t.result.checks) || t.preflight || [];
+  if (!c.length) return '<span class="muted">—</span>';
+  const bad = c.filter((x) => !x.ok);
+  return bad.length ? '<span class="bad">' + bad.length + '개 실패</span>' : '<span class="ok">' + c.length + '개 통과</span>';
+}
+
+function renderRows() {
+  const rows = state.tasks.map((t) => {
+    const [label, cls] = STATUS[t.status] || [t.status, ''];
+    return '<tr data-id="' + esc(t.taskId) + '"' + (t.taskId === selected ? ' class="sel"' : '') + '>' +
+      '<td class="mono">' + esc(t.taskId) + '</td>' +
+      '<td>' + esc(t.agent) + ' <span class="chip">' + esc(t.mode) + '</span></td>' +
+      '<td class="mono">' + esc(t.branch) + '<br><span class="muted">' + esc(t.worktree) + '</span></td>' +
+      '<td class="mono" title="' + esc(t.baseSha) + '">' + esc(t.baseSha.slice(0, 12)) + '</td>' +
+      '<td class="mono">' + t.allowedFiles.map(esc).join('<br>') + (t.groups.length ? '<br><span class="chip">' + t.groups.map(esc).join(', ') + '</span>' : '') + '</td>' +
+      '<td><span class="' + cls + '">' + esc(label) + '</span><br><span class="muted">' + esc(waitKind(t)) + '</span>' +
+        (t.mismatch ? '<br><span class="bad">⚠ 불일치: ' + esc(t.mismatch) + '</span>' : '') + '</td>' +
+      '<td>' + checkSummary(t) + '</td></tr>';
+  });
+  $('#rows').innerHTML = rows.join('') || '<tr><td colspan="7" class="muted">배정된 작업 없음</td></tr>';
+  document.querySelectorAll('#rows tr[data-id]').forEach((tr) => tr.onclick = () => { selected = tr.dataset.id; render(); });
+}
+
+function btn(id, label, enabled, cls) { return '<button id="' + id + '" ' + (cls ? 'class="' + cls + '" ' : '') + (enabled ? '' : 'disabled') + '>' + esc(label) + '</button>'; }
+
+function renderDetail() {
+  const t = state.tasks.find((x) => x.taskId === selected);
+  const box = $('#detail');
+  if (!t) { box.hidden = true; return; }
+  box.hidden = false;
+  const e = t.exec, r = t.result, s = t.status;
+  const startable = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'].includes(s);
+  const sha = r && r.headSha;
+  const diffSeen = diffFor === t.taskId + ':' + sha && sha;
+  const [label, cls] = STATUS[s] || [s, ''];
+  box.innerHTML =
+    '<h2>' + esc(t.taskId) + ' — <span class="' + cls + '">' + esc(label) + '</span></h2>' +
+    '<div class="muted">' + esc(t.statusReason || '') + '</div>' +
+    (t.mismatch ? '<div class="bad">⚠ Mastra 실행 기록과 실제 CLI 상태 불일치: ' + esc(t.mismatch) + '</div>' : '') +
+    '<div class="actions">' +
+      btn('bStart', '시작', startable, 'primary') +
+      btn('bCancel', '실행 중단(이 실행기 프로세스만)', ['running', 'cancelling', 'orphan_running'].includes(s), 'danger') +
+      btn('bApply', '재시작 후 결과 반영(await-exit 재개)', s === 'exit_observed') +
+      btn('bAck', '결과 불명 확정(완료 아님)', s === 'unknown', 'danger') +
+      btn('bDiff', 'diff 보기', !!sha) +
+      btn('bApprove', diffSeen ? '이 SHA 승인' : '승인(diff 확인 후)', s === 'review_pending' && r && r.checksPassed && diffSeen, 'primary') +
+      btn('bReject', '거절', ['review_pending', 'approved', 'integration_refused', 'integration_blocked'].includes(s), 'danger') +
+      btn('bIntegrate', '통합 실행(./develop 잠금)', s === 'approved', 'primary') +
+      btn('bReview', '재검토(CLI 재실행 없음)', s === 'integration_refused') +
+    '</div>' +
+    '<div class="grid2"><div>' +
+      '<h2>실행</h2><div class="kv">' +
+        '<div>Mastra 실행 ID</div><div class="mono">' + esc(t.runId || '—') + '</div>' +
+        '<div>Mastra 상태</div><div>' + esc(t.mastra ? t.mastra.status + (t.mastra.suspendedStep ? ' @ ' + t.mastra.suspendedStep : '') : '—') + '</div>' +
+        '<div>실행 ID</div><div class="mono">' + esc(e ? e.execId : '—') + '</div>' +
+        '<div>PID / PGID</div><div class="mono">' + esc(e ? e.pid + ' / ' + e.pgid + (e.groupAlive ? ' (살아 있음)' : ' (종료)') : '—') + '</div>' +
+        '<div>명령</div><div class="mono">' + esc(e ? e.display.join(' ') : '—') + '</div>' +
+        '<div>실행 상태</div><div>' + esc(e ? e.status + (e.observedAfterRestart ? ' · 재시작 후 관찰' : '') : '—') + '</div>' +
+        '<div>종료코드 / 신호</div><div class="mono">' + esc(e ? (e.exitCode ?? '—') + ' / ' + (e.signal ?? '—') : '—') + '</div>' +
+        '<div>시작 · 종료</div><div class="mono">' + esc(e ? e.startedAt + ' · ' + (e.endedAt || '—') : '—') + '</div>' +
+        '<div>토큰 · 비용</div><div>' + esc(e ? e.tokens + ' · ' + e.cost : '미측정') + '</div>' +
+        '<div>실행 권한</div><div>' + esc(t.permission || '—') + '</div>' +
+        '<div>./develop 잠금</div><div>' + (t.usesDevelopLock ? '사용(모델·worker 경로)' : '해당 없음') + '</div>' +
+      '</div>' +
+      '<h2 style="margin-top:12px">결과</h2><div class="kv">' +
+        '<div>전달 HEAD SHA</div><div class="mono">' + esc(sha || '—') + '</div>' +
+        '<div>커밋</div><div class="mono">' + (r ? r.commits.map(esc).join('<br>') || '—' : '—') + '</div>' +
+        '<div>변경 파일</div><div class="mono">' + (r ? r.changedFiles.map(esc).join('<br>') || '—' : '—') + '</div>' +
+        '<div>범위 밖</div><div class="mono bad">' + (r ? r.outOfScope.map(esc).join('<br>') : '') + '</div>' +
+        '<div>승인</div><div class="mono">' + esc(t.approval ? t.approval.sha + ' (기준 ' + t.approval.baseBranch + '@' + t.approval.baseHead.slice(0, 12) + ')' : '—') + '</div>' +
+        '<div>통합</div><div>' + esc(t.integration ? t.integration.outcome + ' · ' + (t.integration.newHead || '') + ' ' + (t.integration.detail || '').slice(0, 300) : '—') + '</div>' +
+      '</div>' +
+    '</div><div>' +
+      '<h2>검사</h2>' + ((r ? r.checks : t.preflight) || []).map((c) => '<div><span class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + esc(c.name) + ' <span class="muted">' + esc(c.detail) + '</span></div>').join('') +
+      (r ? '<div class="muted" style="margin-top:4px">사전 검사</div>' + (t.preflight || []).map((c) => '<div><span class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + esc(c.name) + ' <span class="muted">' + esc(c.detail) + '</span></div>').join('') : '') +
+      '<h2 style="margin-top:12px">실시간 로그</h2><pre id="log">' + esc(logText || '(없음)') + '</pre>' +
+    '</div></div>' +
+    (diffSeen ? '<h2>diff ' + esc(t.baseSha.slice(0, 12)) + '..' + esc(sha.slice(0, 12)) + '</h2><pre>' + esc(diffText) + '</pre>' : '');
+
+  const id = t.taskId;
+  $('#bStart').onclick = () => act('시작', () => api('tasks/' + id + '/start', {}));
+  $('#bCancel').onclick = () => confirm('이 실행기가 만든 프로세스 그룹 ' + (e && e.pgid) + '을 종료합니다.') && act('중단', () => api('tasks/' + id + '/cancel', {}));
+  $('#bApply').onclick = () => act('결과 반영', () => api('tasks/' + id + '/apply-exit', {}));
+  $('#bAck').onclick = () => confirm('결과 불명을 확정합니다. 완료로 보지 않고 잠금만 해제합니다.') && act('결과 불명 확정', () => api('tasks/' + id + '/ack-unknown', {}));
+  $('#bDiff').onclick = async () => { const d = await act('diff', () => api('tasks/' + id + '/diff')); if (d) { diffFor = id + ':' + sha; diffText = d.diff || '(변경 없음)'; render(); } };
+  $('#bApprove').onclick = () => confirm('승인 SHA ' + sha + '\n이 SHA·기준 브랜치·관련 파일이 바뀌면 승인은 무효화됩니다.') && act('승인', () => api('tasks/' + id + '/approve', { sha }));
+  $('#bReject').onclick = () => { const reason = prompt('거절 사유'); if (reason !== null) act('거절', () => api('tasks/' + id + '/reject', { reason })); };
+  $('#bIntegrate').onclick = () => confirm('승인 SHA를 재검증한 뒤 통합 checkout에서 ./develop -- git cherry-pick -x 를 실행합니다. push는 하지 않습니다.') && act('통합', () => api('tasks/' + id + '/integrate', {}),
+    (d) => ['통합 결과: ' + (STATUS[d.status] || [d.status])[0] + ' — ' + (d.statusReason || ''), d.status === 'integrated' ? 'ok' : 'bad']);
+  $('#bReview').onclick = () => act('재검토', () => api('tasks/' + id + '/rereview', {}));
+}
+
+function renderProbes() {
+  const p = state.probes || {};
+  $('#probes').innerHTML = ['codex', 'claude'].map((k) => {
+    const x = p[k];
+    if (!x) return '<div>' + k + ': 확인 전</div>';
+    return '<div><b>' + k + '</b>: ' + (x.installed ? '<span class="ok">설치됨</span> ' + esc(x.version) : '<span class="warn">미설치</span>') +
+      ' · 확인 옵션 ' + esc(x.verifiedFlags.join(', ') || '없음') + (x.missingFlags.length ? ' · <span class="warn">미확인 ' + esc(x.missingFlags.join(', ')) + '</span>' : '') +
+      ' · ' + esc(x.note) + '</div>';
+  }).join('') + '<div>실제 모델 호출: <b>' + (state.mode === 'mock-only' ? '차단(별도 승인 작업)' : '허용 설정됨') + '</b> · 실제 에이전트 연동은 검증되지 않음</div>';
+}
+
+function render() {
+  if (!state) return;
+  $('#mode').textContent = state.mode === 'mock-only' ? '모드: mock 전용' : '모드: 실제 호출 허용';
+  $('#guard').innerHTML = state.guard ? '<span class="bad">무료 가드 발동</span>' : '<span class="ok">무료 가드 정상</span>';
+  const gb = $('#guardBanner');
+  gb.hidden = !state.guard;
+  if (state.guard) gb.textContent = '유료 전환 신호 감지로 서비스 중단: ' + state.guard.detail + ' (' + state.guard.at + '). 확인 후 npm run guard:ack';
+  renderRows(); renderDetail(); renderProbes();
+}
+
+async function pollLog() {
+  const t = state && state.tasks.find((x) => x.taskId === selected);
+  const id = t && t.exec && t.exec.execId;
+  if (!id) return;
+  if (id !== logExec) { logExec = id; logNext = 0; logText = ''; }
+  try {
+    const d = await api('execs/' + id + '/log?from=' + logNext);
+    if (d.text) { logText = (logText + d.text).slice(-60000); logNext = d.next; const el = $('#log'); if (el) { el.textContent = logText; el.scrollTop = el.scrollHeight; } }
+  } catch (e) { /* 다음 주기 재시도 */ }
+}
+
+async function refresh() {
+  try { state = await api('state'); if (!selected && state.tasks[0]) selected = state.tasks[0].taskId; render(); }
+  catch (e) { say('상태 조회 실패: ' + e.message + ' (서버 종료 여부 확인)', 'bad'); }
+}
+
+$('#assign').onsubmit = (ev) => {
+  ev.preventDefault();
+  const f = new FormData(ev.target);
+  const body = Object.fromEntries(f.entries());
+  body.allowedFiles = String(body.allowedFiles).split('\n').map((s) => s.trim()).filter(Boolean);
+  body.conflictGroups = String(body.conflictGroups || '').split(',').map((s) => s.trim()).filter(Boolean);
+  act('배정', () => api('tasks', body)).then((d) => { if (d) { selected = d.taskId; ev.target.reset(); } });
+};
+$('#probe').onclick = () => act('CLI 확인', () => api('probes', {}));
+
+// 배정 폼은 render()가 다시 그리지 않으므로 입력 중에도 상태 갱신을 계속한다.
+let polling = false;
+setInterval(async () => {
+  if (polling) return; polling = true;
+  try { await refresh(); await pollLog(); } finally { polling = false; }
+}, 1000);
+refresh().then(pollLog);
+</script>
+</body>
+</html>

@@ -674,3 +674,7 @@ print(result["additional_review"], result["human_review_required"])
 ## 데이터 부족표 감사
 
 `card-condition data-coverage <manifest> <새 JSON 경로>`는 종류·앞뒤·train/val별 명시적 정답과 실물 수를 집계합니다. 학습·추론·final-test 검사는 실행하지 않습니다. [현재 부족표·검증·휴먼인루프 일시 중지](artifacts/data-coverage-20261024/REPORT.md).
+
+## Codex·Claude 병렬 개발 관제 (pair-control)
+
+`tools/pair-control/`은 Python 모델 코드와 독립된 로컬 Node/TypeScript 도구입니다. Mastra Workflow로 작업 단계·사람 승인 대기를, Node 실행기로 CLI 프로세스·소유권·Git 검사·통합을 관리합니다. 기본은 mock 모드이며 실제 Codex/Claude 모델 호출은 별도 승인 전까지 차단됩니다. [사용법·검증·한계·롤백](tools/pair-control/README.md).

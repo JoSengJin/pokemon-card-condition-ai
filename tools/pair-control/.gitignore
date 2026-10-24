@@ -1,0 +1,8 @@
+node_modules/
+# 상태·로그·Mastra 저장소·로컬 설정·demo fixture는 커밋하지 않는다.
+.state/
+.mastra/
+.demo/
+config.local.json
+*.db
+*.db-*
