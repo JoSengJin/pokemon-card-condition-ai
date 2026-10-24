@@ -2,7 +2,7 @@
 
 - task_id: `side-evidence-contract-20261025`
 - owner: Claude
-- status: assigned
+- status: ready_for_review
 - base_sha: `c7c4b8de9d6eeb751743367424729734c00e4b73`
 - branch: `claude/side-evidence-contract-20261025`
 - worktree: Codex 전달 메시지에서만 로컬 경로 제공
@@ -32,3 +32,37 @@
 ## 인계
 
 status ready_for_review, 전체 SHA·부모·파일·검사·미해결·리스크·롤백을 전달한다. 커밋 `docs(provenance): 면 근거 sidecar 계약 검토`. main 통합/push 금지. 롤백은 미통합 또는 문서 커밋 revert. 실험/성능 변화 없음.
+
+## Claude 실행 결과
+
+2026-10-25, 배정 worktree에서 실행. 보고서: `docs/collaboration/reports/side-evidence-contract-20261025.md`.
+
+- 기준:
+  - 브랜치 `claude/side-evidence-contract-20261025`, 시작 HEAD `df899e695fd48143d10797136025ca8f7551a454`.
+  - `merge-base --is-ancestor c7c4b8d… HEAD` 종료코드 0. 시작 시 작업 트리가 깨끗했고, base 이후 변경은 이 문서뿐이었다.
+- 근거: 추적 보고서 2개(data-coverage-provenance, provenance-source-followup의 Codex 보정 포함)만 읽었다. 원본 snapshot은 이 worktree에 없으며, 재해석하지 않았다.
+- 결론:
+  - 직전 단일 값 제안은 그대로 구현하지 않는다.
+  - 대신 행별 `evidence` 목록을 둔다. 유형은 배타적이지 않다.
+  - 미조사는 `review.status=not_reviewed`, 참조된 원본 누락은 `missing_sources`, 참조 없이 찾지 못한 경우는 `searched_no_side_evidence`로 구분한다.
+  - 파생 사본은 `origin`으로 묶어 독립 수에서 제외한다.
+  - `claim=side`만 허용한다.
+  - inventory 경로·SHA와 행별 `row_id`·`image_sha256`·`side_claim`이 모두 맞아야 적용한다.
+  - 수용 3건(A1–A3)과 거절 12건(R1–R12)을 정했다.
+- 검사:
+  - 보고서 JSON 예시를 표준 `json`으로 파싱했다.
+  - 표준 라이브러리 스크립트로 확인한 결과, 예시의 내부 규칙 위반은 0건이었다. 변형 대조에서 A2는 수용(origins 1 유지)됐고, R3–R8·R12는 거절됐다. 스크립트는 커밋하지 않았다.
+  - R1·R2·R9–R11은 원본 파일이 없어 검사하지 않았다.
+  - `git diff --check` 통과. base 이후 변경은 allowed_files 2개다. 홈 절대경로·비밀값·사람 원문 인용이 없다.
+- 미해결(보고서 4절):
+  - 저장 위치·작성자·버전 정책
+  - pointer 형식과 한 응답 안의 사진별 대응
+  - anchor·slot 항목을 evidence에 둘지 context로 분리할지
+  - 충돌을 경고로 둘지 A3 차단으로 둘지(사람 판단)
+  - snapshot 밖 원본 참조 처리
+- 리스크:
+  - `human_statement_matches_claim`을 면 확정이나 편입 승인으로 읽으면 안 된다.
+  - 합성 SHA·경로를 실제 파일에 적용하면 안 된다.
+  - 계약 초안(v0-draft)이며 구현·채택되지 않았다.
+- 롤백: 미통합이면 반영하지 않는다. 통합 후에는 이 문서 커밋만 revert한다. 원본 데이터·모델·코드는 변경하지 않았다.
+- 미실행: 도구 구현, 사진 열람, 추론, 학습, 외부 AI 호출, 라벨 변경 모두 0회.
