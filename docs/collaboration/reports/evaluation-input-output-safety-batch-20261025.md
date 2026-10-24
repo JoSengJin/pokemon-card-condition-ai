@@ -159,7 +159,7 @@ task `evaluation-input-output-safety-batch-20261025`. base `9369ea5ff2ea6f0a8618
 
 ### 성과·진척 HTML
 
-`docs/collaboration/reports/evaluation-input-output-safety-batch-20261025.html`. 정적 HTML/CSS이며 외부 CDN·스크립트·개인 경로가 없다. 모델 성능을 평가하지 않았으므로 정확도 그래프는 없다. 열기 요청과 렌더 확인 결과는 task 문서의 실행 결과 절에 적었다.
+`docs/collaboration/reports/evaluation-input-output-safety-batch-20261025.html`. 정적 HTML/CSS이며 외부 CDN·스크립트·개인 경로가 없다. 모델 성능을 평가하지 않았으므로 정확도 그래프는 없다. 열기: 내장 브라우저의 file:// 접근이 거절돼 macOS `open`으로 요청했고 종료코드 0이었다(열기 요청 성공, 화면 렌더는 확인하지 못함). 구조는 파서로 검사했다(태그 짝 오류 0, script·외부 링크·개인 경로 0).
 
 ### 미검증·리스크·롤백
 
