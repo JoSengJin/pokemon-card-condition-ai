@@ -10,6 +10,10 @@ import { fileURLToPath } from 'node:url';
 import { PAID_ENV_KEYS } from '../src/executor/paidSignals.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+if (Number(process.versions.node.split('.')[0]) < 22) {
+  console.error(`Node ${process.versions.node}는 지원하지 않습니다(>=22 필요). nvm use 24 등으로 바꾼 뒤 다시 실행하세요.`);
+  process.exit(2);
+}
 const demo = process.argv.includes('--demo');
 const configFile = process.env.PAIR_CONTROL_CONFIG ?? path.join(root, demo ? '.demo/config.json' : 'config.local.json');
 const stateDir = process.env.PAIR_CONTROL_STATE_DIR ?? path.join(root, demo ? '.demo/state' : '.state');

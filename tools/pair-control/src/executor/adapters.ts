@@ -75,3 +75,17 @@ export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig): LaunchPla
   return { command: p.binary, args, display: [p.binary, ...args.slice(0, -1), '<prompt>'],
     permission: 'claude --permission-mode acceptEdits(값 미검증): 편집 자동 승인. 허용 파일 단위 제한은 아님(사후 검사).' };
 }
+
+export interface Blocker { code: 'cli_missing' | 'cli_error' | 'flags_unverified' | 'real_calls_disabled' | 'subscription_unconfirmed' | 'not_checked'; message: string; fix: string }
+
+/** 실제 모드 실행 가능 여부와 차단 원인. 원인마다 해결 조건을 함께 돌려준다(모델 요청 없이 판단). */
+export function realReadiness(agent: 'codex' | 'claude', p: Probe | undefined, cfg: PairConfig): { available: boolean; blockers: Blocker[] } {
+  const b: Blocker[] = [];
+  if (!p) b.push({ code: 'not_checked', message: 'CLI 확인 전', fix: '"CLI 다시 확인"을 누르세요(--version/--help만 실행)' });
+  else if (!p.installed && !p.binary) b.push({ code: 'cli_missing', message: `${agent} CLI 미설치`, fix: `${agent} CLI를 설치하거나 config.cli.${agent}에 실행 파일 경로를 지정` });
+  else if (!p.installed) b.push({ code: 'cli_error', message: `${agent} 실행 실패: ${p.note}`, fix: '터미널에서 --version이 동작하는지 확인' });
+  else if (p.missingFlags.length) b.push({ code: 'flags_unverified', message: `--help에서 확인되지 않은 옵션: ${p.missingFlags.join(', ')}`, fix: 'CLI 버전을 확인하고 어댑터 옵션을 갱신(별도 작업)' });
+  if (!cfg.allowRealModelCalls) b.push({ code: 'real_calls_disabled', message: '실제 모델 호출 차단(기본값)', fix: '별도 승인 작업에서 config.allowRealModelCalls=true' });
+  if (!cfg.confirmedSubscriptionAuth) b.push({ code: 'subscription_unconfirmed', message: '구독 로그인 사용 여부 미확인', fix: '사용자가 CLI가 API 키가 아닌 기존 구독 로그인임을 확인한 뒤 config.confirmedSubscriptionAuth=true' });
+  return { available: b.length === 0, blockers: b };
+}

@@ -65,25 +65,34 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 .advGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 12px; margin-top: 8px; }
 .preview { border: 1px dashed var(--line); border-radius: 8px; padding: 10px; font-size: 13px; }
 #msg { min-height: 20px; }
+.connBar { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.small { font-size: 12px; }
+.seg label.dis { opacity: .45; cursor: not-allowed; }
 @media (max-width: 640px) { main { padding: 12px 16px; } th:nth-child(4), td:nth-child(4) { display: none; } }
 </style>
 </head>
 <body>
 <header>
   <h1>pair-control</h1>
-  <span id="mode" class="chip">…</span>
-  <span id="guard" class="chip">…</span>
-  <span class="muted">Workflow 그래프·실행 기록·trace는 <a href="/" target="_blank" rel="noopener">Mastra Studio</a>에서 확인</span>
+  <span id="connKind" class="chip">…</span>
+  <span id="guard" class="chip" title="과금 신호(API 키 환경변수·과금 문구)를 감지하지 못했다는 뜻입니다. 무료 사용이나 인증 성공을 보장하지 않습니다.">…</span>
+  <a href="/" target="_blank" rel="noopener" class="muted">Mastra Studio ↗</a>
 </header>
+<div id="connBar" class="connBar"></div>
 <main>
   <div id="guardBanner" hidden class="banner"></div>
   <section>
-    <div class="legend">
-      <div><b>사람 승인 대기</b>: Mastra workflow가 <code>review-gate</code>/<code>integrate-gate</code>에서 suspend. CLI 프로세스는 이미 종료됨.</div>
-      <div><b>CLI 실행 중</b>: workflow는 <code>await-exit</code>에서 종료를 기다림. 실제 프로세스가 실행 중이며 <b>CLI 일시정지는 지원하지 않음</b>(중단만 가능).</div>
-      <div><b>격리 한계</b>: 허용 파일은 실행 후 diff로만 검사. 실행 중 파일 쓰기를 막지 않으며, 프롬프트·목록만으로 격리를 보장하지 않음.</div>
-      <div><b>토큰·비용</b>: mock과 미확인 CLI는 모두 <b>미측정</b>.</div>
-    </div>
+    <details>
+      <summary class="muted">고급 안내 — 상태 의미와 한계</summary>
+      <div class="legend" style="margin-top:6px">
+        <div><b>사람 승인 대기</b>: Mastra workflow가 <code>review-gate</code>/<code>integrate-gate</code>에서 suspend. 에이전트 CLI 프로세스는 이미 종료됨.</div>
+        <div><b>CLI 실행 중</b>: workflow는 <code>await-exit</code>에서 종료를 기다림. 실제 프로세스가 실행 중이며 CLI 일시정지는 지원하지 않음(중단만 가능).</div>
+        <div><b>세 가지 검사</b>: Git 계약 검사(브랜치·커밋·허용 파일) ≠ 작업 테스트(계약의 검사 명령) ≠ 통합 후 검사. 미실행은 통과가 아님.</div>
+        <div><b>격리 한계</b>: 허용 파일은 실행 후 diff로만 검사. 실행 중 파일 쓰기를 막지 않음.</div>
+        <div><b>리뷰</b>: 별도 CLI 프로세스로 실행되는 검토 작업. 현재 Codex 앱 대화로 메시지를 보내지 않으며, 리뷰 결과가 사람 승인을 대신하지 않음.</div>
+        <div><b>토큰·비용</b>: mock과 미확인 CLI는 모두 미측정.</div>
+      </div>
+    </details>
   </section>
   <section>
     <details id="assignBox" open>
@@ -98,8 +107,9 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
             </div>
             <div class="seg" id="modeSeg">
               <label><input type="radio" name="mode" value="mock" checked> 연습(mock · 무료, AI 호출 없음)</label>
-              <label><input type="radio" name="mode" value="real"> 실제 CLI (별도 승인 전 차단)</label>
+              <label id="realLabel"><input type="radio" name="mode" value="real" disabled> 실제 CLI</label>
             </div>
+            <div id="realWhy" class="muted small"></div>
             <label id="scenarioBox">연습 시나리오
               <select name="mockScenario">
                 <option value="success">성공</option><option value="slow-success">느린 성공</option><option value="fail">실패</option>
@@ -281,6 +291,24 @@ function renderDetail() {
   $('#bReview').onclick = () => act('재검토', () => api('tasks/' + id + '/rereview', {}));
 }
 
+function renderConnection() {
+  const c = state.connection;
+  const kind = { demo: ['데모 저장소', 'warn'], real: ['실제 저장소', 'info'], unconfigured: ['저장소 미설정', 'bad'] }[c.kind];
+  $('#connKind').innerHTML = '<span class="' + kind[1] + '">' + kind[0] + '</span>';
+  const agent = (form.agent && form.agent.value) || 'claude';
+  const rr = c.realRun[agent];
+  $('#connBar').innerHTML =
+    '<span>저장소 <span class="mono">' + esc(c.repo || '—') + '</span></span>' +
+    '<span>기준 브랜치 <span class="mono">' + esc(c.integrationBranch) + '</span></span>' +
+    '<span>mock 실행 <span class="ok">가능</span> <span class="muted">(코드 품질 검증 아님)</span></span>' +
+    ['codex', 'claude'].map((a) => { const r = c.realRun[a]; return '<span>실제 ' + a + ' ' + (r.available ? '<span class="ok">가능</span>' : '<span class="bad" title="' + esc(r.blockers.map((b) => b.message + ' → ' + b.fix).join('\n')) + '">차단 ' + r.blockers.length + '</span>') + '</span>'; }).join('');
+  const radio = form.querySelector('input[name=mode][value=real]');
+  radio.disabled = !rr.available;
+  if (radio.disabled && radio.checked) form.querySelector('input[name=mode][value=mock]').checked = true;
+  $('#realLabel').classList.toggle('dis', !rr.available);
+  $('#realWhy').innerHTML = rr.available ? '' : '실제 ' + esc(agent) + ' 실행 불가: ' + rr.blockers.map((b) => '<div>· ' + esc(b.message) + ' — <span class="muted">해결: ' + esc(b.fix) + '</span></div>').join('');
+}
+
 function renderProbes() {
   const p = state.probes || {};
   $('#probes').innerHTML = ['codex', 'claude'].map((k) => {
@@ -294,8 +322,8 @@ function renderProbes() {
 
 function render() {
   if (!state) return;
-  $('#mode').textContent = state.mode === 'mock-only' ? '모드: mock 전용' : '모드: 실제 호출 허용';
-  $('#guard').innerHTML = state.guard ? '<span class="bad">무료 가드 발동</span>' : '<span class="ok">무료 가드 정상</span>';
+  renderConnection();
+  $('#guard').innerHTML = state.guard ? '<span class="bad">과금 신호 감지 · 서비스 중단</span>' : '과금 신호 감지 없음';
   const gb = $('#guardBanner');
   gb.hidden = !state.guard;
   if (state.guard) gb.textContent = '유료 전환 신호 감지로 서비스 중단: ' + state.guard.detail + ' (' + state.guard.at + '). 확인 후 npm run guard:ack';
@@ -374,7 +402,7 @@ async function updatePlan() {
   } catch (e) { $('#preview').innerHTML = '<div class="bad">' + esc(e.message) + '</div>'; $('#prepareBtn').disabled = true; }
 }
 form.addEventListener('input', (ev) => { if (ev.target.id === 'fileSearch') renderFiles(); else if (ev.target.id !== 'newPath') schedulePlan(); });
-form.addEventListener('change', schedulePlan);
+form.addEventListener('change', () => { if (state) renderConnection(); schedulePlan(); });
 $('#addPath').onclick = () => { const v = $('#newPath').value.trim(); if (v) { picked.add(v); $('#newPath').value = ''; renderPicked(); schedulePlan(); } };
 form.onsubmit = (ev) => {
   ev.preventDefault();

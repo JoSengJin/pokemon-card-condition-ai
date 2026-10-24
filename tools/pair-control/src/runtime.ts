@@ -1,7 +1,10 @@
 // 실행기와 Mastra workflow를 잇는 단일 런타임. workflow 단계는 getExecutor()로 실행기를 호출한다.
 import type { Mastra } from '@mastra/core/mastra';
 import { createWorkflowStateReader } from '@mastra/core/workflows';
+import fs from 'node:fs';
+import path from 'node:path';
 import { Executor, UserError, type Task } from './executor/executor.ts';
+import { realReadiness } from './executor/adapters.ts';
 
 let executor: Executor | null = null;
 let mastra: Mastra | null = null;
@@ -109,6 +112,19 @@ export async function snapshot() {
   tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     now: new Date().toISOString(), lifetime: ex.lifetime, mode: ex.cfg.allowRealModelCalls ? 'real-allowed' : 'mock-only',
-    guard: ex.guardAlert, probes: ex.probes, integration: ex.cfg.integration, tasks,
+    guard: ex.guardAlert, probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
+  };
+}
+
+/** 화면 상단 연결 상태: 어느 저장소에 연결됐는지와 실제 실행 가능 여부·차단 원인. */
+export function connection(ex: Executor) {
+  const repo = ex.cfg.repo;
+  const demoRoot = path.join(ex.cfg.toolRoot, '.demo');
+  const real = (p: string) => { try { return fs.realpathSync.native(p); } catch { return p; } };
+  const kind = !repo ? 'unconfigured' : real(repo).startsWith(real(demoRoot) + path.sep) ? 'demo' : 'real';
+  return {
+    kind, repo, integrationBranch: ex.cfg.integration.branch, integrationCheckout: ex.cfg.integration.checkout,
+    realRun: { codex: realReadiness('codex', ex.probes.codex, ex.cfg), claude: realReadiness('claude', ex.probes.claude, ex.cfg) },
+    mockRun: { available: true, note: '모델 요청 없는 mock 프로세스. 실제 코드 품질을 검증하지 않음.' },
   };
 }

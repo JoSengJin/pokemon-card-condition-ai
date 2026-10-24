@@ -146,7 +146,7 @@ export class Executor {
       let ok = false; try { fs.accessSync(dev, fs.constants.X_OK); ok = true; } catch { /* missing */ }
       add('./develop 잠금 경로', ok, ok ? '모델·worker 경로 → worktree의 ./develop -- <CLI> 로 실행' : 'worktree에 실행 가능한 ./develop 없음');
     }
-    add('무료 가드', !this.tripped, this.tripped ? `발동됨: ${this.tripped.detail}` : '정상');
+    add('과금 신호', !this.tripped, this.tripped ? `감지됨: ${this.tripped.detail}` : '감지 없음(무료 보장 아님)');
     return c;
   }
 
