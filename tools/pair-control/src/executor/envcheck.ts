@@ -27,7 +27,7 @@ export async function checkVenv(checkout: string, needed: EnvReadiness['needed']
   const lst = fs.existsSync(venv) ? fs.lstatSync(venv) : null;
   if (!lst) {
     add('자체 .venv', false, '없음');
-    fixes.push(`cd <worktree> && python3 -m venv .venv`);
+    fixes.push(`cd ${JSON.stringify(checkout)} && python3 -m venv .venv`);
     if (needed === 'python-project') fixes.push(`.venv/bin/python -m pip install -e .   # 의존성은 requirements-tested.txt 기준으로 사용자가 설치`);
     return done();
   }

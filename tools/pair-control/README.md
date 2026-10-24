@@ -4,12 +4,15 @@
 
 | 구성 | 역할 |
 |---|---|
-| Mastra Workflow `pair-task` (`src/workflow.ts`) | `launch → await-exit → collect → review-gate → integrate-gate` 단계·분기(bail)·사람 승인 대기(suspend/resume)·실행 기록(LibSQL) |
+| Mastra Workflow `prepare-task` | `plan → create-worktree → register(계약 커밋)` |
+| Mastra Workflow `pair-task` (`src/workflow.ts`) | `launch → await-exit → collect(Git 계약 검사) → review-gate(작업 테스트·리뷰·사람 승인) → integrate-gate(통합·통합 후 검사)` 단계·분기(bail)·suspend/resume·실행 기록(LibSQL) |
 | Node 실행기 (`src/executor/`) | 계약 검증, 충돌·중복 차단(O_EXCL 잠금), detached 감독 프로세스, 취소, 재시작 복구, Git 검사, `./develop` 안 cherry-pick |
 | Mastra Studio (`/`) | workflow 그래프·실행 목록·trace (Mastra 기본 기능 그대로 사용) |
 | 관제 화면 (`/pair`) | Studio에 없는 작업 배정·프로세스 제어·결과 검토·통합 승인만 담당하는 단일 HTML |
 
 ## 실행
+
+Node 22 이상이 필요하다(`.nvmrc`=24, `engine-strict`). 로그인 셸 기본 Node가 18이면 `nvm use 24` 후 실행한다. `npm start`도 Node 버전을 검사해 거부한다.
 
 ```sh
 cd tools/pair-control
@@ -35,15 +38,47 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 
 입력할 때마다 부작용 없는 미리보기(`/pair/api/plan`)로 위 값과 검사 결과·겹침 경고를 보여 주고, **준비하고 배정**을 눌러야 폴더·브랜치를 만든다. 고급 설정에서 task ID·기준 SHA·기존 worktree·충돌 그룹을 직접 지정할 수 있다. 도구는 worktree·브랜치를 만들기만 하고 지우지 않는다.
 
-## 작업 계약
+## 작업 계약 (실행의 기준)
 
-배정된 작업은 `PAIR_CODING.md` 계약 필드를 가진다: task ID, 담당(codex/claude), 실행 모드(mock/real), 브랜치(`<담당>/…`), worktree 절대경로, 기준 SHA(40자), 허용 파일(정확한 파일 또는 `dir/`), 충돌 그룹, 목표, 프롬프트.
+목표·완료 조건·허용 파일·작업 테스트·통합 후 검사·실행 환경·상세 지시를 하나의 계약으로 `docs/collaboration/tasks/<task-id>.md`에 렌더링해 **작업 브랜치에만** 커밋한다(main·통합 checkout 거절, 개인 절대경로 미기록). 이 커밋 SHA(`contractSha`)와 내용 해시가 기준이다.
+
+- Git 계약 검사는 계약 커밋 이후 변경만 보고, 계약 파일이 그대로인지 확인한다. 에이전트가 계약을 바꾸면 실패.
+- 재시도: 등록 전에 멈춘 준비는 같은 worktree·계약 커밋을 재사용한다. 같은 ID에 다른 내용의 계약이 있으면 거절.
+- 실제 CLI 인자에는 계약 경로만 넘긴다(긴 지시는 파일).
+- 승인에 계약 해시를 기록하고 통합 직전에 다시 확인한다.
+- 작업 테스트 명령은 `{executable: git | node | .venv/bin/python, args[], cwd}`만 받고 셸을 쓰지 않는다. `{base}`·`{contract}`·`{head}` 자리표시자만 치환한다. 학습·실험 기록·자동 교차 검토 진입점은 거절한다.
 
 - 배정 거절: glob·`..`·절대경로, `data/`·`artifacts/`·라벨·비밀 설정 경로, 담당과 다른 브랜치 접두어, `requiresExperiment=true`(학습·모델 비교·사진 추론·라벨 수정·자동 교차 검토는 기본 checkout 단일 담당자 소관).
 - 시작 거절: 저장소 worktree 목록에 없는 경로, 기본/통합 checkout, 브랜치 불일치, 기준 SHA가 HEAD의 조상이 아님, Git 진행 중 작업, `.venv` 심볼릭 링크(가상환경 공유), 무료 가드 발동.
 - 동시 실행 직렬화: 진행 중(실행·검토 대기·통합 대기 포함) 작업과 허용 파일이 겹치거나, 충돌 그룹(API 계약 등)이 같거나, 공용 설정(`pyproject.toml`, `AGENTS.md` 등 → 암묵 그룹 `shared-config`)을 함께 허용하거나, worktree/브랜치가 같으면 시작하지 않는다.
 - 중복 시작: 같은 프로세스 안에서는 동기 구간에서 상태 검사+잠금 획득, 프로세스·재시작을 넘어서는 `task:`/`worktree:`/`branch:` O_EXCL 잠금 파일. 잠금은 종료 확인 또는 사용자의 결과 불명 확정 때만 해제한다.
 - `card_condition/`·`tools/experiments/`를 허용한 작업은 해당 worktree의 `./develop -- <CLI>`로 실행해 기존 잠금을 따른다.
+
+## 실행 준비 (worktree 생성 ≠ 실행 가능)
+
+계약 `env`(자동: Python 파일·`card_condition/`·`tests/`·`.venv` 검사가 있으면 python)와 `./develop` 사용 여부로 필요한 환경을 정한다.
+
+| env | 확인 |
+|---|---|
+| none | 없음 |
+| python | 자체 `.venv`(symlink 금지), `pyvenv.cfg`, `.venv/bin/python -I`의 prefix가 이 worktree의 `.venv` |
+| python-project | 위 + `-I`로 `card_condition`이 이 worktree에서 import되는지, 필요 모듈 `find_spec` |
+
+미준비면 시작·작업 테스트를 막고 직접 실행할 명령만 보여 준다(가상환경 생성·설치·다운로드 자동 실행 없음). 통합 checkout도 `./develop`용 `.venv`가 없으면 통합하지 않는다.
+
+## 세 가지 검사
+
+| 단계 | 무엇 | 통과 의미 |
+|---|---|---|
+| 1. Git 계약 검사 | 종료코드·브랜치 HEAD·계약 커밋 위 작업·계약 불변·커밋 존재·미커밋 없음·허용 파일 | 계약 형식을 지켰다. 코드가 맞다는 뜻이 아니다 |
+| 2. 작업 테스트 | 사용자가 확인 후 실행기가 감독 프로세스로 계약의 검사를 차례로 실행 | 그 SHA·계약에서 명령이 0으로 끝났다. 미실행·실패·중단·결과 불명·재시작 중단은 통과가 아니다 |
+| 3. 통합 후 검사 | 통합 checkout에서 `./develop -- <검사>` | 실패 시 `integrated_check_failed`, 통합 전/후 SHA 기록, 자동 되돌림 없음 |
+
+검사마다 SHA·명령·종료코드·로그·시각을 남긴다. 코드 SHA나 계약이 바뀌면 이전 결과는 "이전 SHA 결과"로 표시되고 승인에 쓰이지 않는다. 서버 재시작 시 끝난 검사의 결과는 기록하지만 남은 검사를 이어서 실행하지 않는다.
+
+## 독립 리뷰 작업
+
+검토 단계에서 고정 SHA의 계약·diff·검사 결과를 리뷰 묶음(`.state/reviews/<id>/`)으로 만들고, 구현과 **다른 에이전트**의 별도 CLI 프로세스를 그 폴더에서 실행한다. 구현 worktree 경로는 전달하지 않으며, 실행 전후 worktree가 바뀌면 결과를 버린다. 판정은 `approve`·`changes_requested`·`insufficient_evidence`만 인정하고, 형식 오류("통과" 문구 등)·다른 SHA·실패는 판정 없음으로 표시한다. 판정은 승인 기록에 감사용으로 남을 뿐 사람 승인·통합을 대신하지 않는다. 이 화면은 현재 Codex 앱 대화로 메시지를 보내지 않는다. 지금은 fake 리뷰 CLI(`mock/fake-reviewer.mjs`)로만 검증했고 실제 리뷰 CLI는 차단 조건 해결 전까지 거절된다.
 
 ## 상태 의미
 
@@ -60,8 +95,8 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 
 ## 통합
 
-1. 결과는 전체 HEAD SHA로 고정. 검사(종료코드·브랜치 HEAD·기준 위 커밋·미커밋 없음·허용 파일 범위)가 모두 통과해야 승인 가능.
-2. 승인 시 SHA·기준 브랜치 HEAD·관련 파일 목록 해시를 기록. 통합 직전 하나라도 바뀌면 승인 무효화(`integration_refused`) → "재검토"(CLI 재실행 없음).
+1. 결과는 전체 HEAD SHA로 고정. Git 계약 검사 통과 + 같은 SHA·계약의 작업 테스트 통과 + diff 확인이 있어야 승인 버튼이 켜진다.
+2. 승인 시 SHA·기준 브랜치 HEAD·관련 파일 목록 해시·계약 해시를 기록. 통합 직전 하나라도 바뀌거나 작업 테스트가 승인 SHA와 다르면 승인 무효화(`integration_refused`) → "재검토"(에이전트 재실행 없음).
 3. 통합은 `integration` O_EXCL 잠금 + 통합 checkout의 `./develop -- git cherry-pick -x <커밋…>`. checkout이 깨끗하지 않거나 `./develop` 잠금 사용 중이면 승인 유지 후 같은 단계에서 대기.
 4. 충돌 시 충돌 파일을 기록하고 `./develop -- git cherry-pick --abort`만 수행. ours/theirs 자동 선택·`reset --hard`·push·force push·브랜치 삭제는 구현하지 않았다.
 
@@ -89,7 +124,7 @@ Mastra Studio의 workflow 실행(`/api/workflows/...`)도 같은 결정적 단�
 
 ## 검증 (2026-10-25, mock)
 
-`npm test` 13개 통과(작업 준비 3개 포함): 병렬 실행 2개, 파일·API 그룹·공용 설정 충돌과 동시 중복 시작, 손자 프로세스 포함 취소(외부 프로세스 생존 확인), 서버 재시작 3종(살아 있음·종료됨·결과 불명) 무재실행, 승인 SHA/기준 브랜치 변경 시 통합 거절 → 재검토 → 통합(`-x` 기록), 통합 충돌 abort와 `./develop` 잠금 사용 중 대기, 실패·범위 밖 변경 표시, 계약 검증, `./develop` 잠금 경유 실행, 무료 가드. `./develop`은 이 저장소의 `card_condition/workspace_lock.py` 복사본을 합성 저장소에서 실행한다.
+`npm test` 31개 통과(Node 24.21.0). 실사용 준비 작업에서 추가: 계약 커밋·불변·재시도 멱등, 환경 준비(symlink·import 경로·모듈·통합 checkout), 작업 테스트(CLI 0·테스트 실패 승인 차단, 실행 파일 제한, SHA·계약 변경 무효화, 중단·중복·재시작·불명), 통합 후 검사 실패 표시, fake 리뷰(판정 3종·형식 오류·다른 SHA·worktree 변경·중단·실제 모드 차단), E2E(준비→통합 후 검사, 다른 작업·미커밋 파일·비밀값 보존). 그 전 13개: 병렬 실행 2개, 파일·API 그룹·공용 설정 충돌과 동시 중복 시작, 손자 프로세스 포함 취소(외부 프로세스 생존 확인), 서버 재시작 3종(살아 있음·종료됨·결과 불명) 무재실행, 승인 SHA/기준 브랜치 변경 시 통합 거절 → 재검토 → 통합(`-x` 기록), 통합 충돌 abort와 `./develop` 잠금 사용 중 대기, 실패·범위 밖 변경 표시, 계약 검증, `./develop` 잠금 경유 실행, 무료 가드. `./develop`은 이 저장소의 `card_condition/workspace_lock.py` 복사본을 합성 저장소에서 실행한다.
 
 브라우저(`/pair`)에서 담당·목표·폴더 선택만으로 자동 준비(worktree·브랜치 생성) → 시작 → 검토 대기, 배정 → 병렬 시작 → 충돌 시작 거절 → 중단 → (dev 서버 hot reload로 인한 실제 재시작 후) 관찰 상태 → 결과 반영 → diff → 승인 → 통합, 기준 브랜치 이동 후 승인 무효화 → 재검토 → 통합, 과금 문구로 서비스 종료·재시작 거부까지 확인했다. mock 성공은 실제 에이전트 연동 성공이 아니다.
 
