@@ -2,7 +2,7 @@
 
 - task_id: data-coverage-output-safety-20261025
 - owner: Codex
-- status: ready_for_review
+- status: integrated
 - base_sha: df899e695fd48143d10797136025ca8f7551a454
 - branch: codex/data-coverage-output-safety-20261025
 
