@@ -3,10 +3,18 @@
 It checks declared structure and file agreement. It never infers a side, human
 meaning or independence, and never modifies any input.
 """
+from collections import Counter
+import hashlib
+import json
+import os
 import re
+import stat
 from pathlib import PurePosixPath
 
 SCHEMA = 'side_evidence_sidecar/v0.1'
+REPORT_SCHEMA = 'side_evidence_validation/v0.1'
+NOT_DECIDED = ('side conflict resolution', 'A3, primary and quantity policy',
+               'mapping one reply to several photos', 'sources outside evidence_root')
 SIDES = ('front', 'back')
 # Each evidence type has one fixed meaning; a review slot never asserts a side.
 ASSERTS_SIDE = {'human_statement': True, 'codex_anchor_eligibility': True, 'review_slot': False}
@@ -216,3 +224,177 @@ def check_structure(doc):
     if scope is None and any(row['searched_no_side_evidence'] for row in doc['rows']):
         fail('S2', 'an empty search result requires search_scope')
     return [compute_summary(row) for row in doc['rows']]
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            fail('J', 'duplicate JSON object key')
+        result[key] = value
+    return result
+
+
+def reject_constant(name):
+    fail('J', 'non-finite JSON number')
+
+
+def parse_json_text(value, where):
+    try:
+        return json.loads(value, object_pairs_hook=unique_object, parse_constant=reject_constant)
+    except json.JSONDecodeError:
+        fail('J', f'{where} is not valid JSON')
+
+
+def parse_bytes(data, kind, where):
+    try:
+        content = data.decode('utf-8')
+    except UnicodeDecodeError:
+        fail('J', f'{where} is not UTF-8')
+    if kind == 'json':
+        return parse_json_text(content, where)
+    rows = {}
+    # Split on newlines only; JSON strings may legally contain U+2028.
+    for number, line in enumerate(content.split('\n'), 1):
+        if not line.strip():
+            continue
+        value = parse_json_text(line, f'{where} line {number}')
+        if type(value) is not dict or type(value.get('id')) is not str or not value['id']:
+            fail('J', f'{where} line {number} needs a non-empty string id')
+        if value['id'] in rows:
+            fail('J', f'{where} has a duplicated id')
+        rows[value['id']] = value
+    return rows
+
+
+class EvidenceFiles:
+    """Reads regular files below one root; each file's bytes are hashed and parsed once."""
+
+    def __init__(self, root):
+        self.root = os.path.realpath(root)
+        if not os.path.isdir(self.root):
+            raise NotADirectoryError('evidence root is not a directory')
+        self.cache = {}
+
+    def locate(self, path, where):
+        full = os.path.join(self.root, *relative_parts(path, where))
+        real = os.path.realpath(full)
+        if os.path.commonpath([self.root, real]) != self.root:
+            fail('P', f'{where} leaves the evidence root')
+        return full, real
+
+    def read(self, path, code, where):
+        _, real = self.locate(path, where)
+        if real not in self.cache:
+            try:
+                info = os.stat(real)
+            except FileNotFoundError:
+                fail(code, f'{where} file is missing')
+            # Checked before open so a FIFO or device is never read.
+            if not stat.S_ISREG(info.st_mode):
+                fail('P', f'{where} is not a regular file')
+            with open(real, 'rb') as stream:
+                data = stream.read()
+            self.cache[real] = (hashlib.sha256(data).hexdigest(), parse_bytes(data, file_kind(path, where), where))
+        return self.cache[real]
+
+    def exists(self, path, where):
+        return os.path.lexists(self.locate(path, where)[0])
+
+
+def referenced_value(files, ref, code, where):
+    digest, parsed = files.read(ref['path'], code, where)
+    if digest != ref['sha256']:
+        fail(code, f'{where}.sha256 does not match the file')
+    if ref['row_id'] is not None:
+        if ref['row_id'] not in parsed:
+            fail(code, f'{where}.row_id is not in the file')
+        parsed = parsed[ref['row_id']]
+    try:
+        value = resolve(parsed, parse_pointer(ref['pointer']))
+    except LookupError:
+        fail(code, f'{where}.pointer selects nothing')
+    if value is None:
+        fail(code, f'{where}.pointer selects null')
+    return value
+
+
+def names_path(value, path):
+    """Same string, or an older absolute string ending at a path-component boundary."""
+    return type(value) is str and (value == path or value.endswith('/' + path))
+
+
+def check_files(doc, files):
+    inventory = doc['inventory']
+    digest, parsed = files.read(inventory['path'], 'R1', 'inventory')
+    if digest != inventory['sha256']:
+        fail('R1', 'inventory.sha256 does not match the inventory file')
+    try:
+        rows = resolve(parsed, parse_pointer(inventory['rows_pointer']))
+    except LookupError:
+        fail('R1', 'inventory.rows_pointer selects nothing')
+    if type(rows) is not list or any(type(r) is not dict for r in rows):
+        fail('F', 'inventory rows must be a list of objects')
+    by_id = {}
+    for item in rows:
+        if type(item.get('id')) is not str or not item['id']:
+            fail('F', 'every inventory row needs a non-empty string id')
+        if item['id'] in by_id:
+            fail('R2', 'inventory row id is duplicated')
+        by_id[item['id']] = item
+    scope = doc.get('search_scope')
+    if scope is not None and files.read(scope['path'], 'R11', 'search_scope')[0] != scope['sha256']:
+        fail('R11', 'search_scope.sha256 does not match the index file')
+    for number, row in enumerate(doc['rows']):
+        where = f'rows[{number}]'
+        target = by_id.get(row['row_id'])
+        if target is None:
+            fail('R2', f'{where}.row_id is not in the inventory')
+        if target.get('image_sha256') != row['image_sha256']:
+            fail('R2', f'{where}.image_sha256 differs from the inventory row')
+        side = target.get('side')
+        if side not in (None, *SIDES):
+            fail('F', f'{where} inventory side must be front, back or null')
+        if side != row['side_claim']:
+            fail('R2', f'{where}.side_claim differs from the inventory side')
+        for index, item in enumerate(row['evidence']):
+            for name in ('source', 'origin'):
+                referenced_value(files, item[name], 'R9', f'{where}.evidence[{index}].{name}')
+        for index, item in enumerate(row['missing_sources']):
+            label = f'{where}.missing_sources[{index}]'
+            present = files.exists(item['path'], f'{label}.path')
+            if not names_path(referenced_value(files, item['referenced_by'], 'R10', f'{label}.referenced_by'), item['path']):
+                fail('R10', f'{label}.referenced_by does not name this path')
+            if present:
+                fail('R10', f'{label}.path exists below the evidence root')
+    return len(rows)
+
+
+def validate_sidecar(sidecar_path, evidence_root):
+    """Accept a v0.1 sidecar or raise ValueError (contract) / OSError (file system).
+
+    The report states structure and byte agreement only; it never verifies meaning.
+    """
+    info = os.stat(sidecar_path)
+    if not stat.S_ISREG(info.st_mode):
+        fail('P', 'sidecar is not a regular file')
+    with open(sidecar_path, 'rb') as stream:
+        data = stream.read()
+    doc = parse_bytes(data, 'json', 'sidecar')
+    summaries = check_structure(doc)
+    total = check_files(doc, EvidenceFiles(evidence_root))
+    rows = [dict(row_id=row['row_id'], side_claim=row['side_claim'], review_status=row['review']['status'],
+                 evidence_types=sorted({e['type'] for e in row['evidence']}), evidence_items=len(row['evidence']),
+                 missing_sources=len(row['missing_sources']),
+                 searched_no_side_evidence=row['searched_no_side_evidence'], **summary)
+            for row, summary in zip(doc['rows'], summaries)]
+    scope = doc.get('search_scope')
+    return dict(schema=REPORT_SCHEMA, sidecar_sha256=hashlib.sha256(data).hexdigest(),
+                inventory=dict(path=doc['inventory']['path'], sha256=doc['inventory']['sha256'],
+                               rows_pointer=doc['inventory']['rows_pointer'], rows_total=total,
+                               rows_described=len(rows)),
+                search_scope=None if scope is None else dict(scope, completeness_verified=False),
+                semantic_verification=False, modifies_sources=False,
+                origin_count_meaning='distinct declared origin locations; not independent human judgments',
+                side_basis_counts=dict(sorted(Counter(r['side_basis'] for r in rows).items())),
+                rows=rows, not_decided=list(NOT_DECIDED))
