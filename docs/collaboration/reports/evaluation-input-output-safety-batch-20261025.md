@@ -170,3 +170,25 @@ task `evaluation-input-output-safety-batch-20261025`. base `9369ea5ff2ea6f0a8618
   - 새 파일 권한 0600.
   - A→B→A는 막지 못한다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 수정 커밋 `f8463f5…`를 revert하면 이전 동작으로 돌아가고, 테스트·문서 커밋은 따로 revert할 수 있다. 모델·라벨 복구는 필요 없고 진척 점수 30/100은 그대로다.
+
+
+## Codex 통합 검토
+
+원격 main fetch 후 기존 cross-review 변경과 이번11파일의 교집합이 없음을 확인했다. 전달7커밋을 지정 순서로 cherry-pick -x했고, Claude worktree의 깨끗한 상태를 확인했다. 이전 사용자 미커밋 AGENTS/PAIR_CODING 변경은 보존했다.
+
+- main의 실제 통합 코드로 기존177 + 평가안전성20 + 추가 공유·point-grid mock호환3 = **200 tests 통과**. 상세 로그는 artifacts/evaluation-safety-integration-20261025/tests.log.
+- 공유 함수 track_photos의 다른 호출자인 point_probe를 probe_model mock으로 실행했다. 정상 결과와 입력 불변을 확인하고, decode/사진 해시 기록 사이 교체 시 모델 함수가 호출되기 전에 거절되는 것을 확인했다. 실제 모델 추론·학습0회다. 추가 tests/test_evaluation_point_probe_compatibility.py는 Codex 통합 범위이며 Claude가 허용 범위를 위반한 것이 아니다.
+- 호환 검사 커밋 04a262f0acceb35371f8cdb63943e653e3df9ff9. 검사는 해당 커밋과 동일한 코드 내용에서 실행했으며 문서/HTML 커밋은 이후 기록이다.
+- Claude가 보존한 수정 전 합성 fixture·metadata를 읽기 전용으로 사용해 현재 main 평가기로 다시 실행했다. side/region dict와 저장 JSON 바이트 전체가 before 결과와 동일하며 SHA는 위 기준표와 일치한다. 모델 생성자는 mock이다. 실제 원본 사진/라벨은 사용하지 않았다.
+- AST 정의 수: source5/1/1/1, Claude신규tests6/6/7/7, Codex호환test4. 모두7개 이하. compileall/diff 검사 통과. 기존 장거리 loader 경로와 동적 analyzer 내부는 변경하지 않았고 실제 모델로 검증하지 않았다.
+- Claude mutation11개는 재실행하지 않았으며 독립 검증 수치로 혼용하지 않는다.
+
+완성된 결과만 덮어쓰기 없이 공개하는 변경과 0600 권한은 수용했다. 추가 사진 디코딩에 따른 시간 비용은 수치 측정하지 않았다. matched_model은 analyzer가 보고한 SHA의 일치 검사이며, analyzer 내부 checkpoint load/hash 사이의 순간 교체까지 증명하지 않는다. A→B→A와 적대적 동시 교체는 계속 미해결이다.
+
+진척률 usable-card-analysis-v1.0 **30/100 유지**. 모델 학습·추론·성능 평가·외부 AI0회. 근거 verification.json과 정상 before/after 비교 파일은 artifacts/evaluation-safety-integration-20261025/에 저장했다. HTML에는 Claude 개별20검사와 Codex 통합199검사를 구분해 추가한다. 브라우저 열기 결과는 최종 인계에서 보고한다.
+
+롤백: 이번 Codex 문서/호환 검사 커밋, 그리고 통합7개(79dc0b0,6edd7bc,03fd977,819e509,0f92e3c,728a7f6,2ae1fb6)를 최신→과거 순서로 revert하고 관련 검사 후 일반 push한다. source만 복구하려면03fd977과 관련검사의 의존성을 함께 검토한다. 실제 모델·라벨 변경은 없다.
+
+최종 보완: region의 point-grid 분기도 metadata checkpoint와 mock analyzer로 검증했다. 최종 전체200검사(기존177+평가20+공유호환/point-grid3)가 통과했다. 추가 커밋7aee8c2는 모델 추론 없이 point_final 경로의 정상 저장을 확인한다. 최종 검증 내용 SHA는 아래 HTML과 verification.json에 기록한다. Claude가 남긴 point_probe 미검증 항목은 위 Codex mock 검증 범위에 한해 해소했으며 실제 모델 경로는 여전히 미검증이다.
+
+최종 검증 코드 SHA: 7aee8c2ce848549ab29afaebc4cf335f54df71b8. HTML은 Chrome 열기 명령 종료코드0이며 실제 화면 렌더 확인은 미실행이다.

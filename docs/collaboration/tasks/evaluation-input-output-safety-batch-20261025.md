@@ -2,7 +2,7 @@
 
 - task_id: evaluation-input-output-safety-batch-20261025
 - owner: Claude
-- status: ready_for_review
+- status: integrated
 - base_sha: 9369ea5ff2ea6f0a86181688afa27825658ded17
 - branch: claude/evaluation-input-output-safety-batch-20261025
 - worktree/dispatch: Codex 전달 메시지 참조. 완료된 최초 provenance worktree를 재사용하되 새 브랜치로 시작한다.
@@ -118,3 +118,8 @@ status ready_for_review, 전체 SHA 순서/부모/변경 파일/검사/HTML 경�
 - 미해결: A→B→A 변경은 막지 못한다. 권한 0600 유지 여부는 Codex 결정. `point_probe`의 `track_photos` 경로는 실제 모델이 필요해 검사하지 못했다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 수정 커밋 `f8463f5…`를 revert한다. 모델·라벨 복구는 필요 없다.
 - HTML 열기: 내장 브라우저(file:// 탐색)는 접근이 거절돼 열리지 않았다. macOS `open`으로 요청했고 종료코드 0(열기 요청 성공). 화면 렌더링은 확인하지 못했다(렌더 미확인). 대신 HTML 구조를 파서로 검사했다: 태그 짝 오류 0, script·외부 링크 0, 개인 경로 0.
+
+
+## Codex 인수 결과
+
+7개 커밋을 main에 통합했다. 공유 track_photos의 point_probe mock호환2개와 point-grid mock1개를 추가해 전체200 tests 통과. 기존 합성 정상 보고서와 side/region JSON 바이트 전체 동일, AST 함수 수·compileall·diff검사 통과. Codex가 추가한 tests/test_evaluation_point_probe_compatibility.py는 통합 검토 범위로 별도 기록한다. HTML에 Codex 인수 결과를 추가했다. 실제 모델·실자료 성능은 평가하지 않았으며 진척30/100 유지. 사진 추가 디코드·0600권한·ABA/TOCTOU 한계는 보고서에 기록했다. 전체 검증 로그는 artifacts/evaluation-safety-integration-20261025/에 있다.
