@@ -2,7 +2,7 @@
 
 - task_id: evaluation-input-output-safety-batch-20261025
 - owner: Claude
-- status: assigned
+- status: implementing
 - base_sha: 9369ea5ff2ea6f0a86181688afa27825658ded17
 - branch: claude/evaluation-input-output-safety-batch-20261025
 - worktree/dispatch: Codex 전달 메시지 참조. 완료된 최초 provenance worktree를 재사용하되 새 브랜치로 시작한다.
