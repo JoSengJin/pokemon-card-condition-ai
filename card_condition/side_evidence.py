@@ -61,6 +61,9 @@ def relative_parts(value, where):
     path = PurePosixPath(value)
     if path.is_absolute() or '..' in path.parts or not path.parts:
         fail('P', f'{where} must stay below the evidence root')
+    # One spelling per location, so "a/./b" cannot pose as a second origin.
+    if str(path) != value:
+        fail('P', f'{where} must be written in canonical form')
     return path.parts
 
 
@@ -244,6 +247,8 @@ def parse_json_text(value, where):
         return json.loads(value, object_pairs_hook=unique_object, parse_constant=reject_constant)
     except json.JSONDecodeError:
         fail('J', f'{where} is not valid JSON')
+    except RecursionError:
+        fail('J', f'{where} is nested too deeply')
 
 
 def parse_bytes(data, kind, where):
@@ -319,9 +324,12 @@ def referenced_value(files, ref, code, where):
     return value
 
 
-def names_path(value, path):
-    """Same string, or an older absolute string ending at a path-component boundary."""
-    return type(value) is str and (value == path or value.endswith('/' + path))
+def candidate_paths(value):
+    """Root-relative spellings a stored reference may stand for; older records hold absolute paths."""
+    if not value.startswith('/'):
+        return [value]
+    parts = value.split('/')
+    return ['/'.join(parts[i:]) for i in range(1, len(parts)) if parts[i]]
 
 
 def check_files(doc, files):
@@ -357,16 +365,30 @@ def check_files(doc, files):
             fail('F', f'{where} inventory side must be front, back or null')
         if side != row['side_claim']:
             fail('R2', f'{where}.side_claim differs from the inventory side')
+        locations = set()
         for index, item in enumerate(row['evidence']):
             for name in ('source', 'origin'):
                 referenced_value(files, item[name], 'R9', f'{where}.evidence[{index}].{name}')
+            if item['type'] == 'human_statement':
+                real = files.locate(item['origin']['path'], f'{where}.evidence[{index}].origin.path')[1]
+                locations.add((real, *origin_key(item['origin'])[1:]))
+        # Symlink aliases of one declared origin location are the same location.
+        if len(locations) != row['summary']['human_side_origins']:
+            fail('R8', f'{where} declared origins alias the same file location')
         for index, item in enumerate(row['missing_sources']):
             label = f'{where}.missing_sources[{index}]'
-            present = files.exists(item['path'], f'{label}.path')
-            if not names_path(referenced_value(files, item['referenced_by'], 'R10', f'{label}.referenced_by'), item['path']):
+            files.exists(item['path'], f'{label}.path')
+            value = referenced_value(files, item['referenced_by'], 'R10', f'{label}.referenced_by')
+            if type(value) is not str or item['path'] not in candidate_paths(value):
                 fail('R10', f'{label}.referenced_by does not name this path')
-            if present:
-                fail('R10', f'{label}.path exists below the evidence root')
+            # Any spelling of the reference that is present below the root makes it not missing.
+            for candidate in candidate_paths(value):
+                try:
+                    present = files.exists(candidate, f'{label}.path')
+                except ValueError:
+                    continue
+                if present:
+                    fail('R10', f'{label} names a source that exists below the evidence root')
     return len(rows)
 
 
