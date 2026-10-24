@@ -1,6 +1,8 @@
 """Read-only A3 data inventory. No inference, test labels, or new truth."""
 import hashlib
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from .data import load_manifest
@@ -121,6 +123,11 @@ def data_coverage(manifest, output):
     if output.exists():
         raise ValueError('Output exists: choose a new report path')
     result = coverage_report(manifest)
-    with output.open('x', encoding='utf-8') as stream:
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=output.parent,
+                                     prefix=f'.{output.name}.', suffix='.tmp') as stream:
         json.dump(result, stream, ensure_ascii=False, indent=2, allow_nan=False)
+        stream.flush()
+        os.fsync(stream.fileno())
+        # Publish the completed file without replacing a competing report.
+        os.link(stream.name, output)
     return result
