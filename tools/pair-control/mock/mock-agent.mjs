@@ -9,12 +9,14 @@ const scenario = arg('scenario') ?? 'success';
 const task = arg('task') ?? 'unknown';
 const allowed = arg('allowed') ?? 'mock-output.txt';
 const counter = arg('counter');
+const contract = arg('contract');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const git = (...a) => execFileSync('git', ['-c', 'user.name=mock-agent', '-c', 'user.email=mock@localhost', ...a], { stdio: 'pipe' }).toString();
 
 if (counter) fs.appendFileSync(counter, JSON.stringify({ task, scenario, pid: process.pid, at: new Date().toISOString() }) + '\n');
 console.log(`[mock] task=${task} scenario=${scenario} pid=${process.pid} cwd=${process.cwd()}`);
 console.log('[mock] 모델 요청 없음 · 토큰/비용 미측정');
+if (contract) console.log(`[mock] 계약 읽음: ${fs.existsSync(contract) ? fs.readFileSync(contract, 'utf8').split('\n')[0] : '(없음)'}`);
 
 async function commit(file, steps) {
   for (let i = 1; i <= steps; i++) { console.log(`[mock] 작업 중 ${i}/${steps}`); await sleep(250); }
@@ -30,6 +32,7 @@ switch (scenario) {
   case 'success': await commit(target, 4); break;
   case 'slow-success': await commit(target, 12); break;
   case 'touch-forbidden': await commit('outside-scope.txt', 2); break;
+  case 'edit-contract': await commit(contract, 2); break;
   case 'fail': console.log('[mock] 검사 실패를 흉내냄'); await sleep(300); process.exit(3);
   case 'paid-message': console.log('Your credit balance is too low to continue.'); setInterval(() => {}, 1000); break;
   case 'spawn-child': {

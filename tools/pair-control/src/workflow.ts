@@ -148,7 +148,7 @@ const createWorktreeStep = createStep({
 
 const registerStep = createStep({
   id: 'register',
-  description: '작업 계약 등록(배정). 시작은 사람이 따로 누른다.',
+  description: '작업 계약 파일을 작업 브랜치에 커밋(같은 내용이면 재사용)하고 등록. 시작은 사람이 따로 누른다.',
   inputSchema: Prepared, outputSchema: Prepared,
   execute: async ({ inputData, bail }) => {
     try {
@@ -162,7 +162,7 @@ const registerStep = createStep({
 
 export const prepareTaskWorkflow = createWorkflow({
   id: 'prepare-task',
-  description: '작업 준비: 값 자동 계산 → worktree·브랜치 생성 → 배정 (관리용 LLM 없음)',
+  description: '작업 준비: 값 자동 계산 → worktree·브랜치 생성(재시도 시 재사용) → 계약 커밋·배정 (관리용 LLM 없음)',
   inputSchema: z.any(),
   outputSchema: Prepared,
 })

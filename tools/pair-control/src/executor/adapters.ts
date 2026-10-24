@@ -52,7 +52,7 @@ export async function probe(agent: 'codex' | 'claude', cfg: PairConfig): Promise
 
 export function mockPlan(task: TaskInputT, cfg: PairConfig): LaunchPlan {
   const script = path.join(cfg.toolRoot, 'mock', 'mock-agent.mjs');
-  const args = [script, '--scenario', task.mockScenario, '--task', task.taskId, '--allowed', task.allowedFiles[0]];
+  const args = [script, '--scenario', task.mockScenario, '--task', task.taskId, '--allowed', task.allowedFiles[0], '--contract', `docs/collaboration/tasks/${task.taskId}.md`];
   return {
     command: process.execPath, args, display: ['node', 'mock/mock-agent.mjs', ...args.slice(1)],
     permission: 'mock: 현재 사용자 권한으로 실행. 허용 파일은 사후 diff 검사로만 확인하며 실행 중 쓰기를 막지 않음. 모델 요청 없음.',
@@ -64,7 +64,8 @@ export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig): LaunchPla
   if (!cfg.confirmedSubscriptionAuth) return { refused: '무료 가드: CLI가 기존 구독 로그인으로 동작하는지 미확인(config.confirmedSubscriptionAuth=false). API 과금 전환 방지를 위해 시작하지 않음.' };
   if (!p.installed || !p.binary) return { refused: `${task.agent} CLI 미설치: ${p.note}` };
   if (p.missingFlags.length) return { refused: `--help에서 확인되지 않은 옵션: ${p.missingFlags.join(', ')}` };
-  const prompt = `${task.goal}\n\n허용 파일: ${task.allowedFiles.join(', ')}\n${task.prompt}`;
+  // 긴 지시는 커밋된 계약 파일에 있다. CLI 인자에는 계약 경로만 넘겨 인자 길이 제한을 피한다.
+  const prompt = `작업 계약 docs/collaboration/tasks/${task.taskId}.md 를 읽고 그대로 수행하세요. 계약 파일은 수정하지 마세요. 목표: ${task.goal}`;
   if (task.agent === 'codex') {
     // 옵션 이름은 --help로 확인하지만 값(workspace-write)은 실제 CLI에서 별도 확인 필요.
     const args = ['exec', '--cd', task.worktree, '--sandbox', 'workspace-write', prompt];

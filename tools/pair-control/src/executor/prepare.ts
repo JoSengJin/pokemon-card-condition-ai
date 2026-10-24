@@ -93,12 +93,21 @@ export async function planTask(ex: Executor, raw: unknown): Promise<Plan> {
     worktree = wt.path; branch = wt.branch;
     add('worktree', true, `기존 worktree 사용 (${branch})`);
   } else {
-    createWorktree = true;
     worktree = path.join(worktreeRoot(ex), `${path.basename(repo)}-${input.agent}-${taskId}`);
     const exists = fs.existsSync(worktree);
-    add('worktree', !exists, exists ? `이미 있는 경로: ${worktree} (덮어쓰지 않음)` : `새로 만듦: ${worktree}`);
     const bExists = await branchExists(repo, branch);
-    add('브랜치', !bExists, bExists ? `이미 있는 브랜치: ${branch} (덮어쓰지 않음)` : `새로 만듦: ${branch}`);
+    const resume = exists && bExists && !ex.state.tasks[taskId] ? await resumable(repo, worktree, branch, baseSha, taskId) : null;
+    if (resume === true) {
+      // 이전 준비가 등록 전에 멈춘 경우: 같은 worktree·브랜치를 재사용한다(중복 생성·중복 커밋 없음).
+      createWorktree = false;
+      worktree = fs.realpathSync.native(worktree);
+      add('worktree', true, `이전 준비 재사용: ${worktree}`);
+      add('브랜치', true, `이전 준비 재사용: ${branch}`);
+    } else {
+      createWorktree = true;
+      add('worktree', !exists, exists ? `이미 있는 경로: ${worktree} (덮어쓰지 않음${typeof resume === 'string' ? ` — ${resume}` : ''})` : `새로 만듦: ${worktree}`);
+      add('브랜치', !bExists, bExists ? `이미 있는 브랜치: ${branch} (덮어쓰지 않음)` : `새로 만듦: ${branch}`);
+    }
   }
 
   // 허용 파일
@@ -125,6 +134,19 @@ export async function planTask(ex: Executor, raw: unknown): Promise<Plan> {
 
   const ok = checks.every((c) => c.ok);
   return { ok, task: v.success ? v.data : null, createWorktree, baseRef, baseSubject, checks, conflicts: found, warnings };
+}
+
+/** 재사용 가능한 이전 준비인지: 같은 브랜치의 등록된 worktree이고, 기준 SHA 이후 커밋은 이 task의 계약 파일만 바꿨으며 미커밋 변경이 없다. */
+async function resumable(repo: string, worktree: string, branch: string, baseSha: string, taskId: string): Promise<true | string> {
+  const real = fs.realpathSync.native(worktree);
+  const wt = (await G.worktrees(repo)).find((w) => w.path === real);
+  if (!wt || wt.branch !== branch) return '같은 브랜치의 worktree가 아님';
+  if (!(await G.isAncestor(real, baseSha, 'HEAD'))) return '기준 SHA가 바뀜';
+  const head = await G.revParse(real, 'HEAD');
+  const files = await G.changedFiles(real, baseSha, head!);
+  if (files.some((f) => f !== `docs/collaboration/tasks/${taskId}.md`)) return '계약 외 변경이 있음';
+  if ((await G.dirtyFiles(real)).length) return '미커밋 변경이 있음';
+  return true;
 }
 
 /** git worktree add -b. 기존 경로·브랜치는 덮어쓰지 않는다(git 자체도 거절). */

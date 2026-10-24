@@ -11,6 +11,9 @@ export function makeFixture(dir, toolRoot, workers = [['claude', 'task-a'], ['co
   const repo = path.join(dir, 'repo');
   fs.mkdirSync(path.join(repo, 'card_condition'), { recursive: true });
   git(repo, 'init', '-q', '-b', 'main');
+  // 계약 커밋 작성자(로컬 저장소 설정, worktree 공유)
+  execFileSync('git', ['config', 'user.name', 'fixture'], { cwd: repo });
+  execFileSync('git', ['config', 'user.email', 'fixture@localhost'], { cwd: repo });
   const lockSrc = path.join(toolRoot, '..', '..', 'card_condition', 'workspace_lock.py');
   fs.copyFileSync(lockSrc, path.join(repo, 'card_condition', 'workspace_lock.py'));
   fs.writeFileSync(path.join(repo, 'card_condition', '__init__.py'), '');

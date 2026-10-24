@@ -11,6 +11,7 @@ import * as G from './git.ts';
 import { conflicts, effectiveGroups, isAllowed, needsDevelopLock, TaskInput, type ConflictReason, type TaskInputT } from './contract.ts';
 import { mockPlan, probe, realPlan, type LaunchPlan, type Probe } from './adapters.ts';
 import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
+import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
 
 export type TaskStatus =
   | 'assigned' | 'blocked' | 'starting' | 'running' | 'collecting' | 'cancelling' | 'cancelled' | 'failed'
@@ -25,7 +26,7 @@ const STARTABLE: TaskStatus[] = ['assigned', 'blocked', 'failed', 'cancelled', '
 
 export interface Check { name: string; ok: boolean; detail: string }
 
-export interface Approval { sha: string; baseBranch: string; baseHead: string; files: string[]; filesHash: string; at: string }
+export interface Approval { sha: string; baseBranch: string; baseHead: string; files: string[]; filesHash: string; contractHash: string; at: string }
 
 export interface Task extends TaskInputT {
   status: TaskStatus;
@@ -38,6 +39,10 @@ export interface Task extends TaskInputT {
   preflight?: Check[];
   permission?: string;
   usesDevelopLock: boolean;
+  /** 작업 브랜치에 커밋한 계약 파일의 커밋·내용 해시. Git 계약 검사·검사·승인의 기준. */
+  contractPath: string;
+  contractSha: string;
+  contractHash: string;
   result?: {
     execId: string | null; headSha: string | null; commits: string[]; changedFiles: string[]; dirtyFiles: string[];
     outOfScope: string[]; checks: Check[]; checksPassed: boolean; collectedAt: string;
@@ -112,7 +117,17 @@ export class Executor {
     if (this.state.tasks[input.taskId]) throw new UserError(`이미 배정된 task ID: ${input.taskId}`);
     const worktree = fs.existsSync(input.worktree) ? fs.realpathSync.native(input.worktree) : input.worktree;
     const now = new Date().toISOString();
-    const t: Task = { ...input, worktree, status: 'assigned', createdAt: now, updatedAt: now, runHistory: [], usesDevelopLock: needsDevelopLock(input) };
+    const t: Task = { ...input, worktree, status: 'assigned', createdAt: now, updatedAt: now, runHistory: [], usesDevelopLock: needsDevelopLock(input),
+      contractPath: contractPath(input.taskId), contractSha: '', contractHash: '' };
+    // 계약은 등록된 별도 worktree의 작업 브랜치에만 커밋한다(main·통합 checkout 금지).
+    const must = ['설정', 'worktree 등록', '기본 checkout 분리', '브랜치', '기준 SHA', 'Git 진행 중 작업 없음'];
+    const pre = (await this.preflightChecks(t)).filter((c) => must.includes(c.name) && !c.ok);
+    if (pre.length) throw new UserError(`계약을 커밋할 수 없음: ${pre.map((c) => `${c.name}(${c.detail})`).join(', ')}`);
+    try {
+      const cc = await commitContract(worktree, input);
+      t.contractSha = cc.contractSha; t.contractHash = cc.contractHash;
+      this.event('contract_committed', { taskId: t.taskId, contractSha: cc.contractSha, reused: cc.reused });
+    } catch (err) { throw new UserError((err as Error).message); }
     t.preflight = await this.preflightChecks(t);
     this.state.tasks[t.taskId] = t;
     this.event('task_assigned', { taskId: t.taskId, agent: t.agent, mode: t.mode, branch: t.branch, baseSha: t.baseSha });
@@ -402,11 +417,13 @@ export class Executor {
     const branchHead = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
     const head = await G.revParse(t.worktree, 'HEAD');
     add('브랜치 HEAD 일치', !!head && head === branchHead, `HEAD ${head?.slice(0, 12)} / ${t.branch} ${branchHead?.slice(0, 12)}`);
-    const anc = !!head && (await G.isAncestor(t.worktree, t.baseSha, head));
-    add('기준 SHA 위의 커밋', anc, anc ? 'base..HEAD' : '기준 SHA의 후손이 아님');
-    const commits = head && anc ? await G.commitsBetween(t.worktree, t.baseSha, head) : [];
-    add('전달 커밋 존재', commits.length > 0, `${commits.length}개`);
-    const changed = head && anc ? await G.changedFiles(t.worktree, t.baseSha, head) : [];
+    const anc = !!head && (await G.isAncestor(t.worktree, t.contractSha, head));
+    add('계약 커밋 위의 작업', anc, anc ? `계약 ${t.contractSha.slice(0, 12)}..HEAD` : '계약 커밋의 후손이 아님');
+    const hashNow = head ? await contractHashAt(t.worktree, t.taskId, head) : null;
+    add('계약 파일 불변', hashNow === t.contractHash, hashNow === t.contractHash ? '등록 시 계약과 같음' : '계약 파일이 바뀌거나 사라짐(검사·승인 기준 무효)');
+    const commits = head && anc ? await G.commitsBetween(t.worktree, t.contractSha, head) : [];
+    add('전달 커밋 존재', commits.length > 0, `계약 이후 ${commits.length}개`);
+    const changed = head && anc ? await G.changedFiles(t.worktree, t.contractSha, head) : [];
     const dirty = await G.dirtyFiles(t.worktree);
     add('미커밋 변경 없음', dirty.length === 0, dirty.length ? dirty.join(', ') : '깨끗함');
     const outOfScope = [...new Set([...changed, ...dirty])].filter((f) => !isAllowed(f, t.allowedFiles));
@@ -443,7 +460,7 @@ export class Executor {
     if (!this.cfg.integration.checkout) throw new UserError('config.integration.checkout 미설정');
     const s = await this.integrationState(t, sha);
     if (!s.baseHead) throw new UserError('통합 기준 브랜치를 읽지 못함');
-    t.approval = { sha, baseBranch: this.cfg.integration.branch, baseHead: s.baseHead, files: s.files, filesHash: s.filesHash, at: new Date().toISOString() };
+    t.approval = { sha, baseBranch: this.cfg.integration.branch, baseHead: s.baseHead, files: s.files, filesHash: s.filesHash, contractHash: t.contractHash, at: new Date().toISOString() };
     this.setStatus(t, 'approved', `SHA ${sha.slice(0, 12)} 승인 · 통합 실행 대기`);
     this.event('approved', { taskId, sha, baseHead: s.baseHead });
     return t.approval;
@@ -477,6 +494,8 @@ export class Executor {
       if (branchNow !== a.baseBranch) changes.push(`통합 checkout 브랜치 ${branchNow} ≠ ${a.baseBranch}`);
       if (s.baseHead !== a.baseHead) changes.push(`기준 브랜치 이동 ${a.baseHead.slice(0, 12)} → ${s.baseHead?.slice(0, 12)}`);
       if (s.filesHash !== a.filesHash) changes.push('관련 파일 목록 변경');
+      const hashAtSha = await contractHashAt(t.worktree, t.taskId, a.sha);
+      if (hashAtSha !== a.contractHash || a.contractHash !== t.contractHash) changes.push('작업 계약 변경');
       if (changes.length) {
         t.approval = null;
         return this.endIntegration(t, 'integration_refused', `승인 무효화: ${changes.join('; ')}`);

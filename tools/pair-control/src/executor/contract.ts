@@ -7,7 +7,7 @@ export const AGENTS = ['codex', 'claude'] as const;
 export const MODES = ['mock', 'real'] as const;
 export type Agent = (typeof AGENTS)[number];
 
-export const MOCK_SCENARIOS = ['success', 'fail', 'hang', 'spawn-child', 'touch-forbidden', 'paid-message', 'slow-success'] as const;
+export const MOCK_SCENARIOS = ['success', 'fail', 'hang', 'spawn-child', 'touch-forbidden', 'paid-message', 'slow-success', 'edit-contract'] as const;
 
 /** 기본 checkout 단일 담당자만 다루는 경로. 병렬 구현 작업에 배정하지 않는다. */
 export const FORBIDDEN_PREFIXES = ['data/', 'artifacts/', '.backups/', '.venv/', '.git/', 'build/', 'dist/'];
@@ -22,6 +22,26 @@ const relPath = z.string().min(1).max(300)
   .refine((p) => !p.startsWith('/') && !p.split('/').includes('..') && !p.includes('\0') && !p.includes('\\'), '상대경로만 허용')
   .refine((p) => !/[*?[\]]/.test(p), 'glob은 허용하지 않음. 정확한 파일 또는 "디렉터리/"');
 
+/** 검사 명령에 허용하는 실행 파일. 셸·임의 경로는 받지 않는다. .venv/bin/python은 해당 checkout의 자체 가상환경. */
+export const CHECK_EXECUTABLES = ['git', 'node', '.venv/bin/python'] as const;
+/** 검사로 실행하면 안 되는 진입점(학습·실험 기록·자동 교차 검토·잠금 우회). */
+const DENIED_CHECK_ARGS = /experiment_record|cross_review|workspace_lock|(^|\s)(train|predict|infer)(\s|$)/;
+export const CHECK_PLACEHOLDERS = ['{base}', '{contract}', '{head}'];
+
+export const CheckSpec = z.object({
+  id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,31}$/),
+  name: z.string().min(1).max(80),
+  executable: z.enum(CHECK_EXECUTABLES),
+  args: z.array(z.string().max(500).refine((a) => !a.includes('\0'))).max(40).default([]),
+  cwd: relPath.default('.'),
+}).superRefine((c, ctx) => {
+  if (DENIED_CHECK_ARGS.test(c.args.join(' '))) ctx.addIssue({ code: 'custom', message: `검사 '${c.name}': 학습·실험·자동 검토 진입점은 검사로 실행할 수 없음`, path: ['args'] });
+});
+export type CheckSpecT = z.infer<typeof CheckSpec>;
+
+/** 실행 환경 요구: none(파이썬 불필요) / python(자체 .venv, 표준 라이브러리) / python-project(자체 .venv + 프로젝트 import·추가 모듈). */
+export const ENV_PROFILES = ['none', 'python', 'python-project'] as const;
+
 export const TaskInput = z.object({
   taskId: z.string().regex(/^[a-z0-9][a-z0-9._-]{2,63}$/, 'task ID 형식: 소문자·숫자·.-_ 3~64자'),
   agent: z.enum(AGENTS),
@@ -35,7 +55,17 @@ export const TaskInput = z.object({
   prompt: z.string().max(8000).default(''),
   mockScenario: z.enum(MOCK_SCENARIOS).default('success'),
   requiresExperiment: z.boolean().default(false),
+  doneCriteria: z.array(z.string().min(1).max(300)).max(20).default([]),
+  checks: z.array(CheckSpec).max(20).default([]),
+  postChecks: z.array(CheckSpec).max(20).default([]),
+  env: z.enum(ENV_PROFILES).default('none'),
+  requiredModules: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_.]{0,80}$/)).max(30).default([]),
 }).superRefine((t, ctx) => {
+  const ids = [...t.checks, ...t.postChecks].map((c) => c.id);
+  if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: '검사 id가 중복됨', path: ['checks'] });
+  if ([...t.checks, ...t.postChecks].some((c) => c.executable === '.venv/bin/python') && t.env === 'none') {
+    ctx.addIssue({ code: 'custom', message: '.venv/bin/python 검사는 실행 환경을 python 또는 python-project로 지정해야 함', path: ['env'] });
+  }
   const prefix = t.branch.split('/')[0];
   if (prefix !== t.agent) ctx.addIssue({ code: 'custom', message: `branch 접두어(${prefix})가 담당 에이전트(${t.agent})와 다릅니다.`, path: ['branch'] });
   for (const f of t.allowedFiles) {

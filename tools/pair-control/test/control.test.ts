@@ -242,10 +242,10 @@ test('계약 검증: 금지 경로·브랜치 접두어·실험 작업·미등�
     await assert.rejects(env.ex.assign(task(env, 'task-a', { branch: 'codex/task-a' })), /접두어/);
     await assert.rejects(env.ex.assign(task(env, 'task-a', { requiresExperiment: true })), /기본 checkout 단일 실행 담당자/);
     await assert.rejects(env.ex.assign(task(env, 'task-a', { allowedFiles: ['src_*/'] })), /glob/);
-    await env.ex.assign(task(env, 'task-a', { taskId: 'task-x', worktree: env.fixture.repo }));
-    const r = await env.ex.launch('task-x', 'manual');
-    assert.equal(r.ok, false);
-    assert.match((r as any).reason, /기본 checkout 분리|브랜치/);
+    const mainBefore = gitOut(env.fixture.repo, 'rev-parse', 'HEAD');
+    await assert.rejects(env.ex.assign(task(env, 'task-a', { taskId: 'task-x', worktree: env.fixture.repo })), /계약을 커밋할 수 없음: 기본 checkout 분리/);
+    assert.equal(gitOut(env.fixture.repo, 'rev-parse', 'HEAD'), mainBefore, 'main에는 계약을 커밋하지 않음');
+    assert.equal(env.ex.state.tasks['task-x'], undefined);
     assert.equal(invocations(env), 0);
   } finally { env.cleanup(); }
 });
