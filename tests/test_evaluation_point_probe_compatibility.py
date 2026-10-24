@@ -48,3 +48,23 @@ class PointProbeCompatibilityTest(unittest.TestCase):
                     probe.point_probe(manifest, [checkpoint], output, [rows[2]['id']], [history])
             model.assert_not_called()
             self.assertFalse(output.exists())
+
+    def test_region_point_grid_keeps_guards_with_mock_analyzer(self):
+        import torch
+        from card_condition import region_evaluation
+        from card_condition.point_probe import digest
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            manifest, history, checkpoint, _, analyzer = evaluation_fixture(root, 'region')
+            meta = torch.load(checkpoint, weights_only=True)
+            meta['architecture'] = 'mobilenet_v3_small_point_grid_v1'
+            torch.save(meta, checkpoint)
+            analyzer.model_sha256 = digest(checkpoint)
+            output = root / 'final.json'
+            with patch.object(region_evaluation, 'RegionAnalyzer', return_value=analyzer) as constructor:
+                result = region_evaluation.evaluate_regions(manifest, checkpoint, output, [history], 'cpu')
+            constructor.assert_called_once()
+            self.assertTrue(analyzer.analyze.called)
+            self.assertEqual('point_final', result['evaluation_kind'])
+            self.assertFalse(result['production_ready'])
+            self.assertEqual(result, json.loads(output.read_text()))
