@@ -1,10 +1,10 @@
 """Evaluate a frozen region model on unseen test cards; never fit or tune here."""
-import json
 from pathlib import Path
 
 import torch
 
-from .evaluation_inputs import track_photos, reject_copied_test_groups, unchanged_inputs, development_sets
+from .evaluation_inputs import track_photos, reject_copied_test_groups, unchanged_inputs, development_sets, matched_model
+from .evaluation_output import write_new_report
 from .point_probe import digest
 from .quality_rates import error_rates
 from .data import load_manifest
@@ -54,6 +54,7 @@ def evaluate_regions(manifest, checkpoint, output, history, device='auto'):
     if not rows:
         raise ValueError('No explicitly annotated test regions')
     analyzer = RegionAnalyzer(checkpoint, device)
+    matched_model(analyzer, input_hashes, checkpoint)
     metrics = {key:dict(tp=0, tn=0, fp=0, fn=0) for key in meta['supported']}
     predictions, by_group, by_group_side = [], {}, {}
     for row in rows:
@@ -87,6 +88,5 @@ def evaluate_regions(manifest, checkpoint, output, history, device='auto'):
               'limitations':['Caller must supply complete development history and group other photos of the same physical card.',
                              'Unknown labels are unscored; this measures labeled patches, not whole-card condition.',
                              'Do not reuse these test results for model selection or threshold tuning.']}
-    with output.open('x', encoding='utf-8') as stream:
-        json.dump(report, stream, ensure_ascii=False, indent=2, allow_nan=False)
+    write_new_report(output, report)
     return report

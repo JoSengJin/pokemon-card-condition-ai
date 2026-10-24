@@ -1,10 +1,10 @@
 """Explicit regression/final evaluation of a frozen single-side checkpoint."""
-import json
 from pathlib import Path
 
 import torch
 
-from .evaluation_inputs import track_photos, reject_copied_test_groups, unchanged_inputs, development_sets
+from .evaluation_inputs import track_photos, reject_copied_test_groups, unchanged_inputs, development_sets, matched_model
+from .evaluation_output import write_new_report
 from .point_probe import digest
 from .quality_rates import error_rates
 from .data import LABELS, load_manifest
@@ -47,6 +47,7 @@ def evaluate_sides(manifest, checkpoint, output, kind, history=(), device='auto'
     if conflicts:
         raise ValueError('개발에 사용된 카드/이미지가 평가 자료에 포함됨: '+', '.join(conflicts))
     analyzer = SideAnalyzer(checkpoint, device)
+    matched_model(analyzer, input_hashes, checkpoint)
     probabilities = [list(analyzer.predict(r['image'], r['box']).values()) for r in rows]
     metrics,predictions=score(rows,probabilities,meta['supported'])
     if not any(sum(counts.values()) for counts in metrics.values()):
@@ -61,6 +62,5 @@ def evaluate_sides(manifest, checkpoint, output, kind, history=(), device='auto'
               'requires_gemini':True,'production_ready':False,'actual_calls_saved':0,
               'limitations':['Checks exact pixels/ids/groups in supplied history only; other photos of the same card require human grouping.',
                               'Final results must not be reused to tune the model; crop mode assumes human boxes.']}
-    with output.open('x',encoding='utf-8') as stream:
-        json.dump(report,stream,ensure_ascii=False,indent=2,allow_nan=False)
+    write_new_report(output, report)
     return report
