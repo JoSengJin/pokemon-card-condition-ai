@@ -110,6 +110,12 @@ function buildRoutes() {
     registerApiRoute('/pair/api/execs/:id/log', {
       method: 'GET', handler: act(async (c) => ex().logTail(id(c), Number(c.req.query('from') ?? 0))),
     }),
+    registerApiRoute('/pair/api/tasks/:id/review', {
+      method: 'POST', handler: act(async (c) => {
+        const b = await body(c);
+        return ex().startReviewJob(id(c), { reviewer: b.reviewer, mode: b.mode === 'real' ? 'real' : 'mock', mockScenario: b.mockScenario });
+      }),
+    }),
     registerApiRoute('/pair/api/tasks/:id/run-checks', { method: 'POST', handler: act(async (c) => ex().runChecks(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/recheck-env', { method: 'POST', handler: act(async (c) => ex().recheckEnv(id(c))) }),
     registerApiRoute('/pair/api/probes', { method: 'POST', handler: act(async () => ex().refreshProbes()) }),
