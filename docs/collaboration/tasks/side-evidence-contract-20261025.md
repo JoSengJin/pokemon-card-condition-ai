@@ -2,7 +2,7 @@
 
 - task_id: `side-evidence-contract-20261025`
 - owner: Claude
-- status: ready_for_review
+- status: integrated
 - base_sha: `c7c4b8de9d6eeb751743367424729734c00e4b73`
 - branch: `claude/side-evidence-contract-20261025`
 - worktree: Codex 전달 메시지에서만 로컬 경로 제공
@@ -66,3 +66,7 @@ status ready_for_review, 전체 SHA·부모·파일·검사·미해결·리스�
   - 계약 초안(v0-draft)이며 구현·채택되지 않았다.
 - 롤백: 미통합이면 반영하지 않는다. 통합 후에는 이 문서 커밋만 revert한다. 원본 데이터·모델·코드는 변경하지 않았다.
 - 미실행: 도구 구현, 사진 열람, 추론, 학습, 외부 AI 호출, 라벨 변경 모두 0회.
+
+## Codex 인수
+
+문서 초안으로 수용·통합했다. 원본 위치 수와 독립 사람 판단 수를 구분하고 source/origin 양쪽 검증 필요를 보고서에 보정했다. JSON 4행·파생 사본 중복 제거·10개 거절 변형을 직접 재검증했다. R1·R2·R9–R11은 실제 원본 대조 미실행이며 미해결 결정 5개는 보존했다. 문서 통합은 구현 계약 확정·도구 채택을 뜻하지 않는다. 진척 30/100 유지, 학습·추론·외부 AI 0회.
