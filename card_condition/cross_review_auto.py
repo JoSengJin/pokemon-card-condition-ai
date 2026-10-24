@@ -349,6 +349,10 @@ def review_context(root, folder, phase, payload):
             context['response']['experiment'].pop('success_criterion',None)
             context['response']['experiment'].pop('failure_criterion',None)
             context['response']['criteria_reference']='Keep fixed acceptance, required cohorts and actual-point guard; no success claim.'
+            assessment=context['response'].get('debate_assessment')
+            if isinstance(assessment,dict):
+                # Pre-judge ratings are fixed zeros; keep only the advocate's own issues.
+                context['response']['debate_assessment']={k:v for k,v in assessment.items() if k not in ('advocate','skeptic')}
 
     if packet.get('execution_inputs'):
         context['execution_inputs'] = packet['execution_inputs']
@@ -435,6 +439,10 @@ def review_context(root, folder, phase, payload):
         context.pop('worker_contract',None)
         context.pop('contract',None)
     if phase in ('verify','correct'):
+        setting=root/'trusted-experiment.json'
+        importable=set(read(setting).get('trainer_sources',[])) if setting.exists() else set()
+        for source in context['source_context']['sources']:
+            if source['path'] in importable:source['worker_importable']=True  # Copied into isolated execution.
         transport=expand_evidence(read(folder/'packet.json')['evidence'],decode_tables=False)
         for key,value in context['evidence']['evidence'].items():
             if isinstance(value,dict) and 'required_cohorts' in value.get('summary',{}):
@@ -533,7 +541,7 @@ def codex_task(root, folder, phase, payload, thread_id=None, backend=None, token
     prompt = '한국어 JSON. evidence_ids는 valid_evidence_ids 안에서만 선택한다. 도구 없이 동결 근거·project_rules만 사용하고 source_context 원문·SHA를 인용한다. '
     if phase in ('verify','correct'):
         from .cross_review_roles import CODEX_ADVOCATE
-        prompt += CODEX_ADVOCATE+' failed_hypotheses_checked는 가설 실패 ID 전부만, review_claims.completed_diagnostic_ids는 완료 진단 ID 전부다. 실행 실패는 반증이 아니다. critique_responses는 실제 Gemini 비판 ID마다 정확히 하나, 비판 전에는 빈 목록이다. debate_assessment 점수는 심판 전0. 검증할 변수·사전 수치 기준이 있으면 select, 남은 Gemini>0이고 반증이 필요하면 second, 근거 부족 stop, 실제 사람/자료 의존 wait. implementation_files에는 수정할 허용 모델 소스만 넣는다. 새 격리 worker는 구현 단계의 별도 출력이므로 이 목록에 넣지 않는다. 모델 소스 수정 없이 worker에서 고정 실험 변수를 적용할 수 있으면 빈 목록도 가능하다. experiment_parameter(name/baseline/value/scope)를 확정하고 효과를 추정하지 않는다. missing_evidence_ids는 실제 없는 것만. gemini_required_for_select=false. '
+        prompt += CODEX_ADVOCATE+' failed_hypotheses_checked는 가설 실패 ID 전부만, review_claims.completed_diagnostic_ids는 완료 진단 ID 전부다. 실행 실패는 반증이 아니다. critique_responses는 실제 Gemini 비판 ID마다 정확히 하나, 비판 전에는 빈 목록이다. debate_assessment 점수는 심판 전0. 검증할 변수·사전 수치 기준이 있으면 select, 남은 Gemini>0이고 반증이 필요하면 second, 근거 부족 stop, 실제 사람/자료 의존 wait. implementation_files에는 수정할 허용 모델 소스만 넣는다. 새 격리 worker는 구현 단계의 별도 출력이므로 이 목록에 넣지 않는다. 모델 소스 수정 없이 worker가 worker_importable 함수 인자로 고정 실험 변수를 적용할 수 있으면 빈 목록도 가능하다. experiment_parameter(name/baseline/value/scope)를 확정하고 효과를 추정하지 않는다. missing_evidence_ids는 실제 없는 것만. gemini_required_for_select=false. '
         if phase=='correct':prompt += '마지막 교정이다. correction.errors는 프로그램 검증 오류이며 Gemini 비판이 아니다. 실제 critiques가 없으면 critique_responses를 빈 목록으로 유지한다. 실제 비판 ID에는 모두 답하고 수정안을 반환하라. 정당한 stop/wait는 유지한다. '
     else:
         prompt += ('judge_issue_responses는 심판 needs_evidence의 unresolved_issues와 unresolved criticism_checks의 rationale 각각에 issue 원문, 수정안의 정확한 plan_quote, 대조 이유 rationale를 반환한다. 계획에 명시된 측정·보호 기준으로 해소되지 않으면 proceed하지 않는다. 심판이 미입증 효과 자체를 요구했다면 실험 판정 기준을 인용해 구분한다. 해당 없으면 빈 배열. '
@@ -676,7 +684,11 @@ def verdict_errors(root,result,verdict,require_parameter=False):
                     raise ValueError('Code citation does not match actual source')
                 checked.add(str(file.relative_to(root)))
             for name in verdict['implementation_files']:
-                model_file(root, name)  # Read-only evidence never becomes editable through a citation.
+                try:model_file(root, name)  # Read-only evidence never becomes editable through a citation.
+                except ValueError:
+                    # List error only: a worker-only experiment may still be feasible.
+                    raise ValueError('Not an editable model source: '+name+'. New worker is separate output: omit it; '
+                        '[] is valid if worker passes experiment_parameter to worker_importable code') from None
             if (verdict['action'] in ('select','second') and not checked) or not set(verdict['implementation_files']).issubset(checked):
                 raise ValueError('Every editable source must be checked')
 
