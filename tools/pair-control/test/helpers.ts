@@ -54,8 +54,16 @@ export function task(env: Env, name: string, extra: Record<string, unknown> = {}
   const w = env.fixture.worktrees[name];
   return {
     taskId: name, agent: w.agent, branch: w.branch, worktree: w.path, baseSha: env.fixture.baseSha,
-    allowedFiles: ['src_a/'], goal: `${name} 목표`, mockScenario: 'success', ...extra,
+    allowedFiles: ['src_a/'], goal: `${name} 목표`, mockScenario: 'success',
+    checks: [{ id: 'ws', name: '공백 오류 검사', executable: 'git', args: ['diff', '--check', '{contract}', '{head}'] }],
+    ...extra,
   };
+}
+
+/** 사용자가 '작업 테스트 실행'을 누른 것과 같다. 끝날 때까지 기다린다. */
+export async function verify(env: Env, id: string) {
+  await env.ex.runChecks(id);
+  return waitFor(() => { const v = env.ex.task(id).verification; return v && v.status !== 'running' ? v : null; }, `${id} checks`);
 }
 
 export async function waitFor<T>(fn: () => T | Promise<T>, label: string, timeoutMs = 15_000): Promise<NonNullable<T>> {

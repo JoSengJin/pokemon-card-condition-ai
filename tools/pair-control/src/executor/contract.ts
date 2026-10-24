@@ -61,6 +61,7 @@ export const TaskInput = z.object({
   env: z.enum(ENV_PROFILES).default('none'),
   requiredModules: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_.]{0,80}$/)).max(30).default([]),
 }).superRefine((t, ctx) => {
+  if (t.postChecks.some((c) => c.cwd !== '.')) ctx.addIssue({ code: 'custom', message: '통합 후 검사는 ./develop 안에서 checkout 루트(cwd=.)로만 실행', path: ['postChecks'] });
   const ids = [...t.checks, ...t.postChecks].map((c) => c.id);
   if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: '검사 id가 중복됨', path: ['checks'] });
   if ([...t.checks, ...t.postChecks].some((c) => c.executable === '.venv/bin/python') && t.env === 'none') {

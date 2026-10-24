@@ -13,12 +13,13 @@ import { mockPlan, probe, realPlan, type LaunchPlan, type Probe } from './adapte
 import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
 import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
 import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
+import type { CheckSpecT } from './contract.ts';
 
 export type TaskStatus =
   | 'assigned' | 'blocked' | 'starting' | 'running' | 'collecting' | 'cancelling' | 'cancelled' | 'failed'
   | 'orphan_running' | 'exit_observed' | 'unknown' | 'abandoned'
   | 'review_pending' | 'approved' | 'rejected'
-  | 'integrating' | 'integrated' | 'integration_refused' | 'integration_conflict' | 'integration_blocked';
+  | 'integrating' | 'integrated' | 'integrated_check_failed' | 'integration_refused' | 'integration_conflict' | 'integration_blocked';
 
 /** 실행 잠금은 없어도 같은 파일의 결과가 아직 통합/거절되지 않은 상태. */
 export const OCCUPYING: TaskStatus[] = ['starting', 'running', 'collecting', 'cancelling', 'orphan_running', 'exit_observed', 'unknown',
@@ -26,6 +27,24 @@ export const OCCUPYING: TaskStatus[] = ['starting', 'running', 'collecting', 'ca
 const STARTABLE: TaskStatus[] = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
 
 export interface Check { name: string; ok: boolean; detail: string }
+
+/** 작업 테스트·통합 후 검사 한 항목. 미실행(not_run)·중단·결과 불명은 통과가 아니다. */
+export type CheckStatus = 'pending' | 'running' | 'passed' | 'failed' | 'cancelled' | 'unknown' | 'not_run';
+export interface CheckRun {
+  id: string; name: string; display: string[]; cwd: string; status: CheckStatus; sha: string;
+  exitCode?: number | null; execId?: string; logPath?: string; startedAt?: string; endedAt?: string;
+}
+export interface Verification {
+  runId: string; sha: string; contractHash: string; status: 'running' | 'passed' | 'failed' | 'cancelled' | 'unknown' | 'interrupted';
+  items: CheckRun[]; startedAt: string; endedAt?: string; note?: string;
+}
+
+export type ReviewVerdict = 'approve' | 'changes_requested' | 'insufficient_evidence';
+export interface ReviewRecord {
+  reviewId: string; reviewer: 'codex' | 'claude'; mode: 'mock' | 'real'; sha: string; contractHash: string; bundleDir: string;
+  status: 'running' | 'done' | 'failed' | 'cancelled' | 'unknown'; verdict?: ReviewVerdict | null; summary?: string;
+  execId?: string; startedAt: string; endedAt?: string; note?: string;
+}
 
 export interface Approval { sha: string; baseBranch: string; baseHead: string; files: string[]; filesHash: string; contractHash: string; at: string }
 
@@ -46,16 +65,26 @@ export interface Task extends TaskInputT {
   contractHash: string;
   /** worktree 생성과 별개인 실행 준비 상태(자체 .venv·import 경로·필요 모듈). */
   envReadiness?: EnvReadiness;
+  /** 에이전트 종료 후 실행기가 계약의 검사 명령을 별도로 실행한 결과(작업 테스트). */
+  verification?: Verification | null;
+  /** 별도 리뷰 작업(구현 worktree를 수정하지 않는 별도 CLI 실행). */
+  review?: ReviewRecord | null;
   result?: {
     execId: string | null; headSha: string | null; commits: string[]; changedFiles: string[]; dirtyFiles: string[];
     outOfScope: string[]; checks: Check[]; checksPassed: boolean; collectedAt: string;
   } | null;
   approval?: Approval | null;
-  integration?: { at: string; outcome: string; detail: string; newHead?: string | null; conflictFiles?: string[]; commits?: string[] } | null;
+  integration?: {
+    at: string; outcome: string; detail: string; newHead?: string | null; preHead?: string | null; conflictFiles?: string[]; commits?: string[];
+    postStatus?: 'passed' | 'failed' | 'not_run'; postChecks?: CheckRun[];
+  } | null;
 }
 
 export type ExecStatus = 'running' | 'cancelling' | 'exited' | 'cancelled' | 'unknown' | 'abandoned';
+export type ExecKind = 'agent' | 'check' | 'review';
 export interface Execution {
+  /** agent=에이전트 CLI, check=작업 테스트(runId=검사 실행 ID), review=별도 리뷰 CLI(runId=리뷰 ID). 옛 기록은 agent. */
+  kind?: ExecKind; checkId?: string; sha?: string;
   execId: string; taskId: string; runId: string; token: string; agent: string; mode: string; display: string[];
   pid: number; pgid: number; startedAt: string; endedAt?: string; status: ExecStatus;
   exitCode?: number | null; signal?: string | null; spawnError?: string | null; cancelRequested: boolean;
@@ -235,31 +264,42 @@ export class Executor {
   }
 
   private spawnExec(t: Task, runId: string, execId: string, plan: LaunchPlan) {
-    const dir = path.join(this.cfg.stateDir, 'runs', execId);
-    fs.mkdirSync(dir, { recursive: true });
-    const token = crypto.randomUUID();
     let command = plan.command, args = plan.args;
     if (t.mode === 'mock') args = [...args, '--counter', path.join(this.cfg.stateDir, 'mock-invocations.jsonl')];
     if (t.usesDevelopLock) { command = path.join(t.worktree, 'develop'); args = ['--', plan.command, ...args]; }
-    const spec = { execId, token, cwd: t.worktree, command, args, env: sanitizedChildEnv(), logPath: path.join(dir, 'output.log'), exitPath: path.join(dir, 'exit.json') };
+    const ex = this.spawnSupervised(t, { kind: 'agent', execId, runId, cwd: t.worktree, command, args,
+      display: t.usesDevelopLock ? ['./develop', '--', ...plan.display] : plan.display });
+    t.lastExecId = execId; t.runId = runId; t.runHistory = [...t.runHistory, runId];
+    t.result = null; t.approval = null; t.integration = null; t.verification = null; t.review = null;
+    this.setStatus(t, 'running');
+    return { ok: true as const, execId, pid: ex.pid };
+  }
+
+  /** 감독 프로세스(새 프로세스 그룹)로 명령 하나를 실행한다. 에이전트·작업 테스트·리뷰가 같은 경로를 쓴다. */
+  private spawnSupervised(t: Task, o: { kind: ExecKind; execId?: string; runId: string; cwd: string; command: string; args: string[]; display: string[]; checkId?: string; sha?: string }) {
+    const execId = o.execId ?? crypto.randomUUID();
+    const dir = path.join(this.cfg.stateDir, 'runs', execId);
+    fs.mkdirSync(dir, { recursive: true });
+    const token = crypto.randomUUID();
+    const spec = { execId, token, cwd: o.cwd, command: o.command, args: o.args, env: sanitizedChildEnv(), logPath: path.join(dir, 'output.log'), exitPath: path.join(dir, 'exit.json') };
     const specPath = path.join(dir, 'spec.json');
     writeJsonAtomic(specPath, spec);
     fs.writeFileSync(spec.logPath, '');
-    const sup = spawn(process.execPath, [this.supervisorPath, specPath], { cwd: t.worktree, detached: true, stdio: 'ignore', env: sanitizedChildEnv() });
+    const sup = spawn(process.execPath, [this.supervisorPath, specPath], { cwd: o.cwd, detached: true, stdio: 'ignore', env: sanitizedChildEnv() });
     sup.unref();
     if (!sup.pid) throw new Error('감독 프로세스 시작 실패');
     const ex: Execution = {
-      execId, taskId: t.taskId, runId, token, agent: t.agent, mode: t.mode, display: t.usesDevelopLock ? ['./develop', '--', ...plan.display] : plan.display,
+      kind: o.kind, checkId: o.checkId, sha: o.sha,
+      execId, taskId: t.taskId, runId: o.runId, token, agent: t.agent, mode: t.mode, display: o.display,
       pid: sup.pid, pgid: sup.pid, startedAt: new Date().toISOString(), status: 'running', cancelRequested: false,
       observedAfterRestart: false, serverLifetime: this.lifetime, logPath: spec.logPath, exitPath: spec.exitPath, specPath,
       tokens: '미측정', cost: '미측정',
     };
     this.state.executions[execId] = ex;
-    t.lastExecId = execId; t.runId = runId; t.runHistory = [...t.runHistory, runId]; t.result = null; t.approval = null; t.integration = null;
-    this.setStatus(t, 'running');
-    this.event('exec_started', { taskId: t.taskId, execId, runId, pid: ex.pid, display: ex.display });
+    this.event('exec_started', { taskId: t.taskId, kind: o.kind, execId, runId: o.runId, pid: ex.pid, display: ex.display });
+    this.save();
     this.ensureWatcher();
-    return { ok: true as const, execId, pid: ex.pid };
+    return ex;
   }
 
   // ---------- 감시 ----------
@@ -310,6 +350,11 @@ export class Executor {
         if (fs.existsSync(ex.exitPath)) { await this.finalize(ex); continue; }
         if (this.groupAlive(ex.pgid)) continue; // 리더만 죽고 자식이 남은 경우: 정리 전까지 실행 중으로 본다
         const t = this.state.tasks[ex.taskId];
+        if ((ex.kind ?? 'agent') !== 'agent') {
+          ex.status = ex.cancelRequested ? 'cancelled' : 'unknown'; ex.endedAt = new Date().toISOString();
+          await this.onAuxEnd(ex, { code: null, cancelled: ex.cancelRequested, unknown: !ex.cancelRequested });
+          continue;
+        }
         if (ex.cancelRequested) {
           ex.status = 'cancelled'; ex.endedAt = new Date().toISOString();
           this.releaseExecLocks(t, ex.execId);
@@ -327,12 +372,18 @@ export class Executor {
     const t = this.state.tasks[ex.taskId];
     let res: any = {};
     try { res = JSON.parse(fs.readFileSync(ex.exitPath, 'utf8')); } catch { return; }
-    if (res.token !== ex.token) { ex.status = 'unknown'; this.setStatus(t, 'unknown', 'exit.json 토큰 불일치'); return; }
+    if (res.token !== ex.token) {
+      ex.status = 'unknown';
+      if ((ex.kind ?? 'agent') !== 'agent') await this.onAuxEnd(ex, { code: null, cancelled: false, unknown: true });
+      else this.setStatus(t, 'unknown', 'exit.json 토큰 불일치');
+      return;
+    }
     this.readNewLog(ex);
     if (this.groupAlive(ex.pgid)) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } } // 남은 손자 정리
     const cancelled = ex.cancelRequested || res.cancelRequested;
     ex.exitCode = res.code; ex.signal = res.signal; ex.spawnError = res.spawnError ?? null; ex.endedAt = res.endedAt;
     ex.status = cancelled ? 'cancelled' : 'exited';
+    if ((ex.kind ?? 'agent') !== 'agent') { await this.onAuxEnd(ex, { code: res.code, cancelled, unknown: false }); return; }
     this.releaseExecLocks(t, ex.execId);
     this.event('exec_ended', { execId: ex.execId, taskId: t.taskId, code: res.code, signal: res.signal, cancelled, afterRestart: ex.observedAfterRestart });
     if (ex.observedAfterRestart) {
@@ -358,6 +409,11 @@ export class Executor {
       if (ex.serverLifetime === this.lifetime) continue;
       ex.observedAfterRestart = true;
       const t = this.state.tasks[ex.taskId];
+      if ((ex.kind ?? 'agent') !== 'agent') {
+        // 작업 테스트·리뷰: 살아 있으면 관찰만, 종료 기록이 있으면 tick에서 기록만 하고 다음 검사를 이어 실행하지 않는다.
+        if (!fs.existsSync(ex.exitPath) && !this.groupAlive(ex.pgid)) { ex.status = 'unknown'; void this.onAuxEnd(ex, { code: null, cancelled: false, unknown: true }); }
+        continue;
+      }
       if (fs.existsSync(ex.exitPath)) { /* tick에서 exit_observed로 정리 */ }
       else if (this.alive(ex.pid) && this.ownsLeader(ex)) this.setStatus(t, 'orphan_running', '서버 재시작 전 시작된 프로세스가 아직 실행 중(관찰만 함)');
       else if (this.groupAlive(ex.pgid)) this.setStatus(t, 'orphan_running', '감독자는 없고 같은 그룹 자식 프로세스만 남음');
@@ -374,21 +430,24 @@ export class Executor {
   // ---------- 중단 ----------
   async cancel(taskId: string): Promise<{ ok: boolean; reason: string }> {
     const t = this.task(taskId);
-    const ex = t.lastExecId ? this.state.executions[t.lastExecId] : null;
-    if (!ex || !['running', 'cancelling'].includes(ex.status)) return { ok: false, reason: '이 실행기가 시작한 실행 중 프로세스가 없음' };
+    const ex = Object.values(this.state.executions).filter((e) => e.taskId === taskId && ['running', 'cancelling'].includes(e.status))
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+    if (!ex) return { ok: false, reason: '이 실행기가 시작한 실행 중 프로세스가 없음' };
     const leader = this.ownsLeader(ex);
     if (leader === false) return { ok: false, reason: `PID ${ex.pid}가 이 실행기의 감독 프로세스가 아님(중단 거부)` };
     if (leader === null && !this.groupAlive(ex.pgid)) return { ok: false, reason: '프로세스 그룹이 이미 없음' };
     ex.cancelRequested = true; ex.status = 'cancelling';
-    this.setStatus(t, 'cancelling', `SIGTERM → 프로세스 그룹 ${ex.pgid}`);
+    if ((ex.kind ?? 'agent') === 'agent') this.setStatus(t, 'cancelling', `SIGTERM → 프로세스 그룹 ${ex.pgid}`);
+    else { this.event('aux_cancel', { taskId, kind: ex.kind, execId: ex.execId }); this.save(); }
     try { process.kill(-ex.pgid, 'SIGTERM'); } catch { /* gone */ }
     setTimeout(() => { if (this.groupAlive(ex.pgid)) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } } }, 3000).unref?.();
-    return { ok: true, reason: `프로세스 그룹 ${ex.pgid}에 SIGTERM (3초 후 남으면 SIGKILL)` };
+    return { ok: true, reason: `${ex.kind ?? 'agent'} 프로세스 그룹 ${ex.pgid}에 SIGTERM (3초 후 남으면 SIGKILL)` };
   }
 
   cancelAll(reason: string) {
+    const busy = new Set(Object.values(this.state.executions).filter((e) => ['running', 'cancelling'].includes(e.status)).map((e) => e.taskId));
     for (const t of Object.values(this.state.tasks)) {
-      if (['running', 'cancelling', 'orphan_running'].includes(t.status)) void this.cancel(t.taskId).then((r) => this.event("cancel_all", { taskId: t.taskId, trigger: reason, result: r.reason, ok: r.ok }));
+      if (busy.has(t.taskId)) void this.cancel(t.taskId).then((r) => this.event("cancel_all", { taskId: t.taskId, trigger: reason, result: r.reason, ok: r.ok }));
     }
   }
 
@@ -467,7 +526,10 @@ export class Executor {
     const t = this.task(taskId);
     if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태가 아님(${t.status})`);
     if (!G.FULL_SHA.test(sha)) throw new UserError('전체 40자 SHA로 승인해야 함');
-    if (!t.result?.checksPassed) throw new UserError('검사 실패가 있어 승인할 수 없음');
+    if (!t.result?.checksPassed) throw new UserError('Git 계약 검사 실패가 있어 승인할 수 없음');
+    const v = t.verification;
+    if (!v || v.status !== 'passed') throw new UserError(`작업 테스트가 통과하지 않음(${v ? v.status : '미실행'}) — 미실행·실패·중단·결과 불명은 통과가 아님`);
+    if (v.sha !== sha || v.contractHash !== t.contractHash) throw new UserError('작업 테스트 결과가 현재 SHA·계약과 다름 — 다시 실행');
     const head = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
     if (head !== sha || t.result.headSha !== sha) throw new UserError(`승인 SHA가 현재 결과와 다름(현재 ${head})`);
     if (!this.cfg.integration.checkout) throw new UserError('config.integration.checkout 미설정');
@@ -507,6 +569,7 @@ export class Executor {
       if (branchNow !== a.baseBranch) changes.push(`통합 checkout 브랜치 ${branchNow} ≠ ${a.baseBranch}`);
       if (s.baseHead !== a.baseHead) changes.push(`기준 브랜치 이동 ${a.baseHead.slice(0, 12)} → ${s.baseHead?.slice(0, 12)}`);
       if (s.filesHash !== a.filesHash) changes.push('관련 파일 목록 변경');
+      if (t.verification?.status !== 'passed' || t.verification.sha !== a.sha) changes.push('작업 테스트 결과가 승인 SHA와 다름');
       const hashAtSha = await contractHashAt(t.worktree, t.taskId, a.sha);
       if (hashAtSha !== a.contractHash || a.contractHash !== t.contractHash) changes.push('작업 계약 변경');
       if (changes.length) {
@@ -525,8 +588,13 @@ export class Executor {
       const r = await G.run(develop, ['--', 'git', 'cherry-pick', '-x', ...commits], checkout, 120_000, sanitizedChildEnv());
       if (r.code === 0) {
         const newHead = await G.revParse(checkout, 'HEAD');
-        t.integration = { at: new Date().toISOString(), outcome: 'integrated', detail: r.stdout.slice(-2000), newHead, commits };
-        return this.endIntegration(t, 'integrated', `통합 완료 → ${newHead}`);
+        const post = await this.runPostChecks(t, checkout, develop, { base: a.baseHead, head: newHead!, contract: t.contractSha });
+        t.integration = { at: new Date().toISOString(), outcome: 'integrated', detail: r.stdout.slice(-2000), newHead, preHead: a.baseHead, commits, postStatus: post.status, postChecks: post.items };
+        if (post.status === 'failed') {
+          const bad = post.items.filter((i) => i.status !== 'passed').map((i) => `${i.name}(${i.status}, code ${i.exitCode ?? '-'})`).join(', ');
+          return this.endIntegration(t, 'integrated_check_failed', `통합은 됐지만 통합 후 검사 실패: ${bad}. 통합 전 ${a.baseHead} / 통합 후 ${newHead}. 자동 되돌림 없음 — 확인 후 사람이 ./develop -- git revert 로 복구`);
+        }
+        return this.endIntegration(t, 'integrated', post.status === 'not_run' ? `통합 완료 → ${newHead} · 통합 후 검사 미지정(미실행)` : `통합 완료 → ${newHead} · 통합 후 검사 ${post.items.length}개 통과`);
       }
       if (/사용 중/.test(r.stderr)) return this.endIntegration(t, 'integration_blocked', `./develop 잠금 사용 중: ${r.stderr.trim()}`, true);
       const unmerged = (await G.git(checkout, 'diff', '--name-only', '--diff-filter=U')).stdout.split('\n').filter(Boolean);
@@ -540,10 +608,119 @@ export class Executor {
   }
 
   private endIntegration(t: Task, s: TaskStatus, detail: string, keepApproval = false) {
-    if (!keepApproval && s !== 'integrated') t.approval = null;
-    if (s !== 'integrated') t.integration = { ...(t.integration ?? {}), at: new Date().toISOString(), outcome: s, detail };
+    if (!keepApproval && s !== 'integrated' && s !== 'integrated_check_failed') t.approval = null;
+    if (s !== 'integrated' && s !== 'integrated_check_failed') t.integration = { ...(t.integration ?? {}), at: new Date().toISOString(), outcome: s, detail };
     this.setStatus(t, keepApproval && s === 'integration_blocked' ? 'approved' : s, detail);
     return { outcome: s, detail };
+  }
+
+  // ---------- 작업 테스트(에이전트 종료 후 독립 실행) ----------
+  /** 계약의 검사 명령을 구조화된 인자로 해석한다. 셸을 거치지 않고, cwd는 checkout 안으로 제한한다. */
+  private resolveCheck(checkout: string, c: CheckSpecT, vars: { base: string; contract: string; head: string }) {
+    const command = c.executable === 'node' ? process.execPath : c.executable === 'git' ? 'git' : path.join(checkout, '.venv', 'bin', 'python');
+    const args = c.args.map((a) => a.replaceAll('{base}', vars.base).replaceAll('{contract}', vars.contract).replaceAll('{head}', vars.head));
+    const cwd = path.resolve(checkout, c.cwd);
+    if (cwd !== checkout && !cwd.startsWith(checkout + path.sep)) throw new UserError(`검사 cwd가 checkout 밖: ${c.cwd}`);
+    return { command, args, cwd, display: [c.executable, ...args] };
+  }
+
+  /** 사용자가 확인한 뒤에만 호출된다(UI 확인 대화상자). 같은 작업의 중복 실행은 잠금으로 막는다. */
+  async runChecks(taskId: string) {
+    const t = this.task(taskId);
+    if (this.tripped) throw new UserError('과금 신호 감지 상태 — 실행하지 않음');
+    if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 작업 테스트를 실행(${t.status})`);
+    if (!t.checks.length) throw new UserError('계약에 작업 테스트가 없음 — 승인할 수 없음(검사를 포함해 새 작업으로 준비)');
+    if (t.verification?.status === 'running') throw new UserError('작업 테스트가 이미 실행 중');
+    const head = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
+    if (!head || head !== t.result?.headSha) throw new UserError('Git 계약 검사 이후 코드 SHA가 바뀜 — 결과 재수집 필요');
+    if ((await G.dirtyFiles(t.worktree)).length) throw new UserError('worktree에 미커밋 변경이 있음 — 커밋된 코드만 검사');
+    const envr = await checkVenv(t.worktree, neededEnv(t, t.usesDevelopLock), t.requiredModules);
+    t.envReadiness = envr;
+    if (!envr.ready) throw new UserError(`실행 환경 미준비: ${envr.checks.filter((c) => !c.ok).map((c) => `${c.name}(${c.detail})`).join(', ')}`);
+    const runId = crypto.randomUUID();
+    const vars = { base: t.baseSha, contract: t.contractSha, head };
+    const items: CheckRun[] = t.checks.map((c) => ({ id: c.id, name: c.name, display: this.resolveCheck(t.worktree, c, vars).display, cwd: c.cwd, status: 'pending', sha: head }));
+    const names = [`task:${t.taskId}`, `worktree:${t.worktree}`];
+    const got: string[] = [];
+    for (const n of names) {
+      if (!this.locks.acquire(n, { execId: runId, taskId, kind: 'check', lifetime: this.lifetime })) {
+        for (const g of got) this.locks.release(g, 'execId', runId);
+        throw new UserError(`잠금 사용 중: ${n}`);
+      }
+      got.push(n);
+    }
+    t.verification = { runId, sha: head, contractHash: t.contractHash, status: 'running', items, startedAt: new Date().toISOString() };
+    this.event('checks_started', { taskId, runId, sha: head });
+    this.save();
+    await this.startNextCheck(t);
+    return t.verification;
+  }
+
+  private async startNextCheck(t: Task): Promise<void> {
+    const v = t.verification!;
+    const item = v.items.find((i) => i.status === 'pending');
+    if (!item) return this.finishVerification(t);
+    const spec = t.checks.find((c) => c.id === item.id)!;
+    const r = this.resolveCheck(t.worktree, spec, { base: t.baseSha, contract: t.contractSha, head: v.sha });
+    try {
+      const ex = this.spawnSupervised(t, { kind: 'check', runId: v.runId, cwd: r.cwd, command: r.command, args: r.args, display: r.display, checkId: item.id, sha: v.sha });
+      item.status = 'running'; item.execId = ex.execId; item.logPath = ex.logPath; item.startedAt = ex.startedAt;
+      this.save();
+    } catch (err) {
+      item.status = 'failed'; item.endedAt = new Date().toISOString(); v.note = `시작 실패: ${(err as Error).message}`;
+      return this.startNextCheck(t);
+    }
+  }
+
+  private finishVerification(t: Task, forced?: Verification["status"], note?: string): void {
+    const v = t.verification!;
+    for (const i of v.items) if (i.status === 'pending' || i.status === 'running') i.status = 'not_run';
+    v.status = forced ?? (v.items.every((i) => i.status === 'passed') ? 'passed' : 'failed');
+    if (note) v.note = note;
+    v.endedAt = new Date().toISOString();
+    for (const n of [`task:${t.taskId}`, `worktree:${t.worktree}`]) this.locks.release(n, 'execId', v.runId);
+    this.event('checks_finished', { taskId: t.taskId, runId: v.runId, status: v.status, sha: v.sha });
+    this.save();
+  }
+
+  /** 작업 테스트·리뷰 프로세스 종료 처리. 재시작 후 관찰된 종료는 기록만 하고 다음 단계를 자동으로 잇지 않는다. */
+  private async onAuxEnd(ex: Execution, r: { code: number | null; cancelled: boolean; unknown: boolean }): Promise<void> {
+    const t = this.state.tasks[ex.taskId];
+    if (ex.kind === 'review') return this.onReviewEnd(t, ex, r);
+    const v = t.verification;
+    if (!v || v.runId !== ex.runId) { this.save(); return; }
+    const item = v.items.find((i) => i.execId === ex.execId);
+    if (item) {
+      item.status = r.unknown ? 'unknown' : r.cancelled ? 'cancelled' : r.code === 0 ? 'passed' : 'failed';
+      item.exitCode = r.code; item.endedAt = new Date().toISOString();
+    }
+    if (r.unknown) return this.finishVerification(t, 'unknown', '검사 프로세스가 종료 기록 없이 사라짐(결과 불명) — 다시 실행 필요');
+    if (r.cancelled) return this.finishVerification(t, 'cancelled', '사용자 중단');
+    if (ex.observedAfterRestart) return this.finishVerification(t, 'interrupted', '서버 재시작으로 검사 순서가 끊김 — 남은 검사는 실행하지 않음. 다시 실행 필요');
+    this.save();
+    await this.startNextCheck(t);
+  }
+
+  /** 통합 checkout에서 ./develop 잠금 안으로 통합 후 검사를 실행한다. */
+  private async runPostChecks(t: Task, checkout: string, develop: string, vars: { base: string; contract: string; head: string }) {
+    const items: CheckRun[] = [];
+    if (!t.postChecks.length) return { status: 'not_run' as const, items };
+    for (const c of t.postChecks) {
+      const r = this.resolveCheck(checkout, c, vars);
+      const item: CheckRun = { id: c.id, name: c.name, display: ['./develop', '--', ...r.display], cwd: '.', status: 'running', sha: vars.head, startedAt: new Date().toISOString() };
+      const res = await G.run(develop, ['--', r.command, ...r.args], checkout, 600_000, sanitizedChildEnv());
+      const logPath = path.join(this.cfg.stateDir, 'runs', `post-${crypto.randomUUID()}.log`);
+      fs.mkdirSync(path.dirname(logPath), { recursive: true });
+      fs.writeFileSync(logPath, redact(res.stdout + (res.stderr ? `\n[stderr]\n${res.stderr}` : '')));
+      item.status = res.code === 0 ? 'passed' : 'failed'; item.exitCode = res.code; item.logPath = logPath; item.endedAt = new Date().toISOString();
+      items.push(item);
+    }
+    return { status: items.every((i) => i.status === 'passed') ? 'passed' as const : 'failed' as const, items };
+  }
+
+  // ---------- 리뷰(별도 CLI 작업) ----------
+  private async onReviewEnd(t: Task, ex: Execution, r: { code: number | null; cancelled: boolean; unknown: boolean }) {
+    void t; void ex; void r; this.save();
   }
 
   // ---------- 화면용 ----------
@@ -569,3 +746,6 @@ export class Executor {
 }
 
 export class UserError extends Error {}
+
+const SECRET_PATTERNS = [/sk-ant-[A-Za-z0-9_-]{8,}/g, /sk-[A-Za-z0-9_-]{16,}/g, /gh[pousr]_[A-Za-z0-9]{20,}/g, /Bearer\s+[A-Za-z0-9._-]{16,}/g];
+function redact(s: string) { return SECRET_PATTERNS.reduce((acc, re) => acc.replace(re, '[REDACTED]'), s); }

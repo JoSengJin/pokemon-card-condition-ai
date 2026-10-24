@@ -58,7 +58,7 @@ const collect = createStep({
 
 const reviewGate = createStep({
   id: 'review-gate',
-  description: '사람이 diff·검사 결과를 보고 전체 SHA를 승인 또는 거절',
+  description: '검토 단계: 실행기가 작업 테스트·별도 리뷰를 사용자 요청으로 실행하는 동안 대기. 사람이 diff·Git 계약 검사·작업 테스트 결과를 보고 전체 SHA를 승인 또는 거절',
   inputSchema: Flow, outputSchema: Flow,
   suspendSchema: z.object({ waitingFor: z.literal('human_review'), headSha: z.string().nullable(), checksPassed: z.boolean(), error: z.string().optional() }),
   resumeSchema: z.object({ decision: z.enum(['approve', 'reject']), sha: z.string().optional(), reason: z.string().optional() }),

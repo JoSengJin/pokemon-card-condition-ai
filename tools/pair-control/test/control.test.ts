@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { runInfo, startReview, startTask, resumeStep, discrepancy } from '../src/runtime.ts';
 import { PAID_ENV_KEYS, sanitizedChildEnv } from '../src/executor/freeGuard.ts';
-import { alive, invocations, setup, task, waitFor, type Env } from './helpers.ts';
+import { alive, invocations, setup, task, verify, waitFor, type Env } from './helpers.ts';
 // @ts-ignore plain JS helper
 import { makeVenv } from '../scripts/fixture-lib.mjs';
 
@@ -20,6 +20,8 @@ async function toReview(env: Env, id: string) {
 }
 
 async function approveAndWait(env: Env, id: string) {
+  const v = await verify(env, id);
+  assert.equal(v.status, 'passed', JSON.stringify(v.items));
   const t = env.ex.task(id);
   const a = await env.ex.approve(id, t.result!.headSha!);
   await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
@@ -152,7 +154,9 @@ test('승인 후 SHA·기준 브랜치가 바뀌면 통합 거절, 재검토 후
     const mainBefore = gitOut(repo, 'rev-parse', 'HEAD');
     await env.ex.assign(task(env, 'task-a', { allowedFiles: ['src_a/'] }));
     const t = await toReview(env, 'task-a');
-    await assert.rejects(env.ex.approve('task-a', 'a'.repeat(40)), /현재 결과와 다름/);
+    await assert.rejects(env.ex.approve('task-a', t.result!.headSha!), /작업 테스트가 통과하지 않음\(미실행\)/, '미실행은 통과가 아님');
+    await verify(env, 'task-a');
+    await assert.rejects(env.ex.approve('task-a', 'a'.repeat(40)), /현재 결과와 다름|현재 SHA/);
     await approveAndWait(env, 'task-a');
     assert.equal(status(env, 'task-a'), 'approved');
     assert.equal((await runInfo(t.runId))?.suspendedStep, 'integrate-gate');
