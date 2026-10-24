@@ -42,6 +42,17 @@ export async function startReview(taskId: string) {
   return { runId: run.runId, status: res.status };
 }
 
+/** 작업 준비 workflow 실행. 실패하면 사유를 UserError로 돌려준다. */
+export async function prepareTask(input: unknown) {
+  if (!mastra) throw new Error('Mastra 인스턴스가 없음');
+  const run = await mastra.getWorkflow('prepareTaskWorkflow').createRun();
+  const res = await run.start({ inputData: input });
+  const out = res.status === 'success' ? (res.result as { ok: boolean; taskId?: string; detail?: string }) : null;
+  if (!out) throw new Error(`prepare-task 실패: ${res.status}`);
+  if (!out.ok) throw new UserError(out.detail ?? '준비 실패');
+  return { runId: run.runId, ...out, task: getExecutor().task(out.taskId!) };
+}
+
 export async function resumeStep(runId: string, step: string, resumeData: Record<string, unknown>) {
   const run = await wf().createRun({ runId });
   const res = await run.resume({ step, resumeData });

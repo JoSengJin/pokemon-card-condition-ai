@@ -4,6 +4,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 import { getExecutor } from './runtime.ts';
+import { createWorktree, planTask } from './executor/prepare.ts';
 
 const Flow = z.object({
   taskId: z.string(),
@@ -108,4 +109,64 @@ export const pairTaskWorkflow = createWorkflow({
   .then(collect)
   .then(reviewGate)
   .then(integrateGate)
+  .commit();
+
+// ---------- 작업 준비: 사람이 고르기 어려운 값(브랜치·기준 SHA·worktree)을 결정적으로 채우고 만든다 ----------
+const Prepared = z.object({
+  ok: z.boolean(),
+  taskId: z.string().optional(),
+  createWorktree: z.boolean().optional(),
+  task: z.any().optional(),
+  detail: z.string().optional(),
+});
+
+const planStep = createStep({
+  id: 'plan',
+  description: 'task ID·브랜치·기준 SHA(통합 브랜치 HEAD)·worktree 경로 계산과 겹침 검사(부작용 없음)',
+  inputSchema: z.any(), outputSchema: Prepared,
+  execute: async ({ inputData, bail }) => {
+    const p = await planTask(getExecutor(), inputData);
+    if (!p.ok || !p.task) return bail({ ok: false, detail: p.checks.filter((c) => !c.ok).map((c) => `${c.name}: ${c.detail}`).join(' / ') });
+    return { ok: true, taskId: p.task.taskId, createWorktree: p.createWorktree, task: p.task };
+  },
+});
+
+const createWorktreeStep = createStep({
+  id: 'create-worktree',
+  description: 'git worktree add -b <브랜치> <경로> <기준 SHA> (기존 경로·브랜치는 덮어쓰지 않음)',
+  inputSchema: Prepared, outputSchema: Prepared,
+  execute: async ({ inputData, bail }) => {
+    if (!inputData.createWorktree) return inputData;
+    try {
+      const real = await createWorktree(getExecutor(), inputData.task);
+      return { ...inputData, task: { ...inputData.task, worktree: real } };
+    } catch (err) {
+      return bail({ ok: false, taskId: inputData.taskId, detail: (err as Error).message });
+    }
+  },
+});
+
+const registerStep = createStep({
+  id: 'register',
+  description: '작업 계약 등록(배정). 시작은 사람이 따로 누른다.',
+  inputSchema: Prepared, outputSchema: Prepared,
+  execute: async ({ inputData, bail }) => {
+    try {
+      const t = await getExecutor().assign(inputData.task);
+      return { ok: true, taskId: t.taskId, createWorktree: inputData.createWorktree, detail: `배정 완료: ${t.branch} @ ${t.baseSha.slice(0, 12)}` };
+    } catch (err) {
+      return bail({ ok: false, taskId: inputData.taskId, detail: `${(err as Error).message}${inputData.createWorktree ? ' (만든 worktree는 지우지 않았음 — 직접 확인)' : ''}` });
+    }
+  },
+});
+
+export const prepareTaskWorkflow = createWorkflow({
+  id: 'prepare-task',
+  description: '작업 준비: 값 자동 계산 → worktree·브랜치 생성 → 배정 (관리용 LLM 없음)',
+  inputSchema: z.any(),
+  outputSchema: Prepared,
+})
+  .then(planStep)
+  .then(createWorktreeStep)
+  .then(registerStep)
   .commit();

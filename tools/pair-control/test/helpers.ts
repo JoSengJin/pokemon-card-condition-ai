@@ -7,7 +7,7 @@ import { loadConfig, type PairConfig } from '../src/executor/config.ts';
 import { Executor } from '../src/executor/executor.ts';
 import type { Alert } from '../src/executor/freeGuard.ts';
 import { bindRuntime } from '../src/runtime.ts';
-import { pairTaskWorkflow } from '../src/workflow.ts';
+import { pairTaskWorkflow, prepareTaskWorkflow } from '../src/workflow.ts';
 // @ts-ignore plain JS helper
 import { makeFixture } from '../scripts/fixture-lib.mjs';
 
@@ -22,7 +22,7 @@ export interface Env {
 function boot(dir: string, cfg: PairConfig, fixture: any, trips: Alert[]): Env {
   const ex = new Executor(cfg, { onTrip: (a) => trips.push(a) });
   const mastra = new Mastra({
-    workflows: { pairTaskWorkflow },
+    workflows: { pairTaskWorkflow, prepareTaskWorkflow },
     storage: new LibSQLStore({ id: 'test', url: `file:${path.join(cfg.stateDir, 'mastra.db')}` }),
     logger: false,
   });
@@ -45,7 +45,7 @@ export function setup(): Env {
   const fixture = makeFixture(path.join(dir, 'fx'), toolRoot);
   const cfg = loadConfig({
     toolRoot, stateDir: path.join(dir, 'state'), repo: fixture.repo,
-    integration: { checkout: fixture.repo, branch: 'main' }, port: 4111, allowRealModelCalls: false, confirmedSubscriptionAuth: false, cli: {},
+    integration: { checkout: fixture.repo, branch: 'main' }, worktreeRoot: path.join(dir, 'fx'), port: 4111, allowRealModelCalls: false, confirmedSubscriptionAuth: false, cli: {},
   });
   return boot(dir, cfg, fixture, []);
 }

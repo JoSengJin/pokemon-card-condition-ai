@@ -39,7 +39,7 @@ export const TaskInput = z.object({
   const prefix = t.branch.split('/')[0];
   if (prefix !== t.agent) ctx.addIssue({ code: 'custom', message: `branch 접두어(${prefix})가 담당 에이전트(${t.agent})와 다릅니다.`, path: ['branch'] });
   for (const f of t.allowedFiles) {
-    if (FORBIDDEN_PREFIXES.some((p) => f === p.slice(0, -1) || f.startsWith(p)) || FORBIDDEN_FILES.includes(f) || /(^|\/)labels[^/]*\.jsonl$/.test(f)) {
+    if (isForbidden(f)) {
       ctx.addIssue({ code: 'custom', message: `금지 경로: ${f} (데이터·라벨·산출물·비밀 설정은 기본 checkout 단일 담당자 소관)`, path: ['allowedFiles'] });
     }
   }
@@ -48,6 +48,10 @@ export const TaskInput = z.object({
   }
 });
 export type TaskInputT = z.infer<typeof TaskInput>;
+
+export function isForbidden(f: string) {
+  return FORBIDDEN_PREFIXES.some((p) => f === p.slice(0, -1) || f.startsWith(p)) || FORBIDDEN_FILES.includes(f) || /(^|\/)labels[^/]*\.jsonl$/.test(f);
+}
 
 /** 정확한 파일 또는 "dir/" 접두어 사이의 겹침. */
 export function pathsOverlap(a: string, b: string) {

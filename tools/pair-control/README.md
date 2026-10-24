@@ -21,9 +21,23 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 
 실제 저장소에 쓰려면 `config.example.json`을 `config.local.json`(Git 제외)으로 복사해 절대경로를 넣고 `npm start`. 상태·로그·Mastra DB는 `.state/`(Git 제외)에 저장된다. `npm install` 시 npm 11 기본 정책으로 esbuild/fsevents install script가 막히지만 optional 바이너리 패키지로 동작한다(이 환경에서 확인).
 
+## 새 작업 만들기 (자동 준비)
+
+사람은 **담당(Claude/Codex) · 목표 · 고칠 파일**만 고른다. 나머지는 Mastra `prepare-task` workflow(`plan → create-worktree → register`, 관리용 LLM 없음)가 채운다.
+
+| 값 | 자동 규칙 |
+|---|---|
+| task ID | `task-<MMDD>-<n>` (겹치지 않는 번호) |
+| 브랜치 | `<담당>/<task ID>` — 이미 있으면 거절(덮어쓰지 않음) |
+| 기준 SHA | 통합 브랜치(`integration.branch`) 최신 커밋 |
+| worktree | `<worktreeRoot>/<저장소 폴더명>-<담당>-<task ID>`, `git worktree add -b`로 생성. `worktreeRoot`를 비우면 저장소의 상위 폴더 |
+| 고칠 파일 | 기준 커밋의 추적 파일·폴더 목록에서 체크. 진행 중 작업이 쓰는 경로는 "사용 중", 데이터·산출물·비밀 경로는 "금지"로 표시 |
+
+입력할 때마다 부작용 없는 미리보기(`/pair/api/plan`)로 위 값과 검사 결과·겹침 경고를 보여 주고, **준비하고 배정**을 눌러야 폴더·브랜치를 만든다. 고급 설정에서 task ID·기준 SHA·기존 worktree·충돌 그룹을 직접 지정할 수 있다. 도구는 worktree·브랜치를 만들기만 하고 지우지 않는다.
+
 ## 작업 계약
 
-UI의 "작업 배정"은 `PAIR_CODING.md` 계약 필드를 받는다: task ID, 담당(codex/claude), 실행 모드(mock/real), 브랜치(`<담당>/…`), worktree 절대경로, 기준 SHA(40자), 허용 파일(정확한 파일 또는 `dir/`), 충돌 그룹, 목표, 프롬프트.
+배정된 작업은 `PAIR_CODING.md` 계약 필드를 가진다: task ID, 담당(codex/claude), 실행 모드(mock/real), 브랜치(`<담당>/…`), worktree 절대경로, 기준 SHA(40자), 허용 파일(정확한 파일 또는 `dir/`), 충돌 그룹, 목표, 프롬프트.
 
 - 배정 거절: glob·`..`·절대경로, `data/`·`artifacts/`·라벨·비밀 설정 경로, 담당과 다른 브랜치 접두어, `requiresExperiment=true`(학습·모델 비교·사진 추론·라벨 수정·자동 교차 검토는 기본 checkout 단일 담당자 소관).
 - 시작 거절: 저장소 worktree 목록에 없는 경로, 기본/통합 checkout, 브랜치 불일치, 기준 SHA가 HEAD의 조상이 아님, Git 진행 중 작업, `.venv` 심볼릭 링크(가상환경 공유), 무료 가드 발동.
@@ -75,9 +89,9 @@ Mastra Studio의 workflow 실행(`/api/workflows/...`)도 같은 결정적 단�
 
 ## 검증 (2026-10-25, mock)
 
-`npm test` 10개 통과: 병렬 실행 2개, 파일·API 그룹·공용 설정 충돌과 동시 중복 시작, 손자 프로세스 포함 취소(외부 프로세스 생존 확인), 서버 재시작 3종(살아 있음·종료됨·결과 불명) 무재실행, 승인 SHA/기준 브랜치 변경 시 통합 거절 → 재검토 → 통합(`-x` 기록), 통합 충돌 abort와 `./develop` 잠금 사용 중 대기, 실패·범위 밖 변경 표시, 계약 검증, `./develop` 잠금 경유 실행, 무료 가드. `./develop`은 이 저장소의 `card_condition/workspace_lock.py` 복사본을 합성 저장소에서 실행한다.
+`npm test` 13개 통과(작업 준비 3개 포함): 병렬 실행 2개, 파일·API 그룹·공용 설정 충돌과 동시 중복 시작, 손자 프로세스 포함 취소(외부 프로세스 생존 확인), 서버 재시작 3종(살아 있음·종료됨·결과 불명) 무재실행, 승인 SHA/기준 브랜치 변경 시 통합 거절 → 재검토 → 통합(`-x` 기록), 통합 충돌 abort와 `./develop` 잠금 사용 중 대기, 실패·범위 밖 변경 표시, 계약 검증, `./develop` 잠금 경유 실행, 무료 가드. `./develop`은 이 저장소의 `card_condition/workspace_lock.py` 복사본을 합성 저장소에서 실행한다.
 
-브라우저(`/pair`)에서 배정 → 병렬 시작 → 충돌 시작 거절 → 중단 → (dev 서버 hot reload로 인한 실제 재시작 후) 관찰 상태 → 결과 반영 → diff → 승인 → 통합, 기준 브랜치 이동 후 승인 무효화 → 재검토 → 통합, 과금 문구로 서비스 종료·재시작 거부까지 확인했다. mock 성공은 실제 에이전트 연동 성공이 아니다.
+브라우저(`/pair`)에서 담당·목표·폴더 선택만으로 자동 준비(worktree·브랜치 생성) → 시작 → 검토 대기, 배정 → 병렬 시작 → 충돌 시작 거절 → 중단 → (dev 서버 hot reload로 인한 실제 재시작 후) 관찰 상태 → 결과 반영 → diff → 승인 → 통합, 기준 브랜치 이동 후 승인 무효화 → 재검토 → 통합, 과금 문구로 서비스 종료·재시작 거부까지 확인했다. mock 성공은 실제 에이전트 연동 성공이 아니다.
 
 ## 롤백
 

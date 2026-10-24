@@ -19,7 +19,7 @@ export type TaskStatus =
   | 'integrating' | 'integrated' | 'integration_refused' | 'integration_conflict' | 'integration_blocked';
 
 /** 실행 잠금은 없어도 같은 파일의 결과가 아직 통합/거절되지 않은 상태. */
-const OCCUPYING: TaskStatus[] = ['starting', 'running', 'collecting', 'cancelling', 'orphan_running', 'exit_observed', 'unknown',
+export const OCCUPYING: TaskStatus[] = ['starting', 'running', 'collecting', 'cancelling', 'orphan_running', 'exit_observed', 'unknown',
   'review_pending', 'approved', 'integrating', 'integration_refused', 'integration_conflict', 'integration_blocked'];
 const STARTABLE: TaskStatus[] = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
 

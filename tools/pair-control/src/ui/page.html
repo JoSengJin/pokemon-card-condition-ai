@@ -38,7 +38,6 @@ button.primary { background: var(--info); color: #fff; border-color: var(--info)
 button.danger { border-color: var(--bad); color: var(--bad); }
 button:disabled { opacity: .4; cursor: not-allowed; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 12px; }
 label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
 input, select, textarea { font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); width: 100%; }
 textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
@@ -46,6 +45,25 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 .kv div:nth-child(odd) { color: var(--muted); }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
 .legend { font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+.wizard { display: grid; gap: 12px; margin-top: 10px; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.step { display: grid; gap: 8px; align-content: start; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.stepTitle { font-weight: 600; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg label { display: flex; align-items: center; gap: 4px; flex-direction: row; padding: 4px 10px; border: 1px solid var(--line); border-radius: 16px; color: var(--ink); font-size: 13px; cursor: pointer; }
+.seg input { width: auto; margin: 0; }
+.fileList { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
+.fileList label { display: flex; flex-direction: row; gap: 6px; align-items: center; padding: 2px 4px; color: var(--ink); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.fileList label.dis { opacity: .45; }
+.fileList input { width: auto; margin: 0; }
+.fileList .tag { font-family: inherit; font-size: 11px; }
+.picked { display: flex; flex-wrap: wrap; gap: 4px; }
+.picked .chip button { border: 0; padding: 0 0 0 4px; background: none; color: var(--muted); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row input { flex: 1; min-width: 200px; }
+.advanced summary { cursor: pointer; color: var(--muted); }
+.advGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 12px; margin-top: 8px; }
+.preview { border: 1px dashed var(--line); border-radius: 8px; padding: 10px; font-size: 13px; }
 #msg { min-height: 20px; }
 @media (max-width: 640px) { main { padding: 12px 16px; } th:nth-child(4), td:nth-child(4) { display: none; } }
 </style>
@@ -68,21 +86,52 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
     </div>
   </section>
   <section>
-    <details id="assignBox">
-      <summary><b>작업 배정</b></summary>
-      <form id="assign">
-        <label>task ID<input name="taskId" required placeholder="cache-audit-001"></label>
-        <label>담당 에이전트<select name="agent"><option>claude</option><option>codex</option></select></label>
-        <label>실행 모드<select name="mode"><option value="mock">mock (모델 요청 없음)</option><option value="real">real (별도 승인 필요 · 기본 차단)</option></select></label>
-        <label>mock 시나리오<select name="mockScenario"><option>success</option><option>slow-success</option><option>fail</option><option>hang</option><option>spawn-child</option><option>touch-forbidden</option><option>paid-message</option></select></label>
-        <label>브랜치<input name="branch" required placeholder="claude/cache-audit-001"></label>
-        <label>worktree 절대경로<input name="worktree" required></label>
-        <label>기준 SHA (40자)<input name="baseSha" required pattern="[0-9a-f]{40}" class="mono"></label>
-        <label>허용 파일 (한 줄에 하나, 디렉터리는 끝에 /)<textarea name="allowedFiles" required></textarea></label>
-        <label>충돌 그룹 (API 계약·공용 설정, 쉼표)<input name="conflictGroups" placeholder="api:observation"></label>
-        <label>목표<input name="goal" required></label>
-        <label>프롬프트 (real 모드 CLI 인자 하나로 전달)<textarea name="prompt"></textarea></label>
-        <div style="align-self:end"><button class="primary" type="submit">배정</button></div>
+    <details id="assignBox" open>
+      <summary><b>새 작업 만들기</b> <span class="muted">— 담당·목표·고칠 파일만 고르면 나머지는 자동으로 준비됩니다</span></summary>
+      <form id="assign" class="wizard">
+        <div class="steps">
+          <div class="step">
+            <div class="stepTitle">1. 누가 하나요?</div>
+            <div class="seg" id="agentSeg">
+              <label><input type="radio" name="agent" value="claude" checked> Claude</label>
+              <label><input type="radio" name="agent" value="codex"> Codex</label>
+            </div>
+            <div class="seg" id="modeSeg">
+              <label><input type="radio" name="mode" value="mock" checked> 연습(mock · 무료, AI 호출 없음)</label>
+              <label><input type="radio" name="mode" value="real"> 실제 CLI (별도 승인 전 차단)</label>
+            </div>
+            <label id="scenarioBox">연습 시나리오
+              <select name="mockScenario">
+                <option value="success">성공</option><option value="slow-success">느린 성공</option><option value="fail">실패</option>
+                <option value="hang">끝나지 않음(중단 연습)</option><option value="spawn-child">자식 프로세스 생성(중단 연습)</option>
+                <option value="touch-forbidden">허용 밖 파일 수정</option><option value="paid-message">과금 문구 출력(무료 가드 연습)</option>
+              </select></label>
+          </div>
+          <div class="step">
+            <div class="stepTitle">2. 무엇을 하나요?</div>
+            <label>목표 (한 줄)<input name="goal" required placeholder="예: 데이터 부족표 집계 오류 수정"></label>
+            <label>에이전트에게 줄 설명 (선택, 실제 CLI에만 전달)<textarea name="prompt" placeholder="자세한 지시가 있으면 적으세요"></textarea></label>
+          </div>
+          <div class="step">
+            <div class="stepTitle">3. 어디를 고쳐도 되나요?</div>
+            <input id="fileSearch" placeholder="파일·폴더 검색 (비우면 최상위만 표시)">
+            <div id="fileList" class="fileList muted">불러오는 중…</div>
+            <div class="row"><input id="newPath" placeholder="목록에 없는 새 파일 경로 직접 추가 (예: tools/new_audit.py)"><button type="button" id="addPath">추가</button></div>
+            <div id="picked" class="picked muted">선택한 경로 없음</div>
+          </div>
+        </div>
+        <details class="advanced">
+          <summary>고급 설정 (보통은 비워 두세요)</summary>
+          <div class="advGrid">
+            <label>task ID 직접 지정<input name="taskId" placeholder="비우면 자동 (예: task-1025-1)"></label>
+            <label>기준 SHA 직접 지정<input name="baseSha" class="mono" placeholder="비우면 통합 브랜치 최신 커밋"></label>
+            <label>이미 있는 worktree 사용<input name="worktree" placeholder="비우면 새로 만듦"></label>
+            <label>충돌 그룹 (같은 API·설정을 건드리는 작업끼리 순서대로, 쉼표)<input name="conflictGroups" placeholder="api:observation"></label>
+          </div>
+        </details>
+        <div class="preview" id="preview"><div class="muted">입력하면 자동으로 준비될 값이 여기에 보입니다.</div></div>
+        <div class="row"><button class="primary" type="submit" id="prepareBtn" disabled>준비하고 배정</button>
+          <span class="muted">누르면 Mastra <code>prepare-task</code> workflow가 worktree와 브랜치를 만들고 작업을 등록합니다. 실행은 아래 목록에서 따로 <b>시작</b>을 누릅니다.</span></div>
       </form>
     </details>
   </section>
@@ -269,14 +318,73 @@ async function refresh() {
   catch (e) { say('상태 조회 실패: ' + e.message + ' (서버 종료 여부 확인)', 'bad'); }
 }
 
-$('#assign').onsubmit = (ev) => {
+// ---------- 새 작업 만들기 ----------
+const picked = new Set();
+let files = [], planTimer = null, lastPlan = null;
+const form = $('#assign');
+
+function formBody() {
+  const f = new FormData(form);
+  const b = Object.fromEntries(f.entries());
+  b.allowedFiles = [...picked];
+  b.conflictGroups = String(b.conflictGroups || '').split(',').map((x) => x.trim()).filter(Boolean);
+  return b;
+}
+function renderPicked() {
+  $('#picked').innerHTML = picked.size ? [...picked].map((p) => '<span class="chip mono">' + esc(p) + '<button type="button" data-rm="' + esc(p) + '" title="빼기">×</button></span>').join('') : '선택한 경로 없음';
+  document.querySelectorAll('#picked [data-rm]').forEach((b) => b.onclick = () => { picked.delete(b.dataset.rm); renderFiles(); renderPicked(); schedulePlan(); });
+}
+function renderFiles() {
+  const q = $('#fileSearch').value.trim().toLowerCase();
+  const shown = files.filter((e) => q ? e.path.toLowerCase().includes(q) : !e.path.replace(/\/$/, '').includes('/')).slice(0, 300);
+  $('#fileList').innerHTML = shown.length ? shown.map((e) => {
+    const note = e.forbidden ? '<span class="tag bad">금지(데이터·산출물·비밀)</span>' : e.owners.length ? '<span class="tag warn">사용 중: ' + e.owners.map(esc).join(', ') + '</span>' : '';
+    return '<label class="' + (e.forbidden ? 'dis' : '') + '"><input type="checkbox" data-path="' + esc(e.path) + '"' + (picked.has(e.path) ? ' checked' : '') + (e.forbidden ? ' disabled' : '') + '>' +
+      (e.dir ? '<b>' + esc(e.path) + '</b>' : esc(e.path)) + ' ' + note + '</label>';
+  }).join('') + (q ? '' : '<div class="muted" style="padding:4px">하위 파일은 검색하세요.</div>') : '<div class="muted" style="padding:4px">결과 없음</div>';
+  document.querySelectorAll('#fileList input[data-path]').forEach((cb) => cb.onchange = () => { cb.checked ? picked.add(cb.dataset.path) : picked.delete(cb.dataset.path); renderPicked(); schedulePlan(); });
+}
+async function loadFiles() {
+  try { const d = await api('files'); files = d.entries; renderFiles(); }
+  catch (e) { $('#fileList').textContent = '파일 목록을 불러오지 못함: ' + e.message; }
+}
+function schedulePlan() { clearTimeout(planTimer); planTimer = setTimeout(updatePlan, 250); }
+let planSeq = 0;
+async function updatePlan() {
+  const seq = ++planSeq;
+  $('#scenarioBox').hidden = form.mode.value !== 'mock';
+  const b = formBody();
+  if (!b.goal && !picked.size) { $('#preview').innerHTML = '<div class="muted">입력하면 자동으로 준비될 값이 여기에 보입니다.</div>'; $('#prepareBtn').disabled = true; return; }
+  try {
+    const p = await api('plan', b);
+    if (seq !== planSeq) return; // 더 최근 입력의 미리보기가 이미 요청됨
+    lastPlan = p;
+    const t = p.task;
+    const kv = t ? '<div class="kv">' +
+      '<div>task ID</div><div class="mono">' + esc(t.taskId) + '</div>' +
+      '<div>브랜치</div><div class="mono">' + esc(t.branch) + (p.createWorktree ? ' <span class="chip">새로 만듦</span>' : '') + '</div>' +
+      '<div>작업 폴더</div><div class="mono">' + esc(t.worktree) + (p.createWorktree ? ' <span class="chip">새로 만듦</span>' : '') + '</div>' +
+      '<div>시작 시점</div><div><span class="mono">' + esc(t.baseSha.slice(0, 12)) + '</span> · ' + esc(p.baseRef) + ' · ' + esc(p.baseSubject) + '</div>' +
+      '<div>고칠 수 있는 곳</div><div class="mono">' + t.allowedFiles.map(esc).join(', ') + '</div></div>' : '';
+    const bad = p.checks.filter((c) => !c.ok);
+    $('#preview').innerHTML = '<b>자동으로 준비될 값</b>' + kv +
+      (bad.length ? bad.map((c) => '<div class="bad">✗ ' + esc(c.name) + ': ' + esc(c.detail) + '</div>').join('') : '<div class="ok">✓ 준비 가능</div>') +
+      p.warnings.map((w) => '<div class="warn">⚠ ' + esc(w) + '</div>').join('');
+    $('#prepareBtn').disabled = !p.ok;
+  } catch (e) { $('#preview').innerHTML = '<div class="bad">' + esc(e.message) + '</div>'; $('#prepareBtn').disabled = true; }
+}
+form.addEventListener('input', (ev) => { if (ev.target.id === 'fileSearch') renderFiles(); else if (ev.target.id !== 'newPath') schedulePlan(); });
+form.addEventListener('change', schedulePlan);
+$('#addPath').onclick = () => { const v = $('#newPath').value.trim(); if (v) { picked.add(v); $('#newPath').value = ''; renderPicked(); schedulePlan(); } };
+form.onsubmit = (ev) => {
   ev.preventDefault();
-  const f = new FormData(ev.target);
-  const body = Object.fromEntries(f.entries());
-  body.allowedFiles = String(body.allowedFiles).split('\n').map((s) => s.trim()).filter(Boolean);
-  body.conflictGroups = String(body.conflictGroups || '').split(',').map((s) => s.trim()).filter(Boolean);
-  act('배정', () => api('tasks', body)).then((d) => { if (d) { selected = d.taskId; ev.target.reset(); } });
+  $('#prepareBtn').disabled = true;
+  act('준비·배정', () => api('tasks', formBody()), (d) => ['준비 완료: ' + d.detail, 'ok']).then((d) => {
+    if (d) { selected = d.taskId; form.reset(); picked.clear(); renderPicked(); loadFiles(); }
+    updatePlan();
+  });
 };
+loadFiles(); updatePlan();
 $('#probe').onclick = () => act('CLI 확인', () => api('probes', {}));
 
 // 배정 폼은 render()가 다시 그리지 않으므로 입력 중에도 상태 갱신을 계속한다.

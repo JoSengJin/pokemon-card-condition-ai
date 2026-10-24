@@ -7,6 +7,8 @@ export interface PairConfig {
   repo: string;
   /** 통합 대상 checkout과 브랜치. 이 checkout의 ./develop 잠금 안에서만 cherry-pick 한다. */
   integration: { checkout: string; branch: string };
+  /** 새 worktree를 만들 상위 폴더. 비우면 repo의 상위 폴더(기존 worktree 관례와 같음). */
+  worktreeRoot: string;
   port: number;
   /** 실제 Codex/Claude 모델 요청 허용. 기본 false이며 이번 구현 범위에서는 켜지 않는다. */
   allowRealModelCalls: boolean;
@@ -39,6 +41,7 @@ export function loadConfig(overrides: Partial<PairConfig> = {}): PairConfig {
   const cfg: PairConfig = {
     repo: raw.repo ?? '',
     integration: { checkout: raw.integration?.checkout ?? '', branch: raw.integration?.branch ?? 'main' },
+    worktreeRoot: raw.worktreeRoot ?? '',
     port: Number(process.env.PAIR_CONTROL_PORT ?? raw.port ?? 4111),
     allowRealModelCalls: raw.allowRealModelCalls === true,
     confirmedSubscriptionAuth: raw.confirmedSubscriptionAuth === true,
@@ -47,8 +50,8 @@ export function loadConfig(overrides: Partial<PairConfig> = {}): PairConfig {
     toolRoot,
     ...overrides,
   };
-  for (const p of [cfg.repo, cfg.integration.checkout]) {
-    if (p && !path.isAbsolute(p)) throw new Error('repo/integration.checkout은 절대경로여야 합니다.');
+  for (const p of [cfg.repo, cfg.integration.checkout, cfg.worktreeRoot]) {
+    if (p && !path.isAbsolute(p)) throw new Error('repo/integration.checkout/worktreeRoot는 절대경로여야 합니다.');
   }
   return cfg;
 }

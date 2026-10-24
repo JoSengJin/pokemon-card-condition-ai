@@ -6,8 +6,9 @@ import { LibSQLStore } from '@mastra/libsql';
 import { loadConfig } from '../executor/config.ts';
 import { Executor, UserError } from '../executor/executor.ts';
 import { notifyUser } from '../executor/freeGuard.ts';
-import { pairTaskWorkflow } from '../workflow.ts';
-import { bindRuntime, getExecutor, snapshot, startReview, startTask, resumeStep } from '../runtime.ts';
+import { pairTaskWorkflow, prepareTaskWorkflow } from '../workflow.ts';
+import { fileChoices, planTask } from '../executor/prepare.ts';
+import { bindRuntime, getExecutor, prepareTask, snapshot, startReview, startTask, resumeStep } from '../runtime.ts';
 import fs from 'node:fs';
 
 const cfg = loadConfig();
@@ -26,7 +27,7 @@ executor.guard.checkEnv();
 void executor.refreshProbes();
 
 export const mastra = new Mastra({
-  workflows: { pairTaskWorkflow },
+  workflows: { pairTaskWorkflow, prepareTaskWorkflow },
   storage: new LibSQLStore({ id: 'pair-control', url: `file:${path.join(cfg.stateDir, 'mastra.db')}` }),
   server: {
     host: HOST,
@@ -71,7 +72,9 @@ function buildRoutes() {
   return [
     registerApiRoute('/pair', { method: 'GET', handler: async (c: any) => c.html(fs.readFileSync(path.join(cfg.toolRoot, 'src', 'ui', 'page.html'), 'utf8')) }),
     registerApiRoute('/pair/api/state', { method: 'GET', handler: act(async () => snapshot()) }),
-    registerApiRoute('/pair/api/tasks', { method: 'POST', handler: act(async (c) => ex().assign(await body(c))) }),
+    registerApiRoute('/pair/api/tasks', { method: 'POST', handler: act(async (c) => prepareTask(await body(c))) }),
+    registerApiRoute('/pair/api/plan', { method: 'POST', handler: act(async (c) => planTask(ex(), await body(c))) }),
+    registerApiRoute('/pair/api/files', { method: 'GET', handler: act(async () => fileChoices(ex())) }),
     registerApiRoute('/pair/api/tasks/:id/start', { method: 'POST', handler: act(async (c) => startTask(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/cancel', { method: 'POST', handler: act(async (c) => ex().cancel(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/apply-exit', { method: 'POST', handler: act(async (c) => ex().applyObservedExit(id(c))) }),
