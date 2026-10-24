@@ -260,6 +260,27 @@ class SourcesTest(unittest.TestCase):
         source = self.f.ref('sep.jsonl', '/statement', 'syn/a')
         self.validate(self.edit(lambda d: d['rows'][1]['evidence'].append(self.f.human(source))))
 
+    def test_origin_spellings_and_aliases_cannot_inflate_origin_count(self):
+        # Self-review counterexample: one origin location written two ways must not count twice.
+        respelled = dict(self.f.human(), origin=dict(self.f.ref('intake/reply.json', '/statement'), path='intake/./reply.json'))
+        self.rejects('P', self.edit(lambda d: d['rows'][1]['evidence'].append(respelled)))
+        os.symlink(self.f.root / 'intake/reply.json', self.f.root / 'alias.json')
+        aliased = dict(self.f.human(), origin=self.f.ref('alias.json', '/statement'))
+        self.rejects('R8', self.edit(lambda d: d['rows'][1]['evidence'].append(aliased)))
+
+    def test_shorter_missing_path_cannot_hide_a_present_source(self):
+        # Self-review counterexample: a shorter suffix must not declare a present file missing.
+        target = self.f.root / 'artifacts/absent/legacy.json'
+        target.parent.mkdir(parents=True); target.write_text('{}')
+        self.rejects('R10', self.edit(lambda d: d['rows'][0]['missing_sources'].append(self.f.missing('legacy.json', '/legacy'))))
+        self.rejects('R10', self.edit(lambda d: d['rows'][0]['missing_sources'].append(self.f.missing('human-response.json'))))
+
+    def test_deeply_nested_json_is_a_clean_rejection(self):
+        path = self.f.folder / 'deep.json'
+        path.write_text('[' * 100000 + ']' * 100000)
+        with self.assertRaisesRegex(ValueError, '^J:'):
+            validate_sidecar(path, self.f.root)
+
     def test_matching_sha_is_not_semantic_verification(self):
         # Both items are accepted although neither states a side; byte agreement is not meaning.
         unrelated = self.f.ref('pending.json', '/human_response')

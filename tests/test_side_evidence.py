@@ -133,7 +133,8 @@ class StructureTest(unittest.TestCase):
         self.rejects('J', sidecar(row(items=[evidence(source=ref('rows.jsonl'))])))
         self.rejects('J', sidecar(row(items=[evidence(source=ref(row_id='syn/1'))])))
         self.rejects('J', sidecar(row(items=[evidence(origin=ref(pointer=''))])))
-        for path in ('/abs/reply.json', '../reply.json', 'a/../reply.json', 'a\\reply.json', ''):
+        for path in ('/abs/reply.json', '../reply.json', 'a/../reply.json', 'a\\reply.json', '',
+                     'a/./reply.json', './reply.json', 'a//reply.json', 'a/reply.json/'):
             self.rejects('P', sidecar(row(items=[evidence(source=ref(path))])))
 
     def test_json_pointer_tokens(self):
