@@ -2,7 +2,7 @@
 
 - task_id: `data-coverage-photo-consistency-20261025`
 - owner: Codex
-- status: implementing
+- status: integrated
 - base_sha: `06db1cfb0b56a92db19db113fce2859158e13d53`
 - branch: `codex/data-coverage-photo-consistency-20261025`
 
@@ -35,3 +35,8 @@ point_rows가 기존에 읽은 train/val 입력의 카드 ID·면별 디코딩 �
 - source/worker 편집과 통합은 ./develop 잠금 안에서 진행한다. 통합 브랜치 검사 통과 후 main으로 fast-forward한다.
 
 실패하면 main을 갱신하지 않고 실제 오류를 기록한다. 롤백은 후속 변경·실행 중 작업을 확인한 뒤 이 task의 수정 커밋을 ./develop 안에서 revert한다. 일반 학습·추론의 정책은 변경하지 않는다.
+
+
+## 실행 결과
+
+수정 전 2개 실패 재현, 수정 후 48개 통과. 개발/live 재감사 전체 JSON과 manifest SHA 불변을 확인하고 main 통합했다. 상세 로그·한계·롤백은 동일 task ID의 보고서를 따른다.
