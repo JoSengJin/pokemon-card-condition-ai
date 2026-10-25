@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>자료 확보 전략</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#66625a;--line:#dedad2;--card:#ffffff;--fact:#1f6f43;--factbg:#e7f3ec;--unk:#8a5a00;--unkbg:#fbf1dc;--prop:#2f4f9a;--propbg:#e8edf8;--gap:#a3301f;--zero:#a3301f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171715;--fg:#ebe8e1;--muted:#a39f96;--line:#34322d;--card:#201f1c;--fact:#7fd1a1;--factbg:#1d2e24;--unk:#e9b85c;--unkbg:#2f2717;--prop:#9db4f0;--propbg:#1f2638;--gap:#f08a78;--zero:#f08a78}}
+:root[data-theme="dark"]{--bg:#171715;--fg:#ebe8e1;--muted:#a39f96;--line:#34322d;--card:#201f1c;--fact:#7fd1a1;--factbg:#1d2e24;--unk:#e9b85c;--unkbg:#2f2717;--prop:#9db4f0;--propbg:#1f2638;--gap:#f08a78;--zero:#f08a78}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+main{max-width:1040px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:24px;margin:0 0 6px}
+h2{font-size:18px;margin:36px 0 10px;padding-top:10px;border-top:1px solid var(--line)}
+p,li{color:var(--fg)}
+.meta{color:var(--muted);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:18px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:13px}
+.kpi.zero b{color:var(--zero)}
+.tag{display:inline-block;font-size:12px;font-weight:600;border-radius:4px;padding:1px 7px;margin-right:6px;vertical-align:1px}
+.fact{color:var(--fact);background:var(--factbg)}
+.unk{color:var(--unk);background:var(--unkbg)}
+.prop{color:var(--prop);background:var(--propbg)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:10px 0}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;background:var(--card)}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;white-space:nowrap}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.gap{color:var(--gap);font-weight:600}
+code{font-size:12.5px;word-break:break-all}
+ul{padding-left:20px}
+</style>
+</head>
+<body>
+<main>
+<h1>자료 확보 병목 해소 준비</h1>
+<p class="meta">task <code>data-acquisition-strategy-20261025</code> · 기준 코드 main <code>de33cab25aeb78ee2596343ab6d69c95dcf6d398</code> · 2026-10-25 · 조사·준비 문서만 작성</p>
+
+<div class="kpis">
+<div class="kpi"><b>30/100</b><span>전체 진척 (usable-card-analysis-v1.0, +0%p). PROGRESS_CRITERIA.md·development-progress.json 확인</span></div>
+<div class="kpi zero"><b>0</b><span>새로 확보한 사진·사람 정답·실물</span></div>
+<div class="kpi"><b>val 0/10 · train 2/10</b><span>A3 수량 충족 셀 (d 기준)</span></div>
+<div class="kpi"><b>≥ 28</b><span>val에 필요한 신규 앞뒤 짝 실물 하한 (A3 round2 계산 재확인)</span></div>
+</div>
+
+<div class="box"><b>이번 성과:</b> 사용자 전수 라벨링을 줄이는 방법을 근거로 좁혔다. 결론은 "실물 보유 협력자의 촬영·1차 판정 + 사용자의 기준·불일치 판정"이다. 다음 검증 1개(2인 독립 판정 파일럿)의 계획·측정표·제안 기준, 촬영·라벨링 지침 초안, 원천 비교표를 준비했다. <b>모델 학습·추론·외부 AI 호출 0회. 모델 성능은 평가하지 않았다.</b></div>
+
+<h2>확인한 사실 <span class="tag fact">확인</span></h2>
+<ul>
+<li>최신 채택 manifest는 요청서의 c가 아니라 <b>d</b>(SHA <code>ad021468b3cd…</code>)다. d의 ADOPTION.json과 SHA가 일치한다. c는 롤백 기준이다.</li>
+<li>val 실물은 14개뿐이다(train 56). 센터링·관찰제한은 면 단위라 기존 사진으로는 셀당 40장을 만들 수 없다.</li>
+<li>A3 round2 패킷은 준비됐지만 응답이 저장되지 않았다(저장 전 사본과 바이트 동일).</li>
+<li>PokeFrontBackDamage v1: 4,973장 = train 4,680(2배 증강) / valid 193 / test 100, Stretch 300×300, 흑백, CC BY 4.0. 공개 표본 파일명 50개 중 2개가 중복이고, 같은 뒷면의 연속 촬영이 다수다.</li>
+<li>관련 보고서(같은 자료): YOLOv5s P 0.512 · R 0.444 · mAP50 0.395, Edge Wear 30·Hole 5·Tear 4 인스턴스. 측정 단위가 달라 우리 FN/FP와 비교하지 않는다.</li>
+<li>pokemon-card-damage: 프로젝트 761장 대 v6 4,393장(증강 없음 표시)으로 불일치한다. eBay 이미지 이름 형식의 파일명이 반복된다.</li>
+<li>MVTec AD는 CC BY-NC-SA 4.0(상업 금지)이다. VisA 데이터는 CC BY 4.0이다. PatchCore 코드 Apache-2.0, DRAEM 코드 MIT.</li>
+<li>기존 검토 UI는 loopback 전용이고 <code>reviewed_by</code>를 기록한다. inventory 옆에 <code>.drafts.json</code>이 있으면 AI 초안을 표시한다. 독립 판정 시에는 이 파일을 제거해야 한다.</li>
+</ul>
+
+<h2>실제 부족량 (d coverage.json 재사용, 이번에 재계산하지 않음) <span class="tag fact">확인</span></h2>
+<p class="meta">값은 단위/실물 형식이다. 기준은 양성과 정상 각각 20단위·5실물이다. 면 단위와 구역 단위를 더하지 않는다. train과 val을 합산하지 않는다.</p>
+<h3>val — 개발 평가</h3>
+<div class="scroll"><table>
+<thead><tr><th>질문</th><th>면</th><th>단위</th><th>양성</th><th>양성 부족</th><th>정상</th><th>정상 부족</th><th>미응답</th><th>수량</th></tr></thead>
+<tbody>
+<tr><td>센터링</td><td>앞</td><td>면</td><td class=num>4/4</td><td class='num gap'>16/1</td><td class=num>7/7</td><td class='num gap'>13/0</td><td class=num>3</td><td>미충족</td></tr>
+<tr><td>센터링</td><td>뒤</td><td>면</td><td class=num>5/5</td><td class='num gap'>15/0</td><td class=num>3/3</td><td class='num gap'>17/2</td><td class=num>4</td><td>미충족</td></tr>
+<tr><td>모서리</td><td>앞</td><td>구역</td><td class=num>2/2</td><td class='num gap'>18/3</td><td class=num>4/1</td><td class='num gap'>16/4</td><td class=num>50</td><td>미충족</td></tr>
+<tr><td>모서리</td><td>뒤</td><td>구역</td><td class=num>9/6</td><td class='num gap'>11/0</td><td class=num>2/1</td><td class='num gap'>18/4</td><td class=num>37</td><td>미충족</td></tr>
+<tr><td>엣지</td><td>앞</td><td>구역</td><td class=num>3/3</td><td class='num gap'>17/2</td><td class=num>8/1</td><td class='num gap'>12/4</td><td class=num>101</td><td>미충족</td></tr>
+<tr><td>엣지</td><td>뒤</td><td>구역</td><td class=num>13/6</td><td class='num gap'>7/0</td><td class=num>4/2</td><td class='num gap'>16/3</td><td class=num>79</td><td>미충족</td></tr>
+<tr><td>표면</td><td>앞</td><td>구역</td><td class=num>18/2</td><td class='num gap'>2/3</td><td class=num>9/1</td><td class='num gap'>11/4</td><td class=num>99</td><td>미충족</td></tr>
+<tr><td>표면</td><td>뒤</td><td>구역</td><td class=num>2/2</td><td class='num gap'>18/3</td><td class=num>10/2</td><td class='num gap'>10/3</td><td class=num>96</td><td>미충족</td></tr>
+<tr><td>관찰제한</td><td>앞</td><td>면</td><td class=num>4/4</td><td class='num gap'>16/1</td><td class=num>9/9</td><td class='num gap'>11/0</td><td class=num>1</td><td>미충족</td></tr>
+<tr><td>관찰제한</td><td>뒤</td><td>면</td><td class=num>3/3</td><td class='num gap'>17/2</td><td class=num>7/7</td><td class='num gap'>13/0</td><td class=num>2</td><td>미충족</td></tr>
+</tbody></table></div>
+<h3>train — 학습</h3>
+<div class="scroll"><table>
+<thead><tr><th>질문</th><th>면</th><th>단위</th><th>양성</th><th>양성 부족</th><th>정상</th><th>정상 부족</th><th>미응답</th><th>수량</th></tr></thead>
+<tbody>
+<tr><td>센터링</td><td>앞</td><td>면</td><td class=num>11/11</td><td class='num gap'>9/0</td><td class=num>12/12</td><td class='num gap'>8/0</td><td class=num>23</td><td>미충족</td></tr>
+<tr><td>센터링</td><td>뒤</td><td>면</td><td class=num>11/11</td><td class='num gap'>9/0</td><td class=num>10/10</td><td class='num gap'>10/0</td><td class=num>30</td><td>미충족</td></tr>
+<tr><td>모서리</td><td>앞</td><td>구역</td><td class=num>11/10</td><td class='num gap'>9/0</td><td class=num>13/4</td><td class='num gap'>7/1</td><td class=num>160</td><td>미충족</td></tr>
+<tr><td>모서리</td><td>뒤</td><td>구역</td><td class=num>21/13</td><td class='num ok'>0/0</td><td class=num>5/2</td><td class='num gap'>15/3</td><td class=num>178</td><td>미충족</td></tr>
+<tr><td>엣지</td><td>앞</td><td>구역</td><td class=num>12/11</td><td class='num gap'>8/0</td><td class=num>33/5</td><td class='num ok'>0/0</td><td class=num>323</td><td>미충족</td></tr>
+<tr><td>엣지</td><td>뒤</td><td>구역</td><td class=num>72/30</td><td class='num ok'>0/0</td><td class=num>65/10</td><td class='num ok'>0/0</td><td class=num>271</td><td>충족</td></tr>
+<tr><td>표면</td><td>앞</td><td>구역</td><td class=num>52/13</td><td class='num ok'>0/0</td><td class=num>40/8</td><td class='num ok'>0/0</td><td class=num>322</td><td>충족</td></tr>
+<tr><td>표면</td><td>뒤</td><td>구역</td><td class=num>52/20</td><td class='num ok'>0/0</td><td class=num>13/6</td><td class='num gap'>7/0</td><td class=num>394</td><td>미충족</td></tr>
+<tr><td>관찰제한</td><td>앞</td><td>면</td><td class=num>3/3</td><td class='num gap'>17/2</td><td class=num>20/20</td><td class='num ok'>0/0</td><td class=num>23</td><td>미충족</td></tr>
+<tr><td>관찰제한</td><td>뒤</td><td>면</td><td class=num>10/10</td><td class='num gap'>10/0</td><td class=num>12/12</td><td class='num gap'>8/0</td><td class=num>29</td><td>미충족</td></tr>
+</tbody></table></div>
+<div class="box"><span class="tag unk">미확인</span><b>D1 독립 시험:</b> 현재 후보 수는 확인하지 않았다. 독립 시험 사진과 정답을 탐색하지 않았기 때문이다. 요구 수량은 질문×면마다 양성·정상 각 30실물이고, 개발에 쓴 70실물은 제외해야 하므로 서로 다른 실물이 최소 60개 필요하다(낙관적 하한).</div>
+
+<h2>미확인 <span class="tag unk">미확인</span></h2>
+<ul>
+<li>공개 카드 자료의 원본 해상도, 앞뒤 짝, 실물 ID, 정상 주석의 완전성, 전체 중복률. 공개 표본(첫 화면) 외에는 보지 않았다.</li>
+<li>pokemon-card-damage의 수량 불일치 원인과 판매 사진의 권리.</li>
+<li>TAG DIG가 모든 결함을 표시하는지와 재사용 권리.</li>
+<li>CVAT 품질 기능을 무료(Community)판에서 쓸 수 있는지. 도구는 도입하지 않는다.</li>
+<li>협력자 판정 품질, 카드당 시간, 사용자 시간 절감률. 실측이 없으므로 파일럿으로 측정한다.</li>
+</ul>
+
+<h2>제안 <span class="tag prop">제안</span></h2>
+<div class="box"><b>역할 분담:</b> 사용자 = 기준 예제 승인, 불일치·유보 판정, 무작위 감사. 협력자 = 자기 카드 촬영과 1차 판정(AI·모델·타인 답 비노출). 자동화(기존 도구) = SHA 중복·실물 교차 거부, coverage 재계산, 검토 패킷, 응답 대조표. AI 합의를 사람 정답으로 쓰지 않는다.</div>
+<div class="box"><b>다음 검증 1개 — 2인 독립 판정 파일럿 (미실행):</b> 신규 10실물의 앞뒤 20면을 사용자와 협력자가 따로 판정한 뒤, 사용자가 불일치만 판정한다.<br>
+제안 성공 기준: 유효 실물 ≥9/10, 질문별 불일치 ≤15%, 협력자 결함 누락 ≤20%(A 결함 ≥10단위), 관찰 불가 ≤25%, 사용자 시간 비율 ≤0.5. 실패: 불일치 &gt;30%, 누락 &gt;40%, 관찰 불가 &gt;50%, 시간 비율 &gt;0.8, 유효 실물 ≤7. <b>모두 제안값이다.</b><br>
+A3·D1 충족이나 모델 개선으로 보고하지 않는다. 파일럿 실물은 D1에서 영구 제외한다.</div>
+<div class="scroll"><table>
+<thead><tr><th>순위</th><th>행동</th><th>채우는 셀</th><th>상태</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>A3 round2 패킷 응답(기존 val 미응답 구역)</td><td>val 모서리·엣지·표면 단위 부족</td><td>준비 완료·응답 대기</td></tr>
+<tr><td>2</td><td>협력자 파일럿 10실물</td><td>분업 가능성. 채택 시 val 면 셀 최대 앞10·뒤10</td><td>계획만. 승인·협력자 필요</td></tr>
+<tr><td>3</td><td>val 신규 짝 실물 확대 ≥28</td><td>val 센터링·관찰제한, 앞 모서리3·앞 엣지2·앞 표면2·뒤 표면2 양성 실물</td><td>미착수</td></tr>
+<tr><td>4</td><td>D1 봉인 시험 풀 ≥60실물(하한)</td><td>D1 전 셀</td><td>미착수, 개발 노출 금지</td></tr>
+<tr><td>5</td><td>공개 자료 학습 보조</td><td>train 전용</td><td>다운로드 승인 필요, 별도 실험</td></tr>
+</tbody></table></div>
+
+<h2>실제 확보량 <span class="tag fact">확인</span></h2>
+<div class="box">새 사진 <b>0</b> · 새 사람 정답 <b>0</b> · 새 실물 <b>0</b> · 연락 발송 <b>0</b> · 다운로드 <b>0</b>. 예상 시간·비용·절감률은 측정하지 않았다.</div>
+
+<h2>변경 파일·검사·리스크·롤백</h2>
+<ul>
+<li>새 추적 파일 7개(<code>docs/collaboration/tasks/data-acquisition-strategy-20261025.md</code>, <code>docs/collaboration/reports/</code>의 보고서·원천표·지침 초안·파일럿 계획·측정표 CSV·이 HTML). 기존 파일은 수정하지 않았다.</li>
+<li>실행한 검사: manifest/coverage SHA 대조, round2 응답 여부 바이트 비교, 문서 수치와 coverage.json 대조 스크립트, HTML 정적 검사(스크립트·외부 링크·홈 경로 없음), 로컬 열기. 결과는 task handoff에 있다.</li>
+<li>미실행: coverage 재계산, 다운로드, 학습·추론·외부 AI 호출, 라벨 요청, 연락.</li>
+<li>리스크: 공개 썸네일 표본이 작다. 제안 기준값은 사전 근거가 없다. 협력자를 확보하지 못하면 파일럿을 실행할 수 없다.</li>
+<li>롤백: 통합 전이면 반영하지 않는다. 통합 후에는 <code>git revert</code>. 데이터·모델 복구는 필요 없다.</li>
+</ul>
+<p class="meta">근거: artifacts/development-manifest-20261025d/{ADOPTION.json, coverage.json} · A3 task 브랜치 claude/a3-data-intake-batch-20261025 round2/acquisition.json · CONSULTING_CONSENSUS_20261010.md · card_condition/review.py</p>
+</main>
+</body>
+</html>
