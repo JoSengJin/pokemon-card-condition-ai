@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기준 예제 선택 결과</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#66625a;--line:#dedad2;--card:#ffffff;--fact:#1f6f43;--factbg:#e7f3ec;--unk:#8a5a00;--unkbg:#fbf1dc;--prop:#2f4f9a;--propbg:#e8edf8;--gap:#a3301f;--zero:#a3301f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171715;--fg:#ebe8e1;--muted:#a39f96;--line:#34322d;--card:#201f1c;--fact:#7fd1a1;--factbg:#1d2e24;--unk:#e9b85c;--unkbg:#2f2717;--prop:#9db4f0;--propbg:#1f2638;--gap:#f08a78;--zero:#f08a78}}
+:root[data-theme="dark"]{--bg:#171715;--fg:#ebe8e1;--muted:#a39f96;--line:#34322d;--card:#201f1c;--fact:#7fd1a1;--factbg:#1d2e24;--unk:#e9b85c;--unkbg:#2f2717;--prop:#9db4f0;--propbg:#1f2638;--gap:#f08a78;--zero:#f08a78}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+main{max-width:1040px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:24px;margin:0 0 6px}
+h2{font-size:18px;margin:36px 0 10px;padding-top:10px;border-top:1px solid var(--line)}
+p,li{color:var(--fg)}
+.meta{color:var(--muted);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:18px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:13px}
+.kpi.zero b{color:var(--zero)}
+.tag{display:inline-block;font-size:12px;font-weight:600;border-radius:4px;padding:1px 7px;margin-right:6px;vertical-align:1px}
+.fact{color:var(--fact);background:var(--factbg)}
+.unk{color:var(--unk);background:var(--unkbg)}
+.prop{color:var(--prop);background:var(--propbg)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:10px 0}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;background:var(--card)}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;white-space:nowrap}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.gap{color:var(--gap);font-weight:600}
+code{font-size:12.5px;word-break:break-all}
+ul{padding-left:20px}
+</style>
+</head>
+<body>
+<main>
+<h1>기준 예제 선택 결과</h1>
+<p class="meta">task <code>gold-example-selection-20261025</code> · 기준 커밋 <code>c8315fff4668dae573e0de41c75556db55ea8e38</code> · 2026-10-25</p>
+<div class="kpis">
+<div class="kpi"><b>30/100</b><span>전체 진척 (usable-card-analysis-v1.0, +0%p)</span></div>
+<div class="kpi zero"><b>0</b><span>새로 확보한 사진·정답, 바뀐 정답</span></div>
+<div class="kpi"><b>25 / 9</b><span>예제 사용 / 제외 (사용자 선택, 34/34 결정)</span></div>
+<div class="kpi"><b>5</b><span>예제가 0개인 칸 (20칸 중)</span></div>
+</div>
+<div class="box"><b>이번 성과:</b> 사용자가 고른 협력자 기준 예제를 검증하고 기록했다. 후보 식별값 34/34가 일치했다. 예제는 사람 판정자의 지침·시험에만 쓴다. <b>학습·추론·외부 AI 호출 0회. 모델 성능은 평가하지 않았다.</b></div>
+<h2>질문·면별 예제 수 <span class="tag fact">확인</span></h2>
+<div class="scroll"><table><thead><tr><th>질문</th><th>면</th><th>양성 예제</th><th>정상 예제</th><th>상태</th></tr></thead><tbody><tr><td>센터링</td><td>앞</td><td>2 (#1 확인 필요, #2)</td><td>2 (#3, #4)</td><td>#1 확인 후 확정</td></tr><tr><td>센터링</td><td>뒤</td><td>2 (#5, #6)</td><td>2 (#7, #8)</td><td>충족</td></tr><tr><td>모서리</td><td>앞</td><td class="gap">0 (#9·#10 제외)</td><td class="gap">0 (후보 없음)</td><td>비어 있음</td></tr><tr><td>모서리</td><td>뒤</td><td>2 (#11, #12)</td><td class="gap">0 (후보 없음)</td><td>정상 비어 있음</td></tr><tr><td>엣지</td><td>앞</td><td>2 (#13, #14)</td><td class="gap">0 (#15 제외)</td><td>정상 비어 있음</td></tr><tr><td>엣지</td><td>뒤</td><td>1 (#16, #17 제외)</td><td class="gap">0 (#18·#19 제외)</td><td>정상 비어 있음</td></tr><tr><td>표면</td><td>앞</td><td>2 (#20, #21)</td><td>2 (#22, #23)</td><td>충족</td></tr><tr><td>표면</td><td>뒤</td><td>1 (#25, #24 제외)</td><td>1 (#26, #27 제외)</td><td>각 1개</td></tr><tr><td>관찰제한</td><td>앞</td><td>1 (#28)</td><td>2 (#29, #30)</td><td>양성 1개</td></tr><tr><td>관찰제한</td><td>뒤</td><td>2 (#31, #32)</td><td>1 (#34, #33 제외)</td><td>정상 1개</td></tr></tbody></table></div>
+<h2>확인 필요 <span class="tag unk">사람 판단</span></h2>
+<div class="box">#1 센터링 앞 양성: "예제로 사용"을 골랐는데 이유 칸에 "결함 안 보여"라고 적혀 있다. 확인 전까지 예제로 쓰지 않는다. 이 기록만으로 저장된 정답을 바꾸지 않는다.</div>
+<h2>제안 <span class="tag prop">제안</span></h2>
+<ul><li>모서리 앞 양성, 엣지 앞·뒤 정상: box가 확인된 다른 train 단위로 다음 후보를 만든다(재질문 없음).</li><li>모서리 정상: A3 round2 영역 확인 결과를 기다린다.</li><li>예제가 없는 질문도 파일럿은 진행할 수 있다. 그 질문은 2인 대조로만 품질을 판단한다.</li></ul>
+<h2>변경 파일·롤백</h2>
+<ul><li>새 추적 파일 3개(task, 보고서 md, 이 HTML). 선택 원본과 후보는 ignored artifacts에 있다.</li><li>롤백: 통합 전이면 반영하지 않는다. 통합 후에는 git revert.</li></ul>
+</main>
+</body>
+</html>
