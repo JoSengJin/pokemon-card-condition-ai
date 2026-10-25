@@ -1,5 +1,6 @@
 """Bounded model context assembled from frozen experiment evidence."""
 import ast
+import json
 from pathlib import Path
 from .cross_review_auto_contract import CODEX_CONTEXT_VERSION
 from .cross_review_auto_sources import review_rules, source_context, verify_sources
@@ -84,6 +85,12 @@ def review_context(root, folder, phase, payload):
             if isinstance(summary.get('required_cohorts'),list):
                 summary['required_cohorts']=[{k:v for k,v in cohort.items() if k!='reference_result'}
                     for cohort in summary['required_cohorts']]
+                # The latest result table already carries each cohort's id and exact gate; send it once.
+                result_cohorts=context['evidence']['evidence'].get('latest_result',{}).get('summary',{}).get('required_cohorts')
+                if (isinstance(result_cohorts,list) and all(set(c)<={'id','acceptance'} for c in summary['required_cohorts'])
+                        and sorted(json.dumps([c.get('id'),c.get('acceptance')],sort_keys=True) for c in summary['required_cohorts'])
+                        ==sorted(json.dumps([c.get('id'),c.get('acceptance')],sort_keys=True) for c in result_cohorts)):
+                    summary['required_cohorts']='Same ids and acceptance as latest_result.summary.required_cohorts.'
             for key in ('change',):
                 if isinstance(summary.get(key),str) and len(summary[key])>400:
                     summary[key]=summary[key][:400]+' [요약 생략: 전체 worker·수치 기준 참조]'
