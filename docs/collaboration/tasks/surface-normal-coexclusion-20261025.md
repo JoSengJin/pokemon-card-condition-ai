@@ -1,8 +1,9 @@
 task_id: surface-normal-coexclusion-20261025
 owner: Claude (후속 worker·plan·합성 검사 구현), Codex (이번 계약 수정·재검토·통합; 기본 checkout 실행 담당)
-status: assigned (Codex 수정·재검토로 계약 승인; 후속 구현 미착수·실험 미실행)
+status: integrated (Codex 구현 검토 완료; main 합성 재검사 및 공통 실행기 실측 준비)
 base_sha: 92a85e89d03554c3256a0b36f93fdc263b8bfc62 (검증된 origin/main, 2026-10-25 fetch 확인)
-branch: claude/surface-normal-coexclusion-implementation-20261025
+branch: claude/task-1026-1
+original_draft_branch: claude/surface-normal-coexclusion-implementation-20261025
 source_contract_branch: claude/surface-normal-coexclusion-contract-20261025 (973456b → 332f264)
 assignment: 사용자 요청으로 이번 계약 수정 반영은 Codex가 대신 수행했다. Codex가 기존 기록을 검산하고 사전 판정 규칙·기록 계약을 수정해 승인했다. 이 승인은 후속 구현의 계약 확정이며 실제 학습·추론·실험 실행 승인이 아니다. 이번 변경은 이 문서뿐이다.
 
@@ -144,3 +145,26 @@ shasum -a 256 tools/experiments/surface-normal-coexclusion-20261025/worker.py ar
 - 실행 미러의 부모 폴더는 복사 전에 생성한다. 실행 전에 두 worker SHA256이 같아야 한다.
 - 공통 실행기 전체 status/acceptance와 별개로 진단 자체의 재현·수렴·원시표·규칙 충족을 보고한다. 기준선 primary 통과를 진단 head 품질 통과라고 보고하지 않는다.
 - HTML을 생성·내용 대조·열기 요청하고 열기/렌더 확인을 구분한다. 현재 고정 진척은30/100, F1·E2·C3 pending이며 이 계약 통합으로 점수를 올리지 않는다.
+
+## Claude 구현 인계 (task-1026-1, 2026-10-26)
+
+- branch: `claude/task-1026-1` (base `0ff00a45032e760b3b11a3ccb22288bc67438bbb`, 승인 계약 커밋 ee6587a 포함). 작업 지시의 별도 구현 worktree에 있던 미추적 초안 3개는 읽기만 했고 수정·삭제하지 않았다. 이 브랜치에서 초안을 출발점으로 완성했다.
+- 적용 순서: `d2e899f`(status implementing) → `1fec3d7e64eb71608adb7528f752581b25fc0015`(worker·plan·test) → 이 문서 커밋. 정확한 최종 SHA는 세션 인계에 적는다.
+- 초안 대비 핵심 diff:
+  - judge: H1·H2 subject별 원시 조건, H2의 a 조건, H3 각 원시 조건을 이름 붙인 true/false로 보존. 대조(단독 제외 재학습) FP가 FP_L과 다르면 거절. baseline logit 유한성 확인.
+  - 모듈 guard: fit마다 학습 행 88/79, 양성 53, 클릭 20(약한 33) 확인.
+  - 주 평가 scores는 122011 fold-heads.pt maps 재생값 제출(2e-5·판정 동일 확인 후). cohort 11개는 122011 observations 그대로.
+  - 122011 diagnostics.source_sha256 조회 키를 122011 worker 기록 방식(`str(Path(image))`)에 맞춤.
+- 구조: worker 함수 7개(pair_plan, fit_excluding, target_scores, judge, replay_baseline, render, finish), test 파일 7개(fixture + 6 메서드). 학습 경로: `__main__` guard → fit_excluding → fit_detail_head → closure → detail_bag_loss → point_bag_loss = 4전이(LBFGS 내부 프레임 제외, 이 task 승인). 그 밖의 경로: finish → judge/render, replay_baseline → decoded_hash (각 1전이). 테스트가 AST로 worker 호출 그래프와 detail_bag.py·point_patch_head.py 파일 경계 경로를 고정한다(실행은 아래 참고).
+- 실행한 검사: 신규 3개 파일 `git diff --cached --check` 통과. `git diff --no-index`로 122011 plan과 비교해 required_cohorts 11개의 줄 차이가 없음을 확인. 추적 변경은 허용 4개 파일뿐.
+- 미실행 검사: `python -m unittest tests.test_normal_coexclusion_worker`. 이 세션에서 Python·`./develop`·`open`·`shasum` 실행이 모두 권한 승인 대기로 거절됐다. 이 worktree에는 .venv가 없고 설치는 금지돼 있다. 판정 규칙 경계 사례 28개는 코드와 손으로 대조했을 뿐 실행하지 않았다. 같은 이유로 `./develop --` 잠금 안에서 편집하지 못했다. 이 worktree 한 곳에서만 파일을 직접 작성했다.
+- 실자료 미검증(기본 checkout 의존): plan.input_sha256 11개 값(초안에서 승계, 미대조), 원본 크기·파일명 접두사, ff69 6행, 147/153/97행 구조, 재현 1e-4, fit 16회 수렴, evidence 바이트 수, 실행 미러 생성과 SHA 일치.
+- HTML: `artifacts/surface-normal-coexclusion-contract-20261025/index.html`(ignored, 이 worktree)를 갱신했다. 열기(`open`)와 브라우저 렌더 도구가 모두 권한 거절돼 열기 실패, 렌더 미확인. 새 모델 성능 수치 없음. 진척 30/100 유지, F1·E2·C3 pending.
+- 차단 해소: Codex 또는 사용자가 Python 실행 가능한 환경에서 위 unittest를 실행해 통과하면 ready_for_review. 실패하면 수정을 새 작업으로 배정한다.
+- 리스크: 테스트 미실행이라 문법·fixture 오류가 남아 있을 수 있다. 정상 4장·9구역 기술 통계이고, 쌍 12개는 학습 집합 6개를 공유한다. 이미지 크기 검사는 EXIF 회전 전 크기다.
+- 롤백: 통합 후 `./develop -- git revert`로 위 커밋을 역순 revert. 모델·라벨·기준·진척 변경 없음.
+
+
+## Codex main 통합 정합 보완 — 2026-10-27
+
+구현 커밋1fec3d7 및 인계a350866을 통합했다. 실제 구현 완료 브랜치는 claude/task-1026-1(base0ff00a4)이다. 위 최초 base와 미착수·blocked·미실행 설명은 당시 이력으로 보존한다. Claude 당시 blocked였던 실행 권한/합성검사는 artifacts/surface-normal-coexclusion-implementation-review-20261027/REPORT.md의6개 통과로 해소됐으며, main 재검사와 실제 실행 결과는 normal-coexclusion-run-20261027.md 계약/보고서로 이어간다. 과거 잠금 밖 편집 사실은 해당 인계에서 삭제하지 않았다. 이번 통합/후속 변경은 ./develop 잠금 안에서 수행한다.
