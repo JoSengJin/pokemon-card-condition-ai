@@ -6,77 +6,132 @@
 <title>pair-control 관제</title>
 <style>
 :root {
-  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc;
-  --ok: #1f7a4d; --warn: #9a6200; --bad: #b3261e; --info: #2457a6; --chip: #efeee9; --code: #f1f0ec;
+  --bg: #f6f6f3; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #dddcd6; --chip: #efeee9; --code: #f1f0ec;
+  --ok: #1f7a4d; --warn: #a15c00; --bad: #b3261e; --info: #2457a6; --on: #ffffff;
+  --ok-bg: #e6f3ec; --warn-bg: #fbf0dc; --bad-bg: #fbe7e5; --info-bg: #e7eefa;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f99; --line: #34332f;
-    --ok: #5cc28d; --warn: #e0a83a; --bad: #f07a70; --info: #7aa7f0; --chip: #2a2a27; --code: #262623; }
+  :root { --bg: #151514; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f99; --line: #3a3935; --chip: #2a2a27; --code: #262623;
+    --ok: #5cc28d; --warn: #e5ab45; --bad: #f07a70; --info: #7aa7f0; --on: #151514;
+    --ok-bg: #1d3328; --warn-bg: #3a2c14; --bad-bg: #3d1f1c; --info-bg: #1c2840; }
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
-header { padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+header { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
 header h1 { font-size: 16px; margin: 0; }
-main { padding: 16px; display: grid; gap: 16px; max-width: 1400px; margin: 0 auto; }
-section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
-h2 { font-size: 14px; margin: 0 0 8px; }
+main { padding: 16px; display: grid; gap: 14px; max-width: 1440px; margin: 0 auto; }
+section, .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+h2 { font-size: 15px; margin: 0; } h3 { font-size: 14px; margin: 0 0 4px; } h4 { font-size: 13px; margin: 12px 0 4px; }
+p { margin: 6px 0; }
+a { color: var(--info); }
 .chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; white-space: nowrap; }
 .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .info { color: var(--info); } .muted { color: var(--muted); }
-.banner { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--bad); color: var(--bad); background: var(--panel); }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { color: var(--muted); font-weight: 500; }
-tr.sel td { background: var(--chip); }
-tr { cursor: pointer; }
-td:first-child { white-space: nowrap; }
-a { color: var(--info); }
-.scroll { overflow-x: auto; }
+.small { font-size: 12px; }
 code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.mono { overflow-wrap: anywhere; }
 pre { background: var(--code); padding: 8px; border-radius: 6px; overflow: auto; max-height: 360px; margin: 6px 0; white-space: pre-wrap; word-break: break-all; }
+pre.cmd { margin: 2px 0; padding: 4px 6px; max-height: none; }
+pre.diff { max-height: 480px; }
 button { font: inherit; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
-button.primary { background: var(--info); color: #fff; border-color: var(--info); }
+button.primary { background: var(--info); color: var(--on); border-color: var(--info); font-weight: 600; }
 button.danger { border-color: var(--bad); color: var(--bad); }
 button:disabled { opacity: .4; cursor: not-allowed; }
-.actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+button.link { border: 0; background: none; color: var(--info); padding: 0 2px; text-decoration: underline; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; align-items: center; }
 label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); }
+label.inline { display: flex; flex-direction: row; align-items: center; gap: 4px; }
 input, select, textarea { font: inherit; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); width: 100%; }
+input[type=checkbox], input[type=radio] { width: auto; margin: 0; }
 textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 13px; }
-.kv div:nth-child(odd) { color: var(--muted); }
-.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
-.legend { font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+.kv > div:nth-child(odd) { color: var(--muted); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row input:not([type=checkbox]) { flex: 1; min-width: 200px; }
+details > summary { cursor: pointer; }
+.connBar { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 6px 16px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.mainBox { padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: grid; gap: 6px; }
+.banner { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--bad); color: var(--bad); background: var(--bad-bg); }
+.banner.warnbox { border-color: var(--warn); color: var(--warn); background: var(--warn-bg); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#msg { padding: 8px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
+#msg.ok { color: var(--ok); } #msg.bad { color: var(--bad); } #msg.warn { color: var(--warn); } #msg.muted { color: var(--muted); }
+
+/* 새 작업 만들기 */
 .wizard { display: grid; gap: 12px; margin-top: 10px; }
 .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 .step { display: grid; gap: 8px; align-content: start; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
 .stepTitle { font-weight: 600; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg label { display: flex; align-items: center; gap: 4px; flex-direction: row; padding: 4px 10px; border: 1px solid var(--line); border-radius: 16px; color: var(--ink); font-size: 13px; cursor: pointer; }
-.seg input { width: auto; margin: 0; }
-.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.row input { flex: 1; min-width: 200px; }
-.advanced summary { cursor: pointer; color: var(--muted); }
+.seg label.dis { opacity: .45; cursor: not-allowed; }
 .advGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 12px; margin-top: 8px; }
 .preview { border: 1px dashed var(--line); border-radius: 8px; padding: 10px; font-size: 13px; }
-#msg { min-height: 20px; }
-.connBar { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
-.small { font-size: 12px; }
-.advBlock { margin-top: 8px; display: grid; gap: 6px; }
-.mainBox { padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: grid; gap: 6px; }
-.mainBox summary { cursor: pointer; }
-button.danger:disabled { opacity: .4; }
-.chip.turn-user { color: var(--info); } .chip.turn-implementer { color: var(--warn); } .chip.turn-main { color: var(--ok); }
-textarea[readonly] { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
-.banner.warnbox { border-color: var(--warn); color: var(--warn); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.specRow { display: grid; grid-template-columns: 1fr 120px; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 4px; }
+.specRow { display: grid; grid-template-columns: 1fr 140px; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 4px; }
 .specRow textarea { grid-column: 1 / -1; min-height: 40px; }
-.stage { border-top: 1px solid var(--line); padding: 8px 0; }
-.stage h3, .grid2 h3 { font-size: 13px; margin: 0 0 6px; }
+
+/* 작업 목록 + 파이프라인 */
+.work { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 14px; align-items: start; }
+#list { display: grid; gap: 8px; }
+.card { display: grid; gap: 6px; text-align: left; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); border-left: 4px solid var(--line); background: var(--panel); }
+.card.sel { border-color: var(--info); box-shadow: 0 0 0 1px var(--info); }
+.card.s-action, .card.s-warn { border-left-color: var(--warn); } .card.s-failed { border-left-color: var(--bad); }
+.card.s-active { border-left-color: var(--info); } .card.s-done { border-left-color: var(--ok); }
+.cardTop { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.cardGoal { font-weight: 600; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mini { display: flex; gap: 3px; }
+.mini i { flex: 1; height: 6px; border-radius: 3px; background: var(--line); }
+.mini i.s-done { background: var(--ok); } .mini i.s-active { background: var(--info); } .mini i.s-action, .mini i.s-warn { background: var(--warn); }
+.mini i.s-failed { background: var(--bad); } .mini i.s-skipped { background: transparent; border: 1px dashed var(--line); }
+
+#detail { display: grid; gap: 12px; }
+.empty { padding: 24px 0; text-align: center; }
+.thead { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; align-items: flex-start; }
+.goal { font-size: 15px; font-weight: 600; }
+.meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.now { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 8px; border-left: 5px solid var(--line); background: var(--chip); }
+.now.s-action, .now.s-warn { border-left-color: var(--warn); background: var(--warn-bg); }
+.now.s-failed { border-left-color: var(--bad); background: var(--bad-bg); }
+.now.s-active { border-left-color: var(--info); background: var(--info-bg); }
+.now.s-done { border-left-color: var(--ok); background: var(--ok-bg); }
+.nowLabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+
+.pipe { position: relative; list-style: none; margin: 0; padding: 4px 0 2px; display: flex; overflow-x: auto; }
+.node { flex: 1 0 76px; position: relative; }
+.node + .node::before { content: ''; position: absolute; top: 18px; left: calc(-50% + 16px); width: calc(100% - 32px); height: 2px; background: var(--line); }
+.node.s-done + .node::before { background: var(--ok); }
+.node button { display: grid; justify-items: center; gap: 3px; width: 100%; padding: 4px 3px 6px; border: 1px solid transparent; border-radius: 8px; background: none; text-align: center; }
+.node.sel button { background: var(--chip); border-color: var(--line); }
+.dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line); background: var(--panel); font-size: 13px; font-weight: 700; color: var(--muted); }
+.nl { font-size: 12px; font-weight: 600; line-height: 1.3; }
+.node.cur .nl { color: var(--info); }
+.nt { font-size: 11px; color: var(--muted); line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.s-done .dot { background: var(--ok); border-color: var(--ok); color: var(--on); }
+.s-active .dot { border-color: var(--info); border-right-color: transparent; animation: spin 1s linear infinite; }
+.s-action .dot { background: var(--warn); border-color: var(--warn); color: var(--on); animation: pulse 1.6s ease-out infinite; }
+.s-failed .dot { background: var(--bad); border-color: var(--bad); color: var(--on); }
+.s-warn .dot { border-color: var(--warn); color: var(--warn); }
+.s-skipped .dot { border-style: dashed; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--warn); } 100% { box-shadow: 0 0 0 8px transparent; } }
+@media (prefers-reduced-motion: reduce) { .s-active .dot, .s-action .dot { animation: none; } }
+
+.stagePanel { border: 1px solid var(--line); border-top: 4px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--panel); }
+.stagePanel.s-done { border-top-color: var(--ok); } .stagePanel.s-active { border-top-color: var(--info); }
+.stagePanel.s-action, .stagePanel.s-warn { border-top-color: var(--warn); } .stagePanel.s-failed { border-top-color: var(--bad); }
+.stagePanel h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; }
+.num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--chip); font-size: 12px; }
+.pill { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; background: var(--chip); color: var(--muted); }
+.pill.s-done { background: var(--ok-bg); color: var(--ok); } .pill.s-active { background: var(--info-bg); color: var(--info); }
+.pill.s-action, .pill.s-warn { background: var(--warn-bg); color: var(--warn); } .pill.s-failed { background: var(--bad-bg); color: var(--bad); }
+.desc { color: var(--muted); }
+.panelBody { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
 .runrow { font-size: 13px; padding: 2px 0; }
-pre.cmd { margin: 2px 0; padding: 4px 6px; max-height: none; }
-button.link { border: 0; background: none; color: var(--info); padding: 0 2px; text-decoration: underline; }
-.seg label.dis { opacity: .45; cursor: not-allowed; }
-@media (max-width: 640px) { main { padding: 12px 16px; } th:nth-child(4), td:nth-child(4) { display: none; } }
+.rec { border-top: 1px solid var(--line); padding: 8px 0; }
+.info summary { color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); align-items: center; }
+.legend .dot { width: 18px; height: 18px; font-size: 10px; display: inline-grid; vertical-align: middle; margin-right: 4px; animation: none; }
+@media (max-width: 860px) { .work { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { main { padding: 12px 16px; } .node { flex-basis: 72px; } }
 </style>
 </head>
 <body>
@@ -84,45 +139,32 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
   <h1>pair-control</h1>
   <span id="connKind" class="chip">…</span>
   <span id="guard" class="chip" title="과금 신호(API 키 환경변수·과금 문구)를 감지하지 못했다는 뜻입니다. 무료 사용이나 인증 성공을 보장하지 않습니다.">…</span>
-  <a href="/" target="_blank" rel="noopener" class="muted">Mastra Studio ↗</a>
+  <a href="/" target="_blank" rel="noopener" class="muted small">Mastra Studio ↗</a>
 </header>
 <div id="connBar" class="connBar"></div>
 <details id="mainBox" class="mainBox">
   <summary id="mainSummary">메인 역할</summary>
   <div class="small muted">메인 = 통합·푸시·실험 단일 담당. 이 화면은 <b>표시와 기록만</b> 하고 권한을 강제하지 못합니다. PAIR_CODING.md/AGENTS.md는 main 통합을 Codex로 정해 두었으므로, 이양은 사용자가 그 규칙을 바꾸거나 한시적으로 허용했을 때만 의미가 있습니다. 새 메인에게는 사용자가 한 줄로 알려야 합니다.</div>
   <div id="mainBlockers" class="small"></div>
-  <div class="row"><input id="mainReason" placeholder="이양 사유(예: Codex 토큰 부족)"><button id="bMainSwap" class="danger">이양</button><button id="bMainCheck">안전 확인만</button></div>
+  <div class="row"><input id="mainReason" placeholder="이양 사유(예: Codex 토큰 부족)"><button type="button" id="bMainSwap" class="danger" data-act="mainswap">이양</button><button type="button" data-act="maincheck">안전 확인만</button></div>
   <textarea id="mainMemo" readonly rows="6" placeholder="이양하면 인계 메모가 여기에 나타납니다"></textarea>
-  <div class="actions"><button id="bMainCopy">메모 복사</button></div>
+  <div class="actions"><button type="button" data-act="maincopy">메모 복사</button></div>
 </details>
 <main>
   <div id="guardBanner" hidden class="banner"></div>
   <div id="limitBanner" hidden class="banner warnbox"></div>
   <section>
-    <details>
-      <summary class="muted">고급 안내 — 상태 의미와 한계</summary>
-      <div class="legend" style="margin-top:6px">
-        <div><b>사람 승인 대기</b>: Mastra workflow가 <code>review-gate</code>/<code>integrate-gate</code>에서 suspend. 에이전트 CLI 프로세스는 이미 종료됨.</div>
-        <div><b>CLI 실행 중</b>: workflow는 <code>await-exit</code>에서 종료를 기다림. 실제 프로세스가 실행 중이며 CLI 일시정지는 지원하지 않음(중단만 가능).</div>
-        <div><b>세 가지 검사</b>: Git 계약 검사(브랜치·커밋·허용 파일) ≠ 작업 테스트(계약의 검사 명령) ≠ 통합 후 검사. 미실행은 통과가 아님.</div>
-        <div><b>격리 한계</b>: 허용 파일은 실행 후 diff로만 검사. 실행 중 파일 쓰기를 막지 않음.</div>
-        <div><b>리뷰</b>: 별도 CLI 프로세스로 실행되는 검토 작업. 현재 Codex 앱 대화로 메시지를 보내지 않으며, 리뷰 결과가 사람 승인을 대신하지 않음.</div>
-        <div><b>토큰·비용</b>: mock과 미확인 CLI는 모두 미측정.</div>
-      </div>
-    </details>
-  </section>
-  <section>
-    <details id="assignBox" open>
-      <summary><b>새 작업 만들기</b> <span class="muted">— 담당·목표·고칠 파일만 고르면 나머지는 자동으로 준비됩니다</span></summary>
+    <details id="assignBox">
+      <summary><b>＋ 새 작업 만들기</b> <span class="muted">— 담당·목표·고칠 파일만 고르면 작업 폴더·브랜치·계약은 자동으로 준비됩니다</span></summary>
       <form id="assign" class="wizard">
         <div class="steps">
           <div class="step">
             <div class="stepTitle">1. 누가 하나요?</div>
-            <div class="seg" id="agentSeg">
+            <div class="seg">
               <label><input type="radio" name="agent" value="claude" checked> Claude</label>
               <label><input type="radio" name="agent" value="codex"> Codex</label>
             </div>
-            <div class="seg" id="modeSeg">
+            <div class="seg">
               <label><input type="radio" name="mode" value="manual" checked> 수동 — 내가 Claude/Codex 세션에서 작업</label>
               <label id="realLabel"><input type="radio" name="mode" value="real" disabled> 도구가 실제 CLI 실행(구독 로그인)</label>
               <label><input type="radio" name="mode" value="mock"> 연습(mock · AI 호출 없음)</label>
@@ -150,19 +192,16 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
             <div class="muted small">진행률 항목을 고르면 제안 파일이 채워집니다(수정 가능). 데이터·라벨·산출물 경로와 다른 작업이 쓰는 경로는 아래 미리보기에서 알려 줍니다.</div>
           </div>
         </div>
-        <details class="advanced">
-          <summary>고급 설정 — 완료 조건, 작업 테스트, 실행 환경, 충돌 그룹 등 (보통은 비워 두세요)</summary>
+        <details>
+          <summary class="muted">고급 설정 — 완료 조건, 작업 테스트, 실행 환경, 충돌 그룹 등 (보통은 비워 두세요)</summary>
           <label style="margin-top:8px">완료 조건 (한 줄에 하나)<textarea name="doneCriteria" placeholder="예: data-coverage 집계가 side 없는 행을 front로 추정하지 않음"></textarea></label>
-          <div class="advBlock">
-            <div class="small"><b>작업 테스트</b> (기본: git diff --check)</div>
-            <div class="muted small">에이전트가 끝난 뒤 실행기가 따로 실행할 작업 테스트. 셸 없이 실행 파일 + 인자(한 줄에 하나). <code>{contract}</code>=계약 커밋, <code>{head}</code>=결과 SHA, <code>{base}</code>=기준 SHA</div>
-            <div id="checkRows"></div>
-            <div class="row"><button type="button" id="addCheck">검사 추가</button></div>
+          <div class="small" style="margin-top:8px"><b>작업 테스트</b> <span class="muted">(기본: git diff --check) 셸 없이 실행 파일 + 인자(한 줄에 하나). <code>{contract}</code>=계약 커밋, <code>{head}</code>=결과 SHA, <code>{base}</code>=기준 SHA</span></div>
+          <div id="checkRows"></div>
+          <div class="row"><button type="button" data-spec="add-c">검사 추가</button></div>
+          <div class="advGrid">
             <label>실행 환경<select name="env">
               <option value="auto">자동 (파일·검사 명령으로 판단)</option><option value="none">Python 불필요</option>
               <option value="python">자체 .venv (표준 라이브러리)</option><option value="python-project">자체 .venv + 프로젝트 import</option></select></label>
-          </div>
-          <div class="advGrid">
             <label>task ID 직접 지정<input name="taskId" placeholder="비우면 자동 (예: task-1025-1)"></label>
             <label>기준 SHA 직접 지정<input name="baseSha" class="mono" placeholder="비우면 통합 브랜치 최신 커밋"></label>
             <label>이미 있는 worktree 사용<input name="worktree" placeholder="비우면 새로 만듦"></label>
@@ -171,518 +210,40 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
           </div>
           <div class="small" style="margin-top:8px"><b>통합 후 검사</b> <span class="muted">통합 checkout에서 ./develop 잠금 안으로 실행(cwd=루트)</span></div>
           <div id="postRows"></div>
-          <div class="row"><button type="button" id="addPost">통합 후 검사 추가</button></div>
+          <div class="row"><button type="button" data-spec="add-p">통합 후 검사 추가</button></div>
         </details>
         <div class="preview" id="preview"><div class="muted">입력하면 자동으로 준비될 값이 여기에 보입니다.</div></div>
         <div class="row"><button class="primary" type="submit" id="prepareBtn" disabled>준비하고 배정</button>
-          <span class="muted">누르면 Mastra <code>prepare-task</code> workflow가 worktree와 브랜치를 만들고 작업을 등록합니다. 실행은 아래 목록에서 따로 <b>시작</b>을 누릅니다.</span></div>
+          <span class="muted small">Mastra <code>prepare-task</code> workflow가 작업 폴더와 브랜치를 만들고 작업을 등록합니다. 실행은 파이프라인의 "준비" 단계에서 따로 시작합니다.</span></div>
       </form>
     </details>
   </section>
-  <div id="msg"></div>
+  <div id="msg" hidden></div>
+  <div class="work">
+    <div>
+      <h2 style="margin:0 0 8px">작업</h2>
+      <div id="list"><p class="muted small">불러오는 중…</p></div>
+    </div>
+    <section id="detail"><p class="muted empty">불러오는 중…</p></section>
+  </div>
   <section>
-    <h2>작업 목록</h2>
-    <div class="scroll"><table>
-      <thead><tr><th>task</th><th>에이전트</th><th>브랜치 / worktree</th><th>기준 SHA</th><th>허용 파일</th><th>상태</th><th>검사</th></tr></thead>
-      <tbody id="rows"><tr><td colspan="7" class="muted">불러오는 중…</td></tr></tbody>
-    </table></div>
-  </section>
-  <section id="detail" hidden></section>
-  <section id="pushBox">
-    <h2>푸시 · 되돌림 <span class="muted small">통합 브랜치 → 원격 · 일반 push만(force 없음) · 푸시는 취소할 수 없어 단계별로 확인하고, 실수는 되돌림 커밋으로 바로잡습니다</span></h2>
-    <div id="pushInfo" class="small muted"></div>
-    <div class="actions"><button id="bPushCheck">① 푸시 점검(원격 읽기 접속·전송 없음)</button></div>
-    <div id="pushPlan"></div>
-    <div class="row"><input id="pushConfirm" class="mono" placeholder="② 푸시할 SHA 앞 12자를 직접 입력"><button id="bPush" class="danger" disabled>③ 푸시</button></div>
-    <div class="muted small" id="pushHint"></div>
-    <h3 style="margin-top:12px">푸시 기록</h3>
-    <div id="pushRecords"><span class="muted small">기록 없음</span></div>
+    <div class="legend">
+      <b>단계 표시</b>
+      <span class="s-done"><span class="dot">✓</span>완료</span>
+      <span class="s-active"><span class="dot"></span>진행 중(에이전트·도구)</span>
+      <span class="s-action"><span class="dot">!</span>할 일(버튼을 눌러야 진행)</span>
+      <span class="s-warn"><span class="dot">!</span>주의</span>
+      <span class="s-failed"><span class="dot">✗</span>실패</span>
+      <span class="s-todo"><span class="dot"></span>대기</span>
+      <span class="s-skipped"><span class="dot">–</span>건너뜀(선택 단계)</span>
+    </div>
+    <p class="small muted">노드를 누르면 그 단계의 설명·상세·버튼이 아래에 열립니다. 노드를 눌러도 작업 상태는 바뀌지 않습니다. Git 검사 ≠ 작업 테스트 ≠ 통합 후 검사이며, 미실행은 통과가 아닙니다. 허용 파일은 실행 후 diff로만 검사합니다(실행 중 쓰기를 막지 않음). 토큰·비용은 미측정입니다.</p>
   </section>
   <section>
-    <h2>CLI 어댑터 확인 <button id="probe" style="margin-left:8px">다시 확인(--version/--help만)</button></h2>
-    <div id="probes" class="muted"></div>
+    <h2>CLI 어댑터 확인 <button type="button" data-act="probe" style="margin-left:8px">다시 확인(--version/--help만)</button></h2>
+    <div id="probes" class="muted small"></div>
   </section>
 </main>
-<script>
-const $ = (s) => document.querySelector(s);
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let logChoice = null;
-const promptCache = {}, handoffCache = {}, promptOpts = {};
-let state = null, selected = null, logExec = null, logNext = 0, logText = '', diffFor = null, diffText = '';
-
-async function api(path, body) {
-  const opt = body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json', 'x-pair-control': '1' }, body: JSON.stringify(body) };
-  const r = await fetch('/pair/api/' + path, opt);
-  const j = await r.json().catch(() => ({ ok: false, error: 'HTTP ' + r.status }));
-  if (!j.ok) throw new Error(j.error || 'HTTP ' + r.status);
-  return j.data;
-}
-function say(text, cls) { $('#msg').innerHTML = text ? '<span class="' + (cls || '') + '">' + esc(text) + '</span>' : ''; }
-async function act(label, fn, describe) {
-  try {
-    say(label + ' 요청 중…', 'muted'); const d = await fn();
-    if (describe) { const [text, cls] = describe(d); say(text, cls); } else say(label + ' 요청 처리됨', 'ok');
-    await refresh(); return d;
-  }
-  catch (e) { say(label + ' 실패: ' + e.message, 'bad'); await refresh(); }
-}
-
-const STATUS = {
-  assigned: ['배정됨', 'muted'], blocked: ['시작 차단', 'warn'], starting: ['시작 중', 'info'],
-  running: ['에이전트 실행 중', 'info'], collecting: ['결과 수집 중', 'info'], cancelling: ['중단 중', 'warn'], cancelled: ['중단됨', 'muted'],
-  failed: ['에이전트 실패', 'bad'], orphan_running: ['재시작 전 프로세스 실행 중', 'warn'], exit_observed: ['재시작 후 종료 관찰 · 확인 필요', 'warn'],
-  unknown: ['결과 불명', 'bad'], abandoned: ['결과 불명 확정(미완료)', 'muted'],
-  manual_working: ['수동 작업 중(에이전트 세션)', 'info'], review_pending: ['검토 단계', 'warn'], approved: ['승인됨 · 통합 실행 대기', 'warn'], rejected: ['거절됨', 'muted'],
-  integrating: ['통합 중', 'info'], integrated: ['통합 완료', 'ok'], integrated_check_failed: ['통합됨 · 통합 후 검사 실패', 'bad'],
-  integration_refused: ['통합 거절(승인 무효화)', 'bad'], integration_conflict: ['통합 충돌(abort)', 'bad'], integration_blocked: ['통합 대기(잠금)', 'warn'],
-};
-const CHECK = { pending: ['대기', 'muted'], running: ['실행 중', 'info'], passed: ['통과', 'ok'], failed: ['실패', 'bad'], cancelled: ['중단', 'warn'], unknown: ['결과 불명', 'bad'], not_run: ['미실행', 'muted'] };
-const VSTATUS = { running: ['실행 중', 'info'], passed: ['통과', 'ok'], failed: ['실패', 'bad'], cancelled: ['중단', 'warn'], unknown: ['결과 불명', 'bad'], interrupted: ['재시작으로 중단 · 다시 실행 필요', 'warn'] };
-const VERDICT = { approve: ['승인 의견', 'ok'], changes_requested: ['수정 필요', 'bad'], insufficient_evidence: ['근거 부족', 'warn'] };
-const lbl = (pair) => '<span class="' + pair[1] + '">' + esc(pair[0]) + '</span>';
-
-function waitKind(t) {
-  const m = t.mastra;
-  if (!m) return '';
-  const where = m.status + (m.suspendedStep ? '@' + m.suspendedStep : '');
-  if (m.suspendedStep === 'await-exit') return 'workflow: 에이전트 종료 대기 (' + where + ')';
-  if (m.suspendedStep === 'review-gate' || m.suspendedStep === 'integrate-gate') return 'workflow: 사람 결정 대기 (' + where + ')';
-  return 'workflow: ' + where;
-}
-/** 현재 HEAD 기준 작업 테스트 상태. 다른 SHA·계약의 결과는 '이전 SHA'로 표시해 통과로 보이지 않게 한다. */
-function testState(t) {
-  const v = t.verification, sha = t.result && t.result.headSha;
-  if (!v) return ['미실행', 'muted'];
-  if (v.sha !== sha || v.contractHash !== t.contractHash) return ['이전 SHA 결과 · 다시 실행 필요', 'warn'];
-  return VSTATUS[v.status] || [v.status, ''];
-}
-function reviewState(t) {
-  const r = t.review, sha = t.result && t.result.headSha;
-  if (!r) return ['미실행', 'muted'];
-  if (r.status === 'running') return ['실행 중', 'info'];
-  if (r.sha !== sha) return ['이전 SHA 리뷰', 'warn'];
-  if (r.status === 'done') return VERDICT[r.verdict] || [r.verdict, ''];
-  return [{ failed: '리뷰 실패(판정 없음)', cancelled: '중단', unknown: '결과 불명' }[r.status] || r.status, 'bad'];
-}
-const WHO = { user: '사용자', implementer: '구현 에이전트', main: '메인 에이전트', tool: '도구' };
-function turnChip(t) {
-  const u = t.turn; if (!u) return '';
-  const who = u.agent ? WHO[u.who] + '(' + u.agent + ')' : WHO[u.who];
-  return '<span class="chip turn-' + esc(u.who) + '" title="' + esc(u.next) + '">차례: ' + esc(who) + '</span>';
-}
-function handoffActive(t) { const h = t.handoff; return !!h && !h.cancelledAt && h.headSha === (t.result && t.result.headSha); }
-function handoffState(t) {
-  const h = t.handoff;
-  if (!h) return ['미인계', 'muted'];
-  if (h.cancelledAt) return ['인계 취소됨', 'muted'];
-  if (h.headSha !== (t.result && t.result.headSha)) return ['인계 후 코드 변경 · 다시 인계', 'warn'];
-  return h.confirmedAt ? ['메인 확인 완료', 'ok'] : ['메인 확인 중', 'info'];
-}
-function checkSummary(t) {
-  const r = t.result;
-  const git = r ? (r.checksPassed ? ['Git ✓', 'ok'] : ['Git ✗', 'bad']) : ['Git —', 'muted'];
-  const env = t.envReadiness ? (t.envReadiness.ready ? ['환경 ✓', 'ok'] : ['환경 ✗', 'bad']) : ['환경 —', 'muted'];
-  return [env, git, ['테스트 ' + testState(t)[0], testState(t)[1]], ['리뷰 ' + reviewState(t)[0], reviewState(t)[1]]].map(lbl).join('<br>');
-}
-
-function renderRows() {
-  const rows = state.tasks.map((t) => {
-    const [label, cls] = STATUS[t.status] || [t.status, ''];
-    return '<tr data-id="' + esc(t.taskId) + '"' + (t.taskId === selected ? ' class="sel"' : '') + '>' +
-      '<td class="mono">' + esc(t.taskId) + '</td>' +
-      '<td>' + esc(t.agent) + ' <span class="chip">' + esc(t.mode) + '</span></td>' +
-      '<td class="mono">' + esc(t.branch) + '<br><span class="muted">' + esc(t.worktree) + '</span></td>' +
-      '<td class="mono" title="' + esc(t.baseSha) + '">' + esc(t.baseSha.slice(0, 12)) + '</td>' +
-      '<td class="mono">' + t.allowedFiles.map(esc).join('<br>') + (t.groups.length ? '<br><span class="chip">' + t.groups.map(esc).join(', ') + '</span>' : '') + '</td>' +
-      '<td><span class="' + cls + '">' + esc(label) + '</span><br>' + turnChip(t) + '<br><span class="muted">' + esc(waitKind(t)) + '</span>' +
-        (t.mismatch ? '<br><span class="bad">⚠ 불일치: ' + esc(t.mismatch) + '</span>' : '') + '</td>' +
-      '<td class="small">' + checkSummary(t) + '</td></tr>';
-  });
-  $('#rows').innerHTML = rows.join('') || '<tr><td colspan="7" class="muted">배정된 작업 없음</td></tr>';
-  document.querySelectorAll('#rows tr[data-id]').forEach((tr) => tr.onclick = () => { selected = tr.dataset.id; logChoice = null; render(); });
-}
-
-function btn(id, label, enabled, cls) { return '<button id="' + id + '" ' + (cls ? 'class="' + cls + '" ' : '') + (enabled ? '' : 'disabled') + '>' + esc(label) + '</button>'; }
-const checkRow = (c) => '<div><span class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? '✓' : '✗') + '</span> ' + esc(c.name) + ' <span class="muted">' + esc(c.detail) + '</span></div>';
-function runRow(i) {
-  return '<div class="runrow">' + lbl(CHECK[i.status] || [i.status, '']) + ' <b>' + esc(i.name) + '</b> <span class="mono muted">' + esc(i.display.join(' ')) + '</span>' +
-    ' <span class="muted small">code ' + esc(i.exitCode ?? '—') + ' · SHA ' + esc((i.sha || '').slice(0, 12)) + (i.startedAt ? ' · ' + esc(i.startedAt) : '') + '</span>' +
-    (i.execId ? ' <button class="link" data-log="' + esc(i.execId) + '">로그</button>' : i.logPath ? ' <span class="muted small">로그: 상태 폴더</span>' : '') + '</div>';
-}
-const specLine = (c) => '<div class="mono small">' + esc(c.id) + ': ' + esc([c.executable].concat(c.args).join(' ')) + ' <span class="muted">(cwd ' + esc(c.cwd) + ')</span></div>';
-
-function renderDetail() {
-  const t = state.tasks.find((x) => x.taskId === selected);
-  const box = $('#detail');
-  if (!t) { box.hidden = true; return; }
-  box.hidden = false;
-  const e = t.exec, r = t.result, s = t.status;
-  const startable = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'].includes(s);
-  const sha = r && r.headSha;
-  const diffSeen = diffFor === t.taskId + ':' + sha && sha;
-  const [label, cls] = STATUS[s] || [s, ''];
-  const ts = testState(t), testsOk = ts[0] === '통과';
-  const v = t.verification;
-  const rv = t.review;
-  const envr = t.envReadiness;
-  const integ = t.integration;
-  const canApprove = s === 'review_pending' && r && r.checksPassed && testsOk && diffSeen;
-  const approveWhy = s !== 'review_pending' ? '' : !r || !r.checksPassed ? 'Git 계약 검사 실패' : !testsOk ? '작업 테스트 ' + ts[0] : !diffSeen ? 'diff 확인 필요' : '';
-  box.innerHTML =
-    '<h2>' + esc(t.taskId) + ' — <span class="' + cls + '">' + esc(label) + '</span></h2>' +
-    '<div class="muted">' + esc(t.statusReason || '') + '</div>' +
-    (t.mismatch ? '<div class="bad">⚠ Mastra 실행 기록과 실제 CLI 상태 불일치: ' + esc(t.mismatch) + '</div>' : '') +
-    '<div class="stage"><h3>계약 <span class="muted small mono">' + esc(t.contractPath) + ' @ ' + esc((t.contractSha || '').slice(0, 12)) + '</span></h3>' +
-      '<div class="kv"><div>목표</div><div>' + esc(t.goal) + '</div>' +
-      '<div>완료 조건</div><div>' + ((t.doneCriteria || []).map(esc).join('<br>') || '<span class="muted">(지정 없음)</span>') + '</div>' +
-      '<div>작업 테스트</div><div>' + ((t.checks || []).map(specLine).join('') || '<span class="bad">없음 — 승인 불가</span>') + '</div>' +
-      '<div>통합 후 검사</div><div>' + ((t.postChecks || []).map(specLine).join('') || '<span class="muted">없음(미실행으로 표시)</span>') + '</div></div></div>' +
-    '<div class="stage"><h3>0. 실행 준비 ' + (envr ? lbl(envr.ready ? ['준비됨', 'ok'] : ['준비 안 됨', 'bad']) : '') + ' <span class="muted small">worktree 생성과 별개</span></h3>' +
-      (envr ? envr.checks.map(checkRow).join('') + (envr.fixes.length ? '<div class="small">직접 실행할 준비 명령(자동 실행 안 함):' + envr.fixes.map((f) => '<pre class="cmd">' + esc(f) + '</pre>').join('') + '</div>' : '') : '') +
-      '<div class="actions">' + btn('bEnv', '준비 상태 다시 확인', true) + btn('bStart', t.mode === 'manual' ? '수동 작업 시작(소유권 잠금)' : '에이전트 시작', startable && (!envr || envr.ready), 'primary') +
-        btn('bFinish', '작업 완료 — 결과 수집', s === 'manual_working', 'primary') +
-        btn('bCancel', t.mode === 'manual' ? '작업 취소(소유권 해제)' : '실행 중단(이 실행기 프로세스만)', !!state.tasks && (['running', 'cancelling', 'orphan_running', 'manual_working'].includes(s) || (v && v.status === 'running') || (rv && rv.status === 'running')), 'danger') +
-        btn('bApply', '재시작 후 결과 반영', s === 'exit_observed') + btn('bAck', '결과 불명 확정(완료 아님)', s === 'unknown', 'danger') + '</div></div>' +
-    '<div class="stage"><h3>에이전트에게 줄 시작 프롬프트 <span class="muted small">경로는 복사할 때만 만들며 파일에 커밋하지 않음</span></h3>' +
-      '<div class="row small"><label style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pUnattended" style="width:auto"> 무인 실행(사람 정답 추정·재요청 금지 문구)</label>' +
-        '<input id="pDocs" placeholder="추가로 먼저 읽을 문서(쉼표, 저장소 상대경로, 시작 HEAD에 있는 파일만)">' + btn('bPrompt', '프롬프트 만들기', true) + '</div>' +
-      '<textarea id="pText" readonly rows="6" placeholder="여기에 생성된 프롬프트가 나타납니다"></textarea>' +
-      '<div class="actions">' + btn('bCopyPrompt', '복사', true) + '</div></div>' +
-    '<div class="stage"><h3>1. Git 계약 검사 ' + (r ? lbl(r.checksPassed ? ['통과', 'ok'] : ['실패', 'bad']) : lbl(['에이전트 종료 후', 'muted'])) + ' <span class="muted small">브랜치·커밋·계약 불변·허용 파일 — 코드가 맞는지는 검사하지 않음</span></h3>' +
-      (r ? r.checks.map(checkRow).join('') + '<div class="kv small" style="margin-top:4px"><div>전달 HEAD SHA</div><div class="mono">' + esc(sha || '—') + '</div><div>변경 파일</div><div class="mono">' + (r.changedFiles.map(esc).join('<br>') || '—') + '</div></div>' : '') +
-      '<div class="actions">' + btn('bDiff', diffSeen ? 'diff 다시 보기' : 'diff 보기', !!sha) + btn('bRecollect', '결과 다시 수집', s === 'review_pending') + '</div></div>' +
-    '<div class="stage"><h3>2. 작업 테스트 ' + lbl(ts) + ' <span class="muted small">실행기가 별도 프로세스로 실행 · 미실행은 통과 아님</span></h3>' +
-      (v ? v.items.map(runRow).join('') + (v.note ? '<div class="warn small">' + esc(v.note) + '</div>' : '') : '') +
-      '<div class="actions">' + btn('bChecks', '작업 테스트 실행', s === 'review_pending' && (t.checks || []).length > 0 && !(v && v.status === 'running'), 'primary') + '</div></div>' +
-    '<div class="stage"><h3>3. 독립 리뷰 ' + lbl(reviewState(t)) + ' <span class="muted small">다른 에이전트의 별도 CLI 실행 · Codex 앱 대화로 보내지 않음 · 사람 승인을 대신하지 않음</span></h3>' +
-      (rv ? '<div class="small">' + esc(rv.reviewer) + ' (' + esc(rv.mode) + ') · SHA ' + esc(rv.sha.slice(0, 12)) + (rv.summary ? ' · ' + esc(rv.summary) : '') + (rv.note ? ' · <span class="warn">' + esc(rv.note) + '</span>' : '') +
-        (rv.execId ? ' <button class="link" data-log="' + esc(rv.execId) + '">로그</button>' : '') + '</div>' : '') +
-      '<div class="actions"><select id="revScenario" title="fake 리뷰 CLI 시나리오"><option value="approve">fake: 승인 의견</option><option value="changes_requested">fake: 수정 필요</option><option value="insufficient_evidence">fake: 근거 부족</option><option value="garbage">fake: 형식 오류</option><option value="hang">fake: 끝나지 않음</option></select>' +
-        btn('bReviewJob', (t.agent === 'claude' ? 'Codex' : 'Claude') + ' 리뷰 작업 실행 (mock)', s === 'review_pending' && !(rv && rv.status === 'running')) +
-        '<span class="muted small">실제 리뷰 CLI는 상단 차단 원인 해결 전까지 사용 불가</span></div></div>' +
-    '<div class="stage"><h3>3-1. 메인 에이전트 인계 ' + lbl(handoffState(t)) + ' <span class="muted small">자동 호출 없음 — 사용자가 메인에게 한 줄 전달 · 인계 문서는 브랜치에 커밋하지 않음</span></h3>' +
-      (t.handoff ? '<div class="small">' + esc(t.handoff.to) + ' · SHA ' + esc(t.handoff.headSha.slice(0, 12)) + (t.handoff.confirmedAt ? ' · 확인 ' + esc(t.handoff.confirmedAt) : '') + (t.handoff.cancelledAt ? ' · 취소됨' : '') + '</div>' : '') +
-      '<textarea id="hText" readonly rows="5" placeholder="인계 후 메인에게 붙여 넣을 안내문이 나타납니다"></textarea>' +
-      '<div class="actions">' + btn('bHandoff', '메인에게 인계', s === 'review_pending' && !!r && !handoffActive(t), 'primary') +
-        btn('bHShow', '안내문·인계 문서 보기', !!t.handoff) + btn('bHCopy', '안내문 복사', !!t.handoff) +
-        btn('bHConfirm', '메인 확인 완료', s === 'review_pending' && handoffActive(t) && !t.handoff.confirmedAt) +
-        btn('bHCancel', '인계 취소', !!t.handoff && !t.handoff.cancelledAt && !t.approval, 'danger') + '</div></div>' +
-    '<div class="stage"><h3>4. 사람 승인 · 통합</h3>' +
-      (s === 'review_pending' && approveWhy ? '<div class="warn small">승인 불가: ' + esc(approveWhy) + '</div>' : '') +
-      (s === 'review_pending' && !approveWhy && !(handoffActive(t) && t.handoff.confirmedAt) ? '<div class="warn small">메인 확인 전 — 승인은 가능하지만 확인하세요</div>' : '') +
-      (s === 'review_pending' && !approveWhy && reviewState(t)[0] !== '승인 의견' ? '<div class="warn small">리뷰 ' + esc(reviewState(t)[0]) + ' — 승인은 가능하지만 확인하세요</div>' : '') +
-      '<div class="kv small"><div>승인</div><div class="mono">' + esc(t.approval ? t.approval.sha + ' (기준 ' + t.approval.baseBranch + '@' + t.approval.baseHead.slice(0, 12) + ', 리뷰 ' + (t.approval.reviewVerdict || '없음') + ')' : '—') + '</div></div>' +
-      '<div class="actions">' + btn('bApprove', '이 SHA 승인', canApprove, 'primary') +
-        btn('bReject', '거절', ['review_pending', 'approved', 'integration_refused', 'integration_blocked'].includes(s), 'danger') +
-        btn('bIntegrate', '통합 실행(./develop 잠금)', s === 'approved', 'primary') + btn('bReview', '재검토(에이전트 재실행 없음)', s === 'integration_refused') + '</div></div>' +
-    '<div class="stage"><h3>5. 통합 후 검사 ' + (integ && integ.postStatus ? lbl(integ.postStatus === 'passed' ? ['통과', 'ok'] : integ.postStatus === 'failed' ? ['실패', 'bad'] : ['미지정 · 미실행', 'muted']) : lbl(['통합 전', 'muted'])) + '</h3>' +
-      (integ ? '<div class="kv small"><div>결과</div><div>' + esc(integ.outcome) + ' · ' + esc((integ.detail || '').slice(0, 400)) + '</div>' +
-        (integ.preHead ? '<div>통합 전 SHA(복구 기준)</div><div class="mono">' + esc(integ.preHead) + '</div>' : '') +
-        (integ.newHead ? '<div>통합 후 SHA</div><div class="mono">' + esc(integ.newHead) + '</div>' : '') + '</div>' + (integ.postChecks || []).map(runRow).join('') : '') + '</div>' +
-    '<div class="grid2"><div><h3>에이전트 실행</h3><div class="kv small">' +
-        '<div>Mastra 실행 ID</div><div class="mono">' + esc(t.runId || '—') + '</div>' +
-        '<div>Mastra 상태</div><div>' + esc(t.mastra ? t.mastra.status + (t.mastra.suspendedStep ? ' @ ' + t.mastra.suspendedStep : '') : '—') + '</div>' +
-        '<div>실행 ID</div><div class="mono">' + esc(e ? e.execId : '—') + '</div>' +
-        '<div>PID / PGID</div><div class="mono">' + esc(e ? e.pid + ' / ' + e.pgid + (e.groupAlive ? ' (살아 있음)' : ' (종료)') : '—') + '</div>' +
-        '<div>명령</div><div class="mono">' + esc(e ? e.display.join(' ') : '—') + '</div>' +
-        '<div>종료코드 / 신호</div><div class="mono">' + esc(e ? (e.exitCode ?? '—') + ' / ' + (e.signal ?? '—') : '—') + '</div>' +
-        '<div>토큰 · 비용</div><div>미측정</div>' +
-        '<div>실행 권한</div><div>' + esc(t.permission || '—') + '</div>' +
-      '</div></div><div><h3>로그 <span class="muted small" id="logWhich">' + esc(logChoice ? '선택한 검사/리뷰' : '에이전트') + '</span>' + (logChoice ? ' <button class="link" id="logAgent">에이전트 로그로</button>' : '') + '</h3><pre id="log">' + esc(logText || '(없음)') + '</pre></div></div>' +
-    (diffSeen ? '<h3>diff ' + esc(t.baseSha.slice(0, 12)) + '..' + esc(sha.slice(0, 12)) + ' (계약 커밋 포함)</h3><pre>' + esc(diffText) + '</pre>' : '');
-
-  const id = t.taskId;
-  const cmds = (list) => list.map((c) => '  ' + [c.executable].concat(c.args).join(' ')).join('\n');
-  $('#bEnv').onclick = () => act('준비 상태 확인', () => api('tasks/' + id + '/recheck-env', {}), (d) => [d && d.ready ? '실행 준비됨' : '아직 준비 안 됨 — 안내된 명령을 직접 실행하세요', d && d.ready ? 'ok' : 'warn']);
-  $('#bStart').onclick = () => act('시작', () => api('tasks/' + id + '/start', {}));
-  $('#bCancel').onclick = () => confirm('이 작업에서 이 실행기가 만든 실행 중 프로세스 그룹만 종료합니다.') && act('중단', () => api('tasks/' + id + '/cancel', {}));
-  $('#bFinish').onclick = () => confirm('에이전트 세션의 작업이 끝났고 커밋까지 마쳤습니까? 결과를 수집해 Git 계약 검사로 넘어갑니다.') && act('작업 완료', () => api('tasks/' + id + '/finish-manual', {}));
-  $('#bRecollect').onclick = () => act('다시 수집', () => api('tasks/' + id + '/recollect', {}));
-  const copyText = async (el, label) => {
-    if (!el.value) return say(label + ': 복사할 내용이 없습니다', 'warn');
-    try { await navigator.clipboard.writeText(el.value); say(label + ' 복사됨', 'ok'); }
-    catch (e) { el.select(); say('자동 복사를 못 했습니다. 선택된 텍스트를 직접 복사하세요(⌘C)', 'warn'); }
-  };
-  $('#bPrompt').onclick = async () => {
-    const docs = $('#pDocs').value.split(',').map((x) => x.trim()).filter(Boolean);
-    const d = await act('시작 프롬프트', () => api('tasks/' + id + '/start-prompt', { unattended: $('#pUnattended').checked, extraDocs: docs }), () => ['프롬프트 생성됨 — 아래 칸에서 복사하세요', 'ok']);
-    if (d) { promptCache[id] = d.text; const el = $('#pText'); if (el) el.value = d.text; }
-  };
-  $('#bCopyPrompt').onclick = () => copyText($('#pText'), '시작 프롬프트');
-  if (promptCache[id]) $('#pText').value = promptCache[id];
-  if (handoffCache[id]) $('#hText').value = handoffCache[id];
-  const po = promptOpts[id] || {};
-  $('#pUnattended').checked = !!po.unattended; $('#pDocs').value = po.docs || '';
-  $('#pUnattended').onchange = $('#pDocs').oninput = () => { promptOpts[id] = { unattended: $('#pUnattended').checked, docs: $('#pDocs').value }; };
-  $('#bHandoff').onclick = async () => {
-    const d = await act('인계', () => api('tasks/' + id + '/handoff', {}), (x) => ['인계됨 — 아래 안내문을 메인 에이전트에게 전달하세요', 'ok']);
-    if (d) { handoffCache[id] = d.message + '\n\n' + d.text; const el = $('#hText'); if (el) el.value = handoffCache[id]; }
-  };
-  $('#bHShow').onclick = async () => { const d = await act('인계 문서', () => api('tasks/' + id + '/handoff-text'), () => ['인계 문서를 불러왔습니다', 'ok']); if (d) { handoffCache[id] = d.message + '\n\n' + d.text; const el = $('#hText'); if (el) el.value = handoffCache[id]; } };
-  $('#bHCopy').onclick = async () => { const d = await api('tasks/' + id + '/handoff-text').catch(() => null); if (d) { $('#hText').value = d.message; copyText($('#hText'), '인계 안내문'); } };
-  $('#bHConfirm').onclick = () => confirm('메인 에이전트가 확인을 끝냈습니까? 이 표시는 승인 기록에 남지만 승인을 대신하지 않습니다.') && act('메인 확인', () => api('tasks/' + id + '/handoff-confirm', {}));
-  $('#bHCancel').onclick = () => act('인계 취소', () => api('tasks/' + id + '/handoff-cancel', {}));
-  $('#bApply').onclick = () => act('결과 반영', () => api('tasks/' + id + '/apply-exit', {}));
-  $('#bAck').onclick = () => confirm('결과 불명을 확정합니다. 완료로 보지 않고 잠금만 해제합니다.') && act('결과 불명 확정', () => api('tasks/' + id + '/ack-unknown', {}));
-  $('#bDiff').onclick = async () => { const d = await act('diff', () => api('tasks/' + id + '/diff')); if (d) { diffFor = id + ':' + sha; diffText = d.diff || '(변경 없음)'; render(); } };
-  $('#bChecks').onclick = () => confirm('worktree에서 아래 명령을 셸 없이 차례로 실행합니다(SHA ' + (sha || '').slice(0, 12) + '):\n' + cmds(t.checks) + '\n\n계속할까요?') && act('작업 테스트 실행', () => api('tasks/' + id + '/run-checks', {}), () => ['작업 테스트 시작 — 결과는 2단계에서 확인', 'ok']);
-  $('#bReviewJob').onclick = () => act('리뷰 작업', () => api('tasks/' + id + '/review', { mode: 'mock', mockScenario: $('#revScenario').value }), () => ['fake 리뷰 CLI 시작(모델 요청 없음)', 'ok']);
-  $('#bApprove').onclick = () => confirm('승인 SHA ' + sha + '\n코드·계약·기준 브랜치·관련 파일이 바뀌면 승인은 무효화됩니다.') && act('승인', () => api('tasks/' + id + '/approve', { sha }));
-  $('#bReject').onclick = () => { const reason = prompt('거절 사유'); if (reason !== null) act('거절', () => api('tasks/' + id + '/reject', { reason })); };
-  $('#bIntegrate').onclick = () => confirm('승인 SHA를 재검증한 뒤 통합 checkout에서 ./develop -- git cherry-pick -x 를 실행합니다. push는 하지 않습니다.' + (t.postChecks.length ? '\n이어서 통합 후 검사:\n' + cmds(t.postChecks) : '\n통합 후 검사 없음(미실행으로 표시)')) && act('통합', () => api('tasks/' + id + '/integrate', {}),
-    (d) => ['통합 결과: ' + (STATUS[d.status] || [d.status])[0] + ' — ' + (d.statusReason || ''), d.status === 'integrated' ? 'ok' : 'bad']);
-  $('#bReview').onclick = () => act('재검토', () => api('tasks/' + id + '/rereview', {}));
-  box.querySelectorAll('[data-log]').forEach((b) => b.onclick = () => { logChoice = b.dataset.log; render(); pollLog(); });
-  const la = $('#logAgent'); if (la) la.onclick = () => { logChoice = null; render(); pollLog(); };
-}
-
-const PSTATUS = { pushed_verified: ['푸시됨 · 원격 확인됨', 'ok'], push_failed: ['푸시 실패(원격 변경 없음)', 'bad'], push_unverified: ['결과 불명 · 원격 확인 필요', 'warn'], remote_mismatch: ['원격 SHA 불일치 · 확인 필요', 'bad'] };
-function renderPush() {
-  const ps = state.push; if (!ps) return;
-  $('#pushInfo').textContent = '원격 ' + ps.remote + ' · 브랜치 ' + ps.branch;
-  const plan = ps.plan;
-  const box = $('#pushPlan');
-  if (!plan) { box.innerHTML = '<div class="muted small">아직 점검하지 않았습니다. 먼저 ①을 누르세요.</div>'; }
-  else {
-    const open = plan.findings.filter((f) => f.kind === 'secret_pattern' && !f.acknowledged);
-    box.innerHTML = '<div class="kv small"><div>원격</div><div class="mono">' + esc(plan.remoteUrl || '—') + '</div>' +
-      '<div>원격 SHA</div><div class="mono">' + esc(plan.remoteHead || '—') + '</div><div>로컬 SHA</div><div class="mono">' + esc(plan.localHead || '—') + '</div>' +
-      '<div>점검 시각</div><div>' + esc(plan.checkedAt) + '</div><div>포함된 작업</div><div>' + (plan.tasks.map(esc).join(', ') || '—') + '</div>' +
-      '<div>dry-run</div><div>' + (plan.dryRun ? (plan.dryRun.ok ? '<span class="ok">거절 없음</span>' : '<span class="bad">' + esc(plan.dryRun.detail) + '</span>') : '<span class="muted">막힘이 있어 실행 안 함</span>') + '</div></div>' +
-      (plan.revertOf ? '<div class="info small">이 푸시는 이전 푸시의 되돌림 커밋입니다.</div>' : '') +
-      plan.blockers.map((b) => '<div class="bad small">✗ ' + esc(b) + '</div>').join('') +
-      plan.warnings.map((w) => '<div class="warn small">⚠ ' + esc(w) + '</div>').join('') +
-      (open.length ? '<div class="actions"><button id="bAck">비밀 패턴 ' + open.length + '건을 오탐으로 확인(기록됨)</button></div>' : '') +
-      (!plan.blockers.length ? '<div class="ok small">✓ 푸시 가능 — 아래 ' + plan.commits.length + '개 커밋을 원격에 올립니다</div>' : '') +
-      (plan.commits.length ? '<div class="small" style="margin-top:4px"><b>푸시할 커밋(전체 SHA ← 부모)</b></div>' + plan.commits.map((c, i) => '<div class="mono small">' + (i + 1) + '. ' + esc(c.sha) + ' ← ' + esc(c.parents || '-') + ' ' + esc(c.subject) + '</div>').join('') : '') +
-      (plan.files.length ? '<div class="small" style="margin-top:4px"><b>변경 파일 ' + plan.files.length + '개</b> <span class="muted mono">' + plan.files.slice(0, 12).map(esc).join(', ') + (plan.files.length > 12 ? ' …' : '') + '</span></div>' : '');
-    const ack = $('#bAck');
-    if (ack) ack.onclick = () => confirm('다음 항목은 실제 비밀이 아니라 가짜·예시 값임을 확인했습니까?\n\n' + open.map((f) => f.file + ':' + f.line + ' (커밋 ' + (f.commit || '').slice(0, 8) + ')').join('\n') + '\n\n이 확인은 해당 커밋·파일·줄에만 적용되고 기록됩니다.') && act('오탐 확인', () => api('push/ack', { fingerprints: open.map((f) => f.fingerprint) }), () => ['오탐으로 기록했습니다. 다시 점검하세요', 'ok']);
-  }
-  const typed = $('#pushConfirm').value.trim().toLowerCase();
-  const ready = !!plan && !plan.blockers.length && typed.length >= 12 && plan.localHead.startsWith(typed);
-  $('#bPush').disabled = !ready;
-  $('#pushHint').textContent = !plan ? '' : plan.blockers.length ? '막힘이 있어 푸시할 수 없습니다.' : ready ? '입력이 대상 SHA와 일치합니다. 푸시 직전에 한 번 더 점검합니다.' : '대상 SHA ' + plan.localHead.slice(0, 12) + '… 를 직접 입력해야 푸시 버튼이 켜집니다.';
-  const rec = $('#pushRecords');
-  rec.innerHTML = ps.records.length ? ps.records.map((r) => {
-    const rv = r.revert;
-    return '<div class="stage"><div>' + '<span class="chip">' + (r.kind === 'revert' ? '되돌림 푸시' : '푸시') + '</span> ' + lbl(PSTATUS[r.status] || [r.status, '']) + ' <span class="muted small">' + esc(r.at) + '</span></div>' +
-      '<div class="kv small"><div>원격 이전 → 이후</div><div class="mono">' + esc(r.preRemoteHead.slice(0, 12)) + ' → ' + esc(r.pushedSha.slice(0, 12)) + ' (' + r.commits.length + '개 커밋)</div>' +
-      '<div>명령</div><div class="mono">' + esc(r.command.join(' ')) + '</div><div>결과</div><div>' + esc(r.detail) + '</div>' +
-      (r.tasks.length ? '<div>작업</div><div>' + r.tasks.map(esc).join(', ') + '</div>' : '') +
-      (rv ? '<div>되돌림 준비</div><div class="mono">' + esc(rv.newHead.slice(0, 12)) + ' · 커밋 ' + rv.commits.length + '개 · 트리 복원 ' + (rv.treeRestored ? '<span class="ok">✓ 푸시 전과 같음</span>' : '<span class="bad">✗ 푸시 전과 다름</span>') + (rv.pushedAs ? ' · <span class="ok">되돌림 푸시 완료</span>' : ' · 위 ①~③으로 푸시하세요') + '</div>' : '') + '</div>' +
-      '<div class="actions"><button data-verify="' + esc(r.id) + '">원격 다시 확인</button>' +
-      (r.kind === 'push' && r.status === 'pushed_verified' && !rv ? '<button class="danger" data-revert="' + esc(r.id) + '">되돌림 커밋 준비</button>' : '') + '</div></div>';
-  }).join('') : '<span class="muted small">기록 없음</span>';
-  rec.querySelectorAll('[data-verify]').forEach((b) => b.onclick = () => act('원격 확인', () => api('push/verify', { id: b.dataset.verify }), (d) => ['원격 확인: ' + (PSTATUS[d.status] || [d.status])[0] + ' — ' + d.detail, d.status === 'pushed_verified' ? 'ok' : 'bad']));
-  rec.querySelectorAll('[data-revert]').forEach((b) => b.onclick = () => confirm('푸시한 커밋마다 되돌림(revert) 커밋을 통합 checkout에 만듭니다(로컬만, ./develop 잠금 안). 원격은 바뀌지 않으며, 만든 뒤 ①~③ 절차로 푸시합니다.\n\n로컬·원격이 모두 푸시한 SHA 그대로일 때만 진행합니다.') && act('되돌림 준비', () => api('push/revert-prepare', { id: b.dataset.revert }), (d) => ['되돌림 커밋 ' + d.commits.length + '개 준비 · 트리 복원 ' + (d.treeRestored ? '확인됨' : '불일치') + ' — 이제 ①~③으로 푸시하세요', d.treeRestored ? 'ok' : 'warn']));
-}
-
-function renderConnection() {
-  const c = state.connection;
-  const kind = { demo: ['데모 저장소', 'warn'], real: ['실제 저장소', 'info'], unconfigured: ['저장소 미설정', 'bad'] }[c.kind];
-  $('#connKind').innerHTML = '<span class="' + kind[1] + '">' + kind[0] + '</span>';
-  const agent = (form.agent && form.agent.value) || 'claude';
-  const rr = c.realRun[agent];
-  $('#connBar').innerHTML =
-    '<span>저장소 <span class="mono">' + esc(c.repo || '—') + '</span></span>' +
-    '<span>기준 브랜치 <span class="mono">' + esc(c.integrationBranch) + '</span></span>' +
-    '<span>mock 실행 <span class="ok">가능</span> <span class="muted">(코드 품질 검증 아님)</span></span>' +
-    ['codex', 'claude'].map((a) => { const r = c.realRun[a]; return '<span>실제 ' + a + ' ' + (r.available ? '<span class="ok">가능</span>' : '<span class="bad" title="' + esc(r.blockers.map((b) => b.message + ' → ' + b.fix).join('\n')) + '">차단 ' + r.blockers.length + '</span>') + '</span>'; }).join('');
-  const radio = form.querySelector('input[name=mode][value=real]');
-  radio.disabled = !rr.available;
-  if (radio.disabled && radio.checked) form.querySelector('input[name=mode][value=manual]').checked = true;
-  $('#realLabel').classList.toggle('dis', !rr.available);
-  $('#realWhy').innerHTML = rr.available ? '' : '실제 ' + esc(agent) + ' 실행 불가: ' + rr.blockers.map((b) => '<div>· ' + esc(b.message) + ' — <span class="muted">해결: ' + esc(b.fix) + '</span></div>').join('');
-}
-
-function renderProbes() {
-  const p = state.probes || {};
-  $('#probes').innerHTML = ['codex', 'claude'].map((k) => {
-    const x = p[k];
-    if (!x) return '<div>' + k + ': 확인 전</div>';
-    return '<div><b>' + k + '</b>: ' + (x.installed ? '<span class="ok">설치됨</span> ' + esc(x.version) : '<span class="warn">미설치</span>') +
-      ' · 확인 옵션 ' + esc(x.verifiedFlags.join(', ') || '없음') + (x.missingFlags.length ? ' · <span class="warn">미확인 ' + esc(x.missingFlags.join(', ')) + '</span>' : '') +
-      ' · ' + esc(x.note) + '</div>';
-  }).join('') + '<div>실제 모델 호출: <b>' + (state.mode === 'mock-only' ? '차단(별도 승인 작업)' : '허용 설정됨') + '</b> · 실제 에이전트 연동은 검증되지 않음</div>';
-}
-
-function render() {
-  if (!state) return;
-  renderConnection();
-  $('#guard').innerHTML = state.guard ? '<span class="bad">과금 신호 감지 · 서비스 중단</span>' : '과금 신호 감지 없음';
-  const gb = $('#guardBanner');
-  gb.hidden = !state.guard;
-  if (state.guard) gb.textContent = '유료 전환 신호 감지로 서비스 중단: ' + state.guard.detail + ' (' + state.guard.at + '). 확인 후 npm run guard:ack';
-  const lb = $('#limitBanner');
-  lb.hidden = !state.limit;
-  if (state.limit) {
-    lb.innerHTML = '<span>구독 사용 한도 도달 — 실제 CLI 실행을 멈췄습니다(재시도·크레딧 구매는 하지 않음). ' + esc(state.limit.detail) + ' (' + esc(state.limit.at) + ')</span><button id="bClearLimit">한도가 풀린 것을 확인함</button>';
-    $('#bClearLimit').onclick = () => confirm('구독 한도가 풀렸고 추가 크레딧 없이 계속 쓸 수 있음을 확인했습니까?') && act('한도 해제', () => api('limit/clear', {}));
-  }
-  renderMain();
-  renderRows(); renderDetail(); renderPush(); renderProbes();
-}
-
-async function pollLog() {
-  const t = state && state.tasks.find((x) => x.taskId === selected);
-  const id = logChoice || (t && t.exec && t.exec.execId);
-  if (!id) return;
-  if (id !== logExec) { logExec = id; logNext = 0; logText = ''; }
-  try {
-    const d = await api('execs/' + id + '/log?from=' + logNext);
-    if (d.text) { logText = (logText + d.text).slice(-60000); logNext = d.next; const el = $('#log'); if (el) { el.textContent = logText; el.scrollTop = el.scrollHeight; } }
-  } catch (e) { /* 다음 주기 재시도 */ }
-}
-
-let lastSig = '';
-async function refresh() {
-  try {
-    state = await api('state'); if (!selected && state.tasks[0]) selected = state.tasks[0].taskId;
-    // 상태가 바뀔 때만 다시 그린다(1초마다 그리면 텍스트 선택·입력이 풀린다).
-    const sig = JSON.stringify({ ...state, now: 0 });
-    if (sig === lastSig) return;
-    lastSig = sig; render();
-  }
-  catch (e) { say('상태 조회 실패: ' + e.message + ' (서버 종료 여부 확인)', 'bad'); }
-}
-
-// ---------- 새 작업 만들기 ----------
-let planTimer = null, lastPlan = null;
-const fileLines = () => String(form.allowedFiles.value).split('\n').map((x) => x.trim()).filter(Boolean);
-const form = $('#assign');
-
-const DEFAULT_CHECK = () => ({ name: '공백 오류 검사', executable: 'git', args: ['diff', '--check', '{contract}', '{head}'], cwd: '.' });
-let checkSpecs = [DEFAULT_CHECK()], postSpecs = [];
-function specRows(list, el, prefix) {
-  el.innerHTML = list.map((c, i) => '<div class="specRow" data-i="' + i + '">' +
-    '<input data-k="name" value="' + esc(c.name) + '" placeholder="이름">' +
-    '<select data-k="executable">' + ['git', 'node', '.venv/bin/python'].map((x) => '<option' + (x === c.executable ? ' selected' : '') + '>' + x + '</option>').join('') + '</select>' +
-    '<textarea data-k="args" placeholder="인자 한 줄에 하나">' + esc(c.args.join('\n')) + '</textarea>' +
-    (prefix === 'c' ? '<input data-k="cwd" value="' + esc(c.cwd) + '" title="worktree 기준 cwd">' : '') +
-    '<button type="button" data-rm="' + i + '">빼기</button></div>').join('') || '<div class="muted small">없음</div>';
-  el.querySelectorAll('.specRow').forEach((row) => {
-    const c = list[Number(row.dataset.i)];
-    row.querySelectorAll('[data-k]').forEach((inp) => inp.oninput = inp.onchange = () => {
-      const k = inp.dataset.k; c[k] = k === 'args' ? inp.value.split('\n').map((x) => x.trim()).filter(Boolean) : inp.value; schedulePlan();
-    });
-  });
-  el.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { list.splice(Number(b.dataset.rm), 1); renderSpecs(); schedulePlan(); });
-}
-function renderSpecs() { specRows(checkSpecs, $('#checkRows'), 'c'); specRows(postSpecs, $('#postRows'), 'p'); }
-function formBody() {
-  const f = new FormData(form);
-  const b = Object.fromEntries(f.entries());
-  b.allowedFiles = fileLines();
-  b.conflictGroups = String(b.conflictGroups || '').split(',').map((x) => x.trim()).filter(Boolean);
-  b.requiredModules = String(b.requiredModules || '').split(',').map((x) => x.trim()).filter(Boolean);
-  b.doneCriteria = String(b.doneCriteria || '').split('\n').map((x) => x.trim()).filter(Boolean);
-  b.checks = checkSpecs.map((c, i) => ({ id: 'c' + (i + 1), name: c.name || ('검사 ' + (i + 1)), executable: c.executable, args: c.args, cwd: c.cwd || '.' }));
-  b.postChecks = postSpecs.map((c, i) => ({ id: 'p' + (i + 1), name: c.name || ('통합 후 검사 ' + (i + 1)), executable: c.executable, args: c.args, cwd: '.' }));
-  return b;
-}
-function schedulePlan() { clearTimeout(planTimer); planTimer = setTimeout(updatePlan, 250); }
-let planSeq = 0;
-async function updatePlan() {
-  const seq = ++planSeq;
-  $('#scenarioBox').hidden = form.mode.value !== 'mock';
-  const b = formBody();
-  if (!b.goal && !b.allowedFiles.length) { $('#preview').innerHTML = '<div class="muted">입력하면 자동으로 준비될 값이 여기에 보입니다.</div>'; $('#prepareBtn').disabled = true; return; }
-  try {
-    const p = await api('plan', b);
-    if (seq !== planSeq) return; // 더 최근 입력의 미리보기가 이미 요청됨
-    lastPlan = p;
-    const t = p.task;
-    const kv = t ? '<div class="kv">' +
-      '<div>task ID</div><div class="mono">' + esc(t.taskId) + '</div>' +
-      '<div>브랜치</div><div class="mono">' + esc(t.branch) + (p.createWorktree ? ' <span class="chip">새로 만듦</span>' : '') + '</div>' +
-      '<div>작업 폴더</div><div class="mono">' + esc(t.worktree) + (p.createWorktree ? ' <span class="chip">새로 만듦</span>' : '') + '</div>' +
-      '<div>시작 시점</div><div><span class="mono">' + esc(t.baseSha.slice(0, 12)) + '</span> · ' + esc(p.baseRef) + ' · ' + esc(p.baseSubject) + '</div>' +
-      '<div>고칠 수 있는 곳</div><div class="mono">' + t.allowedFiles.map(esc).join(', ') + '</div>' +
-      '<div>실행 환경</div><div>' + esc({ none: 'Python 불필요', python: '자체 .venv 필요', 'python-project': '자체 .venv + 프로젝트 import 필요' }[t.env]) + (p.envAuto ? ' <span class="chip">자동</span>' : '') + '</div>' +
-      '<div>작업 테스트</div><div class="mono small">' + (t.checks.map((c) => esc([c.executable].concat(c.args).join(' '))).join('<br>') || '<span class="bad">없음 — 승인할 수 없음</span>') + '</div>' +
-      '<div>계약 파일</div><div class="mono">docs/collaboration/tasks/' + esc(t.taskId) + '.md <span class="chip">작업 브랜치에 커밋</span></div></div>' : '';
-    const bad = p.checks.filter((c) => !c.ok);
-    $('#preview').innerHTML = '<b>자동으로 준비될 값</b>' + kv +
-      (bad.length ? bad.map((c) => '<div class="bad">✗ ' + esc(c.name) + ': ' + esc(c.detail) + '</div>').join('') : '<div class="ok">✓ 준비 가능</div>') +
-      p.warnings.map((w) => '<div class="warn">⚠ ' + esc(w) + '</div>').join('');
-    $('#prepareBtn').disabled = !p.ok;
-  } catch (e) { $('#preview').innerHTML = '<div class="bad">' + esc(e.message) + '</div>'; $('#prepareBtn').disabled = true; }
-}
-form.addEventListener('input', schedulePlan);
-form.addEventListener('change', () => { if (state) renderConnection(); schedulePlan(); });
-$('#addCheck').onclick = () => { checkSpecs.push({ name: '', executable: 'git', args: [], cwd: '.' }); renderSpecs(); schedulePlan(); };
-$('#addPost').onclick = () => { postSpecs.push({ name: '', executable: 'git', args: [], cwd: '.' }); renderSpecs(); schedulePlan(); };
-form.onsubmit = (ev) => {
-  ev.preventDefault();
-  $('#prepareBtn').disabled = true;
-  act('준비·배정', () => api('tasks', formBody()), (d) => ['준비 완료: ' + d.detail, 'ok']).then((d) => {
-    if (d) { selected = d.taskId; form.reset(); checkSpecs = [DEFAULT_CHECK()]; postSpecs = []; renderSpecs(); }
-    updatePlan();
-  });
-};
-renderSpecs(); updatePlan();
-// ---------- 진행률 항목으로 채우기 ----------
-let progDraft = null;
-async function loadProgress() {
-  try {
-    const d = await api('progress');
-    $('#progSel').innerHTML = '<option value="">직접 입력</option>' + d.items.map((i) => '<option value="' + esc(i.id) + '">' + esc(i.id + ' ' + i.title + ' (배점 ' + i.weight + ', ' + i.earned + '점)') + '</option>').join('');
-    $('#progInfo').textContent = '출처 ' + d.source.file + ' @ ' + d.source.ref + ' ' + d.source.sha.slice(0, 12) + ' · 미완료 ' + d.items.length + '개';
-  } catch (e) { $('#progSel').disabled = true; $('#progInfo').textContent = '진행률 항목을 불러오지 못함: ' + e.message; }
-}
-$('#progSel').onchange = async () => {
-  const id = $('#progSel').value; progDraft = null;
-  if (!id) { $('#progInfo').textContent = ''; return; }
-  try {
-    const d = await api('progress/draft', { id }); progDraft = d;
-    form.goal.value = d.draft.goal; form.doneCriteria.value = d.draft.doneCriteria.join('\n'); form.prompt.value = d.draft.prompt;
-    $('#progInfo').innerHTML = '완료 조건·현재 평가 원문을 상세 지시에 인용했습니다. 이 작업은 코드·단위 검증 구현까지이고 점수는 바꾸지 않습니다. ' +
-      (d.suggestedFiles.length ? '제안 파일(증거 중 코드)을 3번 칸에 채웠습니다 — 필요하면 고치세요. ' : '<span class="warn">제안할 코드 파일이 없습니다 — 허용 파일을 직접 고르세요.</span>') +
-      (d.skippedEvidence.length ? ' <span class="muted">제외: ' + d.skippedEvidence.map((x) => esc(x.path + ' (' + x.why + ')')).join(', ') + '</span>' : '');
-    if (d.suggestedFiles.length) form.allowedFiles.value = d.suggestedFiles.join('\n');
-    schedulePlan();
-  } catch (e) { $('#progInfo').innerHTML = '<span class="bad">' + esc(e.message) + '</span>'; }
-};
-loadProgress();
-
-// ---------- 메인 역할 ----------
-function renderMain() {
-  const m = state.main || { agent: 'codex', since: null };
-  const other = m.agent === 'codex' ? 'claude' : 'codex';
-  $('#mainSummary').innerHTML = '메인 역할: <b>' + esc(m.agent) + '</b> <span class="muted small">' + (m.since ? '(' + esc(m.since) + (m.reason ? ' · ' + esc(m.reason) : '') + ')' : '(기본값)') + '</span> — 이양하려면 펼치기';
-  $('#bMainSwap').textContent = other + '에게 이양';
-  $('#bMainSwap').dataset.to = other;
-}
-async function showMainBlockers() {
-  try { const d = await api('main/blockers'); $('#mainBlockers').innerHTML = d.blockers.length ? d.blockers.map((b) => '<div class="bad">✗ ' + esc(b) + '</div>').join('') : '<div class="ok">✓ 이양을 막는 진행 중인 일이 없습니다</div>'; }
-  catch (e) { $('#mainBlockers').innerHTML = '<div class="bad">' + esc(e.message) + '</div>'; }
-}
-$('#mainBox').addEventListener('toggle', () => { if ($('#mainBox').open) showMainBlockers(); });
-$('#bMainCheck').onclick = showMainBlockers;
-$('#bMainSwap').onclick = () => {
-  const to = $('#bMainSwap').dataset.to;
-  if (!confirm('메인을 ' + to + '(으)로 이양합니다. 이 화면은 표시·기록만 하며 권한을 강제하지 않습니다. 계속할까요?')) return;
-  act('메인 이양', () => api('main/swap', { agent: to, reason: $('#mainReason').value }), (d) => ['메인이 ' + d.role.agent + '(으)로 바뀌었습니다 — 새 메인에게 한 줄로 알려 주세요', 'ok']).then((d) => { if (d) { $('#mainMemo').value = d.memo; showMainBlockers(); } else showMainBlockers(); });
-};
-$('#bMainCopy').onclick = async () => { const el = $('#mainMemo'); if (!el.value) return say('복사할 메모가 없습니다', 'warn'); try { await navigator.clipboard.writeText(el.value); say('이양 메모 복사됨', 'ok'); } catch (e) { el.select(); say('선택된 텍스트를 직접 복사하세요(⌘C)', 'warn'); } };
-
-$('#bPushCheck').onclick = () => act('푸시 점검', () => api('push/preflight', {}), (p) => [p.blockers.length ? '푸시 막힘 ' + p.blockers.length + '건 — 아래 사유를 확인하세요' : '푸시 가능 — 대상 SHA를 입력하세요', p.blockers.length ? 'bad' : 'ok']);
-$('#pushConfirm').oninput = () => state && renderPush();
-$('#bPush').onclick = () => {
-  const plan = state.push.plan; const typed = $('#pushConfirm').value.trim();
-  if (!plan || !confirm('원격 ' + state.push.remote + '/' + state.push.branch + ' 에 ' + plan.commits.length + '개 커밋을 푸시합니다.\n' + plan.remoteHead.slice(0, 12) + ' → ' + plan.localHead.slice(0, 12) + '\n\n푸시는 취소할 수 없습니다(실수는 되돌림 커밋으로만 바로잡습니다). 계속할까요?')) return;
-  act('푸시', () => api('push/run', { confirm: typed }), (r) => ['푸시 결과: ' + (PSTATUS[r.status] || [r.status])[0] + ' — ' + r.detail, r.status === 'pushed_verified' ? 'ok' : 'bad']).then(() => { $('#pushConfirm').value = ''; renderPush(); });
-};
-$('#probe').onclick = () => act('CLI 확인', () => api('probes', {}));
-
-// 배정 폼은 render()가 다시 그리지 않으므로 입력 중에도 상태 갱신을 계속한다.
-let polling = false;
-setInterval(async () => {
-  if (polling) return; polling = true;
-  try { await refresh(); await pollLog(); } finally { polling = false; }
-}, 1000);
-refresh().then(pollLog);
-</script>
+<script type="module" src="/pair/static/app.js"></script>
 </body>
 </html>

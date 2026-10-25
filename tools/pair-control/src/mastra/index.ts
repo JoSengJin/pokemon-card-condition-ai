@@ -69,11 +69,20 @@ function act(fn: (c: any) => Promise<unknown>) {
 
 const body = async (c: any) => { try { return await c.req.json(); } catch { return {}; } };
 
+/** 화면 모듈(src/ui/js/*.js)만 정해진 이름 형식으로 제공한다. 경로 조합·다른 폴더 접근은 없다. */
+function serveStatic(c: any) {
+  const file = String(c.req.param('file'));
+  const full = path.join(cfg.toolRoot, 'src', 'ui', 'js', file);
+  if (!/^[a-z][a-z-]{0,30}\.js$/.test(file) || !fs.existsSync(full)) return c.text('not found', 404);
+  return c.body(fs.readFileSync(full, 'utf8'), 200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' });
+}
+
 function buildRoutes() {
   const ex = () => getExecutor();
   const id = (c: any) => String(c.req.param('id'));
   return [
     registerApiRoute('/pair', { method: 'GET', handler: async (c: any) => c.html(fs.readFileSync(path.join(cfg.toolRoot, 'src', 'ui', 'page.html'), 'utf8')) }),
+    registerApiRoute('/pair/static/:file', { method: 'GET', handler: async (c: any) => serveStatic(c) }),
     registerApiRoute('/pair/api/state', { method: 'GET', handler: act(async () => snapshot()) }),
     registerApiRoute('/pair/api/tasks', { method: 'POST', handler: act(async (c) => prepareTask(await body(c))) }),
     registerApiRoute('/pair/api/plan', { method: 'POST', handler: act(async (c) => planTask(ex(), await body(c))) }),
