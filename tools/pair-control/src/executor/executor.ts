@@ -15,15 +15,16 @@ import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
 import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
 import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
 import type { CheckSpecT } from './contract.ts';
+import { buildStartPrompt, type PromptOptions } from './startPrompt.ts';
 
 export type TaskStatus =
   | 'assigned' | 'blocked' | 'starting' | 'running' | 'collecting' | 'cancelling' | 'cancelled' | 'failed'
   | 'orphan_running' | 'exit_observed' | 'unknown' | 'abandoned'
-  | 'review_pending' | 'approved' | 'rejected'
+  | 'manual_working' | 'review_pending' | 'approved' | 'rejected'
   | 'integrating' | 'integrated' | 'integrated_check_failed' | 'integration_refused' | 'integration_conflict' | 'integration_blocked';
 
 /** 실행 잠금은 없어도 같은 파일의 결과가 아직 통합/거절되지 않은 상태. */
-export const OCCUPYING: TaskStatus[] = ['starting', 'running', 'collecting', 'cancelling', 'orphan_running', 'exit_observed', 'unknown',
+export const OCCUPYING: TaskStatus[] = ['starting', 'running', 'manual_working', 'collecting', 'cancelling', 'orphan_running', 'exit_observed', 'unknown',
   'review_pending', 'approved', 'integrating', 'integration_refused', 'integration_conflict', 'integration_blocked'];
 const STARTABLE: TaskStatus[] = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
 
@@ -50,7 +51,13 @@ export interface ReviewRecord {
 }
 
 /** reviewVerdict는 감사 기록일 뿐 승인 조건이 아니다(리뷰 결과가 사람 승인을 대신하지 않음). */
-export interface Approval { sha: string; baseBranch: string; baseHead: string; files: string[]; filesHash: string; contractHash: string; reviewVerdict: ReviewVerdict | null; at: string }
+/**
+ * 메인 에이전트에게 넘기는 인계 기록. 인계 문서는 작업 브랜치에 커밋하지 않는다(PAIR_CODING §4: 완료 후 추가 커밋 금지, SHA 고정).
+ * 상태 폴더에 저장하고 복사용으로 보여 준다. 코드 SHA가 바뀌면 인계는 낡은 것으로 본다.
+ */
+export interface Handoff { at: string; to: 'codex' | 'claude'; headSha: string; file: string; confirmedAt?: string; note?: string; cancelledAt?: string }
+
+export interface Approval { sha: string; baseBranch: string; baseHead: string; files: string[]; filesHash: string; contractHash: string; reviewVerdict: ReviewVerdict | null; mainConfirmedAt: string | null; at: string }
 
 export interface Task extends TaskInputT {
   status: TaskStatus;
@@ -73,6 +80,9 @@ export interface Task extends TaskInputT {
   verification?: Verification | null;
   /** 별도 리뷰 작업(구현 worktree를 수정하지 않는 별도 CLI 실행). */
   review?: ReviewRecord | null;
+  handoff?: Handoff | null;
+  /** 수동 모드: 사용자가 에이전트 세션에서 작업하는 동안의 소유권 기록. 프로세스는 없다. */
+  manual?: { execId: string; runId: string; startedAt: string; endedAt?: string; ended?: 'finished' | 'cancelled' } | null;
   result?: {
     execId: string | null; headSha: string | null; commits: string[]; changedFiles: string[]; dirtyFiles: string[];
     outOfScope: string[]; checks: Check[]; checksPassed: boolean; collectedAt: string;
@@ -98,7 +108,9 @@ export interface Execution {
 
 /** 구독 사용 한도 도달 상태. 과금이 아니라 정지 신호이며, 사용자가 풀렸음을 확인하기 전에는 실제 실행을 시작하지 않는다. */
 export interface LimitState { at: string; detail: string; source: string }
-interface State { tasks: Record<string, Task>; executions: Record<string, Execution>; limit?: LimitState | null }
+/** 메인 역할(통합·푸시·실험 단일 담당)의 현재 담당. 표시·기록용이며 권한을 강제하지 않는다. */
+export interface MainRole { agent: 'codex' | 'claude'; since: string; reason?: string }
+interface State { tasks: Record<string, Task>; executions: Record<string, Execution>; limit?: LimitState | null; main?: MainRole | null }
 
 export type Resumer = (runId: string, step: string, data: Record<string, unknown>) => Promise<void>;
 
@@ -139,6 +151,7 @@ export class Executor {
   get supervisorPath() { return path.join(this.cfg.toolRoot, 'src', 'executor', 'supervisor.mjs'); }
   get guardAlert() { return this.tripped; }
   get limit() { return this.state.limit ?? null; }
+  get mainAgent(): 'codex' | 'claude' { return this.state.main?.agent ?? 'codex'; }
   /** 사용자가 한도가 풀렸음을 확인했을 때만 호출한다. 재시도·크레딧 구매는 하지 않는다. */
   clearLimit() {
     if (!this.state.limit) throw new UserError('한도 도달 상태가 아님');
@@ -256,7 +269,7 @@ export class Executor {
     for (const n of [`task:${t.taskId}`, `worktree:${t.worktree}`, `branch:${t.branch}`]) this.locks.release(n, 'execId', execId);
   }
 
-  async launch(taskId: string, runId: string): Promise<{ ok: true; execId: string; pid: number } | { ok: false; reason: string; conflicts?: ConflictReason[]; checks?: Check[] }> {
+  async launch(taskId: string, runId: string): Promise<{ ok: true; execId: string; pid: number } | { ok: true; manual: true; execId: null } | { ok: false; reason: string; conflicts?: ConflictReason[]; checks?: Check[] }> {
     const t = this.task(taskId);
     const execId = crypto.randomUUID();
     const r = this.reserve(t, execId);
@@ -271,6 +284,22 @@ export class Executor {
       const checks = await this.preflightChecks(t);
       t.preflight = checks;
       const failed = checks.filter((c) => !c.ok);
+      if (t.mode === 'manual') {
+        if (failed.length) {
+          const reason = `사전 검사 실패: ${failed.map((c) => `${c.name}(${c.detail})`).join(', ')}`;
+          this.releaseExecLocks(t, execId);
+          this.setStatus(t, 'blocked', reason);
+          return { ok: false, reason, checks };
+        }
+        // 수동 모드: 프로세스를 띄우지 않는다. 같은 잠금과 충돌 검사로 파일 소유권만 유지한다.
+        t.manual = { execId, runId, startedAt: new Date().toISOString() };
+        t.runId = runId; t.runHistory = [...t.runHistory, runId]; t.lastExecId = null;
+        t.result = null; t.approval = null; t.integration = null; t.verification = null; t.review = null; t.handoff = null;
+        t.permission = '수동 모드: 도구는 에이전트를 실행하지 않음. 에이전트 세션이 worktree에서 작업하며, 허용 파일은 "작업 완료" 후 diff로만 검사(실행 중 쓰기를 막지 않음).';
+        this.setStatus(t, 'manual_working', '수동 작업 중 — 에이전트 세션에서 작업 후 "작업 완료"를 누르세요');
+        this.event('manual_started', { taskId, runId });
+        return { ok: true as const, manual: true as const, execId: null };
+      }
       let plan: LaunchPlan | { refused: string };
       if (t.mode === 'mock') plan = mockPlan(t, this.cfg);
       else {
@@ -299,7 +328,7 @@ export class Executor {
     const ex = this.spawnSupervised(t, { kind: 'agent', execId, runId, cwd: t.worktree, command, args,
       display: t.usesDevelopLock ? ['./develop', '--', ...plan.display] : plan.display });
     t.lastExecId = execId; t.runId = runId; t.runHistory = [...t.runHistory, runId];
-    t.result = null; t.approval = null; t.integration = null; t.verification = null; t.review = null;
+    t.result = null; t.approval = null; t.integration = null; t.verification = null; t.review = null; t.handoff = null;
     this.setStatus(t, 'running');
     return { ok: true as const, execId, pid: ex.pid };
   }
@@ -459,6 +488,7 @@ export class Executor {
   // ---------- 중단 ----------
   async cancel(taskId: string): Promise<{ ok: boolean; reason: string }> {
     const t = this.task(taskId);
+    if (t.status === 'manual_working') return this.cancelManual(taskId);
     const ex = Object.values(this.state.executions).filter((e) => e.taskId === taskId && ['running', 'cancelling'].includes(e.status))
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
     if (!ex) return { ok: false, reason: '이 실행기가 시작한 실행 중 프로세스가 없음' };
@@ -478,6 +508,178 @@ export class Executor {
     for (const t of Object.values(this.state.tasks)) {
       if (busy.has(t.taskId)) void this.cancel(t.taskId).then((r) => this.event("cancel_all", { taskId: t.taskId, trigger: reason, result: r.reason, ok: r.ok }));
     }
+  }
+
+  // ---------- 메인 에이전트 인계 ----------
+  /** 지금 누구 차례인지. 상태에서 파생하며 저장하지 않는다. 에이전트를 자동으로 부르지 못하므로 전환은 사용자가 한다. */
+  turnOf(t: Task): { who: 'user' | 'implementer' | 'main' | 'tool'; agent?: 'codex' | 'claude'; label: string; next: string } {
+    const impl = { who: 'implementer' as const, agent: t.agent };
+    const user = (label: string, next: string) => ({ who: 'user' as const, label, next });
+    switch (t.status) {
+      case 'assigned': case 'blocked': case 'cancelled': case 'rejected': case 'abandoned': case 'failed':
+        return user('사용자', '시작(또는 사유 확인 후 다시 시작)');
+      case 'manual_working': return { ...impl, label: `${t.agent} 세션에서 작업 중`, next: '에이전트가 끝나면 "작업 완료 — 결과 수집"' };
+      case 'starting': case 'running': case 'collecting': case 'cancelling': return { ...impl, label: `${t.agent} 실행 중(도구가 감독)`, next: '종료 확인을 기다림' };
+      case 'orphan_running': case 'exit_observed': case 'unknown': return user('사용자', '재시작 후 상태 확인');
+      case 'review_pending': {
+        const h = t.handoff;
+        if (!h || h.cancelledAt) return user('사용자', '작업 테스트·diff 확인 후 "메인에게 인계"');
+        if (h.headSha !== t.result?.headSha) return user('사용자', '인계 후 코드가 바뀜 — 다시 인계');
+        if (!h.confirmedAt) return { who: 'main', agent: h.to, label: `${h.to} 확인 중`, next: '메인이 확인을 끝내면 "메인 확인 완료"' };
+        return user('사용자', '메인 확인 완료 — 승인 또는 거절');
+      }
+      case 'approved': case 'integration_blocked': return user('사용자', '통합 실행');
+      case 'integrating': return { who: 'tool', label: '도구가 통합 중', next: '완료를 기다림' };
+      case 'integrated': return user('사용자', '푸시 준비');
+      default: return user('사용자', '상태 확인');
+    }
+  }
+
+  private async handoffText(t: Task, head: string): Promise<string> {
+    const log = (await G.git(t.worktree, 'log', '--reverse', '--format=%H%x09%P%x09%s', `${t.contractSha}..${head}`)).stdout.trim().split('\n').filter(Boolean);
+    const rows = log.map((l, i) => { const [sha, parents, subject] = l.split('\t'); return `${i + 1}. \`${sha}\` ← \`${parents || '-'}\` ${subject}`; });
+    const r = t.result!;
+    const v = t.verification && t.verification.sha === head && t.verification.contractHash === t.contractHash ? t.verification : null;
+    const rv = t.review && t.review.sha === head ? t.review : null;
+    const main = t.handoff?.to ?? this.mainAgent;
+    return `# 인계: ${t.taskId}
+
+- 구현 담당: ${t.agent} → 메인(확인·통합·푸시 담당): ${main}
+- 브랜치: \`${t.branch}\`
+- 작업 위치(로컬 경로, 커밋하지 않음): ${t.worktree}
+- 기준 SHA: \`${t.baseSha}\`
+- 계약: \`${t.contractPath}\` @ \`${t.contractSha}\` (해시 \`${t.contractHash.slice(0, 16)}…\`)
+- 인계 대상 전체 SHA: \`${head}\`
+
+## 커밋 순서 (전체 SHA ← 부모, 계약 커밋 이후)
+
+${rows.join('\n') || '(없음)'}
+
+## 변경 파일 (계약 커밋 이후)
+
+${r.changedFiles.map((f) => `- ${f}`).join('\n') || '- (없음)'}
+
+## 검사 결과
+
+- Git 계약 검사: ${r.checksPassed ? '통과' : '**실패**'} — 형식(브랜치·계약 불변·허용 파일·미커밋 없음)만 확인하며 코드의 정확성을 뜻하지 않음
+${r.checks.map((c) => `  - ${c.ok ? '✓' : '✗'} ${c.name}: ${c.detail}`).join('\n')}
+- 작업 테스트: ${v ? `${v.status} (SHA ${v.sha.slice(0, 12)})` : '**미실행 또는 이전 SHA 결과 — 통과가 아님**'}
+${v ? v.items.map((i) => `  - ${i.name}: ${i.status} code ${i.exitCode ?? '-'}`).join('\n') : ''}
+- 독립 리뷰: ${rv ? `${rv.status}${rv.verdict ? ` / ${rv.verdict}` : ''} (${rv.reviewer}, ${rv.mode})` : '미실행'}
+
+## 미검증·한계
+
+- 이 문서는 도구가 만든 상태 요약이다. 에이전트의 서술 보고서(있다면 \`docs/collaboration/reports/\` 아래)는 읽지 않았다.
+- 실제 학습·추론·성능 평가는 이 단계에서 하지 않았다.
+
+## 롤백
+
+- 통합 전: 작업 브랜치는 그대로 두고 거절하면 된다(삭제하지 않음).
+- 통합 후: \`./develop -- git revert <통합 커밋 SHA>\` (PAIR_CODING §5).
+
+## 메인(${main})이 할 일
+
+1. \`git diff ${t.baseSha}..${head}\` 로 계약 대조(허용 파일, 완료 조건).
+2. 이 SHA·계약 해시가 바뀌면 이 인계는 낡은 것이다. 새 인계를 받는다.
+3. 통합·푸시는 사용자가 /pair 화면에서 승인한 SHA만 진행한다.
+`;
+  }
+
+  /** 구현이 끝났음을 메인에게 넘긴다. 도구가 Git으로 교차 확인하며(커밋 없음·미커밋 변경·SHA 변경은 거절) 인계 문서는 상태 폴더에만 저장한다. */
+  async handoffToMain(taskId: string) {
+    const t = this.task(taskId);
+    if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 인계(${t.status})`);
+    const r = t.result;
+    if (!r?.headSha || !r.commits.length) throw new UserError('인계할 커밋이 없음 — 에이전트가 커밋하지 않았습니다');
+    const head = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
+    if (head !== r.headSha) throw new UserError('Git 계약 검사 이후 코드 SHA가 바뀜 — "결과 다시 수집" 후 인계');
+    const dirty = await G.dirtyFiles(t.worktree);
+    if (dirty.length) throw new UserError(`worktree에 미커밋 변경이 있음: ${dirty.slice(0, 5).join(', ')}`);
+    if (t.verification?.status === 'running' || t.review?.status === 'running') throw new UserError('작업 테스트나 리뷰가 실행 중');
+    if (t.handoff && !t.handoff.cancelledAt && t.handoff.headSha === head) throw new UserError('이미 인계됨(취소 후 다시 인계 가능)');
+    const text = await this.handoffText(t, head);
+    const file = path.join(this.cfg.stateDir, 'handoffs', `${t.taskId}-${head.slice(0, 12)}.md`);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text);
+    t.handoff = { at: new Date().toISOString(), to: this.mainAgent, headSha: head, file };
+    this.event('handoff', { taskId, to: t.handoff.to, headSha: head });
+    this.save();
+    return { handoff: t.handoff, text, message: this.handoffMessage(t) };
+  }
+
+  /** 메인 에이전트 세션에 붙여 넣을 한 줄 안내. */
+  handoffMessage(t: Task) {
+    const h = t.handoff!;
+    return `인계됨: ${t.taskId} — 브랜치 ${t.branch}, 전체 SHA ${h.headSha}. 인계 문서: ${h.file} . 작업 위치: ${t.worktree}`;
+  }
+
+  readHandoff(taskId: string) {
+    const t = this.task(taskId);
+    if (!t.handoff) throw new UserError('인계 기록 없음');
+    return { text: fs.existsSync(t.handoff.file) ? fs.readFileSync(t.handoff.file, 'utf8') : '', message: this.handoffMessage(t), handoff: t.handoff };
+  }
+
+  confirmHandoff(taskId: string, note = '') {
+    const t = this.task(taskId);
+    const h = t.handoff;
+    if (t.status !== 'review_pending' || !h || h.cancelledAt) throw new UserError('유효한 인계가 없음');
+    if (h.headSha !== t.result?.headSha) throw new UserError('인계 이후 코드가 바뀜 — 다시 인계');
+    h.confirmedAt = new Date().toISOString(); h.note = note.slice(0, 500);
+    this.event('handoff_confirmed', { taskId, headSha: h.headSha });
+    this.save();
+    return h;
+  }
+
+  /** 잘못 누른 인계를 되돌린다. 코드·승인은 건드리지 않고 차례만 사용자에게 돌아온다. */
+  cancelHandoff(taskId: string) {
+    const t = this.task(taskId);
+    const h = t.handoff;
+    if (!h || h.cancelledAt) throw new UserError('취소할 인계가 없음');
+    if (t.status === 'approved' || t.approval) throw new UserError('승인 후에는 인계를 취소할 수 없음(거절 후 다시 진행)');
+    h.cancelledAt = new Date().toISOString();
+    this.event('handoff_cancelled', { taskId });
+    this.save();
+    return h;
+  }
+
+  // ---------- 에이전트에게 줄 시작 프롬프트 ----------
+  async startPrompt(taskId: string, o: PromptOptions = {}) {
+    const t = this.task(taskId);
+    try { return await buildStartPrompt(t, this.mainAgent, o); } catch (err) { throw new UserError((err as Error).message); }
+  }
+
+  // ---------- 수동 모드 ----------
+  /** 사용자가 "작업 완료"를 눌렀다. 잠금을 풀고 workflow의 종료 대기 단계를 재개해 Git 계약 검사로 넘어간다. */
+  async finishManual(taskId: string) {
+    const t = this.task(taskId);
+    if (t.status !== 'manual_working' || !t.manual) throw new UserError(`수동 작업 중이 아님(${t.status})`);
+    if (!this.resumer || !t.runId) throw new UserError('workflow 연결 없음');
+    this.releaseExecLocks(t, t.manual.execId);
+    t.manual.endedAt = new Date().toISOString(); t.manual.ended = 'finished';
+    this.setStatus(t, 'collecting', '사용자가 작업 완료를 표시 · 결과 수집 중');
+    await this.resumer(t.runId, 'await-exit', { execId: 'manual', exitCode: 0, signal: null, cancelled: false });
+    return this.task(taskId);
+  }
+
+  async cancelManual(taskId: string): Promise<{ ok: boolean; reason: string }> {
+    const t = this.task(taskId);
+    if (t.status !== 'manual_working' || !t.manual) return { ok: false, reason: '수동 작업 중이 아님' };
+    this.releaseExecLocks(t, t.manual.execId);
+    t.manual.endedAt = new Date().toISOString(); t.manual.ended = 'cancelled';
+    this.setStatus(t, 'cancelled', '사용자가 수동 작업을 취소(에이전트 세션에서 진행한 변경은 worktree에 그대로 남음)');
+    if (this.resumer && t.runId) {
+      try { await this.resumer(t.runId, 'await-exit', { execId: 'manual', exitCode: null, signal: null, cancelled: true }); }
+      catch (err) { this.event('resume_error', { taskId, error: (err as Error).message }); }
+    }
+    return { ok: true, reason: '수동 작업 취소 · 소유권 잠금 해제' };
+  }
+
+  /** 검토 단계에서 에이전트가 커밋을 더 했을 때 결과를 다시 수집한다. 이전 SHA의 작업 테스트·리뷰는 자동으로 무효(SHA 불일치)가 된다. */
+  async recollect(taskId: string) {
+    const t = this.task(taskId);
+    if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 다시 수집(${t.status})`);
+    if (t.verification?.status === 'running' || t.review?.status === 'running') throw new UserError('작업 테스트나 리뷰가 실행 중');
+    return this.collect(taskId, t.result?.execId ?? null);
   }
 
   /** 사용자가 가상환경 등을 준비한 뒤 실행 준비 상태를 다시 확인한다(설치는 하지 않음). */
@@ -565,7 +767,8 @@ export class Executor {
     const s = await this.integrationState(t, sha);
     if (!s.baseHead) throw new UserError('통합 기준 브랜치를 읽지 못함');
     const rv = t.review && t.review.sha === sha && t.review.contractHash === t.contractHash && t.review.status === 'done' ? t.review.verdict ?? null : null;
-    t.approval = { sha, baseBranch: this.cfg.integration.branch, baseHead: s.baseHead, files: s.files, filesHash: s.filesHash, contractHash: t.contractHash, reviewVerdict: rv, at: new Date().toISOString() };
+    const ho = t.handoff && !t.handoff.cancelledAt && t.handoff.headSha === sha ? t.handoff.confirmedAt ?? null : null;
+    t.approval = { sha, baseBranch: this.cfg.integration.branch, baseHead: s.baseHead, files: s.files, filesHash: s.filesHash, contractHash: t.contractHash, reviewVerdict: rv, mainConfirmedAt: ho, at: new Date().toISOString() };
     this.setStatus(t, 'approved', `SHA ${sha.slice(0, 12)} 승인 · 통합 실행 대기`);
     this.event('approved', { taskId, sha, baseHead: s.baseHead });
     return t.approval;

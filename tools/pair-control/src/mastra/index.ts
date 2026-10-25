@@ -117,6 +117,18 @@ function buildRoutes() {
       }),
     }),
     registerApiRoute('/pair/api/tasks/:id/run-checks', { method: 'POST', handler: act(async (c) => ex().runChecks(id(c))) }),
+    registerApiRoute('/pair/api/tasks/:id/start-prompt', {
+      method: 'POST', handler: act(async (c) => {
+        const b = await body(c);
+        return ex().startPrompt(id(c), { unattended: b.unattended === true, extraDocs: Array.isArray(b.extraDocs) ? b.extraDocs.map(String) : [] });
+      }),
+    }),
+    registerApiRoute('/pair/api/tasks/:id/handoff', { method: 'POST', handler: act(async (c) => ex().handoffToMain(id(c))) }),
+    registerApiRoute('/pair/api/tasks/:id/handoff-text', { method: 'GET', handler: act(async (c) => ex().readHandoff(id(c))) }),
+    registerApiRoute('/pair/api/tasks/:id/handoff-confirm', { method: 'POST', handler: act(async (c) => ex().confirmHandoff(id(c), String((await body(c)).note ?? ''))) }),
+    registerApiRoute('/pair/api/tasks/:id/handoff-cancel', { method: 'POST', handler: act(async (c) => ex().cancelHandoff(id(c))) }),
+    registerApiRoute('/pair/api/tasks/:id/finish-manual', { method: 'POST', handler: act(async (c) => ex().finishManual(id(c))) }),
+    registerApiRoute('/pair/api/tasks/:id/recollect', { method: 'POST', handler: act(async (c) => ex().recollect(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/recheck-env', { method: 'POST', handler: act(async (c) => ex().recheckEnv(id(c))) }),
     registerApiRoute('/pair/api/limit/clear', { method: 'POST', handler: act(async () => ex().clearLimit()) }),
     registerApiRoute('/pair/api/probes', { method: 'POST', handler: act(async () => ex().refreshProbes()) }),

@@ -67,6 +67,8 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 #msg { min-height: 20px; }
 .connBar { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .small { font-size: 12px; }
+.chip.turn-user { color: var(--info); } .chip.turn-implementer { color: var(--warn); } .chip.turn-main { color: var(--ok); }
+textarea[readonly] { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 .banner.warnbox { border-color: var(--warn); color: var(--warn); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .specRow { display: grid; grid-template-columns: 1fr 120px; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 4px; }
 .specRow textarea { grid-column: 1 / -1; min-height: 40px; }
@@ -115,8 +117,9 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
               <label><input type="radio" name="agent" value="codex"> Codex</label>
             </div>
             <div class="seg" id="modeSeg">
-              <label><input type="radio" name="mode" value="mock" checked> 연습(mock · 무료, AI 호출 없음)</label>
-              <label id="realLabel"><input type="radio" name="mode" value="real" disabled> 실제 CLI</label>
+              <label><input type="radio" name="mode" value="manual" checked> 수동 — 내가 Claude/Codex 세션에서 작업</label>
+              <label id="realLabel"><input type="radio" name="mode" value="real" disabled> 도구가 실제 CLI 실행(구독 로그인)</label>
+              <label><input type="radio" name="mode" value="mock"> 연습(mock · AI 호출 없음)</label>
             </div>
             <div id="realWhy" class="muted small"></div>
             <label id="scenarioBox">연습 시나리오
@@ -186,6 +189,7 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let logChoice = null;
+const promptCache = {}, handoffCache = {}, promptOpts = {};
 let state = null, selected = null, logExec = null, logNext = 0, logText = '', diffFor = null, diffText = '';
 
 async function api(path, body) {
@@ -210,7 +214,7 @@ const STATUS = {
   running: ['에이전트 실행 중', 'info'], collecting: ['결과 수집 중', 'info'], cancelling: ['중단 중', 'warn'], cancelled: ['중단됨', 'muted'],
   failed: ['에이전트 실패', 'bad'], orphan_running: ['재시작 전 프로세스 실행 중', 'warn'], exit_observed: ['재시작 후 종료 관찰 · 확인 필요', 'warn'],
   unknown: ['결과 불명', 'bad'], abandoned: ['결과 불명 확정(미완료)', 'muted'],
-  review_pending: ['검토 단계', 'warn'], approved: ['승인됨 · 통합 실행 대기', 'warn'], rejected: ['거절됨', 'muted'],
+  manual_working: ['수동 작업 중(에이전트 세션)', 'info'], review_pending: ['검토 단계', 'warn'], approved: ['승인됨 · 통합 실행 대기', 'warn'], rejected: ['거절됨', 'muted'],
   integrating: ['통합 중', 'info'], integrated: ['통합 완료', 'ok'], integrated_check_failed: ['통합됨 · 통합 후 검사 실패', 'bad'],
   integration_refused: ['통합 거절(승인 무효화)', 'bad'], integration_conflict: ['통합 충돌(abort)', 'bad'], integration_blocked: ['통합 대기(잠금)', 'warn'],
 };
@@ -242,6 +246,20 @@ function reviewState(t) {
   if (r.status === 'done') return VERDICT[r.verdict] || [r.verdict, ''];
   return [{ failed: '리뷰 실패(판정 없음)', cancelled: '중단', unknown: '결과 불명' }[r.status] || r.status, 'bad'];
 }
+const WHO = { user: '사용자', implementer: '구현 에이전트', main: '메인 에이전트', tool: '도구' };
+function turnChip(t) {
+  const u = t.turn; if (!u) return '';
+  const who = u.agent ? WHO[u.who] + '(' + u.agent + ')' : WHO[u.who];
+  return '<span class="chip turn-' + esc(u.who) + '" title="' + esc(u.next) + '">차례: ' + esc(who) + '</span>';
+}
+function handoffActive(t) { const h = t.handoff; return !!h && !h.cancelledAt && h.headSha === (t.result && t.result.headSha); }
+function handoffState(t) {
+  const h = t.handoff;
+  if (!h) return ['미인계', 'muted'];
+  if (h.cancelledAt) return ['인계 취소됨', 'muted'];
+  if (h.headSha !== (t.result && t.result.headSha)) return ['인계 후 코드 변경 · 다시 인계', 'warn'];
+  return h.confirmedAt ? ['메인 확인 완료', 'ok'] : ['메인 확인 중', 'info'];
+}
 function checkSummary(t) {
   const r = t.result;
   const git = r ? (r.checksPassed ? ['Git ✓', 'ok'] : ['Git ✗', 'bad']) : ['Git —', 'muted'];
@@ -258,7 +276,7 @@ function renderRows() {
       '<td class="mono">' + esc(t.branch) + '<br><span class="muted">' + esc(t.worktree) + '</span></td>' +
       '<td class="mono" title="' + esc(t.baseSha) + '">' + esc(t.baseSha.slice(0, 12)) + '</td>' +
       '<td class="mono">' + t.allowedFiles.map(esc).join('<br>') + (t.groups.length ? '<br><span class="chip">' + t.groups.map(esc).join(', ') + '</span>' : '') + '</td>' +
-      '<td><span class="' + cls + '">' + esc(label) + '</span><br><span class="muted">' + esc(waitKind(t)) + '</span>' +
+      '<td><span class="' + cls + '">' + esc(label) + '</span><br>' + turnChip(t) + '<br><span class="muted">' + esc(waitKind(t)) + '</span>' +
         (t.mismatch ? '<br><span class="bad">⚠ 불일치: ' + esc(t.mismatch) + '</span>' : '') + '</td>' +
       '<td class="small">' + checkSummary(t) + '</td></tr>';
   });
@@ -303,12 +321,18 @@ function renderDetail() {
       '<div>통합 후 검사</div><div>' + ((t.postChecks || []).map(specLine).join('') || '<span class="muted">없음(미실행으로 표시)</span>') + '</div></div></div>' +
     '<div class="stage"><h3>0. 실행 준비 ' + (envr ? lbl(envr.ready ? ['준비됨', 'ok'] : ['준비 안 됨', 'bad']) : '') + ' <span class="muted small">worktree 생성과 별개</span></h3>' +
       (envr ? envr.checks.map(checkRow).join('') + (envr.fixes.length ? '<div class="small">직접 실행할 준비 명령(자동 실행 안 함):' + envr.fixes.map((f) => '<pre class="cmd">' + esc(f) + '</pre>').join('') + '</div>' : '') : '') +
-      '<div class="actions">' + btn('bEnv', '준비 상태 다시 확인', true) + btn('bStart', '에이전트 시작', startable && (!envr || envr.ready), 'primary') +
-        btn('bCancel', '실행 중단(이 실행기 프로세스만)', !!state.tasks && (['running', 'cancelling', 'orphan_running'].includes(s) || (v && v.status === 'running') || (rv && rv.status === 'running')), 'danger') +
+      '<div class="actions">' + btn('bEnv', '준비 상태 다시 확인', true) + btn('bStart', t.mode === 'manual' ? '수동 작업 시작(소유권 잠금)' : '에이전트 시작', startable && (!envr || envr.ready), 'primary') +
+        btn('bFinish', '작업 완료 — 결과 수집', s === 'manual_working', 'primary') +
+        btn('bCancel', t.mode === 'manual' ? '작업 취소(소유권 해제)' : '실행 중단(이 실행기 프로세스만)', !!state.tasks && (['running', 'cancelling', 'orphan_running', 'manual_working'].includes(s) || (v && v.status === 'running') || (rv && rv.status === 'running')), 'danger') +
         btn('bApply', '재시작 후 결과 반영', s === 'exit_observed') + btn('bAck', '결과 불명 확정(완료 아님)', s === 'unknown', 'danger') + '</div></div>' +
+    '<div class="stage"><h3>에이전트에게 줄 시작 프롬프트 <span class="muted small">경로는 복사할 때만 만들며 파일에 커밋하지 않음</span></h3>' +
+      '<div class="row small"><label style="flex-direction:row;align-items:center;gap:4px"><input type="checkbox" id="pUnattended" style="width:auto"> 무인 실행(사람 정답 추정·재요청 금지 문구)</label>' +
+        '<input id="pDocs" placeholder="추가로 먼저 읽을 문서(쉼표, 저장소 상대경로, 시작 HEAD에 있는 파일만)">' + btn('bPrompt', '프롬프트 만들기', true) + '</div>' +
+      '<textarea id="pText" readonly rows="6" placeholder="여기에 생성된 프롬프트가 나타납니다"></textarea>' +
+      '<div class="actions">' + btn('bCopyPrompt', '복사', true) + '</div></div>' +
     '<div class="stage"><h3>1. Git 계약 검사 ' + (r ? lbl(r.checksPassed ? ['통과', 'ok'] : ['실패', 'bad']) : lbl(['에이전트 종료 후', 'muted'])) + ' <span class="muted small">브랜치·커밋·계약 불변·허용 파일 — 코드가 맞는지는 검사하지 않음</span></h3>' +
       (r ? r.checks.map(checkRow).join('') + '<div class="kv small" style="margin-top:4px"><div>전달 HEAD SHA</div><div class="mono">' + esc(sha || '—') + '</div><div>변경 파일</div><div class="mono">' + (r.changedFiles.map(esc).join('<br>') || '—') + '</div></div>' : '') +
-      '<div class="actions">' + btn('bDiff', diffSeen ? 'diff 다시 보기' : 'diff 보기', !!sha) + '</div></div>' +
+      '<div class="actions">' + btn('bDiff', diffSeen ? 'diff 다시 보기' : 'diff 보기', !!sha) + btn('bRecollect', '결과 다시 수집', s === 'review_pending') + '</div></div>' +
     '<div class="stage"><h3>2. 작업 테스트 ' + lbl(ts) + ' <span class="muted small">실행기가 별도 프로세스로 실행 · 미실행은 통과 아님</span></h3>' +
       (v ? v.items.map(runRow).join('') + (v.note ? '<div class="warn small">' + esc(v.note) + '</div>' : '') : '') +
       '<div class="actions">' + btn('bChecks', '작업 테스트 실행', s === 'review_pending' && (t.checks || []).length > 0 && !(v && v.status === 'running'), 'primary') + '</div></div>' +
@@ -318,8 +342,16 @@ function renderDetail() {
       '<div class="actions"><select id="revScenario" title="fake 리뷰 CLI 시나리오"><option value="approve">fake: 승인 의견</option><option value="changes_requested">fake: 수정 필요</option><option value="insufficient_evidence">fake: 근거 부족</option><option value="garbage">fake: 형식 오류</option><option value="hang">fake: 끝나지 않음</option></select>' +
         btn('bReviewJob', (t.agent === 'claude' ? 'Codex' : 'Claude') + ' 리뷰 작업 실행 (mock)', s === 'review_pending' && !(rv && rv.status === 'running')) +
         '<span class="muted small">실제 리뷰 CLI는 상단 차단 원인 해결 전까지 사용 불가</span></div></div>' +
+    '<div class="stage"><h3>3-1. 메인 에이전트 인계 ' + lbl(handoffState(t)) + ' <span class="muted small">자동 호출 없음 — 사용자가 메인에게 한 줄 전달 · 인계 문서는 브랜치에 커밋하지 않음</span></h3>' +
+      (t.handoff ? '<div class="small">' + esc(t.handoff.to) + ' · SHA ' + esc(t.handoff.headSha.slice(0, 12)) + (t.handoff.confirmedAt ? ' · 확인 ' + esc(t.handoff.confirmedAt) : '') + (t.handoff.cancelledAt ? ' · 취소됨' : '') + '</div>' : '') +
+      '<textarea id="hText" readonly rows="5" placeholder="인계 후 메인에게 붙여 넣을 안내문이 나타납니다"></textarea>' +
+      '<div class="actions">' + btn('bHandoff', '메인에게 인계', s === 'review_pending' && !!r && !handoffActive(t), 'primary') +
+        btn('bHShow', '안내문·인계 문서 보기', !!t.handoff) + btn('bHCopy', '안내문 복사', !!t.handoff) +
+        btn('bHConfirm', '메인 확인 완료', s === 'review_pending' && handoffActive(t) && !t.handoff.confirmedAt) +
+        btn('bHCancel', '인계 취소', !!t.handoff && !t.handoff.cancelledAt && !t.approval, 'danger') + '</div></div>' +
     '<div class="stage"><h3>4. 사람 승인 · 통합</h3>' +
       (s === 'review_pending' && approveWhy ? '<div class="warn small">승인 불가: ' + esc(approveWhy) + '</div>' : '') +
+      (s === 'review_pending' && !approveWhy && !(handoffActive(t) && t.handoff.confirmedAt) ? '<div class="warn small">메인 확인 전 — 승인은 가능하지만 확인하세요</div>' : '') +
       (s === 'review_pending' && !approveWhy && reviewState(t)[0] !== '승인 의견' ? '<div class="warn small">리뷰 ' + esc(reviewState(t)[0]) + ' — 승인은 가능하지만 확인하세요</div>' : '') +
       '<div class="kv small"><div>승인</div><div class="mono">' + esc(t.approval ? t.approval.sha + ' (기준 ' + t.approval.baseBranch + '@' + t.approval.baseHead.slice(0, 12) + ', 리뷰 ' + (t.approval.reviewVerdict || '없음') + ')' : '—') + '</div></div>' +
       '<div class="actions">' + btn('bApprove', '이 SHA 승인', canApprove, 'primary') +
@@ -346,6 +378,32 @@ function renderDetail() {
   $('#bEnv').onclick = () => act('준비 상태 확인', () => api('tasks/' + id + '/recheck-env', {}), (d) => [d && d.ready ? '실행 준비됨' : '아직 준비 안 됨 — 안내된 명령을 직접 실행하세요', d && d.ready ? 'ok' : 'warn']);
   $('#bStart').onclick = () => act('시작', () => api('tasks/' + id + '/start', {}));
   $('#bCancel').onclick = () => confirm('이 작업에서 이 실행기가 만든 실행 중 프로세스 그룹만 종료합니다.') && act('중단', () => api('tasks/' + id + '/cancel', {}));
+  $('#bFinish').onclick = () => confirm('에이전트 세션의 작업이 끝났고 커밋까지 마쳤습니까? 결과를 수집해 Git 계약 검사로 넘어갑니다.') && act('작업 완료', () => api('tasks/' + id + '/finish-manual', {}));
+  $('#bRecollect').onclick = () => act('다시 수집', () => api('tasks/' + id + '/recollect', {}));
+  const copyText = async (el, label) => {
+    if (!el.value) return say(label + ': 복사할 내용이 없습니다', 'warn');
+    try { await navigator.clipboard.writeText(el.value); say(label + ' 복사됨', 'ok'); }
+    catch (e) { el.select(); say('자동 복사를 못 했습니다. 선택된 텍스트를 직접 복사하세요(⌘C)', 'warn'); }
+  };
+  $('#bPrompt').onclick = async () => {
+    const docs = $('#pDocs').value.split(',').map((x) => x.trim()).filter(Boolean);
+    const d = await act('시작 프롬프트', () => api('tasks/' + id + '/start-prompt', { unattended: $('#pUnattended').checked, extraDocs: docs }), () => ['프롬프트 생성됨 — 아래 칸에서 복사하세요', 'ok']);
+    if (d) { promptCache[id] = d.text; const el = $('#pText'); if (el) el.value = d.text; }
+  };
+  $('#bCopyPrompt').onclick = () => copyText($('#pText'), '시작 프롬프트');
+  if (promptCache[id]) $('#pText').value = promptCache[id];
+  if (handoffCache[id]) $('#hText').value = handoffCache[id];
+  const po = promptOpts[id] || {};
+  $('#pUnattended').checked = !!po.unattended; $('#pDocs').value = po.docs || '';
+  $('#pUnattended').onchange = $('#pDocs').oninput = () => { promptOpts[id] = { unattended: $('#pUnattended').checked, docs: $('#pDocs').value }; };
+  $('#bHandoff').onclick = async () => {
+    const d = await act('인계', () => api('tasks/' + id + '/handoff', {}), (x) => ['인계됨 — 아래 안내문을 메인 에이전트에게 전달하세요', 'ok']);
+    if (d) { handoffCache[id] = d.message + '\n\n' + d.text; const el = $('#hText'); if (el) el.value = handoffCache[id]; }
+  };
+  $('#bHShow').onclick = async () => { const d = await act('인계 문서', () => api('tasks/' + id + '/handoff-text'), () => ['인계 문서를 불러왔습니다', 'ok']); if (d) { handoffCache[id] = d.message + '\n\n' + d.text; const el = $('#hText'); if (el) el.value = handoffCache[id]; } };
+  $('#bHCopy').onclick = async () => { const d = await api('tasks/' + id + '/handoff-text').catch(() => null); if (d) { $('#hText').value = d.message; copyText($('#hText'), '인계 안내문'); } };
+  $('#bHConfirm').onclick = () => confirm('메인 에이전트가 확인을 끝냈습니까? 이 표시는 승인 기록에 남지만 승인을 대신하지 않습니다.') && act('메인 확인', () => api('tasks/' + id + '/handoff-confirm', {}));
+  $('#bHCancel').onclick = () => act('인계 취소', () => api('tasks/' + id + '/handoff-cancel', {}));
   $('#bApply').onclick = () => act('결과 반영', () => api('tasks/' + id + '/apply-exit', {}));
   $('#bAck').onclick = () => confirm('결과 불명을 확정합니다. 완료로 보지 않고 잠금만 해제합니다.') && act('결과 불명 확정', () => api('tasks/' + id + '/ack-unknown', {}));
   $('#bDiff').onclick = async () => { const d = await act('diff', () => api('tasks/' + id + '/diff')); if (d) { diffFor = id + ':' + sha; diffText = d.diff || '(변경 없음)'; render(); } };
@@ -373,7 +431,7 @@ function renderConnection() {
     ['codex', 'claude'].map((a) => { const r = c.realRun[a]; return '<span>실제 ' + a + ' ' + (r.available ? '<span class="ok">가능</span>' : '<span class="bad" title="' + esc(r.blockers.map((b) => b.message + ' → ' + b.fix).join('\n')) + '">차단 ' + r.blockers.length + '</span>') + '</span>'; }).join('');
   const radio = form.querySelector('input[name=mode][value=real]');
   radio.disabled = !rr.available;
-  if (radio.disabled && radio.checked) form.querySelector('input[name=mode][value=mock]').checked = true;
+  if (radio.disabled && radio.checked) form.querySelector('input[name=mode][value=manual]').checked = true;
   $('#realLabel').classList.toggle('dis', !rr.available);
   $('#realWhy').innerHTML = rr.available ? '' : '실제 ' + esc(agent) + ' 실행 불가: ' + rr.blockers.map((b) => '<div>· ' + esc(b.message) + ' — <span class="muted">해결: ' + esc(b.fix) + '</span></div>').join('');
 }
@@ -416,8 +474,15 @@ async function pollLog() {
   } catch (e) { /* 다음 주기 재시도 */ }
 }
 
+let lastSig = '';
 async function refresh() {
-  try { state = await api('state'); if (!selected && state.tasks[0]) selected = state.tasks[0].taskId; render(); }
+  try {
+    state = await api('state'); if (!selected && state.tasks[0]) selected = state.tasks[0].taskId;
+    // 상태가 바뀔 때만 다시 그린다(1초마다 그리면 텍스트 선택·입력이 풀린다).
+    const sig = JSON.stringify({ ...state, now: 0 });
+    if (sig === lastSig) return;
+    lastSig = sig; render();
+  }
   catch (e) { say('상태 조회 실패: ' + e.message + ' (서버 종료 여부 확인)', 'bad'); }
 }
 

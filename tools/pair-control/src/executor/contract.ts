@@ -3,8 +3,8 @@
 import { z } from 'zod';
 
 export const AGENTS = ['codex', 'claude'] as const;
-/** mock = 모델 요청 없는 mock 프로세스(기본). real = 설치 확인된 실제 CLI(별도 승인 필요). */
-export const MODES = ['mock', 'real'] as const;
+/** mock = 모델 요청 없는 mock 프로세스. real = 도구가 실제 CLI를 구독 로그인으로 실행(무과금 가드 통과 필요). manual = 도구는 에이전트를 실행하지 않고, 사용자가 에이전트 세션에서 작업(소유권·검사·인계만 관리). */
+export const MODES = ['mock', 'real', 'manual'] as const;
 export type Agent = (typeof AGENTS)[number];
 
 export const MOCK_SCENARIOS = ['success', 'fail', 'hang', 'spawn-child', 'touch-forbidden', 'paid-message', 'slow-success', 'edit-contract'] as const;

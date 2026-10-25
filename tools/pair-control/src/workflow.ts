@@ -12,6 +12,7 @@ const Flow = z.object({
   execId: z.string().nullable().optional(),
   exitCode: z.number().nullable().optional(),
   cancelled: z.boolean().optional(),
+  manual: z.boolean().optional(),
   headSha: z.string().nullable().optional(),
   checksPassed: z.boolean().optional(),
   outcome: z.string().optional(),
@@ -27,6 +28,7 @@ const launch = createStep({
     if (inputData.reviewOnly) return { ...inputData, execId: null };
     const r = await getExecutor().launch(inputData.taskId, runId);
     if (!r.ok) return bail({ taskId: inputData.taskId, outcome: 'blocked', detail: r.reason });
+    if ('manual' in r) return { ...inputData, execId: null, manual: true };
     return { ...inputData, execId: r.execId };
   },
 });
@@ -35,9 +37,14 @@ const awaitExit = createStep({
   id: 'await-exit',
   description: 'CLI 실행 중 — 실행기가 종료를 확인하면 재개(사람 승인 대기 아님)',
   inputSchema: Flow, outputSchema: Flow,
-  suspendSchema: z.object({ waitingFor: z.literal('cli_exit'), execId: z.string() }),
+  suspendSchema: z.object({ waitingFor: z.enum(['cli_exit', 'manual_done']), execId: z.string() }),
   resumeSchema: z.object({ execId: z.string(), exitCode: z.number().nullable(), signal: z.string().nullable(), cancelled: z.boolean() }),
   execute: async ({ inputData, resumeData, suspend }) => {
+    if (inputData.manual) {
+      // 수동 모드: 프로세스가 없다. 사용자가 "작업 완료"(또는 취소)를 누르면 재개된다.
+      if (!resumeData) return await suspend({ waitingFor: 'manual_done', execId: 'manual' });
+      return { ...inputData, exitCode: resumeData.exitCode, cancelled: resumeData.cancelled };
+    }
     if (!inputData.execId) return inputData;
     if (!resumeData || resumeData.execId !== inputData.execId) return await suspend({ waitingFor: 'cli_exit', execId: inputData.execId });
     return { ...inputData, exitCode: resumeData.exitCode, cancelled: resumeData.cancelled };
@@ -49,6 +56,8 @@ const collect = createStep({
   description: '전체 HEAD SHA·변경 파일·허용 범위·미커밋 변경 검사',
   inputSchema: Flow, outputSchema: Flow,
   execute: async ({ inputData, bail }) => {
+    // 수동 작업 취소는 결과를 수집하지 않는다(실행기가 이미 취소로 기록함).
+    if (inputData.manual && inputData.cancelled) return bail({ taskId: inputData.taskId, outcome: 'cancelled', detail: '수동 작업 취소' });
     const r = await getExecutor().collect(inputData.taskId, inputData.execId ?? null);
     if (inputData.cancelled) return bail({ taskId: inputData.taskId, outcome: 'cancelled', detail: '사용자 중단' });
     if (inputData.execId && inputData.exitCode !== 0) return bail({ taskId: inputData.taskId, outcome: 'failed', detail: `종료코드 ${inputData.exitCode}` });

@@ -83,6 +83,7 @@ export function discrepancy(t: Task, info: Awaited<ReturnType<typeof runInfo>>):
   const expect: Record<string, () => boolean> = {
     running: () => at('await-exit') || info.status === 'running',
     collecting: () => at('await-exit') || info.status === 'running',
+    manual_working: () => at('await-exit'),
     cancelling: () => at('await-exit'),
     orphan_running: () => at('await-exit'),
     exit_observed: () => at('await-exit'),
@@ -105,7 +106,7 @@ export async function snapshot() {
     const info = await runInfo(t.runId);
     const exec = t.lastExecId ? ex.state.executions[t.lastExecId] : null;
     return {
-      ...t, groups: ex.groupsOf(t), mastra: info, mismatch: discrepancy(t, info),
+      ...t, groups: ex.groupsOf(t), mastra: info, mismatch: discrepancy(t, info), turn: ex.turnOf(t),
       exec: exec && { ...exec, token: undefined, groupAlive: ex.groupAlive(exec.pgid) },
     };
   }));
