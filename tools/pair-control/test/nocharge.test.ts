@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { realPlan, realReadiness, probe, CLAUDE_ALLOWED_TOOLS } from '../src/executor/adapters.ts';
 import { scanArgs, scanClaudeSettings } from '../src/executor/nocharge.ts';
 import { startTask } from '../src/runtime.ts';
-import { fakeCli, setup, task, waitFor, type Env } from './helpers.ts';
+import { fakeCli, fakeSecret, setup, task, waitFor, type Env } from './helpers.ts';
 
 const real = { allowRealModelCalls: true, confirmedSubscriptionAuth: true, cli: fakeCli };
 const codes = (r: { blockers: { code: string }[] }) => r.blockers.map((b) => b.code);
@@ -41,12 +41,12 @@ test('Claude 설정: apiKeyHelper·env의 API 키 이름·claudeai 아닌 로그
     writeSettings(env, userDir, { forceLoginMethod: 'claudeai', theme: 'dark' });
     assert.deepEqual(scanClaudeSettings({ home: env.cfg.homeDir }), [], '구독 로그인 강제는 통과');
 
-    writeSettings(env, userDir, { apiKeyHelper: '/bin/echo sk-secret-helper-value-123456' });
+    writeSettings(env, userDir, { apiKeyHelper: `/bin/echo ${fakeSecret('helper')}` });
     let risks = scanClaudeSettings({ home: env.cfg.homeDir });
     assert.deepEqual(risks.map((r) => r.code), ['settings_api_key']);
     assert.match(risks[0].message, /~\/\.claude\/settings\.json/, '홈 경로는 ~로 줄여 표시');
 
-    writeSettings(env, userDir, { env: { ANTHROPIC_API_KEY: 'sk-secret-env-value-654321', FOO: 'bar' } });
+    writeSettings(env, userDir, { env: { ANTHROPIC_API_KEY: fakeSecret('envval'), FOO: 'bar' } });
     risks = scanClaudeSettings({ home: env.cfg.homeDir });
     assert.deepEqual(risks.map((r) => r.code), ['settings_api_key']);
     assert.match(risks[0].message, /ANTHROPIC_API_KEY/);
@@ -57,11 +57,12 @@ test('Claude 설정: apiKeyHelper·env의 API 키 이름·claudeai 아닌 로그
     writeSettings(env, userDir, '{ not json');
     assert.deepEqual(scanClaudeSettings({ home: env.cfg.homeDir }).map((r) => r.code), ['settings_unreadable']);
 
-    writeSettings(env, userDir, { apiKeyHelper: 'x', env: { OPENAI_API_KEY: 'sk-secret-zzzzzzzzzzzzzzzz' } });
+    writeSettings(env, userDir, { apiKeyHelper: 'x', env: { OPENAI_API_KEY: fakeSecret('zzzz') } });
     await env.ex.refreshProbes();
     const rr = realReadiness('claude', env.ex.probes.claude, env.cfg);
     assert.ok(!rr.available);
-    assert.doesNotMatch(JSON.stringify(rr), /sk-secret/, '설정의 값은 어디에도 나오지 않음');
+    for (const tag of ['helper', 'envval', 'zzzz']) assert.ok(!JSON.stringify(rr).includes(fakeSecret(tag)), `설정의 값(${tag})은 어디에도 나오지 않음`);
+    assert.match(JSON.stringify(rr), /OPENAI_API_KEY/, '키 이름은 알려 줌');
     const codexRr = realReadiness('codex', env.ex.probes.codex, env.cfg);
     assert.ok(!codes(codexRr).includes('settings_api_key'), 'Claude 설정은 Codex에 적용하지 않음');
   } finally { env.cleanup(); }
@@ -71,9 +72,11 @@ test('API 키 환경변수가 있으면 실제 실행 시작 거부, 프로젝�
   const env = setup(real);
   try {
     await env.ex.assign(task(env, 'task-a', { mode: 'real', goal: 'ok' }));
-    await withEnv('ANTHROPIC_API_KEY', 'sk-ant-secret-value-0000000000', async () => {
+    const antKey = fakeSecret('ant');
+    await withEnv('ANTHROPIC_API_KEY', antKey, async () => {
       await assert.rejects(startTask('task-a'), /무과금: paid_env/);
-      assert.doesNotMatch(env.ex.task('task-a').statusReason ?? '', /sk-ant-secret/);
+      assert.ok(!(env.ex.task('task-a').statusReason ?? '').includes(antKey), '환경변수 값은 사유에 나오지 않음');
+      assert.match(env.ex.task('task-a').statusReason ?? '', /ANTHROPIC_API_KEY/);
       await env.ex.refreshProbes();
       assert.ok(codes(realReadiness('claude', env.ex.probes.claude, env.cfg)).includes('paid_env'));
     });
@@ -167,7 +170,7 @@ test('가짜 codex로 실제 어댑터 경로: exec --cd --sandbox, API 키 미�
   const env = setup(real);
   try {
     await env.ex.assign(task(env, 'task-b', { mode: 'real', allowedFiles: ['src_b/'], goal: '코덱스 경로' }));
-    await withEnv('OPENAI_API_KEY', 'sk-openai-secret-000000000000', async () => {
+    await withEnv('OPENAI_API_KEY', fakeSecret('openai'), async () => {
       await assert.rejects(startTask('task-b'), /무과금: paid_env/);
     });
     await startTask('task-b');

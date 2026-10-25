@@ -110,7 +110,13 @@ export interface Execution {
 export interface LimitState { at: string; detail: string; source: string }
 /** 메인 역할(통합·푸시·실험 단일 담당)의 현재 담당. 표시·기록용이며 권한을 강제하지 않는다. */
 export interface MainRole { agent: 'codex' | 'claude'; since: string; reason?: string }
-interface State { tasks: Record<string, Task>; executions: Record<string, Execution>; limit?: LimitState | null; main?: MainRole | null }
+interface State {
+  tasks: Record<string, Task>; executions: Record<string, Execution>; limit?: LimitState | null; main?: MainRole | null;
+  /** 푸시·되돌림 기록과 마지막 점검(push.ts). */
+  pushes?: Record<string, import('./push.ts').PushRecord>; pushPlan?: import('./push.ts').PushPlan | null;
+  /** 사용자가 오탐으로 확인한 비밀 패턴 항목(fingerprint = 커밋·파일·줄·패턴). */
+  pushAllow?: Record<string, { at: string; file: string; line: number; commit: string }>;
+}
 
 export type Resumer = (runId: string, step: string, data: Record<string, unknown>) => Promise<void>;
 
@@ -150,6 +156,8 @@ export class Executor {
   setResumer(r: Resumer) { this.resumer = r; }
   get supervisorPath() { return path.join(this.cfg.toolRoot, 'src', 'executor', 'supervisor.mjs'); }
   get guardAlert() { return this.tripped; }
+  /** 감사 기록(events.jsonl). push.ts 등 별도 모듈에서 쓴다. */
+  audit(type: string, data: Record<string, unknown>) { this.event(type, data); }
   get limit() { return this.state.limit ?? null; }
   get mainAgent(): 'codex' | 'claude' { return this.state.main?.agent ?? 'codex'; }
   /** 사용자가 한도가 풀렸음을 확인했을 때만 호출한다. 재시도·크레딧 구매는 하지 않는다. */

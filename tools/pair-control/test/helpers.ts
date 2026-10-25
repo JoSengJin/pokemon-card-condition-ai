@@ -86,3 +86,6 @@ export function invocations(env: Env) {
   const f = path.join(env.cfg.stateDir, 'mock-invocations.jsonl');
   return fs.existsSync(f) ? fs.readFileSync(f, 'utf8').trim().split('\n').filter(Boolean).length : 0;
 }
+
+/** 키 모양의 가짜 비밀값. 리터럴로 두면 이 저장소의 푸시 점검(비밀 패턴)에 걸리므로 실행 시점에 조립한다. */
+export const fakeSecret = (tag: string) => ['sk', tag, 'a1b2c3d4e5f6g7h8i9j0k1l2'].join('-');

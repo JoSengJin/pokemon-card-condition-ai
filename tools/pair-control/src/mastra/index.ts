@@ -8,6 +8,7 @@ import { Executor, UserError } from '../executor/executor.ts';
 import { notifyUser } from '../executor/freeGuard.ts';
 import { pairTaskWorkflow, prepareTaskWorkflow } from '../workflow.ts';
 import { fileChoices, planTask } from '../executor/prepare.ts';
+import { acknowledgeFindings, prepareRevert, preflight, runPush, verifyPush } from '../executor/push.ts';
 import { bindRuntime, getExecutor, prepareTask, snapshot, startReview, startTask, resumeStep } from '../runtime.ts';
 import fs from 'node:fs';
 
@@ -130,6 +131,11 @@ function buildRoutes() {
     registerApiRoute('/pair/api/tasks/:id/finish-manual', { method: 'POST', handler: act(async (c) => ex().finishManual(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/recollect', { method: 'POST', handler: act(async (c) => ex().recollect(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/recheck-env', { method: 'POST', handler: act(async (c) => ex().recheckEnv(id(c))) }),
+    registerApiRoute('/pair/api/push/preflight', { method: 'POST', handler: act(async () => preflight(ex())) }),
+    registerApiRoute('/pair/api/push/ack', { method: 'POST', handler: act(async (c) => { const b = await body(c); return acknowledgeFindings(ex(), Array.isArray(b.fingerprints) ? b.fingerprints.map(String) : []); }) }),
+    registerApiRoute('/pair/api/push/run', { method: 'POST', handler: act(async (c) => runPush(ex(), String((await body(c)).confirm ?? ''))) }),
+    registerApiRoute('/pair/api/push/verify', { method: 'POST', handler: act(async (c) => verifyPush(ex(), String((await body(c)).id ?? ''))) }),
+    registerApiRoute('/pair/api/push/revert-prepare', { method: 'POST', handler: act(async (c) => prepareRevert(ex(), String((await body(c)).id ?? ''))) }),
     registerApiRoute('/pair/api/limit/clear', { method: 'POST', handler: act(async () => ex().clearLimit()) }),
     registerApiRoute('/pair/api/probes', { method: 'POST', handler: act(async () => ex().refreshProbes()) }),
   ];

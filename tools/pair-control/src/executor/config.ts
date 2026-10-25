@@ -6,7 +6,7 @@ export interface PairConfig {
   /** worktree 검증 기준 저장소(기본 checkout) 경로 */
   repo: string;
   /** 통합 대상 checkout과 브랜치. 이 checkout의 ./develop 잠금 안에서만 cherry-pick 한다. */
-  integration: { checkout: string; branch: string };
+  integration: { checkout: string; branch: string; remote?: string };
   /** 새 worktree를 만들 상위 폴더. 비우면 repo의 상위 폴더(기존 worktree 관례와 같음). */
   worktreeRoot: string;
   port: number;
@@ -42,7 +42,7 @@ export function loadConfig(overrides: Partial<PairConfig> = {}): PairConfig {
   const raw = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
   const cfg: PairConfig = {
     repo: raw.repo ?? '',
-    integration: { checkout: raw.integration?.checkout ?? '', branch: raw.integration?.branch ?? 'main' },
+    integration: { checkout: raw.integration?.checkout ?? '', branch: raw.integration?.branch ?? 'main', remote: raw.integration?.remote ?? 'origin' },
     worktreeRoot: raw.worktreeRoot ?? '',
     port: Number(process.env.PAIR_CONTROL_PORT ?? raw.port ?? 4111),
     allowRealModelCalls: raw.allowRealModelCalls === true,

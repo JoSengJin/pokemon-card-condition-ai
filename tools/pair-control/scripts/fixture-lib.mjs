@@ -29,13 +29,18 @@ export function makeFixture(dir, toolRoot, workers = [['claude', 'task-a'], ['co
   const baseSha = git(repo, 'rev-parse', 'HEAD');
   // 실제 프로젝트처럼 기본(통합) checkout은 자체 .venv를 가진다. worktree에는 만들지 않는다(실행 준비 검사 대상).
   makeVenv(repo);
+  // 로컬 bare 원격(합성). 실제 GitHub에는 연결하지 않는다.
+  const origin = path.join(dir, 'origin.git');
+  execFileSync('git', ['init', '-q', '--bare', '-b', 'main', origin], { stdio: 'pipe' });
+  git(repo, 'remote', 'add', 'origin', origin);
+  git(repo, 'push', '-q', 'origin', 'main');
   const worktrees = {};
   for (const [agent, name] of workers) {
     const wt = path.join(dir, `wt-${agent}-${name}`);
     git(repo, 'worktree', 'add', '-q', '-b', `${agent}/${name}`, wt, baseSha);
     worktrees[name] = { agent, branch: `${agent}/${name}`, path: fs.realpathSync.native(wt) };
   }
-  return { dir, repo: fs.realpathSync.native(repo), baseSha, worktrees };
+  return { dir, repo: fs.realpathSync.native(repo), origin: fs.realpathSync.native(origin), baseSha, worktrees };
 }
 
 export function writeConfig(file, fixture, port = 4111) {

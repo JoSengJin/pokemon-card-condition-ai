@@ -67,6 +67,7 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 #msg { min-height: 20px; }
 .connBar { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .small { font-size: 12px; }
+button.danger:disabled { opacity: .4; }
 .chip.turn-user { color: var(--info); } .chip.turn-implementer { color: var(--warn); } .chip.turn-main { color: var(--ok); }
 textarea[readonly] { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 .banner.warnbox { border-color: var(--warn); color: var(--warn); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -180,6 +181,16 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
     </table></div>
   </section>
   <section id="detail" hidden></section>
+  <section id="pushBox">
+    <h2>푸시 · 되돌림 <span class="muted small">통합 브랜치 → 원격 · 일반 push만(force 없음) · 푸시는 취소할 수 없어 단계별로 확인하고, 실수는 되돌림 커밋으로 바로잡습니다</span></h2>
+    <div id="pushInfo" class="small muted"></div>
+    <div class="actions"><button id="bPushCheck">① 푸시 점검(원격 읽기 접속·전송 없음)</button></div>
+    <div id="pushPlan"></div>
+    <div class="row"><input id="pushConfirm" class="mono" placeholder="② 푸시할 SHA 앞 12자를 직접 입력"><button id="bPush" class="danger" disabled>③ 푸시</button></div>
+    <div class="muted small" id="pushHint"></div>
+    <h3 style="margin-top:12px">푸시 기록</h3>
+    <div id="pushRecords"><span class="muted small">기록 없음</span></div>
+  </section>
   <section>
     <h2>CLI 어댑터 확인 <button id="probe" style="margin-left:8px">다시 확인(--version/--help만)</button></h2>
     <div id="probes" class="muted"></div>
@@ -418,6 +429,48 @@ function renderDetail() {
   const la = $('#logAgent'); if (la) la.onclick = () => { logChoice = null; render(); pollLog(); };
 }
 
+const PSTATUS = { pushed_verified: ['푸시됨 · 원격 확인됨', 'ok'], push_failed: ['푸시 실패(원격 변경 없음)', 'bad'], push_unverified: ['결과 불명 · 원격 확인 필요', 'warn'], remote_mismatch: ['원격 SHA 불일치 · 확인 필요', 'bad'] };
+function renderPush() {
+  const ps = state.push; if (!ps) return;
+  $('#pushInfo').textContent = '원격 ' + ps.remote + ' · 브랜치 ' + ps.branch;
+  const plan = ps.plan;
+  const box = $('#pushPlan');
+  if (!plan) { box.innerHTML = '<div class="muted small">아직 점검하지 않았습니다. 먼저 ①을 누르세요.</div>'; }
+  else {
+    const open = plan.findings.filter((f) => f.kind === 'secret_pattern' && !f.acknowledged);
+    box.innerHTML = '<div class="kv small"><div>원격</div><div class="mono">' + esc(plan.remoteUrl || '—') + '</div>' +
+      '<div>원격 SHA</div><div class="mono">' + esc(plan.remoteHead || '—') + '</div><div>로컬 SHA</div><div class="mono">' + esc(plan.localHead || '—') + '</div>' +
+      '<div>점검 시각</div><div>' + esc(plan.checkedAt) + '</div><div>포함된 작업</div><div>' + (plan.tasks.map(esc).join(', ') || '—') + '</div>' +
+      '<div>dry-run</div><div>' + (plan.dryRun ? (plan.dryRun.ok ? '<span class="ok">거절 없음</span>' : '<span class="bad">' + esc(plan.dryRun.detail) + '</span>') : '<span class="muted">막힘이 있어 실행 안 함</span>') + '</div></div>' +
+      (plan.revertOf ? '<div class="info small">이 푸시는 이전 푸시의 되돌림 커밋입니다.</div>' : '') +
+      plan.blockers.map((b) => '<div class="bad small">✗ ' + esc(b) + '</div>').join('') +
+      plan.warnings.map((w) => '<div class="warn small">⚠ ' + esc(w) + '</div>').join('') +
+      (open.length ? '<div class="actions"><button id="bAck">비밀 패턴 ' + open.length + '건을 오탐으로 확인(기록됨)</button></div>' : '') +
+      (!plan.blockers.length ? '<div class="ok small">✓ 푸시 가능 — 아래 ' + plan.commits.length + '개 커밋을 원격에 올립니다</div>' : '') +
+      (plan.commits.length ? '<div class="small" style="margin-top:4px"><b>푸시할 커밋(전체 SHA ← 부모)</b></div>' + plan.commits.map((c, i) => '<div class="mono small">' + (i + 1) + '. ' + esc(c.sha) + ' ← ' + esc(c.parents || '-') + ' ' + esc(c.subject) + '</div>').join('') : '') +
+      (plan.files.length ? '<div class="small" style="margin-top:4px"><b>변경 파일 ' + plan.files.length + '개</b> <span class="muted mono">' + plan.files.slice(0, 12).map(esc).join(', ') + (plan.files.length > 12 ? ' …' : '') + '</span></div>' : '');
+    const ack = $('#bAck');
+    if (ack) ack.onclick = () => confirm('다음 항목은 실제 비밀이 아니라 가짜·예시 값임을 확인했습니까?\n\n' + open.map((f) => f.file + ':' + f.line + ' (커밋 ' + (f.commit || '').slice(0, 8) + ')').join('\n') + '\n\n이 확인은 해당 커밋·파일·줄에만 적용되고 기록됩니다.') && act('오탐 확인', () => api('push/ack', { fingerprints: open.map((f) => f.fingerprint) }), () => ['오탐으로 기록했습니다. 다시 점검하세요', 'ok']);
+  }
+  const typed = $('#pushConfirm').value.trim().toLowerCase();
+  const ready = !!plan && !plan.blockers.length && typed.length >= 12 && plan.localHead.startsWith(typed);
+  $('#bPush').disabled = !ready;
+  $('#pushHint').textContent = !plan ? '' : plan.blockers.length ? '막힘이 있어 푸시할 수 없습니다.' : ready ? '입력이 대상 SHA와 일치합니다. 푸시 직전에 한 번 더 점검합니다.' : '대상 SHA ' + plan.localHead.slice(0, 12) + '… 를 직접 입력해야 푸시 버튼이 켜집니다.';
+  const rec = $('#pushRecords');
+  rec.innerHTML = ps.records.length ? ps.records.map((r) => {
+    const rv = r.revert;
+    return '<div class="stage"><div>' + '<span class="chip">' + (r.kind === 'revert' ? '되돌림 푸시' : '푸시') + '</span> ' + lbl(PSTATUS[r.status] || [r.status, '']) + ' <span class="muted small">' + esc(r.at) + '</span></div>' +
+      '<div class="kv small"><div>원격 이전 → 이후</div><div class="mono">' + esc(r.preRemoteHead.slice(0, 12)) + ' → ' + esc(r.pushedSha.slice(0, 12)) + ' (' + r.commits.length + '개 커밋)</div>' +
+      '<div>명령</div><div class="mono">' + esc(r.command.join(' ')) + '</div><div>결과</div><div>' + esc(r.detail) + '</div>' +
+      (r.tasks.length ? '<div>작업</div><div>' + r.tasks.map(esc).join(', ') + '</div>' : '') +
+      (rv ? '<div>되돌림 준비</div><div class="mono">' + esc(rv.newHead.slice(0, 12)) + ' · 커밋 ' + rv.commits.length + '개 · 트리 복원 ' + (rv.treeRestored ? '<span class="ok">✓ 푸시 전과 같음</span>' : '<span class="bad">✗ 푸시 전과 다름</span>') + (rv.pushedAs ? ' · <span class="ok">되돌림 푸시 완료</span>' : ' · 위 ①~③으로 푸시하세요') + '</div>' : '') + '</div>' +
+      '<div class="actions"><button data-verify="' + esc(r.id) + '">원격 다시 확인</button>' +
+      (r.kind === 'push' && r.status === 'pushed_verified' && !rv ? '<button class="danger" data-revert="' + esc(r.id) + '">되돌림 커밋 준비</button>' : '') + '</div></div>';
+  }).join('') : '<span class="muted small">기록 없음</span>';
+  rec.querySelectorAll('[data-verify]').forEach((b) => b.onclick = () => act('원격 확인', () => api('push/verify', { id: b.dataset.verify }), (d) => ['원격 확인: ' + (PSTATUS[d.status] || [d.status])[0] + ' — ' + d.detail, d.status === 'pushed_verified' ? 'ok' : 'bad']));
+  rec.querySelectorAll('[data-revert]').forEach((b) => b.onclick = () => confirm('푸시한 커밋마다 되돌림(revert) 커밋을 통합 checkout에 만듭니다(로컬만, ./develop 잠금 안). 원격은 바뀌지 않으며, 만든 뒤 ①~③ 절차로 푸시합니다.\n\n로컬·원격이 모두 푸시한 SHA 그대로일 때만 진행합니다.') && act('되돌림 준비', () => api('push/revert-prepare', { id: b.dataset.revert }), (d) => ['되돌림 커밋 ' + d.commits.length + '개 준비 · 트리 복원 ' + (d.treeRestored ? '확인됨' : '불일치') + ' — 이제 ①~③으로 푸시하세요', d.treeRestored ? 'ok' : 'warn']));
+}
+
 function renderConnection() {
   const c = state.connection;
   const kind = { demo: ['데모 저장소', 'warn'], real: ['실제 저장소', 'info'], unconfigured: ['저장소 미설정', 'bad'] }[c.kind];
@@ -460,7 +513,7 @@ function render() {
     lb.innerHTML = '<span>구독 사용 한도 도달 — 실제 CLI 실행을 멈췄습니다(재시도·크레딧 구매는 하지 않음). ' + esc(state.limit.detail) + ' (' + esc(state.limit.at) + ')</span><button id="bClearLimit">한도가 풀린 것을 확인함</button>';
     $('#bClearLimit').onclick = () => confirm('구독 한도가 풀렸고 추가 크레딧 없이 계속 쓸 수 있음을 확인했습니까?') && act('한도 해제', () => api('limit/clear', {}));
   }
-  renderRows(); renderDetail(); renderProbes();
+  renderRows(); renderDetail(); renderPush(); renderProbes();
 }
 
 async function pollLog() {
@@ -580,6 +633,13 @@ form.onsubmit = (ev) => {
   });
 };
 renderSpecs(); loadFiles(); updatePlan();
+$('#bPushCheck').onclick = () => act('푸시 점검', () => api('push/preflight', {}), (p) => [p.blockers.length ? '푸시 막힘 ' + p.blockers.length + '건 — 아래 사유를 확인하세요' : '푸시 가능 — 대상 SHA를 입력하세요', p.blockers.length ? 'bad' : 'ok']);
+$('#pushConfirm').oninput = () => state && renderPush();
+$('#bPush').onclick = () => {
+  const plan = state.push.plan; const typed = $('#pushConfirm').value.trim();
+  if (!plan || !confirm('원격 ' + state.push.remote + '/' + state.push.branch + ' 에 ' + plan.commits.length + '개 커밋을 푸시합니다.\n' + plan.remoteHead.slice(0, 12) + ' → ' + plan.localHead.slice(0, 12) + '\n\n푸시는 취소할 수 없습니다(실수는 되돌림 커밋으로만 바로잡습니다). 계속할까요?')) return;
+  act('푸시', () => api('push/run', { confirm: typed }), (r) => ['푸시 결과: ' + (PSTATUS[r.status] || [r.status])[0] + ' — ' + r.detail, r.status === 'pushed_verified' ? 'ok' : 'bad']).then(() => { $('#pushConfirm').value = ''; renderPush(); });
+};
 $('#probe').onclick = () => act('CLI 확인', () => api('probes', {}));
 
 // 배정 폼은 render()가 다시 그리지 않으므로 입력 중에도 상태 갱신을 계속한다.

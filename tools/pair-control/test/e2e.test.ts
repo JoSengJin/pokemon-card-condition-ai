@@ -5,14 +5,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { prepareTask, resumeStep, runInfo, startTask } from '../src/runtime.ts';
-import { setup, verify, waitFor } from './helpers.ts';
+import { fakeSecret, setup, verify, waitFor } from './helpers.ts';
 
 const gitOut = (cwd: string, ...a: string[]) => execFileSync('git', a, { cwd }).toString().trim();
 
 test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 → 리뷰 → 승인 → 통합 → 통합 후 검사, 원본·다른 작업·비밀값 보존', async () => {
   const env = setup();
   const savedKey = process.env.OPENAI_API_KEY;
-  process.env.OPENAI_API_KEY = 'sk-test-should-never-reach-children-0000';
+  const leakKey = fakeSecret('leak');
+  const tokenText = fakeSecret('tok');
+  process.env.OPENAI_API_KEY = leakKey;
   try {
     const repo = env.fixture.repo;
     const other = env.fixture.worktrees['task-c'].path;
@@ -25,7 +27,7 @@ test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 �
       agent: 'claude', goal: 'src_b 정리', allowedFiles: ['src_b/'], doneCriteria: ['src_b에 결과 파일 추가'],
       checks: [
         { id: 'ws', name: '공백 오류', executable: 'git', args: ['diff', '--check', '{contract}', '{head}'] },
-        { id: 'env', name: '비밀값 미전달', executable: 'node', args: ['-e', 'console.log(process.env.OPENAI_API_KEY ?? "no-key"); console.log("token sk-abcdefghijklmnopqrstuvwx")'] },
+        { id: 'env', name: '비밀값 미전달', executable: 'node', args: ['-e', `console.log(process.env.OPENAI_API_KEY ?? "no-key"); console.log("token ${tokenText}")`] },
       ],
       postChecks: [{ id: 'post', name: '통합 후 파일 확인', executable: 'git', args: ['ls-files', '--error-unmatch', 'src_b/file.txt'] }],
     });
@@ -47,7 +49,7 @@ test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 �
     assert.equal(v.status, 'passed', JSON.stringify(v.items));
     const log = fs.readFileSync(v.items[1].logPath!, 'utf8');
     assert.match(log, /no-key/);
-    assert.doesNotMatch(log, /sk-abcdefghijklmnopqrstuvwx|sk-test-should-never/);
+    assert.ok(!log.includes(tokenText) && !log.includes(leakKey));
     assert.match(log, /\[REDACTED\]/);
 
     // 4) 별도 리뷰(fake) — 판정은 기록만
@@ -75,7 +77,7 @@ test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 �
     assert.equal(fs.readFileSync(path.join(other, 'src_c', 'user-wip.txt'), 'utf8'), '다른 작업의 미커밋 파일');
     // 상태 파일에 비밀값 없음
     const stateText = fs.readFileSync(path.join(env.cfg.stateDir, 'state.json'), 'utf8');
-    assert.doesNotMatch(stateText, /sk-test-should-never/);
+    assert.ok(!stateText.includes(leakKey));
   } finally {
     if (savedKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = savedKey;
     env.cleanup();

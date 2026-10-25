@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Executor, UserError, type Task } from './executor/executor.ts';
 import { realReadiness } from './executor/adapters.ts';
+import { pushState } from './executor/push.ts';
 
 let executor: Executor | null = null;
 let mastra: Mastra | null = null;
@@ -113,7 +114,7 @@ export async function snapshot() {
   tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     now: new Date().toISOString(), lifetime: ex.lifetime, mode: ex.cfg.allowRealModelCalls ? 'real-allowed' : 'mock-only',
-    guard: ex.guardAlert, limit: ex.limit, probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
+    guard: ex.guardAlert, limit: ex.limit, main: ex.state.main ?? { agent: 'codex', since: null, reason: '기본값' }, push: pushState(ex), probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
   };
 }
 
