@@ -109,7 +109,7 @@ export interface Execution {
 /** 구독 사용 한도 도달 상태. 과금이 아니라 정지 신호이며, 사용자가 풀렸음을 확인하기 전에는 실제 실행을 시작하지 않는다. */
 export interface LimitState { at: string; detail: string; source: string }
 /** 메인 역할(통합·푸시·실험 단일 담당)의 현재 담당. 표시·기록용이며 권한을 강제하지 않는다. */
-export interface MainRole { agent: 'codex' | 'claude'; since: string; reason?: string }
+export interface MainRole { agent: 'codex' | 'claude'; since: string; reason?: string; history?: { agent: 'codex' | 'claude'; until: string }[]; memoFile?: string }
 interface State {
   tasks: Record<string, Task>; executions: Record<string, Execution>; limit?: LimitState | null; main?: MainRole | null;
   /** 푸시·되돌림 기록과 마지막 점검(push.ts). */
@@ -543,13 +543,12 @@ export class Executor {
     }
   }
 
-  private async handoffText(t: Task, head: string): Promise<string> {
+  private async handoffText(t: Task, head: string, main: 'codex' | 'claude'): Promise<string> {
     const log = (await G.git(t.worktree, 'log', '--reverse', '--format=%H%x09%P%x09%s', `${t.contractSha}..${head}`)).stdout.trim().split('\n').filter(Boolean);
     const rows = log.map((l, i) => { const [sha, parents, subject] = l.split('\t'); return `${i + 1}. \`${sha}\` ← \`${parents || '-'}\` ${subject}`; });
     const r = t.result!;
     const v = t.verification && t.verification.sha === head && t.verification.contractHash === t.contractHash ? t.verification : null;
     const rv = t.review && t.review.sha === head ? t.review : null;
-    const main = t.handoff?.to ?? this.mainAgent;
     return `# 인계: ${t.taskId}
 
 - 구현 담당: ${t.agent} → 메인(확인·통합·푸시 담당): ${main}
@@ -577,7 +576,7 @@ ${v ? v.items.map((i) => `  - ${i.name}: ${i.status} code ${i.exitCode ?? '-'}`)
 
 ## 미검증·한계
 
-- 이 문서는 도구가 만든 상태 요약이다. 에이전트의 서술 보고서(있다면 \`docs/collaboration/reports/\` 아래)는 읽지 않았다.
+${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 이 확인은 독립 확인이 아니다.**\n' : ''}- 이 문서는 도구가 만든 상태 요약이다. 에이전트의 서술 보고서(있다면 \`docs/collaboration/reports/\` 아래)는 읽지 않았다.
 - 실제 학습·추론·성능 평가는 이 단계에서 하지 않았다.
 
 ## 롤백
@@ -605,7 +604,7 @@ ${v ? v.items.map((i) => `  - ${i.name}: ${i.status} code ${i.exitCode ?? '-'}`)
     if (dirty.length) throw new UserError(`worktree에 미커밋 변경이 있음: ${dirty.slice(0, 5).join(', ')}`);
     if (t.verification?.status === 'running' || t.review?.status === 'running') throw new UserError('작업 테스트나 리뷰가 실행 중');
     if (t.handoff && !t.handoff.cancelledAt && t.handoff.headSha === head) throw new UserError('이미 인계됨(취소 후 다시 인계 가능)');
-    const text = await this.handoffText(t, head);
+    const text = await this.handoffText(t, head, this.mainAgent);
     const file = path.join(this.cfg.stateDir, 'handoffs', `${t.taskId}-${head.slice(0, 12)}.md`);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, text);

@@ -9,6 +9,8 @@ import { notifyUser } from '../executor/freeGuard.ts';
 import { pairTaskWorkflow, prepareTaskWorkflow } from '../workflow.ts';
 import { fileChoices, planTask } from '../executor/prepare.ts';
 import { acknowledgeFindings, prepareRevert, preflight, runPush, verifyPush } from '../executor/push.ts';
+import { progressDraft, progressItems } from '../executor/progress.ts';
+import { setMain, swapBlockers } from '../executor/mainRole.ts';
 import { bindRuntime, getExecutor, prepareTask, snapshot, startReview, startTask, resumeStep } from '../runtime.ts';
 import fs from 'node:fs';
 
@@ -131,6 +133,10 @@ function buildRoutes() {
     registerApiRoute('/pair/api/tasks/:id/finish-manual', { method: 'POST', handler: act(async (c) => ex().finishManual(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/recollect', { method: 'POST', handler: act(async (c) => ex().recollect(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/recheck-env', { method: 'POST', handler: act(async (c) => ex().recheckEnv(id(c))) }),
+    registerApiRoute('/pair/api/progress', { method: 'GET', handler: act(async () => progressItems(ex())) }),
+    registerApiRoute('/pair/api/progress/draft', { method: 'POST', handler: act(async (c) => progressDraft(ex(), String((await body(c)).id ?? ''))) }),
+    registerApiRoute('/pair/api/main/blockers', { method: 'GET', handler: act(async () => ({ blockers: await swapBlockers(ex()) })) }),
+    registerApiRoute('/pair/api/main/swap', { method: 'POST', handler: act(async (c) => { const b = await body(c); return setMain(ex(), String(b.agent ?? ''), String(b.reason ?? '')); }) }),
     registerApiRoute('/pair/api/push/preflight', { method: 'POST', handler: act(async () => preflight(ex())) }),
     registerApiRoute('/pair/api/push/ack', { method: 'POST', handler: act(async (c) => { const b = await body(c); return acknowledgeFindings(ex(), Array.isArray(b.fingerprints) ? b.fingerprints.map(String) : []); }) }),
     registerApiRoute('/pair/api/push/run', { method: 'POST', handler: act(async (c) => runPush(ex(), String((await body(c)).confirm ?? ''))) }),

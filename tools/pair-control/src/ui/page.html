@@ -67,6 +67,8 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 #msg { min-height: 20px; }
 .connBar { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .small { font-size: 12px; }
+.mainBox { padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: grid; gap: 6px; }
+.mainBox summary { cursor: pointer; }
 button.danger:disabled { opacity: .4; }
 .chip.turn-user { color: var(--info); } .chip.turn-implementer { color: var(--warn); } .chip.turn-main { color: var(--ok); }
 textarea[readonly] { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
@@ -90,6 +92,14 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
   <a href="/" target="_blank" rel="noopener" class="muted">Mastra Studio ↗</a>
 </header>
 <div id="connBar" class="connBar"></div>
+<details id="mainBox" class="mainBox">
+  <summary id="mainSummary">메인 역할</summary>
+  <div class="small muted">메인 = 통합·푸시·실험 단일 담당. 이 화면은 <b>표시와 기록만</b> 하고 권한을 강제하지 못합니다. PAIR_CODING.md/AGENTS.md는 main 통합을 Codex로 정해 두었으므로, 이양은 사용자가 그 규칙을 바꾸거나 한시적으로 허용했을 때만 의미가 있습니다. 새 메인에게는 사용자가 한 줄로 알려야 합니다.</div>
+  <div id="mainBlockers" class="small"></div>
+  <div class="row"><input id="mainReason" placeholder="이양 사유(예: Codex 토큰 부족)"><button id="bMainSwap" class="danger">이양</button><button id="bMainCheck">안전 확인만</button></div>
+  <textarea id="mainMemo" readonly rows="6" placeholder="이양하면 인계 메모가 여기에 나타납니다"></textarea>
+  <div class="actions"><button id="bMainCopy">메모 복사</button></div>
+</details>
 <main>
   <div id="guardBanner" hidden class="banner"></div>
   <div id="limitBanner" hidden class="banner warnbox"></div>
@@ -132,6 +142,9 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
           </div>
           <div class="step">
             <div class="stepTitle">2. 무엇을 하나요?</div>
+            <label>진행률 미완료 항목에서 채우기 (선택 · 원문 인용, LLM 없음)
+              <select id="progSel"><option value="">직접 입력</option></select></label>
+            <div id="progInfo" class="small muted"></div>
             <label>목표 (한 줄)<input name="goal" required placeholder="예: 데이터 부족표 집계 오류 수정"></label>
             <label>완료 조건 (한 줄에 하나)<textarea name="doneCriteria" placeholder="예: data-coverage 집계가 side 없는 행을 front로 추정하지 않음"></textarea></label>
             <label>상세 지시 (선택, 계약 파일에 기록 — 실제 CLI는 계약 파일을 읽음)<textarea name="prompt" placeholder="자세한 지시가 있으면 적으세요"></textarea></label>
@@ -513,6 +526,7 @@ function render() {
     lb.innerHTML = '<span>구독 사용 한도 도달 — 실제 CLI 실행을 멈췄습니다(재시도·크레딧 구매는 하지 않음). ' + esc(state.limit.detail) + ' (' + esc(state.limit.at) + ')</span><button id="bClearLimit">한도가 풀린 것을 확인함</button>';
     $('#bClearLimit').onclick = () => confirm('구독 한도가 풀렸고 추가 크레딧 없이 계속 쓸 수 있음을 확인했습니까?') && act('한도 해제', () => api('limit/clear', {}));
   }
+  renderMain();
   renderRows(); renderDetail(); renderPush(); renderProbes();
 }
 
@@ -633,6 +647,51 @@ form.onsubmit = (ev) => {
   });
 };
 renderSpecs(); loadFiles(); updatePlan();
+// ---------- 진행률 항목으로 채우기 ----------
+let progDraft = null;
+async function loadProgress() {
+  try {
+    const d = await api('progress');
+    $('#progSel').innerHTML = '<option value="">직접 입력</option>' + d.items.map((i) => '<option value="' + esc(i.id) + '">' + esc(i.id + ' ' + i.title + ' (배점 ' + i.weight + ', ' + i.earned + '점)') + '</option>').join('');
+    $('#progInfo').textContent = '출처 ' + d.source.file + ' @ ' + d.source.ref + ' ' + d.source.sha.slice(0, 12) + ' · 미완료 ' + d.items.length + '개';
+  } catch (e) { $('#progSel').disabled = true; $('#progInfo').textContent = '진행률 항목을 불러오지 못함: ' + e.message; }
+}
+$('#progSel').onchange = async () => {
+  const id = $('#progSel').value; progDraft = null;
+  if (!id) { $('#progInfo').textContent = ''; return; }
+  try {
+    const d = await api('progress/draft', { id }); progDraft = d;
+    form.goal.value = d.draft.goal; form.doneCriteria.value = d.draft.doneCriteria.join('\n'); form.prompt.value = d.draft.prompt;
+    $('#progInfo').innerHTML = '완료 조건·현재 평가 원문을 상세 지시에 인용했습니다. 이 작업은 코드·단위 검증 구현까지이고 점수는 바꾸지 않습니다. ' +
+      (d.suggestedFiles.length ? '제안 파일(증거 중 코드): ' + d.suggestedFiles.map((f) => '<span class="chip mono">' + esc(f) + '</span>').join(' ') + ' <button type="button" id="bAddSuggested">제안 파일 추가</button>' : '<span class="warn">제안할 코드 파일이 없습니다 — 허용 파일을 직접 고르세요.</span>') +
+      (d.skippedEvidence.length ? ' <span class="muted">제외: ' + d.skippedEvidence.map((x) => esc(x.path + ' (' + x.why + ')')).join(', ') + '</span>' : '');
+    const b = $('#bAddSuggested'); if (b) b.onclick = () => { d.suggestedFiles.forEach((f) => picked.add(f)); renderPicked(); renderFiles(); schedulePlan(); };
+    schedulePlan();
+  } catch (e) { $('#progInfo').innerHTML = '<span class="bad">' + esc(e.message) + '</span>'; }
+};
+loadProgress();
+
+// ---------- 메인 역할 ----------
+function renderMain() {
+  const m = state.main || { agent: 'codex', since: null };
+  const other = m.agent === 'codex' ? 'claude' : 'codex';
+  $('#mainSummary').innerHTML = '메인 역할: <b>' + esc(m.agent) + '</b> <span class="muted small">' + (m.since ? '(' + esc(m.since) + (m.reason ? ' · ' + esc(m.reason) : '') + ')' : '(기본값)') + '</span> — 이양하려면 펼치기';
+  $('#bMainSwap').textContent = other + '에게 이양';
+  $('#bMainSwap').dataset.to = other;
+}
+async function showMainBlockers() {
+  try { const d = await api('main/blockers'); $('#mainBlockers').innerHTML = d.blockers.length ? d.blockers.map((b) => '<div class="bad">✗ ' + esc(b) + '</div>').join('') : '<div class="ok">✓ 이양을 막는 진행 중인 일이 없습니다</div>'; }
+  catch (e) { $('#mainBlockers').innerHTML = '<div class="bad">' + esc(e.message) + '</div>'; }
+}
+$('#mainBox').addEventListener('toggle', () => { if ($('#mainBox').open) showMainBlockers(); });
+$('#bMainCheck').onclick = showMainBlockers;
+$('#bMainSwap').onclick = () => {
+  const to = $('#bMainSwap').dataset.to;
+  if (!confirm('메인을 ' + to + '(으)로 이양합니다. 이 화면은 표시·기록만 하며 권한을 강제하지 않습니다. 계속할까요?')) return;
+  act('메인 이양', () => api('main/swap', { agent: to, reason: $('#mainReason').value }), (d) => ['메인이 ' + d.role.agent + '(으)로 바뀌었습니다 — 새 메인에게 한 줄로 알려 주세요', 'ok']).then((d) => { if (d) { $('#mainMemo').value = d.memo; showMainBlockers(); } else showMainBlockers(); });
+};
+$('#bMainCopy').onclick = async () => { const el = $('#mainMemo'); if (!el.value) return say('복사할 메모가 없습니다', 'warn'); try { await navigator.clipboard.writeText(el.value); say('이양 메모 복사됨', 'ok'); } catch (e) { el.select(); say('선택된 텍스트를 직접 복사하세요(⌘C)', 'warn'); } };
+
 $('#bPushCheck').onclick = () => act('푸시 점검', () => api('push/preflight', {}), (p) => [p.blockers.length ? '푸시 막힘 ' + p.blockers.length + '건 — 아래 사유를 확인하세요' : '푸시 가능 — 대상 SHA를 입력하세요', p.blockers.length ? 'bad' : 'ok']);
 $('#pushConfirm').oninput = () => state && renderPush();
 $('#bPush').onclick = () => {
