@@ -68,6 +68,14 @@ def main():
     listing_predict.add_argument('--recall-checkpoint', help='Optional additional defect review model; no final verdict')
     listing_predict.add_argument('--observation-checkpoint', help='Optional face-level evidence; no routing changes')
     listing_predict.add_argument('--device', choices=('auto', 'cpu', 'mps'), default='auto')
+    listing_review = commands.add_parser('listing-review', help='Static page to review one listing-predict result')
+    listing_review.add_argument('report', help='listing-predict JSON output')
+    listing_review.add_argument('request', help='The same request JSON given to listing-predict')
+    listing_review.add_argument('--output', required=True)
+    review_record = commands.add_parser('listing-review-record', help='Validate exported review decisions; never a label')
+    review_record.add_argument('report')
+    review_record.add_argument('decisions')
+    review_record.add_argument('--output', required=True)
     input_check = commands.add_parser('input-review')
     input_check.add_argument('manifest')
     input_check.add_argument('output')
@@ -265,6 +273,12 @@ def main():
             if (args.checkpoint is None) == (args.release is None):
                 raise ValueError('listing-predict requires exactly one of CHECKPOINT or --release')
             result = ListingAnalyzer(args.checkpoint, args.device, observation_checkpoint=args.observation_checkpoint, recall_checkpoint=args.recall_checkpoint, release=args.release).analyze(request, batch_views=args.batch_views)
+        elif args.command == 'listing-review':
+            from .listing_review import review_page
+            result = review_page(args.report, args.request, args.output)
+        elif args.command == 'listing-review-record':
+            from .listing_review import review_record
+            result = review_record(args.report, args.decisions, args.output)
         elif args.command == 'input-review':
             from .input_review import input_review
             result = input_review(args.manifest, args.output, args.card)
