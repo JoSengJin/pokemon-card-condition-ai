@@ -81,7 +81,7 @@ goal: img 정상 카드의 FP 증가가 H1(구성), H2(출처 조건), H3(카드
 
 실행 의존:
 - (1) Codex 계약 검토
-- (2) 구조 규칙: 이 worker도 fit_detail_head(LBFGS closure)를 부른다. PyTorch 내부 프레임까지 세면 4회를 넘는다. C task의 계산 예외는 다른 작업에 확대하지 말라고 했으므로, 이 task에 같은 계산 방식을 허용할지 사용자 결정이 필요하다. 허용하지 않으면 card_condition을 바꾸지 않는 한 구현할 수 없다.
+- (2) 구조 규칙: 해결됨. 2026-10-25 사용자 채팅 승인: "surface-normal-coexclusion-20261025 task에 한해 C와 같은 계산(라이브러리 내부 프레임 제외, LBFGS closure 1회)을 승인한다." 이 task에만 적용하며 다른 작업으로 확대하지 않는다. worker 정의 함수 기준 전이는 여전히 4회 이하여야 한다.
 - (3) 구현 worktree 배정
 - (4) 기본 checkout에서 실행
 
