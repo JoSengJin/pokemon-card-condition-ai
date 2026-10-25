@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
-import { planTask, fileChoices } from '../src/executor/prepare.ts';
+import { planTask } from '../src/executor/prepare.ts';
 import { prepareTask, startTask } from '../src/runtime.ts';
 import { setup, waitFor } from './helpers.ts';
 
@@ -53,9 +53,6 @@ test('준비하고 배정: worktree·브랜치 생성 → 등록 → 그대로 �
     const p = await planTask(env.ex, { agent: 'claude', goal: '겹침', allowedFiles: ['src_b/file.txt'] });
     assert.ok(p.ok);
     assert.ok(p.warnings.some((w) => w.includes(t.taskId)));
-    const choices = await fileChoices(env.ex);
-    assert.deepEqual(choices.entries.find((e) => e.path === 'src_b/')?.owners, [t.taskId]);
-    assert.equal(choices.entries.find((e) => e.path === 'card_condition/')?.forbidden, false);
   } finally { env.cleanup(); }
 });
 

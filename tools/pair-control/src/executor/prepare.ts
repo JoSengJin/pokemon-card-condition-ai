@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import * as G from './git.ts';
-import { AGENTS, MODES, MOCK_SCENARIOS, conflicts, isAllowed, isForbidden, TaskInput, type ConflictReason, type TaskInputT } from './contract.ts';
+import { AGENTS, MODES, MOCK_SCENARIOS, conflicts, TaskInput, type ConflictReason, type TaskInputT } from './contract.ts';
 import { OCCUPYING, type Check, type Executor } from './executor.ts';
 
 export const PrepareInput = z.object({
@@ -185,18 +185,4 @@ export async function listTracked(repo: string, ref: string) {
     if (type === 'tree') dirs.add(`${p}/`); else if (type === 'blob') files.add(p);
   }
   return { files, dirs };
-}
-
-/** 파일 선택 화면용: 경로 목록 + 진행 중 작업이 쓰는 경로 표시. */
-export async function fileChoices(ex: Executor) {
-  const repo = ex.cfg.repo;
-  const base = await G.revParse(repo, `refs/heads/${ex.cfg.integration.branch}`);
-  if (!base) return { base: null, entries: [] };
-  const { files, dirs } = await listTracked(repo, base);
-  const busy = Object.values(ex.state.tasks).filter((t) => OCCUPYING.includes(t.status));
-  const entries = [...dirs, ...files].sort().map((p) => {
-    const owners = busy.filter((t) => t.allowedFiles.some((a) => isAllowed(p, [a]) || isAllowed(a, [p]))).map((t) => t.taskId);
-    return { path: p, dir: p.endsWith('/'), owners, forbidden: isForbidden(p) };
-  });
-  return { base, entries };
 }

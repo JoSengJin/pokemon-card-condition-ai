@@ -53,13 +53,6 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg label { display: flex; align-items: center; gap: 4px; flex-direction: row; padding: 4px 10px; border: 1px solid var(--line); border-radius: 16px; color: var(--ink); font-size: 13px; cursor: pointer; }
 .seg input { width: auto; margin: 0; }
-.fileList { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
-.fileList label { display: flex; flex-direction: row; gap: 6px; align-items: center; padding: 2px 4px; color: var(--ink); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
-.fileList label.dis { opacity: .45; }
-.fileList input { width: auto; margin: 0; }
-.fileList .tag { font-family: inherit; font-size: 11px; }
-.picked { display: flex; flex-wrap: wrap; gap: 4px; }
-.picked .chip button { border: 0; padding: 0 0 0 4px; background: none; color: var(--muted); }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row input { flex: 1; min-width: 200px; }
 .advanced summary { cursor: pointer; color: var(--muted); }
@@ -68,6 +61,7 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 #msg { min-height: 20px; }
 .connBar { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .small { font-size: 12px; }
+.advBlock { margin-top: 8px; display: grid; gap: 6px; }
 .mainBox { padding: 6px 16px; border-bottom: 1px solid var(--line); background: var(--panel); display: grid; gap: 6px; }
 .mainBox summary { cursor: pointer; }
 button.danger:disabled { opacity: .4; }
@@ -147,18 +141,20 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
               <select id="progSel"><option value="">직접 입력</option></select></label>
             <div id="progInfo" class="small muted"></div>
             <label>목표 (한 줄)<input name="goal" required placeholder="예: 데이터 부족표 집계 오류 수정"></label>
-            <label>완료 조건 (한 줄에 하나)<textarea name="doneCriteria" placeholder="예: data-coverage 집계가 side 없는 행을 front로 추정하지 않음"></textarea></label>
             <label>상세 지시 (선택, 계약 파일에 기록 — 실제 CLI는 계약 파일을 읽음)<textarea name="prompt" placeholder="자세한 지시가 있으면 적으세요"></textarea></label>
           </div>
           <div class="step">
             <div class="stepTitle">3. 어디를 고쳐도 되나요?</div>
-            <input id="fileSearch" placeholder="파일·폴더 검색 (비우면 최상위만 표시)">
-            <div id="fileList" class="fileList muted">불러오는 중…</div>
-            <div class="row"><input id="newPath" placeholder="목록에 없는 새 파일 경로 직접 추가 (예: tools/new_audit.py)"><button type="button" id="addPath">추가</button></div>
-            <div id="picked" class="picked muted">선택한 경로 없음</div>
+            <label>파일·폴더 (한 줄에 하나, 폴더는 끝에 /)
+              <textarea name="allowedFiles" rows="5" class="mono" placeholder="예:&#10;card_condition/side_evidence.py&#10;tests/test_side_evidence.py"></textarea></label>
+            <div class="muted small">진행률 항목을 고르면 제안 파일이 채워집니다(수정 가능). 데이터·라벨·산출물 경로와 다른 작업이 쓰는 경로는 아래 미리보기에서 알려 줍니다.</div>
           </div>
-          <div class="step">
-            <div class="stepTitle">4. 어떻게 확인하나요?</div>
+        </div>
+        <details class="advanced">
+          <summary>고급 설정 — 완료 조건, 작업 테스트, 실행 환경, 충돌 그룹 등 (보통은 비워 두세요)</summary>
+          <label style="margin-top:8px">완료 조건 (한 줄에 하나)<textarea name="doneCriteria" placeholder="예: data-coverage 집계가 side 없는 행을 front로 추정하지 않음"></textarea></label>
+          <div class="advBlock">
+            <div class="small"><b>작업 테스트</b> (기본: git diff --check)</div>
             <div class="muted small">에이전트가 끝난 뒤 실행기가 따로 실행할 작업 테스트. 셸 없이 실행 파일 + 인자(한 줄에 하나). <code>{contract}</code>=계약 커밋, <code>{head}</code>=결과 SHA, <code>{base}</code>=기준 SHA</div>
             <div id="checkRows"></div>
             <div class="row"><button type="button" id="addCheck">검사 추가</button></div>
@@ -166,9 +162,6 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
               <option value="auto">자동 (파일·검사 명령으로 판단)</option><option value="none">Python 불필요</option>
               <option value="python">자체 .venv (표준 라이브러리)</option><option value="python-project">자체 .venv + 프로젝트 import</option></select></label>
           </div>
-        </div>
-        <details class="advanced">
-          <summary>고급 설정 (보통은 비워 두세요)</summary>
           <div class="advGrid">
             <label>task ID 직접 지정<input name="taskId" placeholder="비우면 자동 (예: task-1025-1)"></label>
             <label>기준 SHA 직접 지정<input name="baseSha" class="mono" placeholder="비우면 통합 브랜치 최신 커밋"></label>
@@ -555,8 +548,8 @@ async function refresh() {
 }
 
 // ---------- 새 작업 만들기 ----------
-const picked = new Set();
-let files = [], planTimer = null, lastPlan = null;
+let planTimer = null, lastPlan = null;
+const fileLines = () => String(form.allowedFiles.value).split('\n').map((x) => x.trim()).filter(Boolean);
 const form = $('#assign');
 
 const DEFAULT_CHECK = () => ({ name: '공백 오류 검사', executable: 'git', args: ['diff', '--check', '{contract}', '{head}'], cwd: '.' });
@@ -580,7 +573,7 @@ function renderSpecs() { specRows(checkSpecs, $('#checkRows'), 'c'); specRows(po
 function formBody() {
   const f = new FormData(form);
   const b = Object.fromEntries(f.entries());
-  b.allowedFiles = [...picked];
+  b.allowedFiles = fileLines();
   b.conflictGroups = String(b.conflictGroups || '').split(',').map((x) => x.trim()).filter(Boolean);
   b.requiredModules = String(b.requiredModules || '').split(',').map((x) => x.trim()).filter(Boolean);
   b.doneCriteria = String(b.doneCriteria || '').split('\n').map((x) => x.trim()).filter(Boolean);
@@ -588,31 +581,13 @@ function formBody() {
   b.postChecks = postSpecs.map((c, i) => ({ id: 'p' + (i + 1), name: c.name || ('통합 후 검사 ' + (i + 1)), executable: c.executable, args: c.args, cwd: '.' }));
   return b;
 }
-function renderPicked() {
-  $('#picked').innerHTML = picked.size ? [...picked].map((p) => '<span class="chip mono">' + esc(p) + '<button type="button" data-rm="' + esc(p) + '" title="빼기">×</button></span>').join('') : '선택한 경로 없음';
-  document.querySelectorAll('#picked [data-rm]').forEach((b) => b.onclick = () => { picked.delete(b.dataset.rm); renderFiles(); renderPicked(); schedulePlan(); });
-}
-function renderFiles() {
-  const q = $('#fileSearch').value.trim().toLowerCase();
-  const shown = files.filter((e) => q ? e.path.toLowerCase().includes(q) : !e.path.replace(/\/$/, '').includes('/')).slice(0, 300);
-  $('#fileList').innerHTML = shown.length ? shown.map((e) => {
-    const note = e.forbidden ? '<span class="tag bad">금지(데이터·산출물·비밀)</span>' : e.owners.length ? '<span class="tag warn">사용 중: ' + e.owners.map(esc).join(', ') + '</span>' : '';
-    return '<label class="' + (e.forbidden ? 'dis' : '') + '"><input type="checkbox" data-path="' + esc(e.path) + '"' + (picked.has(e.path) ? ' checked' : '') + (e.forbidden ? ' disabled' : '') + '>' +
-      (e.dir ? '<b>' + esc(e.path) + '</b>' : esc(e.path)) + ' ' + note + '</label>';
-  }).join('') + (q ? '' : '<div class="muted" style="padding:4px">하위 파일은 검색하세요.</div>') : '<div class="muted" style="padding:4px">결과 없음</div>';
-  document.querySelectorAll('#fileList input[data-path]').forEach((cb) => cb.onchange = () => { cb.checked ? picked.add(cb.dataset.path) : picked.delete(cb.dataset.path); renderPicked(); schedulePlan(); });
-}
-async function loadFiles() {
-  try { const d = await api('files'); files = d.entries; renderFiles(); }
-  catch (e) { $('#fileList').textContent = '파일 목록을 불러오지 못함: ' + e.message; }
-}
 function schedulePlan() { clearTimeout(planTimer); planTimer = setTimeout(updatePlan, 250); }
 let planSeq = 0;
 async function updatePlan() {
   const seq = ++planSeq;
   $('#scenarioBox').hidden = form.mode.value !== 'mock';
   const b = formBody();
-  if (!b.goal && !picked.size) { $('#preview').innerHTML = '<div class="muted">입력하면 자동으로 준비될 값이 여기에 보입니다.</div>'; $('#prepareBtn').disabled = true; return; }
+  if (!b.goal && !b.allowedFiles.length) { $('#preview').innerHTML = '<div class="muted">입력하면 자동으로 준비될 값이 여기에 보입니다.</div>'; $('#prepareBtn').disabled = true; return; }
   try {
     const p = await api('plan', b);
     if (seq !== planSeq) return; // 더 최근 입력의 미리보기가 이미 요청됨
@@ -634,20 +609,19 @@ async function updatePlan() {
     $('#prepareBtn').disabled = !p.ok;
   } catch (e) { $('#preview').innerHTML = '<div class="bad">' + esc(e.message) + '</div>'; $('#prepareBtn').disabled = true; }
 }
-form.addEventListener('input', (ev) => { if (ev.target.id === 'fileSearch') renderFiles(); else if (ev.target.id !== 'newPath') schedulePlan(); });
+form.addEventListener('input', schedulePlan);
 form.addEventListener('change', () => { if (state) renderConnection(); schedulePlan(); });
 $('#addCheck').onclick = () => { checkSpecs.push({ name: '', executable: 'git', args: [], cwd: '.' }); renderSpecs(); schedulePlan(); };
 $('#addPost').onclick = () => { postSpecs.push({ name: '', executable: 'git', args: [], cwd: '.' }); renderSpecs(); schedulePlan(); };
-$('#addPath').onclick = () => { const v = $('#newPath').value.trim(); if (v) { picked.add(v); $('#newPath').value = ''; renderPicked(); schedulePlan(); } };
 form.onsubmit = (ev) => {
   ev.preventDefault();
   $('#prepareBtn').disabled = true;
   act('준비·배정', () => api('tasks', formBody()), (d) => ['준비 완료: ' + d.detail, 'ok']).then((d) => {
-    if (d) { selected = d.taskId; form.reset(); picked.clear(); checkSpecs = [DEFAULT_CHECK()]; postSpecs = []; renderSpecs(); renderPicked(); loadFiles(); }
+    if (d) { selected = d.taskId; form.reset(); checkSpecs = [DEFAULT_CHECK()]; postSpecs = []; renderSpecs(); }
     updatePlan();
   });
 };
-renderSpecs(); loadFiles(); updatePlan();
+renderSpecs(); updatePlan();
 // ---------- 진행률 항목으로 채우기 ----------
 let progDraft = null;
 async function loadProgress() {
@@ -664,9 +638,9 @@ $('#progSel').onchange = async () => {
     const d = await api('progress/draft', { id }); progDraft = d;
     form.goal.value = d.draft.goal; form.doneCriteria.value = d.draft.doneCriteria.join('\n'); form.prompt.value = d.draft.prompt;
     $('#progInfo').innerHTML = '완료 조건·현재 평가 원문을 상세 지시에 인용했습니다. 이 작업은 코드·단위 검증 구현까지이고 점수는 바꾸지 않습니다. ' +
-      (d.suggestedFiles.length ? '제안 파일(증거 중 코드): ' + d.suggestedFiles.map((f) => '<span class="chip mono">' + esc(f) + '</span>').join(' ') + ' <button type="button" id="bAddSuggested">제안 파일 추가</button>' : '<span class="warn">제안할 코드 파일이 없습니다 — 허용 파일을 직접 고르세요.</span>') +
+      (d.suggestedFiles.length ? '제안 파일(증거 중 코드)을 3번 칸에 채웠습니다 — 필요하면 고치세요. ' : '<span class="warn">제안할 코드 파일이 없습니다 — 허용 파일을 직접 고르세요.</span>') +
       (d.skippedEvidence.length ? ' <span class="muted">제외: ' + d.skippedEvidence.map((x) => esc(x.path + ' (' + x.why + ')')).join(', ') + '</span>' : '');
-    const b = $('#bAddSuggested'); if (b) b.onclick = () => { d.suggestedFiles.forEach((f) => picked.add(f)); renderPicked(); renderFiles(); schedulePlan(); };
+    if (d.suggestedFiles.length) form.allowedFiles.value = d.suggestedFiles.join('\n');
     schedulePlan();
   } catch (e) { $('#progInfo').innerHTML = '<span class="bad">' + esc(e.message) + '</span>'; }
 };

@@ -7,7 +7,7 @@ import { loadConfig } from '../executor/config.ts';
 import { Executor, UserError } from '../executor/executor.ts';
 import { notifyUser } from '../executor/freeGuard.ts';
 import { pairTaskWorkflow, prepareTaskWorkflow } from '../workflow.ts';
-import { fileChoices, planTask } from '../executor/prepare.ts';
+import { planTask } from '../executor/prepare.ts';
 import { acknowledgeFindings, prepareRevert, preflight, runPush, verifyPush } from '../executor/push.ts';
 import { progressDraft, progressItems } from '../executor/progress.ts';
 import { setMain, swapBlockers } from '../executor/mainRole.ts';
@@ -77,7 +77,6 @@ function buildRoutes() {
     registerApiRoute('/pair/api/state', { method: 'GET', handler: act(async () => snapshot()) }),
     registerApiRoute('/pair/api/tasks', { method: 'POST', handler: act(async (c) => prepareTask(await body(c))) }),
     registerApiRoute('/pair/api/plan', { method: 'POST', handler: act(async (c) => planTask(ex(), await body(c))) }),
-    registerApiRoute('/pair/api/files', { method: 'GET', handler: act(async () => fileChoices(ex())) }),
     registerApiRoute('/pair/api/tasks/:id/start', { method: 'POST', handler: act(async (c) => startTask(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/cancel', { method: 'POST', handler: act(async (c) => ex().cancel(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/apply-exit', { method: 'POST', handler: act(async (c) => ex().applyObservedExit(id(c))) }),

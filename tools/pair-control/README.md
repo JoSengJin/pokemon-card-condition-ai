@@ -34,7 +34,7 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 
 ## 새 작업 만들기 (자동 준비)
 
-사람은 **담당(Claude/Codex) · 목표 · 고칠 파일**만 고른다. 나머지는 Mastra `prepare-task` workflow(`plan → create-worktree → register`, 관리용 LLM 없음)가 채운다.
+사람은 **담당(Claude/Codex) · 목표 · 고칠 파일**만 정한다. 완료 조건·작업 테스트·실행 환경·충돌 그룹 같은 나머지는 기본값이 있고 "고급 설정"에 접혀 있다. 나머지는 Mastra `prepare-task` workflow(`plan → create-worktree → register`, 관리용 LLM 없음)가 채운다.
 
 | 값 | 자동 규칙 |
 |---|---|
@@ -42,7 +42,7 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 | 브랜치 | `<담당>/<task ID>` — 이미 있으면 거절(덮어쓰지 않음) |
 | 기준 SHA | 통합 브랜치(`integration.branch`) 최신 커밋 |
 | worktree | `<worktreeRoot>/<저장소 폴더명>-<담당>-<task ID>`, `git worktree add -b`로 생성. `worktreeRoot`를 비우면 저장소의 상위 폴더 |
-| 고칠 파일 | 기준 커밋의 추적 파일·폴더 목록에서 체크. 진행 중 작업이 쓰는 경로는 "사용 중", 데이터·산출물·비밀 경로는 "금지"로 표시 |
+| 고칠 파일 | 한 칸에 한 줄씩 직접 입력(진행률 항목을 고르면 증거 중 코드 파일이 제안으로 채워짐). 데이터·산출물·비밀 경로와 다른 작업이 쓰는 경로는 미리보기가 알려 줌 |
 
 입력할 때마다 부작용 없는 미리보기(`/pair/api/plan`)로 위 값과 검사 결과·겹침 경고를 보여 주고, **준비하고 배정**을 눌러야 폴더·브랜치를 만든다. 고급 설정에서 task ID·기준 SHA·기존 worktree·충돌 그룹을 직접 지정할 수 있다. 도구는 worktree·브랜치를 만들기만 하고 지우지 않는다.
 
