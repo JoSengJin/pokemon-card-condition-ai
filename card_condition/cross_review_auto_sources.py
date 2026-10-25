@@ -18,8 +18,9 @@ def model_file(root, name):
 
 def verify_sources(root, packet):
     from .experiment_record import project_file
+    from .cross_review_evidence_manifest import expand_manifest
     root=root.resolve()
-    for source in packet.get('latest_sources', []):
+    for source in expand_manifest(packet):
         if sha(project_file(root,source['path']))!=source['sha256']:
             raise ValueError('Review evidence changed; a new input is required')
 

@@ -56,7 +56,10 @@ def save(path, value):
 
 
 def review_identity(packet, config):
+    from .cross_review_evidence_manifest import expand_manifest
     evidence = {key: value for key, value in packet.items() if key not in ('topic', 'manual_run_purpose','fresh_evidence_ids','freshness_reference')}
+    if 'latest_sources' in evidence:
+        evidence['latest_sources'] = expand_manifest(packet)
     related = evidence.get('evidence', {}).get('related_code', {})
     summary = related.get('summary', {}) if isinstance(related, dict) else {}
     if isinstance(summary, dict) and summary.get('budget_truncated'):

@@ -123,7 +123,7 @@ class AppServerJournalTest(unittest.TestCase):
         from card_condition.cross_review_evidence import expand_evidence
         summary=dict(success_criterion='같은 평가에서 누락<=1/4, 오탐<=0/22',failure_criterion='새 누락 또는 정답 변경 시 기각',acceptance={'max_fn':1,'max_fp':0},
             required_cohorts=[dict(id='guard',reference_result='artifacts/reference/result.json',acceptance={'max_fn':0,'no_new_errors':True})])
-        self.packet['evidence']['latest_plan']={'summary':summary}
+        self.packet['evidence']['latest_plan']=dict(self.packet['evidence']['latest_plan'],summary=summary)
         save(self.folder/'packet.json',self.packet)
         context=expand_evidence(auto.review_context(self.root,self.folder,'verify',{'flow_role':'advocate'}))
         self.assertEqual(context['evidence']['same_evaluation_metrics'],self.packet['same_evaluation_metrics'])
