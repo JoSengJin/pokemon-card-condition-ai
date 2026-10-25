@@ -102,7 +102,7 @@ test('가짜 claude로 실제 어댑터 경로: 문서 옵션만 사용, --bare 
     const t = env.ex.task('task-a');
     const ex = env.ex.state.executions[t.lastExecId!];
     const log = env.ex.logTail(ex.execId).text;
-    assert.match(log, /args: --print --permission-mode acceptEdits --allowedTools /);
+    assert.match(log, /args: --print --permission-mode acceptEdits --allowedTools=/);
     assert.ok(!/--bare|--max-budget-usd|--betas/.test(log));
     assert.ok(log.includes(CLAUDE_ALLOWED_TOOLS[0]) && log.includes('Bash(git commit *)'));
     assert.doesNotMatch(log, /Bash\(\*\)|Bash,/, '일반 Bash는 허용하지 않음');

@@ -92,7 +92,8 @@ export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig): LaunchPla
       permission: 'codex --sandbox workspace-write(값 미검증): worktree 쓰기 허용. 허용 파일 단위 제한은 아님(사후 검사).' };
   } else {
     // --print/--permission-mode(acceptEdits)/--allowedTools는 Claude Code 문서의 옵션이다. --bare는 구독 로그인을 쓰지 않으므로 쓰지 않는다.
-    const args = ['--print', '--permission-mode', 'acceptEdits', '--allowedTools', CLAUDE_ALLOWED_TOOLS.join(','), prompt];
+    // --allowedTools는 값을 여러 개 받으므로 띄어 쓰면 뒤의 프롬프트까지 도구로 삼킨다(실제 CLI에서 재현). `=`로 붙여 한 값으로 넘긴다.
+    const args = ['--print', '--permission-mode', 'acceptEdits', `--allowedTools=${CLAUDE_ALLOWED_TOOLS.join(',')}`, prompt];
     plan = { command: p.binary, args, display: [p.binary, ...args.slice(0, -1), '<prompt>'],
       permission: `claude --permission-mode acceptEdits + --allowedTools(${CLAUDE_ALLOWED_TOOLS.length}개): 편집 자동 승인, git 커밋만 허용. 허용 파일 단위 제한은 아님(사후 검사).` };
   }
