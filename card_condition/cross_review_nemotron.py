@@ -226,7 +226,7 @@ def review(root, folder, result, question='', caller=None, probe=official_status
     if context is not None:input_data['debate']=context
     if role=='judge':
         from .cross_review_contract import shared_core
-        input_data=judge_input(packet,context,shared_core(root,folder,result['packet']),question)
+        input_data=judge_input(result.get('judge_packet',packet),context,shared_core(root,folder,result['packet']),question)
     prompt=('' if role=='judge' else PROMPT)+encoded(input_data)
     key=digest([VERSION,MODEL,system,prompt,role])
     cache=root/'artifacts/nemotron-cache'/key;cache.mkdir(parents=True,exist_ok=True)

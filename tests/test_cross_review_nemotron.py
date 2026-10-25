@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -53,6 +54,25 @@ class NemotronTest(unittest.TestCase):
         report=auto.token_report(self.folder,result)
         self.assertEqual(report['nemotron_calls'],1);self.assertEqual(report['nemotron_usage']['total_tokens'],50)
         self.assertLessEqual(len(json.dumps(n.compact(first),ensure_ascii=False,separators=(',',':')).encode()),1000)
+
+    def test_judge_projection_keeps_frozen_original_for_core_check(self):
+        from card_condition.cross_review_contract import shared_core
+        from card_condition.cross_review_judge_projection import judge_packet
+        result=self.start()
+        original=copy.deepcopy(result['packet'])
+        original['evidence']['latest_result']['summary']['required_cohorts']=[
+            dict(id='edge',acceptance_passed=False,error_count=1,errors=['sample'])]
+        shared_core(self.root,self.folder,original)
+        projected=judge_packet(original)
+        self.assertNotEqual(original['evidence'],projected['evidence'])
+        result.update(packet=original,judge_packet=projected,deadline=time.time()+45)
+        with (patch.object(n,'policy',return_value={'enabled': True, 'max_calls': 2, 'max_output_tokens': 1536}),
+              patch.object(n,'eligible',return_value=None),
+              patch.object(n,'judge_input',return_value={'bounded': True}) as build):
+            entry=n.review(self.root,self.folder,result,role='judge',context={},
+                           caller=lambda *_: ('{}',None),probe=lambda:'available')
+        self.assertEqual(entry['error_kind'],'response_error')
+        self.assertEqual(build.call_args.args[0],projected)
 
     def test_different_folder_reuses_cache_with_no_extra_attempt(self):
         self.configure();self.n_calls=0;result=self.start();self.call(result)
