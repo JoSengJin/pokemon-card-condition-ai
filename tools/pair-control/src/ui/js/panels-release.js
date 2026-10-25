@@ -33,6 +33,7 @@ export function panelApprove(t, ui) {
     '<div class="kv small"><div>승인할 SHA</div><div class="mono">' + esc(sha || '—') + '</div>' +
     '<div>승인 기록</div><div class="mono">' + esc(a ? a.sha + ' (기준 ' + a.baseBranch + '@' + a.baseHead.slice(0, 12) + ', 리뷰 ' + (a.reviewVerdict || '없음') + ')' : '—') + '</div></div>' +
     '<div class="actions">' + B('diff', seen ? 'diff 다시 불러오기' : 'diff 보기', !!sha) + B('approve', '이 SHA 승인', s === 'review_pending' && !why, 'primary') +
+    B('unapprove', '승인 취소(검토로 되돌리기)', ['approved', 'integration_blocked'].includes(s)) +
     B('reject', '거절', ['review_pending', 'approved', 'integration_refused', 'integration_blocked'].includes(s), 'danger') + '</div>' +
     (seen ? '<h4>diff ' + esc(t.baseSha.slice(0, 12)) + '..' + esc(sha.slice(0, 12)) + ' (계약 커밋 포함)</h4><pre class="diff">' + esc(ui.diff.text) + '</pre>' : '');
 }
@@ -44,7 +45,7 @@ export function panelIntegrate(t) {
     (g ? '<div class="kv small"><div>결과</div><div>' + esc(g.outcome + ' · ' + (g.detail || '').slice(0, 400)) + '</div>' +
       (g.preHead ? '<div>통합 전 SHA(복구 기준)</div><div class="mono">' + esc(g.preHead) + '</div>' : '') +
       (g.newHead ? '<div>통합 후 SHA</div><div class="mono">' + esc(g.newHead) + '</div>' : '') + '</div>' : '') +
-    '<div class="actions">' + B('integrate', '통합 실행(./develop 잠금)', s === 'approved', 'primary') + B('rereview', '재검토(에이전트 재실행 없음)', s === 'integration_refused') + '</div>';
+    '<div class="actions">' + B('integrate', '통합 실행(./develop 잠금)', s === 'approved', 'primary') + B('unapprove', '승인 취소(검토로 되돌리기)', ['approved', 'integration_blocked'].includes(s)) + B('rereview', '재검토(에이전트 재실행 없음)', s === 'integration_refused') + '</div>';
 }
 
 export function panelPostcheck(t) {

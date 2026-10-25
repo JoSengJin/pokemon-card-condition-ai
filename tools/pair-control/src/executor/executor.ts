@@ -81,6 +81,8 @@ export interface Task extends TaskInputT {
   /** 별도 리뷰 작업(구현 worktree를 수정하지 않는 별도 CLI 실행). */
   review?: ReviewRecord | null;
   handoff?: Handoff | null;
+  /** 보관 시각. 목록에서만 숨기며 기록·worktree·브랜치는 그대로 둔다(taskControl.ts). */
+  archivedAt?: string | null;
   /** 수동 모드: 사용자가 에이전트 세션에서 작업하는 동안의 소유권 기록. 프로세스는 없다. */
   manual?: { execId: string; runId: string; startedAt: string; endedAt?: string; ended?: 'finished' | 'cancelled' } | null;
   result?: {

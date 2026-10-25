@@ -7,6 +7,8 @@ import { currentKey, stagesOf } from './stages.js';
 const PANELS = { prepare: panelPrepare, build: panelBuild, gitcheck: panelGit, tests: panelTests, review: panelReview, handoff: panelHandoff, approve: panelApprove, integrate: panelIntegrate, postcheck: panelPostcheck, push: panelPush };
 const ICON = { done: '✓', active: '', action: '!', failed: '✗', warn: '!', todo: '', skipped: '–' };
 const WORD = { done: '완료', active: '진행 중', action: '할 일', failed: '실패', warn: '주의', todo: '대기', skipped: '건너뜀' };
+// 실행기 OCCUPYING 밖 상태 = 끝났거나 시작 전이라 보관할 수 있는 상태
+const ARCHIVABLE = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned', 'integrated', 'integrated_check_failed'];
 const WHO = { user: '사용자', implementer: '구현 에이전트', main: '메인 에이전트', tool: '도구' };
 
 export function renderTask(state, ui) {
@@ -24,7 +26,8 @@ export function renderTask(state, ui) {
   const idx = stages.indexOf(st) + 1;
   box.innerHTML =
     '<div class="thead"><div><h2>' + esc(t.taskId) + '</h2><div class="goal">' + esc(t.goal) + '</div></div>' +
-      '<div class="meta"><span class="chip">' + esc(t.agent) + ' · ' + esc({ manual: '수동', real: '실제 CLI', mock: '연습' }[t.mode] || t.mode) + '</span> <span class="mono small">' + esc(t.branch) + '</span></div></div>' +
+      '<div class="meta"><span class="chip">' + esc(t.agent) + ' · ' + esc({ manual: '수동', real: '실제 CLI', mock: '연습' }[t.mode] || t.mode) + '</span> <span class="mono small">' + esc(t.branch) + '</span>' +
+      (t.archivedAt ? '<span class="chip">보관됨</span>' + B('unarchive', '보관 해제', true, 'link') : B('archive', '보관', ARCHIVABLE.includes(t.status), 'link', ' title="끝났거나 시작 전인 작업만 목록에서 숨깁니다(기록은 남음)"')) + '</div></div>' +
     (t.mismatch ? '<p class="bad small">⚠ Mastra 실행 기록과 실제 상태 불일치: ' + esc(t.mismatch) + '</p>' : '') +
     '<div class="now s-' + now.status + '"><div><div class="nowLabel">지금 단계</div><b>' + esc(now.label) + '</b> — ' + esc(now.text) +
       (u ? '<div class="small">차례: <b>' + esc(u.agent ? WHO[u.who] + '(' + u.agent + ')' : WHO[u.who]) + '</b> · ' + esc(u.next) + '</div>' : '') + '</div>' +

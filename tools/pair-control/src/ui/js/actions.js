@@ -10,6 +10,7 @@ const ACTIONS = {
   prompt: { p: 'start-prompt', n: '시작 프롬프트' }, handoff: { p: 'handoff', n: '인계' }, hshow: { p: 'handoff-text', get: true, n: '인계 안내문' },
   hconfirm: { p: 'handoff-confirm', n: '메인 확인' }, hcancel: { p: 'handoff-cancel', n: '인계 취소' }, diff: { p: 'diff', get: true, n: 'diff' },
   approve: { p: 'approve', n: '승인' }, reject: { p: 'reject', n: '거절' }, integrate: { p: 'integrate', n: '통합' }, rereview: { p: 'rereview', n: '재검토' },
+  unapprove: { p: 'unapprove', n: '승인 취소' }, archive: { p: 'archive', n: '보관' }, unarchive: { p: 'archive', n: '보관 해제' },
   pushcheck: { g: 'push/preflight', n: '푸시 점검' }, pushack: { g: 'push/ack', n: '오탐 확인' }, push: { g: 'push/run', n: '푸시' },
   verify: { g: 'push/verify', n: '원격 확인' }, revert: { g: 'push/revert-prepare', n: '되돌림 준비' },
   maincheck: { g: 'main/blockers', get: true, n: '이양 안전 확인' }, mainswap: { g: 'main/swap', n: '메인 이양' },
@@ -45,6 +46,8 @@ function askText(act, t, el) {
     case 'pushack': return '다음 항목이 실제 비밀이 아니라 가짜·예시 값임을 확인했습니까?\n\n' + plan.findings.filter((f) => f.kind === 'secret_pattern' && !f.acknowledged).map((f) => f.file + ':' + f.line + ' (커밋 ' + (f.commit || '').slice(0, 8) + ')').join('\n') + '\n\n이 확인은 해당 커밋·파일·줄에만 적용되고 기록됩니다.';
     case 'revert': return '푸시한 커밋마다 되돌림(revert) 커밋을 통합 checkout에 만듭니다(로컬만, ./develop 잠금 안). 원격은 바뀌지 않으며, 만든 뒤 ①~③ 절차로 푸시합니다.';
     case 'mainswap': return '메인을 ' + el.dataset.to + '(으)로 이양합니다. 이 화면은 표시·기록만 하며 권한을 강제하지 않습니다. 계속할까요?';
+    case 'unapprove': return '승인을 취소하고 같은 SHA로 검토 단계로 돌아갑니다.\n에이전트는 다시 실행하지 않으며, 같은 SHA의 작업 테스트 결과는 그대로 유효합니다. 통합 전이라 main은 바뀌지 않습니다.';
+    case 'archive': return t.taskId + ' 을(를) 목록에서 숨깁니다. 기록·작업 폴더·브랜치는 지우지 않으며 "보관된 작업"에서 언제든 해제할 수 있습니다.';
     case 'limitclear': return '구독 한도가 풀렸고 추가 크레딧 없이 계속 쓸 수 있음을 확인했습니까?';
     default: return '';
   }
@@ -60,6 +63,8 @@ function bodyOf(act, t, el) {
     case 'push': return { confirm: String(ui.keep.pushConfirm || '').trim() };
     case 'pushack': return { fingerprints: ui.state.push.plan.findings.filter((f) => f.kind === 'secret_pattern' && !f.acknowledged).map((f) => f.fingerprint) };
     case 'verify': case 'revert': return { id: el.dataset.id };
+    case 'archive': return { archived: true };
+    case 'unarchive': return { archived: false };
     case 'mainswap': return { agent: el.dataset.to, reason: document.getElementById('mainReason').value };
     default: return {};
   }
@@ -67,7 +72,8 @@ function bodyOf(act, t, el) {
 
 export async function run(act, el) {
   const a = ACTIONS[act];
-  const t = ui.state && ui.state.tasks.find((x) => x.taskId === ui.selected);
+  const tid = el.dataset.task || ui.selected; // 보관 목록의 버튼은 선택과 다른 작업을 가리킨다
+  const t = ui.state && ui.state.tasks.find((x) => x.taskId === tid);
   if (!a.g && !t) return;
   const ask = askText(act, t, el);
   if (ask && !confirm(ask)) return;
@@ -102,6 +108,9 @@ function keepResult(act, t, d) {
     case 'verify': return ['원격 확인: ' + d.status + ' — ' + d.detail, d.status === 'pushed_verified' ? 'ok' : 'bad'];
     case 'revert': return ['되돌림 커밋 ' + d.commits.length + '개 준비 · 트리 복원 ' + (d.treeRestored ? '확인됨' : '불일치') + ' — 이제 ①~③으로 푸시하세요', d.treeRestored ? 'ok' : 'warn'];
     case 'pushack': return ['오탐으로 기록했습니다. 다시 점검하세요', 'ok'];
+    case 'unapprove': return ['승인을 취소했습니다 — 검토 단계로 돌아왔습니다(에이전트 재실행 없음)', 'ok'];
+    case 'archive': ui.selected = null; return [id + ' 보관됨 — 아래 "보관된 작업"에서 해제할 수 있습니다', 'ok'];
+    case 'unarchive': ui.selected = id; return [id + ' 보관 해제됨', 'ok'];
     case 'maincheck': ui.mainBlockers = { list: d.blockers }; return ['', ''];
     case 'mainswap': document.getElementById('mainMemo').value = d.memo; ui.mainBlockers = null; return ['메인이 ' + d.role.agent + '(으)로 바뀌었습니다 — 새 메인에게 한 줄로 알려 주세요', 'ok'];
     default: return [ACTIONS[act].n + ' 요청 처리됨', 'ok'];

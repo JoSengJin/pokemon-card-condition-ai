@@ -25,7 +25,8 @@ async function refresh() {
   try {
     const s = await api('state');
     ui.state = s;
-    if (!ui.selected && s.tasks[0]) ui.selected = s.tasks[0].taskId;
+    const first = s.tasks.find((x) => !x.archivedAt);
+    if (!ui.selected && first) ui.selected = first.taskId;
     const sig = JSON.stringify({ ...s, now: 0 });
     const live = document.getElementById('live');
     if (sig !== lastSig && lastSig) ui.changedAt = new Date().toLocaleTimeString();

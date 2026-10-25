@@ -12,6 +12,7 @@ import { acknowledgeFindings, prepareRevert, preflight, runPush, verifyPush } fr
 import { progressDraft, progressItems } from '../executor/progress.ts';
 import { setMain, swapBlockers } from '../executor/mainRole.ts';
 import { bindRuntime, getExecutor, prepareTask, snapshot, startReview, startTask, resumeStep } from '../runtime.ts';
+import { setArchived, withdrawApproval } from '../executor/taskControl.ts';
 import fs from 'node:fs';
 
 const cfg = loadConfig();
@@ -116,6 +117,8 @@ function buildRoutes() {
         return ex().task(t.taskId);
       }),
     }),
+    registerApiRoute('/pair/api/tasks/:id/unapprove', { method: 'POST', handler: act(async (c) => withdrawApproval(ex(), id(c), resumeStep, startReview)) }),
+    registerApiRoute('/pair/api/tasks/:id/archive', { method: 'POST', handler: act(async (c) => setArchived(ex(), id(c), (await body(c)).archived !== false)) }),
     registerApiRoute('/pair/api/tasks/:id/rereview', { method: 'POST', handler: act(async (c) => startReview(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/diff', { method: 'GET', handler: act(async (c) => ({ diff: await ex().diff(id(c)) })) }),
     registerApiRoute('/pair/api/execs/:id/log', {

@@ -91,10 +91,12 @@ const integrateGate = createStep({
   description: '승인 SHA 통합 실행 대기 → 재검증 후 ./develop 안에서 cherry-pick',
   inputSchema: Flow, outputSchema: Flow,
   suspendSchema: z.object({ waitingFor: z.literal('integration_approval'), sha: z.string().nullable(), detail: z.string().optional() }),
-  resumeSchema: z.object({ action: z.enum(['integrate', 'reject']), reason: z.string().optional() }),
+  resumeSchema: z.object({ action: z.enum(['integrate', 'reject', 'withdraw']), reason: z.string().optional() }),
   execute: async ({ inputData, resumeData, suspend }): Promise<FlowT> => {
     const ex = getExecutor();
     if (!resumeData) return (await suspend({ waitingFor: 'integration_approval', sha: inputData.headSha ?? null })) as never;
+    // 승인 취소: 실행기가 이미 검토 단계로 되돌리는 중이다. 이 실행은 여기서 끝내고 재검토 실행이 이어받는다.
+    if (resumeData.action === 'withdraw') return { ...inputData, outcome: 'withdrawn', detail: '사용자가 승인을 취소 — 재검토 실행으로 넘김' };
     if (resumeData.action === 'reject') {
       const t = ex.task(inputData.taskId);
       if (t.status !== 'rejected') ex.reject(inputData.taskId, resumeData.reason ?? '통합 거절');

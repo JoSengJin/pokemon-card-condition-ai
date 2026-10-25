@@ -62,7 +62,8 @@ export function renderProbes(state) {
 /** 작업 카드 목록. 카드마다 10단계 점 줄과 지금 단계를 보여 준다. */
 export function renderList(state, ui) {
   const el = document.getElementById('list');
-  el.innerHTML = state.tasks.map((t) => {
+  const archived = state.tasks.filter((t) => t.archivedAt);
+  el.innerHTML = state.tasks.filter((t) => !t.archivedAt).map((t) => {
     const st = stagesOf(t, state.push, state.main && state.main.agent);
     const cur = st.find((s) => s.key === currentKey(st));
     const s = STATUS[t.status] || [t.status, 'muted'];
@@ -72,7 +73,10 @@ export function renderList(state, ui) {
       '<div class="cardTop"><span class="mono">' + esc(t.taskId) + '</span>' + lbl(esc(s[0]), s[1]) + '</div>' +
       '<div class="cardGoal">' + esc(t.goal) + '</div>' + miniPipeline(st) +
       '<div class="small"><span class="muted">' + esc(t.agent) + ' · 지금</span> <b>' + esc(cur.label) + '</b> <span class="muted">' + esc(cur.text) + '</span></div></button>';
-  }).join('') || '<p class="muted small">배정된 작업이 없습니다. 위의 "새 작업 만들기"로 시작하세요.</p>';
+  }).join('') || '<p class="muted small">진행 중인 작업이 없습니다. 위의 "새 작업 만들기"로 시작하세요.</p>';
+  el.innerHTML += !archived.length ? '' : '<details class="archive" data-keep="archOpen"' + (ui.keep.archOpen ? ' open' : '') + '><summary class="small muted">보관된 작업 ' + archived.length + '개</summary>' +
+    archived.map((t) => '<div class="archRow' + (t.taskId === ui.selected ? ' sel' : '') + '"><button type="button" class="link" data-act="select" data-id="' + esc(t.taskId) + '">' + esc(t.taskId) + '</button> <span class="small muted">' + esc((STATUS[t.status] || [t.status])[0] + ' · ' + t.goal) + '</span>' +
+      ' <button type="button" class="small" data-act="unarchive" data-task="' + esc(t.taskId) + '">보관 해제</button></div>').join('') + '</details>';
 }
 
 export function miniPipeline(stages) {
