@@ -66,7 +66,9 @@ export function renderList(state, ui) {
     const st = stagesOf(t, state.push, state.main && state.main.agent);
     const cur = st.find((s) => s.key === currentKey(st));
     const s = STATUS[t.status] || [t.status, 'muted'];
-    return '<button type="button" class="card' + (t.taskId === ui.selected ? ' sel' : '') + ' s-' + cur.status + '" data-act="select" data-id="' + esc(t.taskId) + '">' +
+    const mark = cur.key + ':' + cur.status, was = ui.seen['card:' + t.taskId];
+    ui.seen['card:' + t.taskId] = mark;
+    return '<button type="button" class="card' + (t.taskId === ui.selected ? ' sel' : '') + (was && was !== mark ? ' changed' : '') + ' s-' + cur.status + '" data-act="select" data-id="' + esc(t.taskId) + '">' +
       '<div class="cardTop"><span class="mono">' + esc(t.taskId) + '</span>' + lbl(esc(s[0]), s[1]) + '</div>' +
       '<div class="cardGoal">' + esc(t.goal) + '</div>' + miniPipeline(st) +
       '<div class="small"><span class="muted">' + esc(t.agent) + ' · 지금</span> <b>' + esc(cur.label) + '</b> <span class="muted">' + esc(cur.text) + '</span></div></button>';

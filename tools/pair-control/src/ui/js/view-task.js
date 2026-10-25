@@ -18,6 +18,9 @@ export function renderTask(state, ui) {
   const key = ui.stage[t.taskId] && PANELS[ui.stage[t.taskId]] ? ui.stage[t.taskId] : cur;
   const now = stages.find((s) => s.key === cur), st = stages.find((s) => s.key === key);
   const p = now.primary, u = t.turn;
+  const prev = ui.seen[t.taskId];
+  const changed = prev ? stages.filter((s) => prev[s.key] !== s.status).map((s) => s.key) : [];
+  ui.seen[t.taskId] = Object.fromEntries(stages.map((s) => [s.key, s.status]));
   const idx = stages.indexOf(st) + 1;
   box.innerHTML =
     '<div class="thead"><div><h2>' + esc(t.taskId) + '</h2><div class="goal">' + esc(t.goal) + '</div></div>' +
@@ -26,7 +29,7 @@ export function renderTask(state, ui) {
     '<div class="now s-' + now.status + '"><div><div class="nowLabel">지금 단계</div><b>' + esc(now.label) + '</b> — ' + esc(now.text) +
       (u ? '<div class="small">차례: <b>' + esc(u.agent ? WHO[u.who] + '(' + u.agent + ')' : WHO[u.who]) + '</b> · ' + esc(u.next) + '</div>' : '') + '</div>' +
       (p ? B(p.act, p.label, true, 'primary', ' data-stage="' + cur + '"' + (p.id ? ' data-id="' + esc(p.id) + '"' : '')) : '') + '</div>' +
-    pipelineBar(stages, key, cur) +
+    pipelineBar(stages, key, cur, changed) +
     '<section class="stagePanel s-' + st.status + '"><h3><span class="num">' + idx + '</span> ' + esc(st.label) + ' <span class="pill s-' + st.status + '">' + WORD[st.status] + '</span>' +
       (key !== cur ? ' <button type="button" class="link small" data-act="stage" data-stage="' + cur + '">지금 단계로</button>' : '') + '</h3>' +
       '<p class="desc">' + esc(st.desc) + '</p><div class="small muted">담당: ' + esc(st.who) + ' · 상태: ' + esc(st.text) + '</div>' +
@@ -35,9 +38,9 @@ export function renderTask(state, ui) {
 }
 
 /** 단계 노드 줄. 노드를 누르면 그 단계의 상세가 아래에 열린다(작업 상태는 바꾸지 않음). */
-export function pipelineBar(stages, key, cur) {
+export function pipelineBar(stages, key, cur, changed) {
   return '<ol class="pipe" aria-label="작업 단계">' + stages.map((s, i) =>
-    '<li class="node s-' + s.status + (s.key === key ? ' sel' : '') + (s.key === cur ? ' cur' : '') + '">' +
+    '<li class="node s-' + s.status + (s.key === key ? ' sel' : '') + (s.key === cur ? ' cur' : '') + (changed.includes(s.key) ? ' changed' : '') + '">' +
       '<button type="button" data-act="stage" data-stage="' + s.key + '" title="' + esc(s.desc) + '" aria-current="' + (s.key === key ? 'step' : 'false') + '">' +
       '<span class="dot">' + (ICON[s.status] || '') + '</span><span class="nl">' + (i + 1) + '. ' + esc(s.label) + '</span><span class="nt">' + esc(s.text) + '</span></button></li>').join('') + '</ol>';
 }

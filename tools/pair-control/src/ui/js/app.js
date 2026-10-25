@@ -27,10 +27,19 @@ async function refresh() {
     ui.state = s;
     if (!ui.selected && s.tasks[0]) ui.selected = s.tasks[0].taskId;
     const sig = JSON.stringify({ ...s, now: 0 });
+    const live = document.getElementById('live');
+    if (sig !== lastSig && lastSig) ui.changedAt = new Date().toLocaleTimeString();
+    live.className = 'chip ok';
+    live.textContent = '● 실시간' + (ui.changedAt ? ' · 마지막 변화 ' + ui.changedAt : '');
+    if (document.getElementById('msg').textContent.startsWith('상태 조회 실패')) say(''); // 다시 연결되면 오류 문구를 지운다
     if (sig === lastSig) return;
     lastSig = sig;
     render();
-  } catch (e) { say('상태 조회 실패: ' + e.message + ' (서버 종료 여부 확인)', 'bad'); }
+  } catch (e) {
+    document.getElementById('live').className = 'chip bad';
+    document.getElementById('live').textContent = '○ 연결 끊김 — 1초마다 다시 시도';
+    say('상태 조회 실패: ' + e.message + ' (서버 재시작 중이면 곧 다시 연결됩니다)', 'bad');
+  }
 }
 
 async function pollLog() {
@@ -54,6 +63,9 @@ document.addEventListener('click', onClick);
 document.addEventListener('input', onInput);
 document.addEventListener('change', onInput);
 document.addEventListener('toggle', onInput, true); // toggle은 버블링되지 않아 capture로 받는다
+// 숨겨진 탭은 브라우저가 타이머를 늦추므로, 다시 보일 때 바로 확인한다.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+window.addEventListener('focus', () => refresh());
 initForm();
 setInterval(async () => {
   if (busy) return;

@@ -112,8 +112,10 @@ details > summary { cursor: pointer; }
 .s-warn .dot { border-color: var(--warn); color: var(--warn); }
 .s-skipped .dot { border-style: dashed; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes flash { 0% { box-shadow: 0 0 0 3px var(--info); } 100% { box-shadow: 0 0 0 3px transparent; } }
+.node.changed button, .card.changed { animation: flash 1.5s ease-out 2; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--warn); } 100% { box-shadow: 0 0 0 8px transparent; } }
-@media (prefers-reduced-motion: reduce) { .s-active .dot, .s-action .dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .s-active .dot, .s-action .dot { animation: none; } .node.changed button, .card.changed { animation: none; outline: 2px solid var(--info); } }
 
 .stagePanel { border: 1px solid var(--line); border-top: 4px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--panel); }
 .stagePanel.s-done { border-top-color: var(--ok); } .stagePanel.s-active { border-top-color: var(--info); }
@@ -137,6 +139,7 @@ details > summary { cursor: pointer; }
 <body>
 <header>
   <h1>pair-control</h1>
+  <span id="live" class="chip muted" title="1초마다 상태를 확인합니다. 바뀐 단계는 잠깐 파란 테두리로 깜빡입니다.">연결 중…</span>
   <span id="connKind" class="chip">…</span>
   <span id="guard" class="chip" title="과금 신호(API 키 환경변수·과금 문구)를 감지하지 못했다는 뜻입니다. 무료 사용이나 인증 성공을 보장하지 않습니다.">…</span>
   <a href="/" target="_blank" rel="noopener" class="muted small">Mastra Studio ↗</a>

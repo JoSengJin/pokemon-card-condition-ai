@@ -3,6 +3,7 @@
 export const ui = {
   state: null, selected: null, stage: {}, keep: {}, diff: null, prompt: {}, handoff: {}, memo: '', mainBlockers: null,
   logChoice: null, log: { exec: null, next: 0, text: '' }, rerender: null, refreshNow: null,
+  seen: {}, changedAt: null, // 직전에 그린 단계 상태(바뀐 노드를 깜빡이게)와 마지막 변화 시각
 };
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -19,7 +20,8 @@ export function B(act, label, enabled, cls, extra) {
 
 export async function api(path, body, method) {
   const post = body !== undefined || method === 'POST';
-  const opt = post ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-pair-control': '1' }, body: JSON.stringify(body ?? {}) } : {};
+  const opt = post ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-pair-control': '1' }, body: JSON.stringify(body ?? {}) }
+    : { signal: AbortSignal.timeout(8000) }; // 조회가 멈추면 1초 갱신이 영영 막히므로 8초에 끊는다
   const r = await fetch('/pair/api/' + path, opt);
   const j = await r.json().catch(() => ({ ok: false, error: 'HTTP ' + r.status }));
   if (!j.ok) throw new Error(j.error || 'HTTP ' + r.status);
