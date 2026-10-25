@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>자료 확보 후속 준비</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#66625a;--line:#dedad2;--card:#ffffff;--fact:#1f6f43;--factbg:#e7f3ec;--unk:#8a5a00;--unkbg:#fbf1dc;--prop:#2f4f9a;--propbg:#e8edf8;--gap:#a3301f;--zero:#a3301f}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171715;--fg:#ebe8e1;--muted:#a39f96;--line:#34322d;--card:#201f1c;--fact:#7fd1a1;--factbg:#1d2e24;--unk:#e9b85c;--unkbg:#2f2717;--prop:#9db4f0;--propbg:#1f2638;--gap:#f08a78;--zero:#f08a78}}
+:root[data-theme="dark"]{--bg:#171715;--fg:#ebe8e1;--muted:#a39f96;--line:#34322d;--card:#201f1c;--fact:#7fd1a1;--factbg:#1d2e24;--unk:#e9b85c;--unkbg:#2f2717;--prop:#9db4f0;--propbg:#1f2638;--gap:#f08a78;--zero:#f08a78}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+main{max-width:1040px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:24px;margin:0 0 6px}
+h2{font-size:18px;margin:36px 0 10px;padding-top:10px;border-top:1px solid var(--line)}
+p,li{color:var(--fg)}
+.meta{color:var(--muted);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:18px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:13px}
+.kpi.zero b{color:var(--zero)}
+.tag{display:inline-block;font-size:12px;font-weight:600;border-radius:4px;padding:1px 7px;margin-right:6px;vertical-align:1px}
+.fact{color:var(--fact);background:var(--factbg)}
+.unk{color:var(--unk);background:var(--unkbg)}
+.prop{color:var(--prop);background:var(--propbg)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:10px 0}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;background:var(--card)}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;white-space:nowrap}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.gap{color:var(--gap);font-weight:600}
+code{font-size:12.5px;word-break:break-all}
+ul{padding-left:20px}
+</style>
+</head>
+<body>
+<main>
+<h1>자료 확보 후속 준비</h1>
+<p class="meta">task <code>data-acquisition-followup-20261025</code> · 기준 커밋 <code>3b498c61fe4e5aab5abb087794828260dcd74baf</code> · 2026-10-25 · 문서만 작성</p>
+<div class="kpis">
+<div class="kpi"><b>30/100</b><span>전체 진척 (usable-card-analysis-v1.0, +0%p)</span></div>
+<div class="kpi zero"><b>0</b><span>새로 확보한 사진·사람 정답·실물</span></div>
+<div class="kpi"><b>34 / 22</b><span>기준 예제 후보 수 / 실물 수 (train만, 사용자 승인 전)</span></div>
+<div class="kpi"><b>4</b><span>후보가 2개 미만인 셀</span></div>
+</div>
+<div class="box"><b>이번 성과:</b> 파일럿 시작에 필요한 문서 3개를 준비했다. ① 협력자 기준 예제 후보: 이미 저장된 정답에서 결정적 규칙으로 골랐고 재질문은 없다. ② 2인 응답 대조 규칙: 기존 coverage 투영을 재사용하고, 분모를 사전에 고정한다. ③ 참여·사진 사용 동의서 초안: 발송하지 않았다. <b>학습·추론·외부 AI 호출 0회. 모델 성능은 평가하지 않았다.</b></div>
+
+<h2>확인한 사실 <span class="tag fact">확인</span></h2>
+<ul>
+<li>d 채택본에는 train 56·val 14 실물만 있다. D1 자료는 포함돼 있지 않고 탐색하지 않았다.</li>
+<li>모서리 정상 단위 24개(train 앞13·뒤5, val 앞4·뒤2)는 모두 영역 확인 전이다. 그래서 모서리 정상 예제는 앞뒤 모두 0개다.</li>
+<li>검토 UI는 사본마다 카드 영역(box)을 따로 저장한다. 구역은 box 기준으로 나뉘므로, 독립 판정 전에 box를 고정해야 구역 비교가 성립한다.</li>
+<li>관찰 제한 면 판정 규칙(기존 코드): 시야 제한 사유가 있으면 1, 빈 목록이면서 판정 가능이면 0, 그 밖에는 unknown.</li>
+</ul>
+
+<h2>후보가 부족한 셀 <span class="tag unk">미충족</span></h2>
+<div class="scroll"><table><thead><tr><th>질문</th><th>면</th><th>정답</th><th>찾은 수</th></tr></thead><tbody><tr><td>모서리</td><td>앞</td><td>정상</td><td class="num gap">0/2</td></tr><tr><td>모서리</td><td>뒤</td><td>정상</td><td class="num gap">0/2</td></tr><tr><td>엣지</td><td>앞</td><td>정상</td><td class="num gap">1/2</td></tr><tr><td>관찰제한</td><td>앞</td><td>양성</td><td class="num gap">1/2</td></tr></tbody></table></div>
+
+<h2>제안 <span class="tag prop">제안</span></h2>
+<ul>
+<li>사용자는 기준 예제 후보 34개 중 예제로 쓸 것만 고른다. 정답을 다시 판정하지 않는다.</li>
+<li>모서리 정상 예제는 A3 round2의 영역 확인 결과를 기다린다. 새 질문은 만들지 않는다.</li>
+<li>대조 규칙과 동의서 결정 항목(사용 범위·보수·보관 기간)을 파일럿 승인 때 함께 고정한다.</li>
+</ul>
+
+<h2>미확인 <span class="tag unk">미확인</span></h2>
+<ul><li>기준 예제 검사 통과율이 직접 촬영한 파일럿 사진의 판정 품질을 예측하는지(예제는 대부분 판매 사진).</li><li>대조 규칙을 구현했을 때의 결과. 구현과 실행은 Codex 몫이다.</li></ul>
+
+<h2>변경 파일·검사·리스크·롤백</h2>
+<ul>
+<li>새 추적 파일 5개: task 문서, 기준 예제 후보, 대조 규칙, 동의서 초안, 이 HTML. 기존 파일은 수정하지 않았다. 경로가 들어간 후보 원본은 ignored artifacts에만 있다.</li>
+<li>실행한 검사: 후보 34행과 ignored JSON 대조, 모서리 정상 box 상태 재집계, HTML 정적 검사, 홈 경로 검사, git diff --check. 결과는 task handoff에 있다.</li>
+<li>리스크: 예제 대부분이 판매 사진이다. 대조 규칙은 main 코드의 동작에 의존하므로, 코드가 바뀌면 다시 확인해야 한다.</li>
+<li>롤백: 통합 전이면 반영하지 않는다. 통합 후에는 git revert.</li>
+</ul>
+</main>
+</body>
+</html>
