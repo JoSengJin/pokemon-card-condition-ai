@@ -150,7 +150,8 @@ def codex_task(root, folder, phase, payload, thread_id=None, backend=None, token
     if len(list((folder / 'codex').glob('*/call.json'))) >= 3 or list((folder/'codex').glob(phase+'-*/call.json')):
         raise ValueError('At most one review, one correction and one implementation')
     context = review_context(root,folder,phase,payload)
-    prompt = '한국어 JSON. evidence_ids는 valid_evidence_ids 안에서만 선택한다. 도구 없이 동결 근거·project_rules만 사용하고 source_context 원문·SHA를 인용한다. '
+    prompt = ('한국어 JSON. evidence_ids는 valid_evidence_ids 안에서만 선택한다. 도구 없이 동결 근거·project_rules만 사용한다. '
+              'code_checks.quote는 source_context.excerpt에 실제로 연속된 원문 한 구절만 복사한다(떨어진 줄 합성·생략 금지). SHA도 대조한다. ')
     if phase in ('verify','correct'):
         from .cross_review_roles import CODEX_ADVOCATE
         prompt += CODEX_ADVOCATE+' failed_hypotheses_checked는 가설 실패 ID 전부만, review_claims.completed_diagnostic_ids는 완료 진단 ID 전부다. 실행 실패는 반증이 아니다. critique_responses는 실제 Gemini 비판 ID마다 정확히 하나, 비판 전에는 빈 목록이다. debate_assessment 점수는 심판 전0. 검증할 변수·사전 수치 기준이 있으면 select, 남은 Gemini>0이고 반증이 필요하면 second, 근거 부족 stop, 실제 사람/자료 의존 wait. implementation_files에는 수정할 허용 모델 소스만 넣는다. 새 격리 worker는 구현 단계의 별도 출력이므로 이 목록에 넣지 않는다. 모델 소스 수정 없이 worker가 worker_importable 함수 인자로 고정 실험 변수를 적용할 수 있으면 빈 목록도 가능하다. experiment_parameter(name/baseline/value/scope)를 확정하고 효과를 추정하지 않는다. missing_evidence_ids는 실제 없는 것만. gemini_required_for_select=false. '

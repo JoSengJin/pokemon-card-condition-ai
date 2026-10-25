@@ -4,7 +4,7 @@ CODEX_TOKEN_BUDGET = 100000
 CODEX_TIMEOUT = 600
 EXPERIMENT_TIMEOUT = 1800
 CODEX_PROMPT_BYTES = {'verify': 32000, 'correct': 32000, 'implement': 32000}
-CODEX_CONTEXT_VERSION = 'bounded-v10-app-server'
+CODEX_CONTEXT_VERSION = 'bounded-v11-exact-citation'
 class CodexBudgetExceeded(ValueError):
     pass
 
