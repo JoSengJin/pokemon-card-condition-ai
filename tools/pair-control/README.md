@@ -24,6 +24,14 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 
 실제 저장소에 쓰려면 `config.example.json`을 `config.local.json`(Git 제외)으로 복사해 절대경로를 넣고 `npm start`. 상태·로그·Mastra DB는 `.state/`(Git 제외)에 저장된다. `npm install` 시 npm 11 기본 정책으로 esbuild/fsevents install script가 막히지만 optional 바이너리 패키지로 동작한다(이 환경에서 확인).
 
+## 세 가지 실행 모드
+
+| 모드 | 에이전트는 누가 | 도구가 하는 일 |
+|---|---|---|
+| **수동(기본)** | 사용자가 Claude/Codex 세션을 해당 worktree에서 직접 실행 | 소유권 잠금(파일 겹침 방지), 시작 프롬프트 생성, "작업 완료" 후 검사·인계·승인·통합·푸시. 프로세스를 띄우지 않으므로 구독 로그인만 쓰는 경로 |
+| 실제 CLI | 도구가 `claude`/`codex` CLI를 실행(구독 로그인) | 위 + 프로세스 감독·중단. **무과금 가드를 모두 통과해야 시작** |
+| 연습(mock) | 가짜 스크립트 | 도구 동작 확인용. 코드 품질 검증이 아님 |
+
 ## 새 작업 만들기 (자동 준비)
 
 사람은 **담당(Claude/Codex) · 목표 · 고칠 파일**만 고른다. 나머지는 Mastra `prepare-task` workflow(`plan → create-worktree → register`, 관리용 LLM 없음)가 채운다.
@@ -76,6 +84,16 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 
 검사마다 SHA·명령·종료코드·로그·시각을 남긴다. 코드 SHA나 계약이 바뀌면 이전 결과는 "이전 SHA 결과"로 표시되고 승인에 쓰이지 않는다. 서버 재시작 시 끝난 검사의 결과는 기록하지만 남은 검사를 이어서 실행하지 않는다.
 
+## 누구 차례 · 시작 프롬프트 · 메인 인계
+
+- **누구 차례**(사용자/구현 에이전트/메인 에이전트/도구)를 작업 상태에서 파생해 표시한다. 에이전트를 자동으로 부를 수 없으므로 전환은 사용자가 버튼으로 한다("작업 완료", "메인에게 인계", "메인 확인 완료").
+- **시작 프롬프트**: 작업 위치(worktree 절대경로)·브랜치·시작 HEAD·기준 SHA·읽을 문서(AGENTS.md, PAIR_CODING.md, 계약, 추가 문서)·목표·완료 조건·허용 파일 수와 목록·검사·진행 방식·금지·인계 형식을 규칙으로 조립한다(LLM 없음). 경로는 복사할 때만 만들고 어떤 파일에도 커밋하지 않는다. `무인 실행` 옵션은 사람 정답 추정·재요청 금지 문구를 추가한다. 추가 문서는 시작 HEAD에 있는 저장소 상대경로만 허용한다.
+- **메인 인계**: 커밋이 없거나, 미커밋 변경이 있거나, Git 검사 이후 SHA가 바뀌었으면 거절한다. 인계 문서(전체 SHA와 부모, 변경 파일, 검사·작업 테스트·리뷰 상태, 미검증, 롤백)는 **작업 브랜치에 커밋하지 않고** 상태 폴더에 저장해 복사용으로 보여 준다(PAIR_CODING §4: 완료 후 추가 커밋 금지, SHA 고정). 코드 SHA가 바뀌면 인계는 낡은 것으로 표시되고, 잘못 누른 인계는 승인 전까지 취소할 수 있다. 메인 확인 시각은 승인 기록에 남지만 승인의 필수 조건은 아니다.
+
+## 진행률 항목으로 계약 초안 만들기
+
+`development-progress.json`(통합 브랜치에 커밋된 내용을 `git show`로 읽음)의 **미완료 항목**을 고르면, 완료 조건·현재 평가 원문을 인용한 상세 지시와 목표·완료 조건 초안을 채운다. 증거 파일 중 기준 커밋에 실제 있고 금지 경로가 아닌 코드만 "제안 파일"로 보여 주며 자동 선택하지 않는다. 초안에는 "학습·모델 비교·사진 추론·성능 평가는 기본 checkout의 단일 담당자, 점수·진척률 변경 금지"가 들어간다. 어느 항목을 할지와 허용 파일은 사람이 정한다.
+
 ## 독립 리뷰 작업
 
 검토 단계에서 고정 SHA의 계약·diff·검사 결과를 리뷰 묶음(`.state/reviews/<id>/`)으로 만들고, 구현과 **다른 에이전트**의 별도 CLI 프로세스를 그 폴더에서 실행한다. 구현 worktree 경로는 전달하지 않으며, 실행 전후 worktree가 바뀌면 결과를 버린다. 판정은 `approve`·`changes_requested`·`insufficient_evidence`만 인정하고, 형식 오류("통과" 문구 등)·다른 SHA·실패는 판정 없음으로 표시한다. 판정은 승인 기록에 감사용으로 남을 뿐 사람 승인·통합을 대신하지 않는다. 이 화면은 현재 Codex 앱 대화로 메시지를 보내지 않는다. 지금은 fake 리뷰 CLI(`mock/fake-reviewer.mjs`)로만 검증했고 실제 리뷰 CLI는 차단 조건 해결 전까지 거절된다.
@@ -100,14 +118,46 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 3. 통합은 `integration` O_EXCL 잠금 + 통합 checkout의 `./develop -- git cherry-pick -x <커밋…>`. checkout이 깨끗하지 않거나 `./develop` 잠금 사용 중이면 승인 유지 후 같은 단계에서 대기.
 4. 충돌 시 충돌 파일을 기록하고 `./develop -- git cherry-pick --abort`만 수행. ours/theirs 자동 선택·`reset --hard`·push·force push·브랜치 삭제는 구현하지 않았다.
 
+## 실제 CLI 무과금 조건
+
+실제 CLI 모드는 **구독 로그인으로만** 시작한다(`src/executor/nocharge.ts`, `adapters.ts`). 아래 중 하나라도 있으면 시작하지 않고 원인 코드와 해결 조건을 표시한다. 값은 읽지 않고 이름만 본다.
+
+| 검사 | 근거 |
+|---|---|
+| API 키·클라우드 토큰 환경변수 | `ANTHROPIC_API_KEY` 등이 있으면 API 요금(Claude Code 문서) |
+| Claude 설정의 `apiKeyHelper`, `env`에 API 키 이름, `forceLoginMethod`가 `claudeai`가 아님 | 설정 키 목록은 Claude Code 설정 문서의 색인 기준. 사용자·프로젝트(`.claude/settings(.local).json`) 설정 검사. `forceLoginMethod`의 값 이름은 문서 색인에 없어 보수적으로 차단 |
+| 인자의 `--bare`, `--max-budget-usd`, `--betas` | `--bare`는 구독 로그인을 쓰지 않고 API 키를 요구(문서). 문서가 `-p`의 기본값이 bare가 될 예정이라고 해서 CLI 업데이트 때 재확인 필요 |
+| `confirmedSubscriptionAuth` ≠ true | 두 CLI 모두 로그인 방식을 코드로 확인하는 명령을 문서에서 찾지 못함 → 사용자가 구독 로그인과 추가 크레딧 꺼짐을 직접 확인했다는 표시가 마지막 방어선 |
+| `--help`에서 필요한 옵션 미확인 | claude: `--print`, `--permission-mode`, `--allowedTools` / codex: `exec`의 `--cd`, `--sandbox` |
+
+- Claude 실행은 `--permission-mode acceptEdits`와 `--allowedTools`(Read, Edit, Write, `git status/diff/log/add/commit`)만 쓴다. 그 밖의 Bash는 `-p` 모드에서 자동 거부된다. Codex의 `--sandbox workspace-write` 값은 미검증이다.
+- **한도 도달은 정지 신호**다: 한도 문구가 나오면 실행 중인 작업을 멈추고 실제 CLI 시작을 거부하며 서비스는 유지한다. 재시도·크레딧 구매는 하지 않고, 사용자가 풀렸음을 확인해야 해제된다. 한도 안내문에 섞인 "extra usage" 같은 권유 문구는 과금으로 보지 않는다. 반대로 `credit balance` 같은 확실한 과금 문구는 서비스를 종료한다. 한도 문구 목록은 CLI 버전마다 달라질 수 있어 목록에 없는 문구는 일반 실패로 끝난다(자동 재시도·구매는 어느 경우에도 없음).
+- 로그인 정보 파일(`auth.json`, 키체인)은 열지 않는다.
+
+## 푸시 · 되돌림
+
+통합된 브랜치를 원격에 올리는 단계다. **푸시는 취소할 수 없으므로** 단계별로 막는다. 실수는 `git revert`로 바로잡는다(force push·`reset --hard` 없음).
+
+1. **점검**(읽기 접속·전송 없음): 통합 checkout 브랜치·깨끗함, `git fetch`, fast-forward 가능 여부, 푸시될 커밋(전체 SHA ← 부모)·변경 파일, 이 범위의 작업 중 통합 후 검사 실패 상태가 있는지, **커밋마다** 금지 경로·5MB 초과 파일·알려진 비밀 패턴(`sk-…`, GitHub 토큰, AWS 키, 개인 키, Slack/Google 키), `git push --dry-run`. 중간 커밋에 들어갔다 지워진 값도 이력에 남으므로 최종 diff가 아니라 커밋별로 본다.
+2. **확인 입력**: 대상 SHA 앞 12자를 직접 입력해야 푸시 버튼이 켜지고, 푸시 직전에 다시 점검한다. 점검 이후 로컬이나 원격이 바뀌면 거절한다.
+3. **푸시**: 확인한 SHA를 지정한 일반 push(`<sha>:refs/heads/<branch>`), 통합 잠금 안에서 하나만. 실패해도 자동 재시도하지 않는다.
+4. **사후 확인**: `ls-remote`로 원격 SHA가 대상과 같은지 확인해 `pushed_verified` / `push_failed` / `push_unverified`(결과 불명) / `remote_mismatch`로 기록한다. "원격 다시 확인"으로 읽기 전용 재확인.
+5. **되돌림**: 확인된 푸시에서 "되돌림 커밋 준비"를 누르면 푸시한 커밋마다 revert 커밋을 로컬에 만들고(`./develop` 잠금, 충돌 시 `revert --abort`만), **푸시 전 트리와 같은지** 확인한다. 로컬·원격이 모두 푸시한 SHA 그대로일 때만 가능하다. 그다음 1~4를 그대로 거쳐 올린다. 원래 커밋은 이력에 남는다.
+
+비밀 패턴 오탐(예: 테스트용 가짜 키)은 **커밋·파일·줄 단위로** 사용자가 확인하면 경고로 바뀌고 기록이 남는다. 금지 경로·큰 파일은 확인으로 넘길 수 없다. 이 점검은 알려진 모양만 잡으며 모든 비밀을 보장하지 않는다. 자격 증명은 도구가 다루지 않고 git의 기존 credential helper를 프롬프트 없이 쓴다. 실제 GitHub 푸시는 검증하지 않았다(로컬 bare 원격으로만 검증).
+
+## 메인 역할
+
+"메인"은 통합·푸시·실험의 단일 담당이다. 상단에서 현재 메인을 보고 이양할 수 있다. **표시와 기록만** 하며 권한을 강제하지 못한다(누가 클릭하는지 도구가 모름). 프로세스·통합·푸시·결과 불명 푸시·`./develop` 잠금이 있으면 이양을 거절하고, 이양하면 이력과 인계 메모(진행 중 작업, 새 메인에게 다시 전달할 인계, 최근 푸시)를 남긴다. PAIR_CODING.md·AGENTS.md는 main 통합을 Codex로 정해 두었고 이 도구는 그 규칙을 바꾸지 않는다. 토큰 잔량은 읽지 못하므로 이양은 항상 사용자가 누른다.
+
 ## 무료 전용 가드
 
 유료 전환 신호가 보이면 서비스(이 실행기의 `mastra dev` 프로세스 그룹과 그 자식 실행)를 종료하고 macOS 알림 + 콘솔 + `.state/alerts/paid-risk.json`으로 알린다. 알림을 `npm run guard:ack`로 확인하기 전에는 다시 시작하지 않는다.
 
 - 시작 시 환경변수 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `CODEX_API_KEY`, `GEMINI_API_KEY`, `MASTRA_CLOUD_ACCESS_TOKEN` 등(`src/executor/paidSignals.mjs`)이 있으면 시작 거부. 값은 기록하지 않는다.
-- 실행 로그에서 `credit balance`, `insufficient_quota`, `billing`, `extra usage`, `upgrade to pro/max` 등 문구 감지 → 모든 실행 중단 후 서버 종료.
+- 실행 로그에서 확실한 과금 문구(`credit balance`, `insufficient_quota`, `payment required` 등) 또는 권유성 문구(`billing`, `extra usage`, `upgrade to …`)를 감지하면 모든 실행을 중단하고 서버를 종료한다. 단 구독 한도 도달 문구와 함께 나온 권유성 문구는 정지로만 처리한다(위 "실제 CLI 무과금 조건").
 - 자식 프로세스 환경은 허용 목록(PATH/HOME 등)만 전달하고 위 키를 항상 제거. `MASTRA_TELEMETRY_DISABLED=1`.
-- real 모드는 `allowRealModelCalls=true`와 `confirmedSubscriptionAuth=true`(사용자가 CLI가 API 키가 아닌 기존 구독 로그인임을 직접 확인)가 모두 있어야 시작.
+- real 모드는 `allowRealModelCalls=true`, `confirmedSubscriptionAuth=true`와 위 무과금 검사를 모두 통과해야 시작.
 - `mastra deploy`/`server`/`auth`/`connect` 등 클라우드 명령은 호출하지 않는다.
 
 한계: 실제 청구 여부는 provider 계정에서만 알 수 있다. 이 가드는 신호 기반 차단이며, 신호 없이 과금되는 경로(예: 구독 플랜 자체의 초과 사용 정책)는 감지하지 못한다. `billing` 같은 단어가 정상 코드 출력에 나와도 중단한다(오탐 쪽으로 보수적).
@@ -120,9 +170,11 @@ Mastra Studio의 workflow 실행(`/api/workflows/...`)도 같은 결정적 단�
 
 ## 실제 CLI 어댑터 상태
 
-`codex`·`claude` 실행 파일을 PATH 또는 설정에서 찾고 `--version`과 `--help`(codex는 `exec --help`)만 실행해 `--cd`/`--sandbox`, `--print`/`--permission-mode` 옵션 이름을 확인한다. 옵션 **값**(`workspace-write`, `acceptEdits`)과 인증 방식은 확인하지 않았다. 이 개발 환경에는 두 CLI 모두 설치되어 있지 않아(호스트 PATH 없음, Claude 앱 내장 바이너리는 Linux용) 화면에 "미설치"로 표시된다. 실제 모델 호출 연동은 별도 승인 작업이다.
+`codex`·`claude` 실행 파일을 PATH 또는 설정에서 찾고 `--version`과 `--help`(codex는 `exec --help`)만 실행해 옵션 이름(`--print`/`--permission-mode`/`--allowedTools`, `--cd`/`--sandbox`)을 확인한다. **이 개발 환경에는 두 CLI가 설치되어 있지 않고(호스트 PATH 없음, Claude 앱 내장 바이너리는 Linux용) 설치·로그인·모델 호출을 하지 않았다.** 실제 경로는 가짜 `claude`/`codex` 실행 파일(`test/fake-cli/`)로 인자·환경변수·한도·과금 문구 처리를 검증했다. 검증되지 않은 것: 실제 CLI의 출력 형식과 한도 문구, `--permission-mode acceptEdits`·`--allowedTools` 동작(문서의 옵션 이름은 확인), Codex `--sandbox workspace-write` 값, 두 CLI의 로그인 방식 확인(코드로 확인할 방법을 문서에서 찾지 못함). `codex mcp-server`는 문서상 제거되었고 `claude mcp serve`는 문서에서 확인하지 못해 MCP 경로는 쓰지 않는다.
 
-## 검증 (2026-10-25, mock)
+## 검증 (2026-10-25, mock·fake CLI·로컬 bare 원격)
+
+`npm test` 60개 통과(Node 24.21.0) — 실제 CLI 경로 작업에서 추가: 무과금 가드(환경변수·Claude 설정 키 이름·금지 옵션·한도·과금 문구), 가짜 claude/codex 실행, 수동 모드, 시작 프롬프트, 인계, 푸시·되돌림(성공·거절·실패·이력 점검·오탐 확인), 진행률 초안, 메인 이양. 브라우저에서 진행률 항목 선택 → 수동 작업 → 시작 프롬프트 → 작업 완료 → 작업 테스트 → 인계·확인 → 승인 → 통합 → 푸시 → 되돌림 푸시를 화면 버튼으로 진행했고 원격(로컬 bare) 상태를 별도로 확인했다. 아래는 이전 단계 검증 기록이다.
 
 `npm test` 31개 통과(Node 24.21.0). 실사용 준비 작업에서 추가: 계약 커밋·불변·재시도 멱등, 환경 준비(symlink·import 경로·모듈·통합 checkout), 작업 테스트(CLI 0·테스트 실패 승인 차단, 실행 파일 제한, SHA·계약 변경 무효화, 중단·중복·재시작·불명), 통합 후 검사 실패 표시, fake 리뷰(판정 3종·형식 오류·다른 SHA·worktree 변경·중단·실제 모드 차단), E2E(준비→통합 후 검사, 다른 작업·미커밋 파일·비밀값 보존). 그 전 13개: 병렬 실행 2개, 파일·API 그룹·공용 설정 충돌과 동시 중복 시작, 손자 프로세스 포함 취소(외부 프로세스 생존 확인), 서버 재시작 3종(살아 있음·종료됨·결과 불명) 무재실행, 승인 SHA/기준 브랜치 변경 시 통합 거절 → 재검토 → 통합(`-x` 기록), 통합 충돌 abort와 `./develop` 잠금 사용 중 대기, 실패·범위 밖 변경 표시, 계약 검증, `./develop` 잠금 경유 실행, 무료 가드. `./develop`은 이 저장소의 `card_condition/workspace_lock.py` 복사본을 합성 저장소에서 실행한다.
 

@@ -1,6 +1,6 @@
 {
   "repo": "/ABSOLUTE/PATH/TO/pokemon-card-condition",
-  "integration": { "checkout": "/ABSOLUTE/PATH/TO/pokemon-card-condition", "branch": "main" },
+  "integration": { "checkout": "/ABSOLUTE/PATH/TO/pokemon-card-condition", "branch": "main", "remote": "origin" },
   "worktreeRoot": "",
   "port": 4111,
   "allowRealModelCalls": false,
