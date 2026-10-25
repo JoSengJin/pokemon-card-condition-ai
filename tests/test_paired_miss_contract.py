@@ -36,8 +36,8 @@ class PairedMissContractTest(unittest.TestCase):
                 self.assertIs(expected, self.regress(old, new)[KEY]['recall_improvement_without_regression'])
 
     def test_swapping_runs_swaps_new_and_recovered_and_labels_stay_apart(self):
-        old = [error('a'), error('k', label='surface_defect')]
-        new = [error('b'), error('k', label='surface_defect'), error('q', 'fp', 'surface_defect')]
+        old = [error('a'), error('k', label='surface_defect'), error('p', 'fp', 'surface_defect')]
+        new = [error('b'), error('k', label='surface_defect'), error('q', 'fp', 'surface_defect'), error('r', 'fp', 'surface_defect')]
         forward, backward = self.regress(old, new, (KEY, 'surface_defect')), self.regress(new, old, (KEY, 'surface_defect'))
         self.assertEqual((['b'], ['a']), ([e['id'] for e in forward[KEY]['newly_missed']], [e['id'] for e in forward[KEY]['recovered']]))
         self.assertEqual((['a'], ['b']), ([e['id'] for e in backward[KEY]['newly_missed']], [e['id'] for e in backward[KEY]['recovered']]))
