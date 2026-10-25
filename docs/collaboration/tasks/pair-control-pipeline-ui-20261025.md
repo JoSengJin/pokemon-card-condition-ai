@@ -2,7 +2,7 @@
 
 - task_id: `pair-control-pipeline-ui-20261025`
 - owner: Claude
-- status: implementing
+- status: handoff (코드 커밋 `fb4661e54c3de90c2cf57629516b2dfee8d7d121`)
 - base_sha: `e7883780c3ca735ed3a3bb6d76117b0378d282c8` (시작 HEAD, 미커밋 변경 없음 확인)
 - branch: `claude/pair-control`
 - 실행 Node: v24.21.0(nvm)
@@ -46,4 +46,12 @@
 
 ## 결과
 
-(인계 시 갱신)
+- 코드 커밋: `fb4661e54c3de90c2cf57629516b2dfee8d7d121` (검사는 이 커밋과 같은 작업 트리에서 실행). 문서·보고서는 다음 커밋.
+- 이름 있는 함수 수(변경 후): page.html 0, core 5, stages 6, panels-work 5, panels-release 6, view-task 3, view-list 5, actions 7, form 7, form-specs 5, app 3, `src/mastra/index.ts` 6.
+- 최장 호출 경로(전이 4): `refresh → render → renderTask → panelApprove|stagesOf → testState`, `refresh → render → renderTask → pipelineBar → esc`, `refresh → render → renderList → miniPipeline|stagesOf → esc|testState`. 클릭: `onClick → run → askText|bodyOf|api|keepResult|say` (2). 폼: `initForm → renderSpecs → specRows → esc` (3).
+- 정적으로 이어지지 않는 동적 경로: `ui.rerender`(=render), `ui.refreshNow`(=refresh, setTimeout), `setTimeout(updatePlan)`, `PANELS[key]`(단계별 패널 표, 10개 함수 중 하나), DOM 이벤트 등록.
+- checks: `npm run typecheck` 통과, `npm test` 67/67(기존 60 + 단계 판정 7), `node --check src/ui/js/*.js` 통과, `git diff --check` 통과, 개인 절대경로·비밀값 grep 0건.
+- 브라우저: 사용자의 4111 서버(이 worktree에서 실행 중, 실제 저장소 설정)가 새 코드를 다시 불러온 상태에서 읽기 전용 확인 — 10개 노드 클릭 시 패널·버튼 활성 상태 전환, 콘솔 오류 0, 375px 폭 가로 넘침 없음. 데모 저장소 확인은 같은 폴더에 dev 서버를 하나 더 띄울 수 없어 하지 않았다.
+- 미확인: 새 화면에서 작업 동작 버튼(시작·완료·인계·승인·통합·푸시)의 끝까지 흐름. 서버 API는 바뀌지 않았고 회귀 검사가 덮지만 버튼 배선은 브라우저 미확인.
+- 성과·진척 HTML: `docs/collaboration/reports/pair-control-pipeline-ui-20261025.html` (전체 진척률 30/100 변동 없음).
+- 롤백: `git revert` 코드 커밋과 문서 커밋.

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pair-control 파이프라인 화면</title>
+<style>
+:root { --bg:#f6f6f3; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#dddcd6; --ok:#1f7a4d; --warn:#a15c00; --bad:#b3261e; --info:#2457a6; --chip:#efeee9; --code:#f1f0ec; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151514; --panel:#1f1f1d; --ink:#ecebe6; --muted:#a09f99; --line:#3a3935; --ok:#5cc28d; --warn:#e5ab45; --bad:#f07a70; --info:#7aa7f0; --chip:#2a2a27; --code:#262623; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+h1 { font-size: 20px; margin: 0; } h2 { font-size: 15px; margin: 0 0 8px; }
+.hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; } .stat span { color: var(--muted); font-size: 12px; }
+.mono, code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; }
+.pipe { display: flex; overflow-x: auto; gap: 0; list-style: none; padding: 0; margin: 8px 0; }
+.pipe li { flex: 1 0 78px; text-align: center; font-size: 12px; }
+.pipe i { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); font-style: normal; font-weight: 700; }
+.d i { background: var(--ok); border-color: var(--ok); color: #fff; } .a i { background: var(--warn); border-color: var(--warn); color: #fff; } .r i { border-color: var(--info); }
+.s i { border-style: dashed; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>pair-control 작업 화면 → 파이프라인 방식</h1>
+    <p class="muted">task <span class="mono">pair-control-pipeline-ui-20261025</span> · 담당 Claude · 브랜치 <span class="mono">claude/pair-control</span> · 2026-10-25</p>
+    <div class="hero">
+      <div class="stat"><span>전체 개발 진척률 (usable-card-analysis-v1.0)</span><b>30 / 100</b><span>변동 없음 — 이번 작업은 관제 도구 화면이며 카드 분석 모델 이정표가 아님</span></div>
+      <div class="stat"><span>검증한 코드 SHA</span><b class="mono" style="font-size:13px">fb4661e54c3de90c2cf57629516b2dfee8d7d121</b><span>기준 e7883780c3ca735ed3a3bb6d76117b0378d282c8</span></div>
+      <div class="stat"><span>이번 성과</span><b style="font-size:15px">단계 노드 10개 파이프라인</b><span>지금 단계·차례·대표 버튼을 한 줄로, 노드를 누르면 단계별 상세</span></div>
+      <div class="stat"><span>회귀 검사</span><b>67 / 67</b><span>npm test 통과(기존 60 + 단계 판정 7) · typecheck 통과 — 합성 검사</span></div>
+    </div>
+    <p class="small muted">진척률 출처: <span class="mono">development-progress.json</span>(main) score 30, max 100, criterion_version usable-card-analysis-v1.0 · <span class="mono">PROGRESS_CRITERIA.md</span>. 테스트 통과 수는 진척률과 무관합니다. 모델 학습·추론·Gemini/Codex/Claude 모델 호출 없음, 모델 성능 미평가.</p>
+  </section>
+
+  <section>
+    <h2>무엇이 바뀌었나</h2>
+    <p>이전: 단계가 "0. 실행 준비 / 1. Git 계약 검사 / 3-1. 메인 인계…" 같은 긴 세로 목록이고 버튼 20여 개가 한 번에 보여, 지금 무엇을 눌러야 하는지 알기 어려웠습니다.</p>
+    <p>이후: 작업마다 아래와 같은 단계 줄을 보여 주고, 위쪽 <b>지금 단계</b> 상자에 대표 버튼 하나만 둡니다. 다른 단계의 버튼은 그 노드를 눌렀을 때만 보입니다.</p>
+    <ol class="pipe" aria-label="예시(사용자 4111 서버의 실제 작업 task-1025-1 상태를 옮긴 것)">
+      <li class="d"><i>✓</i><br>1. 준비</li><li class="d"><i>✓</i><br>2. 구현</li><li class="d"><i>✓</i><br>3. Git 검사</li><li class="a"><i>!</i><br>4. 작업 테스트</li>
+      <li class="s"><i>–</i><br>5. 리뷰</li><li class="r"><i></i><br>6. 메인 인계</li><li><i></i><br>7. 사람 승인</li><li><i></i><br>8. 통합</li><li><i></i><br>9. 통합 후 검사</li><li><i></i><br>10. 푸시</li>
+    </ol>
+    <p class="small muted">✓ 완료 · ! 할 일(버튼을 눌러야 진행) · 파랑 진행 중 · – 건너뜀(선택 단계) · 회색 대기. 단계 상태는 서버 기록에서 화면이 파생하며 저장하지 않습니다. 서버 동작(실행기·workflow·API 의미)은 바꾸지 않았습니다.</p>
+  </section>
+
+  <section>
+    <h2>변경 파일 (기준 e788378 → fb4661e)</h2>
+    <div class="scroll"><table>
+      <tr><th>파일</th><th>내용</th><th>이름 있는 함수</th></tr>
+      <tr><td class="mono">tools/pair-control/src/ui/page.html</td><td>마크업·스타일만 남김(인라인 스크립트 제거)</td><td>36 → 0</td></tr>
+      <tr><td class="mono">src/ui/js/core.js</td><td>공용 화면 상태, esc·lbl·B·api·say</td><td>5</td></tr>
+      <tr><td class="mono">src/ui/js/stages.js</td><td>10단계 상태 파생(테스트·리뷰·인계·푸시 판정 포함)</td><td>6</td></tr>
+      <tr><td class="mono">src/ui/js/panels-work.js</td><td>준비·구현·Git 검사·작업 테스트·리뷰 패널</td><td>5</td></tr>
+      <tr><td class="mono">src/ui/js/panels-release.js</td><td>인계·승인·통합·통합 후 검사·푸시 패널, 푸시 기록</td><td>6</td></tr>
+      <tr><td class="mono">src/ui/js/view-task.js</td><td>지금 단계 상자, 노드 줄, 접힌 실행 정보·로그</td><td>3</td></tr>
+      <tr><td class="mono">src/ui/js/view-list.js</td><td>상단 연결·가드·한도·메인 역할·CLI 확인, 작업 카드 + 작은 단계 막대</td><td>5</td></tr>
+      <tr><td class="mono">src/ui/js/actions.js</td><td>data-act 위임 처리, 고정 경로표, 확인 문구, 결과 보관</td><td>7</td></tr>
+      <tr><td class="mono">src/ui/js/form.js · form-specs.js</td><td>새 작업 폼(기존 동작 그대로 이동)</td><td>7 · 5</td></tr>
+      <tr><td class="mono">src/ui/js/app.js</td><td>1초 갱신·로그 이어받기·입력 포커스 유지</td><td>3</td></tr>
+      <tr><td class="mono">src/mastra/index.ts</td><td><code>/pair/static/:file</code> 1개 추가(이름 형식 <code>^[a-z][a-z-]{0,30}\.js$</code>, src/ui/js 폴더만)</td><td>5 → 6</td></tr>
+      <tr><td class="mono">test/ui-stages.test.ts</td><td>단계 판정 단위 검사 7개</td><td>—</td></tr>
+      <tr><td class="mono">README.md · 작업 문서 · 이 보고서</td><td>화면 설명, 구조 수·호출 경로 기록</td><td>—</td></tr>
+    </table></div>
+    <p class="small">호출 깊이(최대 4회 전이) 최장 경로: <span class="mono">refresh → render → renderTask → panelApprove → testState</span>, <span class="mono">refresh → render → renderList → miniPipeline → esc</span>. 동적 경로: <code>ui.rerender</code>(= render), <code>ui.refreshNow</code>(= refresh), <code>setTimeout(updatePlan)</code>, 단계별 패널 표 <code>PANELS[key]</code>.</p>
+  </section>
+
+  <section>
+    <h2>실행한 검사</h2>
+    <table>
+      <tr><th>검사</th><th>결과</th></tr>
+      <tr><td class="mono">npm run typecheck</td><td class="ok">통과</td></tr>
+      <tr><td class="mono">npm test</td><td class="ok">67 통과 / 0 실패 (Node 24.21.0)</td></tr>
+      <tr><td class="mono">node --check src/ui/js/*.js</td><td class="ok">구문 오류 없음</td></tr>
+      <tr><td>브라우저(사용자 4111 서버, 실제 저장소 작업 1개) — 읽기 전용</td><td class="ok">10개 노드를 차례로 눌러 패널 전환·버튼 활성 상태 확인, 콘솔 오류 0, 375px 폭에서 가로 넘침 없음(단계 줄만 가로 스크롤)</td></tr>
+      <tr><td class="mono">git diff --check</td><td class="ok">통과</td></tr>
+    </table>
+    <h2 style="margin-top:12px">실행하지 않은 검사</h2>
+    <ul>
+      <li class="warn">작업 동작 버튼(시작·작업 완료·인계·승인·통합·푸시 등)을 새 화면에서 끝까지 눌러 보는 흐름 확인은 하지 않았습니다. 4111 서버가 사용자의 실제 저장소 설정으로 돌고 있고, 같은 폴더에서 데모 서버를 하나 더 띄울 수 없어서입니다. 서버 API·동작은 바뀌지 않았고 67개 회귀 검사가 그 동작을 덮지만, 새 버튼 배선 자체는 브라우저 미확인입니다.</li>
+      <li>모델 학습·추론·실제 CLI 모델 호출: 해당 없음(실행하지 않음).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>리스크 · 롤백</h2>
+    <ul>
+      <li>단계 판정은 화면 쪽 파생 규칙입니다. 서버 상태 이름이 바뀌면 <span class="mono">stages.js</span>와 단위 검사를 같이 고쳐야 합니다.</li>
+      <li>함수 수 해석(익명 인라인 콜백은 세지 않음)은 리뷰어 확인이 필요합니다. 실행기(<span class="mono">src/executor/executor.ts</span>)의 함수 수 초과는 이번 범위 밖 부채입니다.</li>
+      <li>롤백: <span class="mono">git revert fb4661e</span> (화면 코드) 와 문서 커밋을 되돌리면 이전 단일 HTML 화면으로 돌아갑니다. 서버 상태 파일·데이터는 건드리지 않았습니다.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
