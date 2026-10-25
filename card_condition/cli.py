@@ -61,8 +61,9 @@ def main():
     listing.add_argument('--observation-checkpoint', help='Optional frozen observation model; evidence only, no routing changes')
     listing.add_argument('--device', choices=('auto', 'cpu', 'mps'), default='auto')
     listing_predict = commands.add_parser('listing-predict')
-    listing_predict.add_argument('checkpoint')
+    listing_predict.add_argument('checkpoint', nargs='?', help='Direct checkpoint; omit when --release is used')
     listing_predict.add_argument('request', help='JSON with id and optional front/back photo inputs; no labels or split')
+    listing_predict.add_argument('--release', help='Pinned release manifest; verifies package version and checkpoint SHA256 before inference')
     listing_predict.add_argument('--batch-views', action='store_true')
     listing_predict.add_argument('--recall-checkpoint', help='Optional additional defect review model; no final verdict')
     listing_predict.add_argument('--observation-checkpoint', help='Optional face-level evidence; no routing changes')
@@ -261,7 +262,9 @@ def main():
         elif args.command == 'listing-predict':
             from .listing_model import ListingAnalyzer
             request = json.loads(Path(args.request).read_text())
-            result = ListingAnalyzer(args.checkpoint, args.device, observation_checkpoint=args.observation_checkpoint, recall_checkpoint=args.recall_checkpoint).analyze(request, batch_views=args.batch_views)
+            if (args.checkpoint is None) == (args.release is None):
+                raise ValueError('listing-predict requires exactly one of CHECKPOINT or --release')
+            result = ListingAnalyzer(args.checkpoint, args.device, observation_checkpoint=args.observation_checkpoint, recall_checkpoint=args.recall_checkpoint, release=args.release).analyze(request, batch_views=args.batch_views)
         elif args.command == 'input-review':
             from .input_review import input_review
             result = input_review(args.manifest, args.output, args.card)

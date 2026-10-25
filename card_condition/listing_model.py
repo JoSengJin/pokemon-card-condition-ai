@@ -7,6 +7,7 @@ from .data import LABELS
 from .recall_review import review_labels
 from .listing_readiness import listing_readiness
 from .listing_observation import observation_evidence
+from .release import check_loaded, read_release
 from .visibility_model import VisibilityAnalyzer
 from .region_model import RegionAnalyzer
 from .regions import GLARE_AREAS, REGION_TARGET_AREAS, validate_annotations
@@ -40,13 +41,25 @@ def photo_request(request):
 
 
 class ListingAnalyzer:
-    def __init__(self, checkpoint, device='auto', *, observation_checkpoint=None, recall_checkpoint=None):
+    def __init__(self, checkpoint=None, device='auto', *, observation_checkpoint=None, recall_checkpoint=None,
+                 release=None):
+        self.release = None
+        if release is not None:
+            if (checkpoint, observation_checkpoint, recall_checkpoint) != (None, None, None):
+                raise ValueError('Use either a release manifest or direct checkpoints, not both')
+            self.release, files = read_release(release)
+            checkpoint = files['region']
+            observation_checkpoint, recall_checkpoint = files.get('observation'), files.get('recall')
         self.region = RegionAnalyzer(checkpoint, device)
         self.recall = RegionAnalyzer(recall_checkpoint, device) if recall_checkpoint is not None else None
         if self.recall is not None and set(self.recall.meta["supported"]) != set(self.region.meta["supported"]):
             raise ValueError("Recall checkpoint must support the same defect labels")
         self.observation = (VisibilityAnalyzer(observation_checkpoint, device)
                             if observation_checkpoint is not None else None)
+        if self.release is not None:
+            check_loaded(self.release, dict(region=self.region.model_sha256,
+                observation=getattr(self.observation, 'model_sha256', None),
+                recall=getattr(self.recall, 'model_sha256', None)))
 
     def analyze(self, request, *, batch_views=False):
         if type(batch_views) is not bool:
@@ -104,4 +117,6 @@ class ListingAnalyzer:
                 verdict='review_only', automatic_rejection=False)
         if observation is not None:
             report['observation_evidence'] = observation
+        if self.release is not None:
+            report['release'] = copy.deepcopy(self.release)
         return report

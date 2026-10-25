@@ -506,6 +506,8 @@ result = analyzer.analyze(request, batch_views=True)
 
 CLI에서도 `listing-predict ... --observation-checkpoint CHECKPOINT`를 사용할 수 있다. 두 모델은 인스턴스 생성 시 한 번만 로딩하며 여러 매물 요청에 재사용한다. 선택 옵션이 없으면 기존 구역 분석 결과를 유지한다.
 
+고정 릴리스는 `card-condition listing-predict REQUEST.json --release RELEASE.json`으로 실행한다. manifest는 `release_id`, `package_version`, `input_contract`("listing-request-v1"), `checkpoints`(region 필수, observation·recall 선택, 각각 manifest 기준 상대 `file`과 `sha256`)만 가진다. 설치 패키지 버전·입력 계약·파일 SHA·실제 로드한 SHA가 하나라도 다르면 추론 전에 오류로 끝나며 결과를 출력하지 않는다. 결과의 `release`에 실행한 릴리스 ID·버전·SHA가 남는다. 직접 `CHECKPOINT` 인자와 함께 쓸 수 없고, 직접 실행 결과는 기존과 같다. 이전 버전 복구는 이전 wheel을 다시 설치하고 그 릴리스의 manifest로 실행한다(`tools/release/verify_install_rollback.py`가 합성 fixture로 A→B→A를 검증). 릴리스 고정은 품질 통과나 운영 채택을 뜻하지 않는다.
+
 관찰 모델은 앞/뒷면과 카드 영역을 받아 `observation_evidence`에 면별 점수만 추가한다. 누락 사진/영역은 점수 없이 사유를 기록한다. 미검토 면도 별도 관찰 신호는 계산할 수 있지만 사람 검토 값은 null이고 구역 판정은 미확인으로 유지한다. 낮은 점수로 반사 마스크를 해제하거나 높은 점수로 카드 불량·구매 제외를 확정하지 않는다. 사진 변경 검사는 두 모델의 실행이 모두 끝난 뒤 수행한다. 독립 최종평가와 실제 Gemini 호출 절감은 아직 없다.
 
 ### 0.4.55 모델 파일 오류 계약
