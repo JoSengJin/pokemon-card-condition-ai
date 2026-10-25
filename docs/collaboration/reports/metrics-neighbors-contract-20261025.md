@@ -52,3 +52,12 @@ task `metrics-neighbors-contract-20261025`, base `21809d54cf4d0f7d24ddcec1566ef4
 진척30/100 유지. 학습·모델 추론·외부 AI0회. HTML에 이 결과와 채택 결정 대기를 표시했다. 열기는 브라우저에 요청하되 렌더 확인과 구분해 최종 인계한다.
 
 롤백은 이번 인수 문서 커밋과 통합318362a,780f5c2,61090f6,b1c98ab,6beb408,dfd7917,a75ca29를 최신→과거 순서로 revert한다. 데이터/모델은 변경하지 않았다. 실제 채택은 사용자 결정 전까지 보류다.
+
+
+## 라벨 결정 후속 — 안전한 부분 채택
+
+사용자 위임으로 세 번째 검토의 안전한 부분만 채택했다. z앞면은 기존box와9개 구역정답을 함께 유지한다. 새box의 같은 index 칸이 옛칸을 완전히 포함하는 곳은 중앙1개뿐이므로 새9칸으로 정답을 일괄 이전하지 않는다. f앞/뒤·h뒤는 box/정답이 같은 것을 대조하고 box_reviewed=true만 반영했다.
+
+현재 채택본 artifacts/development-manifest-20261025c/combined-reviewed.jsonl (SHA360f11cf…), ADOPTION.json/DECISION.md에 기록. 원본/이전채택본/두후보/기존ADOPTION SHA불변, z행전체 동일을 단언했다. data_coverage의 units/typed_points는 box_reviewed를 제외한 전체 값 동일, cells는 unreviewed_box_units를 제외한 전체 값 동일을 확인했다. 정상/결함/미확인·실물 분모·수량충족2/20 불변. 이는 데이터 감사이며 모델 평가가 아니다.
+
+HTML에 결정과 현재채택본을 갱신했다. 진척30/100, 모델 학습·추론·외부AI0회. 새 코드·모델·진척 정본·trusted-experiment 변경 없음. 이번 파일변경은 Git제외 개발본/coverage/ADOPTION/결정기록과 추적 인수프롬프트·Markdown/HTML이다. 롤백은 새개발본을 사용하지 않고 b4604d1ef…를 다시 기준으로 선택하고 이번 문서커밋을 revert한다. 원격push는 이번 인수 요청대로 하지 않는다.
