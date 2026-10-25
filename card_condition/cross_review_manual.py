@@ -57,6 +57,10 @@ def save(path, value):
 
 def review_identity(packet, config):
     evidence = {key: value for key, value in packet.items() if key not in ('topic', 'manual_run_purpose','fresh_evidence_ids','freshness_reference')}
+    related = evidence.get('evidence', {}).get('related_code', {})
+    summary = related.get('summary', {}) if isinstance(related, dict) else {}
+    if isinstance(summary, dict) and summary.get('budget_truncated'):
+        evidence['evidence'] = dict(evidence['evidence'], related_code=dict(related, summary={key: value for key, value in summary.items() if key != 'excerpt'}))
     return digest([evidence, config['model'], config.get('prompt_version', VERSION)])
 
 
@@ -194,7 +198,7 @@ def review(base, interactive=False, automatic=False, max_new_calls=None, fresh=F
                 result_path = path.parent / 'result.json'
                 previous_result = json.loads(result_path.read_text()) if result_path.exists() else {}
                 response = previous_result.get('response')
-                usable = (previous_result.get('status') in ('compare', 'awaiting_comparison', 'unresolved',
+                usable = (previous_result.get('status') in ('compare', 'awaiting_comparison', 'unresolved', 'critique_recorded',
                           'experiment_selected', 'call_limit', 'repeated_claim', 'no_new_evidence_or_hypothesis')
                           and response_ok(response,previous_config.get('prompt_version', VERSION))
                           and korean_response_ok(response, previous_config.get('prompt_version', VERSION)))
