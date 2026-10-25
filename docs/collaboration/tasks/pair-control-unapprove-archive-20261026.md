@@ -2,7 +2,7 @@
 
 - task_id: `pair-control-unapprove-archive-20261026`
 - owner: Claude
-- status: implementing
+- status: handoff (코드 커밋 `2886fed7c830552f17c55ca95ed54fcf9aaa6797`)
 - base_sha: `0d01a1b` (claude/pair-control, 미커밋 변경 없음 확인)
 - 실행 Node: v24.21.0(nvm)
 
@@ -39,4 +39,10 @@
 
 ## 결과
 
-(인계 시 갱신)
+- 코드 커밋 `2886fed7c830552f17c55ca95ed54fcf9aaa6797` (검사는 같은 작업 트리에서 실행).
+- 함수 수: `taskControl.ts` 3(record·withdrawApproval·setArchived). `executor.ts`는 필드 1줄만, `workflow.ts`는 분기 1줄, `index.ts`는 경로 2개(인라인 처리기)로 함수 수 변화 없음. UI 모듈은 모두 7개 이하 유지(actions 7).
+- 호출 경로: `route → withdrawApproval → resumeStep | startReview → run.start` (전이 3).
+- checks: typecheck 통과, `npm test` 69/69(신규 2: 승인 취소 후 같은 SHA·검토 단계·에이전트 실행 수 불변·테스트 유효·재승인 후 통합 / 승인 전 거부·진행 중 보관 거부·보관 재시작 유지·해제).
+- 브라우저(4111, 실제 작업 2개): 통합 완료 작업은 보관 가능·승인 취소 꺼짐, 검토 중 작업은 보관 꺼짐. 보관 목록은 브라우저 안 상태만 바꿔 렌더 확인(서버 변경 없음). 새 경로 2개는 없는 task ID로만 호출해 존재 확인.
+- 미확인: 실제 작업에 승인 취소·보관 버튼을 눌러 보는 흐름(실제 작업 상태를 바꾸므로 하지 않음).
+- 롤백: 코드·문서 커밋 `git revert`. 보관 기록은 `archivedAt` 필드뿐이라 되돌려도 작업 기록은 그대로다.

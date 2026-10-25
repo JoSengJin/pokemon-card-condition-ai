@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pair-control 승인 취소·보관</title>
+<style>
+:root { --bg:#f6f6f3; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#dddcd6; --ok:#1f7a4d; --warn:#a15c00; --bad:#b3261e; --info:#2457a6; --chip:#efeee9; --code:#f1f0ec; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151514; --panel:#1f1f1d; --ink:#ecebe6; --muted:#a09f99; --line:#3a3935; --ok:#5cc28d; --warn:#e5ab45; --bad:#f07a70; --info:#7aa7f0; --chip:#2a2a27; --code:#262623; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+h1 { font-size: 20px; margin: 0; } h2 { font-size: 15px; margin: 0 0 8px; }
+.hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; } .stat span { color: var(--muted); font-size: 12px; }
+.mono, code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; }
+.pipe { display: flex; overflow-x: auto; gap: 0; list-style: none; padding: 0; margin: 8px 0; }
+.pipe li { flex: 1 0 78px; text-align: center; font-size: 12px; }
+.pipe i { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); font-style: normal; font-weight: 700; }
+.d i { background: var(--ok); border-color: var(--ok); color: #fff; } .a i { background: var(--warn); border-color: var(--warn); color: #fff; } .r i { border-color: var(--info); }
+.s i { border-style: dashed; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>pair-control 승인 취소 · 작업 보관</h1>
+    <p class="muted">task <span class="mono">pair-control-unapprove-archive-20261026</span> · 담당 Claude · 브랜치 <span class="mono">claude/pair-control</span> · 2026-10-26</p>
+    <div class="hero">
+      <div class="stat"><span>전체 개발 진척률 (usable-card-analysis-v1.0)</span><b>30 / 100</b><span>변동 없음 — 관제 도구 작업이며 카드 분석 모델 이정표가 아님</span></div>
+      <div class="stat"><span>검증한 코드 SHA</span><b class="mono" style="font-size:13px">2886fed7c830552f17c55ca95ed54fcf9aaa6797</b><span>기준 0d01a1b</span></div>
+      <div class="stat"><span>이번 성과</span><b style="font-size:15px">승인 취소 · 작업 보관</b><span>에이전트 재실행 없이 검토로 되돌리기, 끝난 작업 숨기기</span></div>
+      <div class="stat"><span>회귀 검사</span><b>69 / 69</b><span>npm test(기존 67 + 신규 2) · typecheck 통과 — 합성 검사</span></div>
+    </div>
+    <p class="small muted">진척률 출처: development-progress.json(main) score 30/100, usable-card-analysis-v1.0. 모델 학습·추론·모델 호출 없음, 모델 성능 미평가.</p>
+  </section>
+  <section>
+    <h2>무엇이 되나</h2>
+    <table>
+      <tr><th>기능</th><th>언제</th><th>결과</th></tr>
+      <tr><td>승인 취소</td><td>승인됨 · 통합 대기(잠금)</td><td>같은 SHA로 검토 단계. 에이전트 재실행 없음, 같은 SHA의 작업 테스트 결과 유지. 이전 workflow 실행은 integrate-gate에서 withdraw로 끝나고 재검토 실행이 이어받음.</td></tr>
+      <tr><td>보관</td><td>시작 전·실패·중단·거절·통합 완료</td><td>목록에서 숨김. 기록·작업 폴더·브랜치 그대로. "보관된 작업"에서 해제. 진행 중·검토·승인 대기 작업은 거부.</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>변경 파일 (0d01a1b → 2886fed)</h2>
+    <table>
+      <tr><th>파일</th><th>내용</th></tr>
+      <tr><td class="mono">src/executor/taskControl.ts</td><td>신규: withdrawApproval, setArchived (함수 3개)</td></tr>
+      <tr><td class="mono">src/executor/executor.ts</td><td>Task에 archivedAt 필드 1줄</td></tr>
+      <tr><td class="mono">src/workflow.ts</td><td>integrate-gate resume에 withdraw 분기</td></tr>
+      <tr><td class="mono">src/mastra/index.ts</td><td>POST tasks/:id/unapprove, tasks/:id/archive</td></tr>
+      <tr><td class="mono">src/ui/**</td><td>승인·통합 패널의 "승인 취소", 작업 머리말의 "보관/보관 해제", 접힌 보관 목록</td></tr>
+      <tr><td class="mono">test/task-control.test.ts</td><td>신규 검사 2개</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>실행한 검사</h2>
+    <ul>
+      <li class="ok">npm run typecheck 통과, npm test 69/69 (Node 24.21.0)</li>
+      <li class="ok">브라우저(4111): 실제 작업 2개에서 버튼 활성 상태 확인, 콘솔 오류 0. 보관 목록은 브라우저 안 상태만 바꿔 렌더 확인.</li>
+      <li class="ok">새 경로 2개: 없는 task ID로 호출해 "task 없음" 응답(경로 존재) 확인</li>
+    </ul>
+    <h2>실행하지 않은 검사</h2>
+    <ul><li class="warn">실제 작업에 승인 취소·보관을 눌러 보는 흐름. 실제 작업 상태를 바꾸므로 하지 않았습니다(같은 흐름은 mock 회귀 검사가 덮음).</li></ul>
+  </section>
+  <section>
+    <h2>리스크 · 롤백</h2>
+    <ul>
+      <li>승인 취소 중 이전 실행 재개가 실패하면(예: 실행이 review-gate에 남은 경우) 이벤트로 기록하고 재검토 실행을 계속 만든다. 이전 실행은 Mastra에 대기로 남을 수 있다.</li>
+      <li>보관은 화면 목록만 숨긴다. 충돌 검사·푸시 점검은 보관 여부와 무관하다.</li>
+      <li>롤백: <span class="mono">git revert 2886fed</span>와 문서 커밋. 보관 표시는 archivedAt 필드뿐이다.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
