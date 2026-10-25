@@ -5,6 +5,7 @@ import path from 'node:path';
 import { run } from './git.ts';
 import type { Agent, TaskInputT } from './contract.ts';
 import type { PairConfig } from './config.ts';
+import { scanArgs, scanClaudeSettings, scanEnv, type ChargeRisk } from './nocharge.ts';
 
 export interface Probe {
   agent: Agent;
@@ -22,7 +23,7 @@ export interface LaunchPlan { command: string; args: string[]; display: string[]
 /** 실제 실행에 필요하다고 가정하는 옵션. 설치된 CLI의 --help에서 실제로 보여야 사용한다. */
 const REQUIRED: Record<'codex' | 'claude', { help: string[]; flags: string[] }> = {
   codex: { help: ['exec', '--help'], flags: ['--cd', '--sandbox'] },
-  claude: { help: ['--help'], flags: ['--print', '--permission-mode'] },
+  claude: { help: ['--help'], flags: ['--print', '--permission-mode', '--allowedTools'] },
 };
 
 function findOnPath(name: string): string | null {
@@ -59,34 +60,61 @@ export function mockPlan(task: TaskInputT, cfg: PairConfig): LaunchPlan {
   };
 }
 
-export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig): LaunchPlan | { refused: string } {
-  if (!cfg.allowRealModelCalls) return { refused: '실제 모델 호출은 별도 승인 작업입니다(config.allowRealModelCalls=false).' };
-  if (!cfg.confirmedSubscriptionAuth) return { refused: '무료 가드: CLI가 기존 구독 로그인으로 동작하는지 미확인(config.confirmedSubscriptionAuth=false). API 과금 전환 방지를 위해 시작하지 않음.' };
-  if (!p.installed || !p.binary) return { refused: `${task.agent} CLI 미설치: ${p.note}` };
-  if (p.missingFlags.length) return { refused: `--help에서 확인되지 않은 옵션: ${p.missingFlags.join(', ')}` };
+/** 에이전트가 계약 범위에서 커밋까지 할 수 있게 허용하는 도구. 그 밖의 Bash는 -p 모드에서 자동 거부된다(docs: Manual mode). */
+export const CLAUDE_ALLOWED_TOOLS = ['Read', 'Edit', 'Write', 'Bash(git status *)', 'Bash(git diff *)', 'Bash(git log *)', 'Bash(git add *)', 'Bash(git commit *)'];
+
+export function agentPrompt(task: Pick<TaskInputT, 'taskId' | 'goal'>) {
   // 긴 지시는 커밋된 계약 파일에 있다. CLI 인자에는 계약 경로만 넘겨 인자 길이 제한을 피한다.
-  const prompt = `작업 계약 docs/collaboration/tasks/${task.taskId}.md 를 읽고 그대로 수행하세요. 계약 파일은 수정하지 마세요. 목표: ${task.goal}`;
-  if (task.agent === 'codex') {
-    // 옵션 이름은 --help로 확인하지만 값(workspace-write)은 실제 CLI에서 별도 확인 필요.
-    const args = ['exec', '--cd', task.worktree, '--sandbox', 'workspace-write', prompt];
-    return { command: p.binary, args, display: [p.binary, ...args.slice(0, -1), '<prompt>'],
-      permission: 'codex --sandbox workspace-write(값 미검증): worktree 쓰기 허용. 허용 파일 단위 제한은 아님(사후 검사).' };
-  }
-  const args = ['--print', '--permission-mode', 'acceptEdits', prompt];
-  return { command: p.binary, args, display: [p.binary, ...args.slice(0, -1), '<prompt>'],
-    permission: 'claude --permission-mode acceptEdits(값 미검증): 편집 자동 승인. 허용 파일 단위 제한은 아님(사후 검사).' };
+  return `작업 계약 docs/collaboration/tasks/${task.taskId}.md 를 읽고 그대로 수행하세요. 계약 파일은 수정하지 마세요. 목표: ${task.goal}`;
 }
 
-export interface Blocker { code: 'cli_missing' | 'cli_error' | 'flags_unverified' | 'real_calls_disabled' | 'subscription_unconfirmed' | 'not_checked'; message: string; fix: string }
+/** 시작 전 무과금 검사. 하나라도 있으면 실제 실행을 시작하지 않는다. */
+export function chargeRisks(agent: 'codex' | 'claude', cfg: PairConfig, ctx: { worktree?: string; env?: NodeJS.ProcessEnv; args?: string[] } = {}): ChargeRisk[] {
+  const home = cfg.homeDir;
+  return [
+    ...scanEnv(ctx.env ?? process.env),
+    ...(agent === 'claude' ? scanClaudeSettings({ worktree: ctx.worktree, env: ctx.env, home }) : []),
+    ...(ctx.args ? scanArgs(ctx.args) : []),
+  ];
+}
+
+export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig): LaunchPlan | { refused: string } {
+  if (!cfg.allowRealModelCalls) return { refused: '실제 모델 호출은 별도 승인 작업입니다(config.allowRealModelCalls=false).' };
+  if (!cfg.confirmedSubscriptionAuth) return { refused: '무과금 가드: CLI가 구독 로그인으로 동작하고 추가 크레딧이 꺼져 있음을 확인했다는 표시가 없음(config.confirmedSubscriptionAuth=false).' };
+  if (!p.installed || !p.binary) return { refused: `${task.agent} CLI 미설치: ${p.note}` };
+  if (p.missingFlags.length) return { refused: `--help에서 확인되지 않은 옵션: ${p.missingFlags.join(', ')}` };
+  const prompt = agentPrompt(task);
+  let plan: LaunchPlan;
+  if (task.agent === 'codex') {
+    // exec/--cd/--sandbox 이름은 --help로 확인한다. 값(workspace-write)은 실제 CLI에서 별도 확인 필요.
+    const args = ['exec', '--cd', task.worktree, '--sandbox', 'workspace-write', prompt];
+    plan = { command: p.binary, args, display: [p.binary, ...args.slice(0, -1), '<prompt>'],
+      permission: 'codex --sandbox workspace-write(값 미검증): worktree 쓰기 허용. 허용 파일 단위 제한은 아님(사후 검사).' };
+  } else {
+    // --print/--permission-mode(acceptEdits)/--allowedTools는 Claude Code 문서의 옵션이다. --bare는 구독 로그인을 쓰지 않으므로 쓰지 않는다.
+    const args = ['--print', '--permission-mode', 'acceptEdits', '--allowedTools', CLAUDE_ALLOWED_TOOLS.join(','), prompt];
+    plan = { command: p.binary, args, display: [p.binary, ...args.slice(0, -1), '<prompt>'],
+      permission: `claude --permission-mode acceptEdits + --allowedTools(${CLAUDE_ALLOWED_TOOLS.length}개): 편집 자동 승인, git 커밋만 허용. 허용 파일 단위 제한은 아님(사후 검사).` };
+  }
+  const risks = scanArgs(plan.args);
+  if (risks.length) return { refused: `무과금 가드: ${risks.map((r) => r.message).join('; ')}` };
+  return plan;
+}
+
+export type BlockerCode = 'cli_missing' | 'cli_error' | 'flags_unverified' | 'real_calls_disabled' | 'subscription_unconfirmed' | 'not_checked'
+  | 'paid_env' | 'settings_api_key' | 'settings_login_method' | 'settings_unreadable' | 'forbidden_flag' | 'limit_hit';
+export interface Blocker { code: BlockerCode; message: string; fix: string }
 
 /** 실제 모드 실행 가능 여부와 차단 원인. 원인마다 해결 조건을 함께 돌려준다(모델 요청 없이 판단). */
-export function realReadiness(agent: 'codex' | 'claude', p: Probe | undefined, cfg: PairConfig): { available: boolean; blockers: Blocker[] } {
+export function realReadiness(agent: 'codex' | 'claude', p: Probe | undefined, cfg: PairConfig, ctx: { worktree?: string; limit?: { detail: string } | null; env?: NodeJS.ProcessEnv } = {}): { available: boolean; blockers: Blocker[] } {
   const b: Blocker[] = [];
   if (!p) b.push({ code: 'not_checked', message: 'CLI 확인 전', fix: '"CLI 다시 확인"을 누르세요(--version/--help만 실행)' });
   else if (!p.installed && !p.binary) b.push({ code: 'cli_missing', message: `${agent} CLI 미설치`, fix: `${agent} CLI를 설치하거나 config.cli.${agent}에 실행 파일 경로를 지정` });
   else if (!p.installed) b.push({ code: 'cli_error', message: `${agent} 실행 실패: ${p.note}`, fix: '터미널에서 --version이 동작하는지 확인' });
   else if (p.missingFlags.length) b.push({ code: 'flags_unverified', message: `--help에서 확인되지 않은 옵션: ${p.missingFlags.join(', ')}`, fix: 'CLI 버전을 확인하고 어댑터 옵션을 갱신(별도 작업)' });
   if (!cfg.allowRealModelCalls) b.push({ code: 'real_calls_disabled', message: '실제 모델 호출 차단(기본값)', fix: '별도 승인 작업에서 config.allowRealModelCalls=true' });
-  if (!cfg.confirmedSubscriptionAuth) b.push({ code: 'subscription_unconfirmed', message: '구독 로그인 사용 여부 미확인', fix: '사용자가 CLI가 API 키가 아닌 기존 구독 로그인임을 확인한 뒤 config.confirmedSubscriptionAuth=true' });
+  if (!cfg.confirmedSubscriptionAuth) b.push({ code: 'subscription_unconfirmed', message: '구독 로그인·추가 크레딧 꺼짐 미확인', fix: '계정에서 구독 로그인(API 키 아님)과 추가 사용 크레딧이 꺼져 있음을 직접 확인한 뒤 config.confirmedSubscriptionAuth=true' });
+  for (const r of chargeRisks(agent, cfg, { worktree: ctx.worktree, env: ctx.env })) b.push({ code: r.code, message: r.message, fix: r.fix });
+  if (ctx.limit) b.push({ code: 'limit_hit', message: `구독 사용 한도 도달 상태: ${ctx.limit.detail}`, fix: '한도가 풀린 것을 확인한 뒤 "한도 해제 확인"(재시도·크레딧 구매는 하지 않음)' });
   return { available: b.length === 0, blockers: b };
 }

@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { writeJsonAtomic } from './store.ts';
-import { PAID_ENV_KEYS, PAID_LOG_PATTERNS } from './paidSignals.mjs';
+import { LIMIT_LOG_PATTERNS, PAID_ENV_KEYS, PAID_LOG_HARD, PAID_LOG_PATTERNS, PAID_LOG_SOFT } from './paidSignals.mjs';
 
 export { PAID_ENV_KEYS, PAID_LOG_PATTERNS };
 
@@ -16,7 +16,7 @@ export interface Alert { at: string; reason: string; detail: string; source: str
 
 export class FreeGuard {
   readonly alertFile: string;
-  constructor(stateDir: string, private onTrip: (a: Alert) => void) {
+  constructor(stateDir: string, private onTrip: (a: Alert) => void, private onLimit: (a: Alert) => void = () => {}) {
     this.alertFile = path.join(stateDir, 'alerts', 'paid-risk.json');
   }
 
@@ -29,12 +29,27 @@ export class FreeGuard {
     if (found.length) this.trip('paid_env', `과금 경로가 열릴 수 있는 환경변수 존재: ${found.join(', ')} (값은 기록하지 않음)`, 'server-env');
   }
 
-  scanLog(text: string, source: string) {
-    for (const re of PAID_LOG_PATTERNS) {
+  /**
+   * 우선순위: ① 확실한 과금 문구 → 서비스 종료 ② 구독 한도 도달 → 실행 정지(서비스는 유지) ③ 권유성 문구 → 서비스 종료.
+   * 한도 안내문에 섞인 "extra usage" 같은 문구를 과금으로 오인해 서비스를 끄지 않되, 한도 상태에서는 어떤 구매·재시도도 하지 않는다.
+   */
+  scanLog(text: string, source: string): 'paid' | 'limit' | null {
+    for (const re of PAID_LOG_HARD) {
       const m = text.match(re);
-      if (m) { this.trip('paid_log', `실행 로그에서 과금 신호 문구 감지: "${m[0]}"`, source); return true; }
+      if (m) { this.trip('paid_log', `실행 로그에서 과금 신호 문구 감지: "${m[0]}"`, source); return 'paid'; }
     }
-    return false;
+    for (const re of LIMIT_LOG_PATTERNS) {
+      const m = text.match(re);
+      if (m) {
+        this.onLimit({ at: new Date().toISOString(), reason: 'usage_limit', detail: `구독 사용 한도 도달 문구 감지: "${m[0]}"`, source });
+        return 'limit';
+      }
+    }
+    for (const re of PAID_LOG_SOFT) {
+      const m = text.match(re);
+      if (m) { this.trip('paid_log', `실행 로그에서 과금 신호 문구 감지: "${m[0]}"`, source); return 'paid'; }
+    }
+    return null;
   }
 
   trip(reason: string, detail: string, source: string) {

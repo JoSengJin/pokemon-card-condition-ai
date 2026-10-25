@@ -9,7 +9,8 @@ import { appendEvent, Store, writeJsonAtomic } from './store.ts';
 import { LockDir } from './locks.ts';
 import * as G from './git.ts';
 import { conflicts, effectiveGroups, isAllowed, needsDevelopLock, TaskInput, type ConflictReason, type TaskInputT } from './contract.ts';
-import { mockPlan, probe, realPlan, realReadiness, type LaunchPlan, type Probe } from './adapters.ts';
+import { chargeRisks, mockPlan, probe, realPlan, realReadiness, type LaunchPlan, type Probe } from './adapters.ts';
+import { scanArgs } from './nocharge.ts';
 import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
 import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
 import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
@@ -95,7 +96,9 @@ export interface Execution {
   tokens: '미측정'; cost: '미측정';
 }
 
-interface State { tasks: Record<string, Task>; executions: Record<string, Execution> }
+/** 구독 사용 한도 도달 상태. 과금이 아니라 정지 신호이며, 사용자가 풀렸음을 확인하기 전에는 실제 실행을 시작하지 않는다. */
+export interface LimitState { at: string; detail: string; source: string }
+interface State { tasks: Record<string, Task>; executions: Record<string, Execution>; limit?: LimitState | null }
 
 export type Resumer = (runId: string, step: string, data: Record<string, unknown>) => Promise<void>;
 
@@ -120,6 +123,12 @@ export class Executor {
       this.event('free_guard_trip', { ...a });
       this.cancelAll('무료 가드 발동');
       opts.onTrip?.(a);
+    }, (a) => {
+      if (this.state.limit) return;
+      this.state.limit = { at: a.at, detail: a.detail, source: a.source };
+      this.event('limit_hit', { detail: a.detail, source: a.source });
+      this.save();
+      this.cancelAll('구독 한도 도달');
     });
     this.tripped = this.guard.pending();
     this.recover();
@@ -129,6 +138,15 @@ export class Executor {
   setResumer(r: Resumer) { this.resumer = r; }
   get supervisorPath() { return path.join(this.cfg.toolRoot, 'src', 'executor', 'supervisor.mjs'); }
   get guardAlert() { return this.tripped; }
+  get limit() { return this.state.limit ?? null; }
+  /** 사용자가 한도가 풀렸음을 확인했을 때만 호출한다. 재시도·크레딧 구매는 하지 않는다. */
+  clearLimit() {
+    if (!this.state.limit) throw new UserError('한도 도달 상태가 아님');
+    this.event('limit_cleared', { was: this.state.limit.at });
+    this.state.limit = null;
+    this.save();
+    return null;
+  }
 
   private event(type: string, data: Record<string, unknown>) { appendEvent(this.cfg.stateDir, { type, lifetime: this.lifetime, ...data }); }
   private save() { this.store.save(); }
@@ -199,6 +217,14 @@ export class Executor {
       add('./develop 잠금 경로', ok, ok ? '모델·worker 경로 → worktree의 ./develop -- <CLI> 로 실행' : 'worktree에 실행 가능한 ./develop 없음');
     }
     add('과금 신호', !this.tripped, this.tripped ? `감지됨: ${this.tripped.detail}` : '감지 없음(무료 보장 아님)');
+    if (t.mode === 'real') {
+      // 실제 CLI는 구독 로그인으로만 시작한다. API 키·설정 주입·금지 옵션·한도 상태·사용자 확인 표시를 모두 본다.
+      const risks = chargeRisks(t.agent, this.cfg, { worktree: t.worktree });
+      for (const r of risks) add(`무과금: ${r.code}`, false, `${r.message} → ${r.fix}`);
+      if (!risks.length) add('무과금 검사', true, '환경변수·설정에서 API 과금 경로 없음(로그인 방식은 확인 불가 — 사용자 확인 표시에 의존)');
+      add('구독 확인 표시', this.cfg.confirmedSubscriptionAuth, this.cfg.confirmedSubscriptionAuth ? '사용자가 구독 로그인·추가 크레딧 꺼짐을 확인함' : 'config.confirmedSubscriptionAuth=false');
+      add('구독 한도', !this.state.limit, this.state.limit ? this.state.limit.detail : '한도 도달 없음');
+    }
     return c;
   }
 
@@ -778,11 +804,13 @@ export class Executor {
         display = ['node', 'mock/fake-reviewer.mjs', '--scenario', o.mockScenario ?? 'approve', '--bundle', '<리뷰 묶음>'];
       } else {
         this.probes[reviewer] = await probe(reviewer, this.cfg);
-        const rr = realReadiness(reviewer, this.probes[reviewer], this.cfg);
+        const rr = realReadiness(reviewer, this.probes[reviewer], this.cfg, { limit: this.state.limit });
         if (!rr.available) throw new UserError(`실제 ${reviewer} 리뷰 차단: ${rr.blockers.map((b) => b.message).join(', ')}`);
         const prompt = 'REVIEW_REQUEST.md를 읽고 판정 JSON을 마지막 줄에 출력하세요. 파일을 수정하지 마세요.';
         // 옵션 이름은 --help로 확인하지만 값(read-only, plan)은 실제 CLI에서 별도 확인 필요.
         args = reviewer === 'codex' ? ['exec', '--cd', bundleDir, '--sandbox', 'read-only', prompt] : ['--print', '--permission-mode', 'plan', prompt];
+        const argRisks = scanArgs(args);
+        if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
         command = this.probes[reviewer]!.binary!; display = [reviewer, ...args.slice(0, -1).map((a) => (a === bundleDir ? '<리뷰 묶음>' : a)), '<prompt>'];
       }
       t.review = { reviewId, reviewer, mode, sha, contractHash: t.contractHash, bundleDir, worktreeFingerprint: await this.worktreeFingerprint(t), status: 'running', startedAt: new Date().toISOString() };

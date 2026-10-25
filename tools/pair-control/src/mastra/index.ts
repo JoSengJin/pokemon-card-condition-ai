@@ -118,6 +118,7 @@ function buildRoutes() {
     }),
     registerApiRoute('/pair/api/tasks/:id/run-checks', { method: 'POST', handler: act(async (c) => ex().runChecks(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/recheck-env', { method: 'POST', handler: act(async (c) => ex().recheckEnv(id(c))) }),
+    registerApiRoute('/pair/api/limit/clear', { method: 'POST', handler: act(async () => ex().clearLimit()) }),
     registerApiRoute('/pair/api/probes', { method: 'POST', handler: act(async () => ex().refreshProbes()) }),
   ];
 }

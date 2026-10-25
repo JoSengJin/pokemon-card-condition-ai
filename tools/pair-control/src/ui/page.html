@@ -67,6 +67,7 @@ textarea { min-height: 54px; font-family: ui-monospace, Menlo, monospace; font-s
 #msg { min-height: 20px; }
 .connBar { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .small { font-size: 12px; }
+.banner.warnbox { border-color: var(--warn); color: var(--warn); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .specRow { display: grid; grid-template-columns: 1fr 120px; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 4px; }
 .specRow textarea { grid-column: 1 / -1; min-height: 40px; }
 .stage { border-top: 1px solid var(--line); padding: 8px 0; }
@@ -88,6 +89,7 @@ button.link { border: 0; background: none; color: var(--info); padding: 0 2px; t
 <div id="connBar" class="connBar"></div>
 <main>
   <div id="guardBanner" hidden class="banner"></div>
+  <div id="limitBanner" hidden class="banner warnbox"></div>
   <section>
     <details>
       <summary class="muted">고급 안내 — 상태 의미와 한계</summary>
@@ -394,6 +396,12 @@ function render() {
   const gb = $('#guardBanner');
   gb.hidden = !state.guard;
   if (state.guard) gb.textContent = '유료 전환 신호 감지로 서비스 중단: ' + state.guard.detail + ' (' + state.guard.at + '). 확인 후 npm run guard:ack';
+  const lb = $('#limitBanner');
+  lb.hidden = !state.limit;
+  if (state.limit) {
+    lb.innerHTML = '<span>구독 사용 한도 도달 — 실제 CLI 실행을 멈췄습니다(재시도·크레딧 구매는 하지 않음). ' + esc(state.limit.detail) + ' (' + esc(state.limit.at) + ')</span><button id="bClearLimit">한도가 풀린 것을 확인함</button>';
+    $('#bClearLimit').onclick = () => confirm('구독 한도가 풀렸고 추가 크레딧 없이 계속 쓸 수 있음을 확인했습니까?') && act('한도 해제', () => api('limit/clear', {}));
+  }
   renderRows(); renderDetail(); renderProbes();
 }
 

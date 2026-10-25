@@ -18,6 +18,8 @@ export interface PairConfig {
   cli: { codex?: string | null; claude?: string | null };
   stateDir: string;
   toolRoot: string;
+  /** Claude 설정 검사에 쓰는 홈 폴더. 테스트에서만 바꾼다(기본 os.homedir()). */
+  homeDir?: string;
 }
 
 export function findToolRoot(start = process.cwd()): string {

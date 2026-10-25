@@ -40,12 +40,16 @@ function boot(dir: string, cfg: PairConfig, fixture: any, trips: Alert[]): Env {
   return env;
 }
 
-export function setup(): Env {
+export const fakeCli = { claude: path.join(toolRoot, 'test', 'fake-cli', 'claude'), codex: path.join(toolRoot, 'test', 'fake-cli', 'codex') };
+
+export function setup(over: Partial<PairConfig> = {}): Env {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pair-control-test-'));
   const fixture = makeFixture(path.join(dir, 'fx'), toolRoot);
+  fs.mkdirSync(path.join(dir, 'home'), { recursive: true });
   const cfg = loadConfig({
     toolRoot, stateDir: path.join(dir, 'state'), repo: fixture.repo,
     integration: { checkout: fixture.repo, branch: 'main' }, worktreeRoot: path.join(dir, 'fx'), port: 4111, allowRealModelCalls: false, confirmedSubscriptionAuth: false, cli: {},
+    homeDir: path.join(dir, 'home'), ...over,
   });
   return boot(dir, cfg, fixture, []);
 }

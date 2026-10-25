@@ -112,7 +112,7 @@ export async function snapshot() {
   tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     now: new Date().toISOString(), lifetime: ex.lifetime, mode: ex.cfg.allowRealModelCalls ? 'real-allowed' : 'mock-only',
-    guard: ex.guardAlert, probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
+    guard: ex.guardAlert, limit: ex.limit, probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
   };
 }
 
@@ -124,7 +124,7 @@ export function connection(ex: Executor) {
   const kind = !repo ? 'unconfigured' : real(repo).startsWith(real(demoRoot) + path.sep) ? 'demo' : 'real';
   return {
     kind, repo, integrationBranch: ex.cfg.integration.branch, integrationCheckout: ex.cfg.integration.checkout,
-    realRun: { codex: realReadiness('codex', ex.probes.codex, ex.cfg), claude: realReadiness('claude', ex.probes.claude, ex.cfg) },
+    realRun: { codex: realReadiness('codex', ex.probes.codex, ex.cfg, { limit: ex.limit }), claude: realReadiness('claude', ex.probes.claude, ex.cfg, { limit: ex.limit }) },
     mockRun: { available: true, note: '모델 요청 없는 mock 프로세스. 실제 코드 품질을 검증하지 않음.' },
   };
 }

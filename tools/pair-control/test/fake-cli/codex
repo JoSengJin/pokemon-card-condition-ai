@@ -1,0 +1,27 @@
+#!/usr/bin/env node
+// 가짜 codex CLI(테스트 전용). 모델 요청·네트워크 없음.
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+const args = process.argv.slice(2);
+if (args.includes('--version')) { console.log('fake-codex 0.0.0'); process.exit(0); }
+if (args[0] === 'exec' && args.includes('--help')) {
+  console.log('Usage: codex exec [OPTIONS] [PROMPT]\n  -C, --cd <DIR>        Working directory\n  -s, --sandbox <MODE>  Sandbox policy (read-only, workspace-write)');
+  process.exit(0);
+}
+const cd = args[args.indexOf('--cd') + 1];
+const prompt = args[args.length - 1] || '';
+console.log('[fake-codex] args: ' + args.slice(0, -1).join(' '));
+console.log('[fake-codex] OPENAI_API_KEY: ' + (process.env.OPENAI_API_KEY ? 'PRESENT' : 'absent') + ' CODEX_API_KEY: ' + (process.env.CODEX_API_KEY ? 'PRESENT' : 'absent'));
+process.chdir(cd);
+if (prompt.includes('[fake:limit]')) { console.log('You have reached your usage limit. Try again later.'); process.exit(1); }
+const m = prompt.match(/docs\/collaboration\/tasks\/([a-z0-9._-]+)\.md/);
+const text = fs.readFileSync(`docs/collaboration/tasks/${m[1]}.md`, 'utf8');
+const json = JSON.parse(text.match(/```json\n([\s\S]*?)\n```/)[1]);
+let file = json.allowed_files[0];
+if (file.endsWith('/')) file += `fake-${m[1]}.txt`;
+fs.mkdirSync(path.dirname(file) || '.', { recursive: true });
+fs.appendFileSync(file, `fake codex change for ${m[1]}\n`);
+const git = (...a) => execFileSync('git', ['-c', 'user.name=fake-codex', '-c', 'user.email=fake@localhost', ...a], { stdio: 'pipe' }).toString();
+git('add', '--', file); git('commit', '-q', '-m', `feat(fake): ${m[1]} 변경`);
+console.log('[fake-codex] 커밋 ' + git('rev-parse', 'HEAD').trim());

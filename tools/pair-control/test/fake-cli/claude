@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+// 가짜 claude CLI(테스트 전용). 모델 요청·네트워크 없음. --version/--help에 실제 CLI 문서의 옵션 이름을 흉내낸다.
+// 실행 모드에서는 계약 파일의 allowed_files[0]에 한 줄을 쓰고 커밋한다. 시나리오는 프롬프트의 목표 문구로 정한다.
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+const args = process.argv.slice(2);
+if (args.includes('--version')) { console.log('fake-claude 0.0.0'); process.exit(0); }
+if (args.includes('--help')) {
+  console.log('Usage: claude [options] [prompt]\n  -p, --print                 Print response and exit\n  --permission-mode <mode>    Permission mode\n  --allowedTools <tools>      Tools to auto-approve\n  --bare                      (fake) minimal mode');
+  process.exit(0);
+}
+const prompt = args[args.length - 1] || '';
+console.log('[fake-claude] args: ' + args.slice(0, -1).join(' '));
+console.log('[fake-claude] ANTHROPIC_API_KEY: ' + (process.env.ANTHROPIC_API_KEY ? 'PRESENT' : 'absent') + ' OPENAI_API_KEY: ' + (process.env.OPENAI_API_KEY ? 'PRESENT' : 'absent'));
+console.log('[fake-claude] cwd: ' + path.basename(process.cwd()));
+if (prompt.includes('[fake:limit]')) { console.log("You've hit your session limit · resets 3pm. Enable extra usage to keep going."); process.exit(1); }
+if (prompt.includes('[fake:paid]')) { console.log('Your credit balance is too low to access the API.'); process.exit(1); }
+const m = prompt.match(/docs\/collaboration\/tasks\/([a-z0-9._-]+)\.md/);
+if (!m) { console.error('no contract path in prompt'); process.exit(2); }
+const text = fs.readFileSync(path.join(process.cwd(), `docs/collaboration/tasks/${m[1]}.md`), 'utf8');
+const json = JSON.parse(text.match(/```json\n([\s\S]*?)\n```/)[1]);
+let file = json.allowed_files[0];
+if (file.endsWith('/')) file += `fake-${m[1]}.txt`;
+fs.mkdirSync(path.dirname(file) || '.', { recursive: true });
+fs.appendFileSync(file, `fake claude change for ${m[1]}\n`);
+const git = (...a) => execFileSync('git', ['-c', 'user.name=fake-claude', '-c', 'user.email=fake@localhost', ...a], { stdio: 'pipe' }).toString();
+git('add', '--', file); git('commit', '-q', '-m', `feat(fake): ${m[1]} 변경`);
+console.log('[fake-claude] 커밋 ' + git('rev-parse', 'HEAD').trim());
