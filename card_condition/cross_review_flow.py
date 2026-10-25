@@ -211,7 +211,9 @@ def run_codex_first(root,folder,result,backend=None,gemini_caller=None,token_bud
         if state.get('stored_response_reuse'):
             context['stored_review_notice']='Archived responses used earlier inputs, not this shared_core. Original critic opinions do not imply approval of the revision. Independently check the revised proposal.'
         # The complete critic text is retained. Oversize input blocks before calling the judge.
-        entry=judge_review(root,folder,dict(result,deadline=state['deadline']),role='judge',context=context)
+        from .cross_review_judge_projection import judge_packet
+        context['evidence_scope_note']='최신 수치·기준·과거 실패 이유는 유지. 과거 코호트의 개별 대조 수치는 요약하고 미통과 ID·오류 건수만 전달함. 원본은 각 근거 path/SHA에 보존됨. No evidence omitted 문구는 $ref 대상이 누락되지 않았다는 뜻임.'
+        entry=judge_review(root,folder,dict(result,packet=judge_packet(packet),deadline=state['deadline']),role='judge',context=context)
         if not entry or entry.get('status')!='complete':
             if reply['action']=='select':
                 # The debate itself finished; keep its outcome for the next development step. It is NOT
