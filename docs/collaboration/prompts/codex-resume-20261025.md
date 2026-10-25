@@ -43,3 +43,11 @@ git diff --check
 - 실제 학습·모델 비교는 기본 checkout에서 `./experiment --plan <계획.json> -- <명령>`으로 한 번에 하나만 실행한다. 사전 가설·수치 기준을 먼저 확정한다.
 - 휴먼인루프는 사용자 요청으로 일시 중지된 상태다. 재개 여부는 사용자가 정한다. 이미 답한 라벨은 다시 묻지 않는다.
 - Claude 쪽 주장(검사 통과·미결함)은 통합 후 Codex가 다시 실행해 확인한 것만 최종 기록으로 삼는다.
+
+## 6. 휴먼인루프 재개와 새 개발 manifest (기본 checkout의 Git 제외 artifacts)
+
+- 2026-10-25 사용자가 라벨 검토 화면에서 카드 h를 정정했다: 뒷면 표면 정답 0→1과 결함점 2개, 앞면 box_reviewed. 29개 요청 구역의 정답은 저장되지 않아 미확인으로 남았다(재질문 금지).
+- 사용자가 이 정정을 **새 개발 manifest로 채택**했다. 새 파일: `artifacts/development-manifest-20261025/combined-reviewed.jsonl`(SHA `5b2f3f9e…`), 채택 기록 `ADOPTION.json`. 원본 `artifacts/gengar-edge-learning-20261017/combined-reviewed.jsonl`은 SHA `d971dbca…` 그대로다.
+- 이전 manifest 기준 실험·수치와 이 manifest 기준 수치는 h의 정답이 달라 개선으로 비교하지 않는다. 새 실험은 새 manifest를 쓴다고 계획에 명시한다.
+- 데이터 부족표 변화는 train 뒷면 표면 하나뿐이다(양성 43/17→44/18). A3 미충족, 진척 점수 30/100 그대로. 검토 서버는 종료했고 모델·학습·외부 AI는 쓰지 않았다.
+- `trusted-experiment.json`과 `development-progress.json`은 변경하지 않았다. 기존 경로를 참조하는 곳이 있으면 Codex가 판단한다.
