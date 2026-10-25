@@ -2,7 +2,7 @@
 
 - task_id: `pair-control-real-cli-20261025`
 - owner: Claude
-- status: implementing
+- status: ready_for_review
 - base_sha: `0e5171b40bfa635ab547e599e3f2c4cb6d2d7200` (시작 HEAD, 미커밋 변경 없음 확인)
 - branch: `claude/pair-control`
 - 실행 Node: package.json `engines.node >=22` → nvm v24.21.0 (로그인 셸 기본 Node 18은 사용하지 않음)
@@ -56,4 +56,8 @@ pair-control이 실제 Claude Code·Codex CLI(구독 로그인)로 작업을 진
 
 ## 결과
 
-(인계 시 갱신)
+- 구현 커밋: `7959078` → `cc09adc` → `6c974f2` → `98fc520` → `204015a` → `6fe6658`, 이후 인계 기록 커밋. 전체 SHA·부모는 보고서 참조.
+- 검사: `npm run typecheck` 오류 없음, `npm test` 60/60 통과(Node 24.21.0), `git diff --check` 통과, 변경 파일 전부 allowed_files 안.
+- 브라우저: 데모 저장소·로컬 bare 원격에서 수동 모드부터 푸시·되돌림 푸시까지 화면 버튼으로 진행하고 원격 상태를 별도로 확인.
+- 미검증: 실제 Claude/Codex 실행·한도 문구·로그인 방식 확인, 실제 GitHub 푸시, 실제 저장소 적용. 상세는 `docs/collaboration/reports/pair-control-real-cli-20261025.md`.
+- 인계 직후 작업 트리: 깨끗함(`git status --short` 출력 없음).
