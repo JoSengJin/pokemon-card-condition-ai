@@ -1,7 +1,7 @@
-card_id,side,question,area,photo_decoded_sha256,rights_recorded,duplicate_check,box_reviewed,reviewer_A_value,reviewer_B_value,agreement,final_value,final_by,adjudication_note,A_card_started_at,A_card_finished_at,B_card_started_at,B_card_finished_at,adjudication_seconds,audit_selected,audit_changed,guideline_version
-P01,front,centering_defect,face,,,,,,,,,,,,,,,,,,v0.1
-P01,front,observation_limited,face,,,,,,,,,,,,,,,,,,v0.1
-P01,front,corner_defect,upper_left,,,,,,,,,,,,,,,,,,v0.1
-P01,front,edge_defect,upper_center,,,,,,,,,,,,,,,,,,v0.1
-P01,front,surface_defect,center,,,,,,,,,,,,,,,,,,v0.1
-P01,back,centering_defect,face,,,,,,,,,,,,,,,,,,v0.1
+card_id,side,question,area,photo_decoded_sha256,rights_recorded,duplicate_check,box_reviewed,reviewer_A_value,reviewer_B_value,agreement,final_value,final_by,adjudication_note,A_card_started_at,A_card_finished_at,B_card_started_at,B_card_finished_at,adjudication_seconds,audit_selected,audit_changed,audit_seconds,guideline_version
+P01,front,centering_defect,face,,,,,,,,,,,,,,,,,,,v0.1
+P01,front,observation_limited,face,,,,,,,,,,,,,,,,,,,v0.1
+P01,front,corner_defect,upper_left,,,,,,,,,,,,,,,,,,,v0.1
+P01,front,edge_defect,upper_center,,,,,,,,,,,,,,,,,,,v0.1
+P01,front,surface_defect,center,,,,,,,,,,,,,,,,,,,v0.1
+P01,back,centering_defect,face,,,,,,,,,,,,,,,,,,,v0.1

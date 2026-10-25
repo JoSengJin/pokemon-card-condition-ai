@@ -10,6 +10,16 @@
 
 ## 입력과 고정 기준
 
+### 현재 적용 기준 — Codex 통합 보완, 2026-10-25
+
+현재 채택본은 `artifacts/development-manifest-20261025d/combined-reviewed.jsonl`, SHA256 `ad021468b3cd4483b6b335f3b170e452343b6001808725e9faedc4f6635aa935`다. 해당 `ADOPTION.json`·`DECISION.md`·`coverage.json`을 따른다. c는 아래 최초 계약의 이력이자 d의 롤백 기준으로 보존한다. 앞으로 실행할 때 아래 단계1의 "기존 c coverage"는 d 기준과 대조한다. 이전 c 기준의 패킷·수치를 새 d 결과로 간주하지 않는다.
+
+라운드1의 정답·결함점3개·영역 확인을 d에 채택했다. 삭제 정답0, 저장 구역정답0이며 라운드1의12개 질문은 재요청하지 않는다. round2-live는 저장 전 사본과 바이트 동일함을 통합 검사에서 재확인했다. 다음 검토는 사용자가 요청할 때만 기본 checkout에서 연다. 영역 확인 후 저장→raw 재읽기·SHA/기존값 대조→별도 채택 순서다. box를 바꾸기만 해서는 정상 예제의 유효성이 입증되지 않으므로 기존 라벨과 새 좌표의 관계를 감사한다.
+
+평가 정답 생성에서는 inventory의 `with_suffix('.drafts.json')` 경로에 파일·심볼릭 링크가 없는지 확인하고, AI 후보·모델 출력·다른 검수자의 답이 저장된 필드나 화면도 노출하지 않는다. 2인 판정 전 사진과 box를 고정한다. 독립 시험(D1)은 개발에 노출하지 않으며 별도 보관자의 비노출 집계 설계만 [통합 보고서](../reports/data-acquisition-integration-20261025.md)에 기록한다. 새 라벨 요청·수집·파일럿 실행은 이번 통합 범위 밖이다.
+
+### 최초 계약의 입력 이력 — c 기준, 보존
+
 채택본은 기본 checkout의 artifacts/development-manifest-20261025c/combined-reviewed.jsonl, SHA256 360f11cfdaaa61db103dd3f51e3c7e321ea3c0e5a69906cf872b10756dfaa932 이다. ADOPTION.json·DECISION.md·coverage.json을 함께 확인한다. 이전 b와 정답은 같고 f 앞뒤/h 뒤의 box_reviewed만 반영됐다. z는 기존 box와 표면 양성 9개를 그대로 보존했다. 새 z box를 채택하거나 구역 정답을 옮기지 않는다.
 
 A3 원문: 센터링·모서리·엣지·표면·관찰제한의 앞뒤별 개발 평가에 양성/정상 각각20판정단위·각5실물이상 확보, 좌표평가 대상은 올바른 종류의 기존점·정상대조 출처 감사, 분모·지원범위·결측표를 버전동결한다. 전체 진척 30/100, A3는 pending/0점이며 전부 충족할 때만 +5점이다. 독립 시험 D1은 별도다.
