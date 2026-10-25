@@ -2,7 +2,7 @@
 
 - task_id: data-acquisition-integration-20261025
 - owner: Codex
-- status: integrated (문서 검증 완료; 실제 HTML 렌더/390px 확인은 도구 정책으로 차단)
+- status: integrated (문서 검증 완료; HTML 렌더/390px 확인은 이후 Claude 대행으로 완료 — 보고서 후속 절)
 - base_sha: e7cdfe5 (Claude 두 커밋을 순서대로 cherry-pick한 main; 전체 SHA는 최종 보고서에 기록)
 - goal: d coverage·문서 20행 대조, 두 HTML의 390px/기본 폭 렌더 확인, 평가 정답 절차와 D1 비노출 집계 설계를 보완한 뒤 main 일반 push.
 - authorization: 사용자 인계의 Codex 할 일 1·2·4·5. 라벨 요청·협력자 연락·다운로드·학습·추론·자동 검토는 금지.

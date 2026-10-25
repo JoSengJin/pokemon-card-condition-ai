@@ -2,7 +2,7 @@
 
 - task_id: gold-example-selection-20261025
 - owner: Claude
-- status: ready_for_review
+- status: integrated (main `32c407c`, Codex 부재로 Claude가 사용자 지시에 따라 대행 통합)
 - base_sha: c8315fff4668dae573e0de41c75556db55ea8e38 (data-acquisition-followup 인계 커밋 다음에 통합)
 - branch: claude/gold-example-selection-20261025
 - 배정 경위: 사용자가 선택 페이지에서 저장한 결과를 기록하도록 이 세션에서 요청했다. 인계한 이전 브랜치에는 커밋하지 않았다.
