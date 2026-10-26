@@ -68,6 +68,10 @@ def main():
     listing_predict.add_argument('--recall-checkpoint', help='Optional additional defect review model; no final verdict')
     listing_predict.add_argument('--observation-checkpoint', help='Optional face-level evidence; no routing changes')
     listing_predict.add_argument('--device', choices=('auto', 'cpu', 'mps'), default='auto')
+    listing_predict.add_argument('--usage-log', help='Append one JSON usage record per request (timings, outcome, hold counts, release); a record that cannot be written fails the request')
+    pilot_summary = commands.add_parser('pilot-summary', help='Measured F2 pilot conditions from a usage log; never certifies a pilot')
+    pilot_summary.add_argument('log')
+    pilot_summary.add_argument('--reviews', nargs='*', default=[], help='listing-review-record files linked by exact report SHA')
     listing_review = commands.add_parser('listing-review', help='Static page to review one listing-predict result')
     listing_review.add_argument('report', help='listing-predict JSON output')
     listing_review.add_argument('request', help='The same request JSON given to listing-predict')
@@ -269,10 +273,23 @@ def main():
             result = infer_listings(args.manifest, args.checkpoint, args.output, args.device, args.observation_checkpoint, args.batch_views, args.profile_memory)
         elif args.command == 'listing-predict':
             from .listing_model import ListingAnalyzer
-            request = json.loads(Path(args.request).read_text())
-            if (args.checkpoint is None) == (args.release is None):
-                raise ValueError('listing-predict requires exactly one of CHECKPOINT or --release')
-            result = ListingAnalyzer(args.checkpoint, args.device, observation_checkpoint=args.observation_checkpoint, recall_checkpoint=args.recall_checkpoint, release=args.release).analyze(request, batch_views=args.batch_views)
+            from .pilot_record import UsageRecorder
+            usage = UsageRecorder(args.usage_log, args.release)
+            try:
+                request = json.loads(Path(args.request).read_text())
+                usage.start(request)
+                if (args.checkpoint is None) == (args.release is None):
+                    raise ValueError('listing-predict requires exactly one of CHECKPOINT or --release')
+                analyzer = ListingAnalyzer(args.checkpoint, args.device, observation_checkpoint=args.observation_checkpoint, recall_checkpoint=args.recall_checkpoint, release=args.release)
+                usage.loaded()
+                result = analyzer.analyze(request, batch_views=args.batch_views)
+                usage.finish(result)
+            except Exception as exc:
+                usage.fail(exc)
+                raise
+        elif args.command == 'pilot-summary':
+            from .pilot_summary import summarize
+            result = summarize(args.log, args.reviews)
         elif args.command == 'listing-review':
             from .listing_review import review_page
             result = review_page(args.report, args.request, args.output)

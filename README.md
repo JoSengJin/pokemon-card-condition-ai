@@ -510,6 +510,8 @@ CLI에서도 `listing-predict ... --observation-checkpoint CHECKPOINT`를 사용
 
 결과 검토는 `card-condition listing-review REPORT.json REQUEST.json --output PAGE.html`로 정적 페이지를 만든다. 분석한 사진과 SHA가 다르거나 다른 매물이면 만들지 않는다. 페이지는 원본 사진·사람 카드 영역의 3×3 근거 구역·릴리스와 model SHA·칸별 판정/점수/보류 이유·전체 판정 불가 사유를 보여 주고, 칸마다 confirmed/corrected_defect/corrected_normal/undecidable을 골라 JSON으로 내보낸다. `card-condition listing-review-record REPORT.json DECISIONS.json --output RECORD.json`은 같은 결과 SHA와 모든 칸을 확인해 별도 검토 기록을 쓰며, 미검토 칸이 있으면 완료가 아니다. 이 기록은 정답 라벨·학습 자료가 아니고 모델 판정을 바꾸지 않는다.
 
+승인된 보조·shadow 사용을 측정하려면 `listing-predict ... --usage-log USAGE.jsonl`을 붙인다. 요청마다 한 줄(결과 SHA, 릴리스, 시작·총·분석 시간, 보류·결함 칸 수와 보류 이유, 실패 유형)을 O_APPEND로 쓰며 사진 경로와 오류 문장은 쓰지 않는다. 기록을 쓸 수 없으면 그 요청은 실패로 끝나 결과를 출력하지 않는다. 실패한 요청도 시도한 릴리스 manifest의 `release_id`로 귀속한다. CLI는 요청마다 새 프로세스라 항상 cold이고, 같은 `UsageRecorder`로 `start()`/`finish()`를 반복하는 API 소비자만 warm 기록을 만든다. `card-condition pilot-summary USAGE.jsonl [--reviews RECORD.json ...]`은 릴리스별로 기간·요청 수·고유 요청 id·warm 앞뒤 한 쌍 p95와 동시성·기록된 실패율·사람 정정 수를 계산해 F2 문턱과 대조한다. 계산하지 못하는 조건(정상 카드 거짓 경고율, Gemini 호출·검토 시간 변화, 승인·실물 신원)은 `not_computed`로 남기며 `pilot_certified`는 항상 false다.
+
 관찰 모델은 앞/뒷면과 카드 영역을 받아 `observation_evidence`에 면별 점수만 추가한다. 누락 사진/영역은 점수 없이 사유를 기록한다. 미검토 면도 별도 관찰 신호는 계산할 수 있지만 사람 검토 값은 null이고 구역 판정은 미확인으로 유지한다. 낮은 점수로 반사 마스크를 해제하거나 높은 점수로 카드 불량·구매 제외를 확정하지 않는다. 사진 변경 검사는 두 모델의 실행이 모두 끝난 뒤 수행한다. 독립 최종평가와 실제 Gemini 호출 절감은 아직 없다.
 
 ### 0.4.55 모델 파일 오류 계약
