@@ -7,6 +7,7 @@ from .evaluation_inputs import track_photos, reject_copied_test_groups, unchange
 from .evaluation_output import write_new_report
 from .point_probe import digest
 from .quality_rates import error_rates
+from .physical_uncertainty import physical_uncertainty
 from .data import LABELS, load_manifest
 from .side_model import SideAnalyzer
 from .side_experiment import side_rows, score
@@ -52,6 +53,8 @@ def evaluate_sides(manifest, checkpoint, output, kind, history=(), device='auto'
     metrics,predictions=score(rows,probabilities,meta['supported'])
     if not any(sum(counts.values()) for counts in metrics.values()):
         raise ValueError('No scored supported test labels')
+    uncertainty_rows = [dict(prediction, group=row['group'], side=row['side'])
+                        for row, prediction in zip(rows, predictions)]
     unchanged_inputs(input_hashes)
     report = {'evaluation_kind':kind,'n_cards':len({r['group'] for r in rows}),'n_sides':len(rows),
               'metrics':metrics,'rates_at_05':{k:error_rates(v) for k,v in metrics.items()},
@@ -59,6 +62,7 @@ def evaluate_sides(manifest, checkpoint, output, kind, history=(), device='auto'
               'history':history_receipts,'model_sha256':input_hashes[str(Path(checkpoint).resolve())],
               'manifest_sha256':input_hashes[str(Path(manifest).resolve())],
               'preprocessing':'human box + four overlapping tiles' if meta.get('tiles',False) else ('human box crop' if meta['crop'] else 'full photo'),
+              'physical_card_uncertainty':physical_uncertainty(uncertainty_rows, meta['supported']),
               'requires_gemini':True,'production_ready':False,'actual_calls_saved':0,
               'limitations':['Checks exact pixels/ids/groups in supplied history only; other photos of the same card require human grouping.',
                               'Final results must not be reused to tune the model; crop mode assumes human boxes.']}

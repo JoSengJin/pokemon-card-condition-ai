@@ -7,6 +7,7 @@ from .evaluation_inputs import track_photos, reject_copied_test_groups, unchange
 from .evaluation_output import write_new_report
 from .point_probe import digest
 from .quality_rates import error_rates
+from .physical_uncertainty import physical_uncertainty
 from .data import load_manifest
 from .region_dataset import region_rows
 from .point_dataset import point_rows
@@ -84,6 +85,7 @@ def evaluate_regions(manifest, checkpoint, output, history, device='auto'):
               'predictions':predictions, 'positive_faces_without_region_labels':missing,
               'history':receipts, 'model_sha256':input_hashes[str(Path(checkpoint).resolve())],
               'manifest_sha256':input_hashes[str(Path(manifest).resolve())],
+              'physical_card_uncertainty':physical_uncertainty(predictions, meta['supported']),
               'requires_gemini':True, 'production_ready':False, 'actual_calls_saved':0,
               'limitations':['Caller must supply complete development history and group other photos of the same physical card.',
                              'Unknown labels are unscored; this measures labeled patches, not whole-card condition.',

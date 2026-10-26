@@ -10,7 +10,7 @@ allowed_files:
 - card_condition/region_evaluation.py
 - card_condition/side_evaluation.py
 - tests/test_physical_uncertainty.py
-- tests/test_evaluation_inputs.py
+- tests/test_physical_uncertainty_evaluation.py
 - docs/collaboration/tasks/physical-card-uncertainty-20261026.md
 - docs/collaboration/reports/physical-card-uncertainty-20261026.md
 - ignored artifacts/physical-card-uncertainty-20261026/index.html
