@@ -32,9 +32,9 @@ def read_release(path):
         raise ValueError('Unsupported release input contract')
     files, digests = {}, {}
     for role in ROLES:
-        entry = manifest['checkpoints'].get(role)
-        if entry is None:
+        if role not in manifest['checkpoints']:
             continue
+        entry = manifest['checkpoints'][role]
         if (not isinstance(entry, dict) or set(entry) != {'file', 'sha256'}
                 or type(entry['file']) is not str or Path(entry['file']).is_absolute()
                 or '..' in Path(entry['file']).parts
