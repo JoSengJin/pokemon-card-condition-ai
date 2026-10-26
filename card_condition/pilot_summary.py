@@ -156,15 +156,23 @@ def summarize(log, reviews=()):
     entries = read_lines(log, 'listing_predict_usage')
     if not entries:
         raise ValueError('Usage log has no records')
-    corrections, incomplete = {}, 0
+    corrections, completed_counts, incomplete = {}, {}, 0
     for path in reviews:
         record = json.loads(Path(path).read_text())
-        if type(record.get('report_sha256')) is not str or not isinstance(record.get('counts'), dict):
-            raise ValueError(f'{path} is not a listing review record')
+        if (not isinstance(record, dict) or type(record.get('report_sha256')) is not str
+                or not record['report_sha256'].strip() or type(record.get('review_completed')) is not bool
+                or not isinstance(record.get('counts'), dict)
+                or not {'corrected_defect', 'corrected_normal'} <= set(record['counts'])
+                or any(type(v) is not int or v < 0 for v in record['counts'].values())):
+            raise ValueError(f'{path} is not a listing review record with non-negative integer counts')
         if record.get('review_completed') is not True:
             incomplete += 1
             continue
-        corrections[record['report_sha256']] = sum(record['counts'].get(k, 0) for k in ('corrected_defect', 'corrected_normal'))
+        sha, counts = record['report_sha256'], record['counts']
+        if sha in completed_counts and completed_counts[sha] != counts:
+            raise ValueError('Conflicting completed reviews for the same report SHA; choose the adjudicated review explicitly')
+        completed_counts[sha] = counts
+        corrections[sha] = counts['corrected_defect'] + counts['corrected_normal']
     groups = defaultdict(list)
     for entry in entries:
         validate_usage(entry)
