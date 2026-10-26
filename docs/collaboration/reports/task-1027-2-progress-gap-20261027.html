@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>task-1027-2 진척 공백 분석</title>
+<style>
+body{font-family:-apple-system,system-ui,sans-serif;max-width:920px;margin:24px auto;padding:0 16px;color:#1f2328;line-height:1.55}
+.top{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.tile{border:1px solid #d0d7de;border-radius:8px;padding:12px}
+.tile b{display:block;font-size:22px}
+table{border-collapse:collapse;width:100%;margin:8px 0}
+th,td{border:1px solid #d0d7de;padding:6px 8px;text-align:left;vertical-align:top;font-size:14px}
+th{background:#f6f8fa}
+code{background:#f6f8fa;padding:1px 4px;border-radius:4px}
+.note{background:#fff8c5;border:1px solid #d4a72c;border-radius:6px;padding:8px 12px}
+</style></head><body>
+<h1>task-1027-2 진척 공백 분석</h1>
+<div class="top">
+<div class="tile">개발 진척률 (v1.0)<b>30 / 100</b>직전 동일기준 대비 +0%p</div>
+<div class="tile">기준 SHA<b><code>d26388e</code></b>base <code>6f71814</code></div>
+<div class="tile">이번 성과<b>소스 변경 0</b>차단 요인·다음 task 2개 정리</div>
+</div>
+<p class="note">합성 검사도 실행하지 않았다. 모델 학습·추론·비교는 0회다. 모델 성능 개선은 평가하지 않았다. 진척 기준 근거: <code>PROGRESS_CRITERIA.md</code>, <code>development-progress.json</code> (읽기만 함).</p>
+
+<h2>실행 제약 (실측)</h2>
+<table><tr><th>시도</th><th>결과</th></tr>
+<tr><td><code>.venv/bin/python -c 'import card_condition'</code></td><td>승인 필요, 미실행</td></tr>
+<tr><td><code>python -m unittest test_data_coverage</code></td><td>승인 필요, 미실행</td></tr>
+<tr><td><code>./develop --check</code></td><td>승인 필요, 미실행</td></tr>
+</table>
+<p>테스트를 실행할 수 없어서 소스·테스트는 바꾸지 않았다.</p>
+
+<h2>pending 항목별 차단 요인</h2>
+<table><tr><th>항목</th><th>배점</th><th>차단 요인</th><th>이 worktree에서 가능?</th></tr>
+<tr><td>A3</td><td>5</td><td>셀별 20단위·5실물 부족 (train 2/10셀, val 0셀)</td><td>아니오 (데이터 확보 필요)</td></tr>
+<tr><td>C1~C5</td><td>35</td><td>표면 후보 FN 12/94·FP 13/53 (기존 수치)</td><td>아니오 (학습 금지)</td></tr>
+<tr><td>C1~C3 typed point</td><td>(C 안)</td><td><code>evaluation_suite.py:69</code>가 항상 unmeasured</td><td>계약·설계만 가능</td></tr>
+<tr><td>D1~D3</td><td>15</td><td>미사용 독립 시험셋 없음</td><td>아니오</td></tr>
+<tr><td>E2</td><td>5</td><td>비보류 coverage≥70%를 판정할 집계 없음</td><td>계약·설계만 가능</td></tr>
+<tr><td>F1·F2</td><td>10</td><td>품질 통과 후보·배포 승인·시범 없음</td><td>아니오</td></tr>
+</table>
+
+<h2>제안 task (사람 입력 불필요, 실행 권한 필요)</h2>
+<ol>
+<li><b>typed point 입력 경로</b>: 고정 후보 평가가 역할별 <code>typed_point_predictions</code>를 SHA로 결속해 받는다. 앞뒤 각 20점·5실물 기준으로 새 gate <code>c_typed_point_all</code>를 계산한다. 기존 raw gate와 테스트 기대값은 그대로 둔다.</li>
+<li><b>E2 coverage 집계</b>: 사람 검토에서 관찰가능으로 확인된 필수셀을 분모로, 모델이 보류하지 않은 셀을 분자로 센다. 미지원·사진누락은 정상으로 세지 않는다.</li>
+</ol>
+
+<h2>변경·검증·롤백</h2>
+<ul>
+<li>변경: <code>docs/collaboration/reports/task-1027-2-progress-gap-20261027.md</code>, 이 HTML</li>
+<li>검증: <code>git diff --check</code>만 실행. Python 테스트는 미실행.</li>
+<li>롤백: 해당 커밋을 <code>git revert</code>. 소스 영향은 없다.</li>
+</ul>
+</body></html>
