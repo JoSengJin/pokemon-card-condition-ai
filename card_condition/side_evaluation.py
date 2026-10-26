@@ -8,14 +8,17 @@ from .evaluation_output import write_new_report
 from .point_probe import digest
 from .quality_rates import error_rates
 from .physical_uncertainty import physical_uncertainty
+from .frozen_test import claim_test
 from .data import LABELS, load_manifest
 from .side_model import SideAnalyzer
 from .side_experiment import side_rows, score
 
 
-def evaluate_sides(manifest, checkpoint, output, kind, history=(), device='auto'):
+def evaluate_sides(manifest, checkpoint, output, kind, history=(), device='auto', *, test_seal=None, test_seal_sha256=None):
     if kind not in ('regression', 'final'):
         raise ValueError('Choose regression or final')
+    if kind != 'final' and (test_seal is not None or test_seal_sha256 is not None):
+        raise ValueError('A frozen test seal is only allowed for final evaluation')
     if kind == 'final' and not history:
         raise ValueError('최종평가에는 모든 이전 개발 manifest를 --history로 제공해야 합니다.')
     output = Path(output)
@@ -47,6 +50,11 @@ def evaluate_sides(manifest, checkpoint, output, kind, history=(), device='auto'
     conflicts = [r['id'] for r in candidates if r['id'] in ids or r['group'] in groups or set(r['_image_hashes']) & hashes]
     if conflicts:
         raise ValueError('개발에 사용된 카드/이미지가 평가 자료에 포함됨: '+', '.join(conflicts))
+    claim = claim_test(test_seal, test_seal_sha256, manifest, checkpoint, 'side_final')
+    if claim is not None:
+        if any(name in input_hashes and input_hashes[name] != sha for name, sha in claim['input_hashes'].items()):
+            raise ValueError('Frozen test inputs differ from the evaluation inputs')
+        input_hashes.update(claim['input_hashes'])
     analyzer = SideAnalyzer(checkpoint, device)
     matched_model(analyzer, input_hashes, checkpoint)
     probabilities = [list(analyzer.predict(r['image'], r['box']).values()) for r in rows]
@@ -66,5 +74,7 @@ def evaluate_sides(manifest, checkpoint, output, kind, history=(), device='auto'
               'requires_gemini':True,'production_ready':False,'actual_calls_saved':0,
               'limitations':['Checks exact pixels/ids/groups in supplied history only; other photos of the same card require human grouping.',
                               'Final results must not be reused to tune the model; crop mode assumes human boxes.']}
+    if claim is not None:
+        report['test_seal'] = {k: v for k, v in claim.items() if k != 'input_hashes'}
     write_new_report(output, report)
     return report
