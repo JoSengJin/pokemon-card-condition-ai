@@ -1,6 +1,6 @@
 task_id: observation-loaded-bytes-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: 13e4e8fb632e3b0de64c63121886a8d76ecdc2d0
 branch: codex/observation-loaded-bytes-20261026
 goal: 관찰모델의가중치로드/SHA계산을같은바이트로묶고, 변경파일함수최대7개를지키도록본문변경없는최소책임분리를한다.
@@ -21,3 +21,5 @@ contract:
 checks: mock가중치적용중파일교체반례·기존함수export·모듈구조/본문동일성·finite_logits합성tensor검사·기존50개회귀·AST/diff/HTML/main/push. 실제사진추론·새학습·외부AI0. 실모델성능/일반화개선미주장.
 experiment: 없음. 이동은기존본문동일성검사, 모델수정은deserialize무결성회귀만수행한다.
 handoff: 실제검사/미실행/리스크/롤백/HTML을완료시기록.
+
+완료: main9e361e2, 57합성/mock검사PASS/AST동일4함수/compileall/diff PASS. visibility7·fitting3·diagnostics1·검사4함수. 실사진추론/새학습/외부AI0,합성tensorhead검사포함. 세부리스크/롤백/HTML은 reports/observation-loaded-bytes-20261026.md.
