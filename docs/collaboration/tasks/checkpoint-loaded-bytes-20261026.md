@@ -1,6 +1,6 @@
 task_id: checkpoint-loaded-bytes-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: fb9d9cd62e4b20e3f4a751fc64a40cf7e6e6112c
 branch: codex/checkpoint-loaded-bytes-20261026
 goal: RegionAnalyzer/SideAnalyzer가 실제deserialize한checkpoint바이트의SHA를보고하게하여,로드중파일교체가다른모델을정상SHA로식별하지못하게한다.
@@ -20,3 +20,5 @@ contract:
 structure: 신규test파일함수<=7, 기존region2/side4유지. 기존생성경로wrapper추가없음.
 experiment: 없음, 저장바이트무결성검사이며성능평가가아니다.
 handoff: 완료후실제검사/잔여관찰모델한계/메모리리스크/롤백기록.
+
+완료: main df72abf+강화검사572a70b. 합성/mock50PASS, compileall/diff PASS. 함수region2/side4/검사7. 실사진추론/forward/학습/외부AI0. 관찰모델미수정의존과메모리리스크/롤백/HTML은 reports/checkpoint-loaded-bytes-20261026.md.
