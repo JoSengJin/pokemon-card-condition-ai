@@ -1,5 +1,6 @@
 """Bind saved evaluations to one pinned candidate, input seal and exposure receipts."""
 import json
+import hashlib
 import math
 from pathlib import Path
 
@@ -13,10 +14,12 @@ KINDS = dict(region_final=('region_final', 'point_final'), side_final=('final',)
 
 
 def matched_reports(candidate_path, candidate_sha256, seal_path, seal_sha256, manifest, reports):
-    if (not isinstance(reports, dict) or not reports or set(reports) - set(OPERATIONS)
-            or file_sha256(candidate_path) != candidate_sha256):
+    if not isinstance(reports, dict) or not reports or set(reports) - set(OPERATIONS):
         raise ValueError('Explicit role reports and the pinned candidate SHA256 are required')
-    candidate = json.loads(Path(candidate_path).read_text())
+    candidate_raw = Path(candidate_path).read_bytes()
+    if hashlib.sha256(candidate_raw).hexdigest() != candidate_sha256:
+        raise ValueError('Explicit role reports and the pinned candidate SHA256 are required')
+    candidate = json.loads(candidate_raw)
     if not isinstance(candidate, dict) or not isinstance(candidate.get('models'), dict):
         raise ValueError('Invalid candidate')
     seal, hashes = read_seal(seal_path, seal_sha256, manifest)
@@ -33,10 +36,11 @@ def matched_reports(candidate_path, candidate_sha256, seal_path, seal_sha256, ma
                                          candidate['models'][op]['file'], op, candidate.get('device'))
         hashes.update(pinned)
         report_path = Path(report_path).resolve()
-        before = file_sha256(report_path)
+        report_raw = report_path.read_bytes()
+        before = hashlib.sha256(report_raw).hexdigest()
         if before != supplied['sha256']:
             raise ValueError('Saved evaluation report SHA256 mismatch')
-        report = json.loads(report_path.read_text())
+        report = json.loads(report_raw)
         if not isinstance(report, dict):
             raise ValueError('Evaluation report must be an object')
         link = report.get('test_seal')
@@ -55,9 +59,10 @@ def matched_reports(candidate_path, candidate_sha256, seal_path, seal_sha256, ma
         if any(report['input_hashes'].get(name) != sha for name, sha in {**sealed_hashes, **pinned}.items()):
             raise ValueError('Evaluation did not record every pinned input')
         receipt_path = Path(link['receipt']).resolve()
-        if file_sha256(receipt_path) != link['receipt_sha256']:
+        receipt_raw = receipt_path.read_bytes()
+        if hashlib.sha256(receipt_raw).hexdigest() != link['receipt_sha256']:
             raise ValueError('Exposure receipt SHA256 mismatch')
-        receipt = json.loads(receipt_path.read_text())
+        receipt = json.loads(receipt_raw)
         if (not isinstance(receipt, dict) or receipt.get('kind') != 'frozen_test_use'
                 or receipt.get('status') != 'exposure_claimed' or receipt.get('operation') != op
                 or receipt.get('candidate_sha256') != candidate_sha256 or receipt.get('seal_sha256') != seal_sha256
