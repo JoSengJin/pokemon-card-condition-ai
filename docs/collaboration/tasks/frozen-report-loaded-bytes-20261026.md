@@ -1,6 +1,6 @@
 task_id: frozen-report-loaded-bytes-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: ec9c84505e2e33456929425f51e78d983f001631
 branch: codex/frozen-report-loaded-bytes-20261026
 goal: 동결평가 재집계에서 candidate/report/receipt SHA와 실제 JSON 해석 내용이 같은 바이트임을 보장한다.
@@ -19,3 +19,5 @@ experiment: 없음. 합성 저장 JSON/mock 읽기 대조, 실사진 추론·새
 handoff: 변경파일/diff/실검사/미검증/메모리리스크/롤백/원격·HTML.진척30/100 유지.
 
 검증 중 계약 보완: 추가34회귀 중2가 NaN mock을 ENOSPC 주입 전 정상으로 복구하지 않아 새 점수 guard에서 먼저 실패했다. 평가 로직을 완화하지 않고 tests/test_evaluation_output_safety.py에서 NaN/ENOSPC fixture를 분리한다. JSON publisher 자체의 부분 NaN 쓰기·임시파일 정리도 기존 test에 직접 대조한다. 기존파일7→7, 새함수·호출깊이 없음.
+
+완료:ddd93db+c3c6025.129+추가34=서로다른163검사PASS.리스크·롤백·미측정은보고서.진척30/100.
