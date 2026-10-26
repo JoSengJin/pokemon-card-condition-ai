@@ -32,6 +32,13 @@ def seal_test(manifest, history, output):
     records = load_manifest(manifest, require_gradable=False)
     if any(row['split'] != 'test' for row in records):
         raise ValueError('Seal requires a separate test-only manifest')
+    photo_sides = {}
+    for row in records:
+        if row.get('excluded'):
+            continue
+        for side, digest in zip((s for s in ('front', 'back') if row.get(s)), row['_image_hashes']):
+            if photo_sides.setdefault(digest, side) != side:
+                raise ValueError('Same decoded photo is assigned to both front and back')
     reject_copied_test_groups(records)
     track_photos(records, hashes)
     ids, groups, pixels = ({r['id'] for r in records}, {r['group'] for r in records},

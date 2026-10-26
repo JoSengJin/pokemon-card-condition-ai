@@ -23,6 +23,7 @@ def assess_suite(manifest, seal, seal_sha256, candidate, candidate_sha256, repor
     plan, frozen, found, hashes = matched_reports(candidate, candidate_sha256, seal, seal_sha256, manifest, reports)
     records = load_manifest(manifest, require_gradable=False)
     metadata = {r['id']: r for r in records}
+    photo_sha256 = {r['id']: dict(zip((s for s in ('front', 'back') if r.get(s)), r['_image_hashes'])) for r in records}
     cells, sources = [], {}
     for operation, questions in ROLE_QUESTIONS.items():
         normalized, supported = [], []
@@ -49,7 +50,7 @@ def assess_suite(manifest, seal, seal_sha256, candidate, candidate_sha256, repor
             if (not isinstance(supported, list) or not supported or len(set(supported)) != len(supported)
                     or any(type(q) is not str or q not in allowed for q in supported)):
                 raise ValueError('Invalid supported scope in candidate metadata')
-            normalized = checked_predictions(report, expected, operation, supported)
+            normalized = checked_predictions(report, expected, operation, supported, photo_sha256=photo_sha256)
             measured = confusion_counts(normalized, supported)
             recorded = ({'observation_limited': report.get('summary', {}).get('metrics_at_05')}
                         if operation == 'observation_final' else report.get('metrics'))

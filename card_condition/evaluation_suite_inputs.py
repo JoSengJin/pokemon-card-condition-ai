@@ -6,6 +6,7 @@ from pathlib import Path
 from .frozen_candidate import OPERATIONS, read_candidate
 from .frozen_test import read_seal
 from .release import file_sha256
+from .physical_uncertainty import QUESTIONS
 
 KINDS = dict(region_final=('region_final', 'point_final'), side_final=('final',),
              observation_final=('heldout_observation_test',))
@@ -76,13 +77,29 @@ def matched_reports(candidate_path, candidate_sha256, seal_path, seal_sha256, ma
     return candidate, seal, found, hashes
 
 
-def checked_predictions(report, rows, operation, supported):
+def checked_predictions(report, rows, operation, supported, *, photo_sha256=None):
     """Match the original projection exactly; side reports carry only id/labels/probabilities."""
-    expected = {}
+    expected, photo_sides, labeled_units = {}, {}, set()
     for row in rows:
         key = (row['card_id'], row['side']) if operation == 'observation_final' else row['id']
         if key in expected:
             raise ValueError('Duplicate source judgment unit')
+        digest = row.get('image_sha256')
+        if photo_sha256 is not None:
+            try:
+                digest = photo_sha256[row['card_id']][row['side']]
+            except KeyError as exc:
+                raise ValueError('Missing source photo identity for a judgment unit') from exc
+        if digest is not None:
+            if photo_sides.setdefault(digest, row['side']) != row['side']:
+                raise ValueError('Same decoded photo is assigned to both front and back')
+            for question in supported:
+                if question not in QUESTIONS or row['labels'].get(question) is None:
+                    continue
+                unit = (digest, row['side'], row.get('area', 'face'), question)
+                if unit in labeled_units:
+                    raise ValueError('Duplicate labeled photo, area and question under different source IDs')
+                labeled_units.add(unit)
         expected[key] = row
     predictions = report.get('predictions')
     if not isinstance(predictions, list):

@@ -1,5 +1,6 @@
 from contextlib import redirect_stdout
 import io
+import copy
 import json
 from pathlib import Path
 import tempfile
@@ -15,7 +16,7 @@ from card_condition.evaluation_suite_cli import main
 from card_condition.release import file_sha256
 
 
-def saved_suite(root, n=30):
+def saved_suite(root, n=30, *, alias=False):
     history, manifest = root / 'history.jsonl', root / 'test.jsonl'
     image = root / 'development.png'
     Image.new('RGB', (40, 60), (255, 0, 255)).save(image)
@@ -35,6 +36,10 @@ def saved_suite(root, n=30):
                     region_labels={'upper_left': {q: truth for q in ('corner_defect', 'edge_defect', 'surface_defect')}},
                     visibility_issues=['glare'] if truth else [], glare_areas=[])
             records.append(record)
+    if alias:
+        copied = copy.deepcopy(records[0])
+        copied['id'] = 'alias-' + copied['id']
+        records.append(copied)
     manifest.write_text('\n'.join(json.dumps(r) for r in records))
     used = load_manifest(history, require_gradable=False)[0]
     base = dict(development_ids=['development'], development_groups=['development'], training_groups=['development'],
