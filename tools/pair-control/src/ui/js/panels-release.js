@@ -53,7 +53,7 @@ export function panelPostcheck(t) {
   const specs = t.postChecks || [];
   return (specs.map((c) => '<div class="mono small">' + esc([c.executable].concat(c.args).join(' ')) + '</div>').join('') || '<p class="muted">계약에 통합 후 검사가 없습니다.</p>') +
     ((g && g.postChecks) || []).map((i) => '<div class="runrow">' + lbl(esc((RUN[i.status] || [i.status])[0]), (RUN[i.status] || ['', 'muted'])[1]) + ' <b>' + esc(i.name) + '</b> <span class="muted small">code ' + esc(i.exitCode ?? '—') + '</span>' +
-      (i.execId ? ' <button type="button" class="link" data-act="log" data-id="' + esc(i.execId) + '">로그</button>' : '') + '</div>').join('') +
+      (i.logPath ? ' <button type="button" class="link" data-act="log" data-id="post:' + esc(i.id) + '">로그</button>' : '') + '</div>').join('') +
     (g && g.postStatus === 'failed' && g.preHead ? '<p class="bad small">복구가 필요하면 통합 전 SHA ' + esc(g.preHead.slice(0, 12)) + ' 를 기준으로 사람이 판단하세요(도구는 reset 하지 않습니다).</p>' : '');
 }
 

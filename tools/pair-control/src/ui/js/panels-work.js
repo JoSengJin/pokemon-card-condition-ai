@@ -28,6 +28,13 @@ export function panelBuild(t, ui) {
     '<input data-keep="pDocs" value="' + esc(k.pDocs || '') + '" placeholder="추가로 먼저 읽을 문서(쉼표, 저장소 상대경로)">' + B('prompt', '프롬프트 만들기', true) + '</div>' +
     '<textarea id="pText" readonly rows="7" placeholder="여기에 생성된 프롬프트가 나타납니다">' + esc(ui.prompt[t.taskId] || '') + '</textarea>' +
     '<div class="actions">' + B('copy', '복사', !!ui.prompt[t.taskId], '', ' data-target="pText" data-what="시작 프롬프트"') + '</div>';
+  // 수동 모드는 도구가 볼 출력이 없어, 작업 폴더의 변화(새 커밋·변경 파일·범위 밖)를 대신 보여 준다(읽기만 함).
+  const a = s === 'manual_working' && ui.activity[t.taskId];
+  const activity = !a ? '' : '<h4>작업 폴더 활동 <span class="muted small">출력이 없는 수동 모드의 대신 표시 · 읽기만 함</span></h4>' +
+    '<div class="small">새 커밋 ' + a.commits.length + '개 · 변경 파일 ' + a.changed.length + '개 · 미커밋 ' + a.dirty.length + '개 · ' + lbl('범위 밖 ' + a.outOfScope.length + '개', a.outOfScope.length ? 'bad' : 'ok') + '</div>' +
+    a.commits.map((c) => '<div class="small"><span class="mono">' + esc(c.sha) + '</span> ' + esc(c.subject) + ' <span class="muted">' + esc((c.at || '').slice(11, 19)) + '</span></div>').join('') +
+    a.outOfScope.map((f) => '<div class="mono small bad">' + esc(f) + '</div>').join('') +
+    (a.dirty.length ? '<div class="small muted">미커밋</div>' + a.dirty.map((f) => '<div class="mono small muted">' + esc(f) + '</div>').join('') : '');
   const run = !e ? '' : '<h4>도구가 실행한 에이전트 프로세스</h4><div class="kv small"><div>명령</div><div class="mono">' + esc(e.display.join(' ')) + '</div>' +
     '<div>PID / PGID</div><div class="mono">' + esc(e.pid + ' / ' + e.pgid) + (e.groupAlive ? ' (실행 중)' : ' (종료)') + '</div>' +
     '<div>종료코드 / 신호</div><div class="mono">' + esc((e.exitCode ?? '—') + ' / ' + (e.signal ?? '—')) + '</div><div>토큰 · 비용</div><div>미측정</div></div>';
@@ -38,7 +45,7 @@ export function panelBuild(t, ui) {
     B('apply', '재시작 후 결과 반영', s === 'exit_observed', 'primary') +
     B('cancel', manual ? '작업 취소(파일 점유 해제)' : '실행 중단(이 실행기 프로세스만)', ['running', 'cancelling', 'orphan_running', 'manual_working'].includes(s), 'danger') +
     B('ack', '결과 불명 확정(완료 아님)', s === 'unknown', 'danger') + B('start', '다시 시작', ['failed', 'cancelled', 'abandoned'].includes(s)) +
-    (e ? B('log', '로그 보기', true, 'link') : '') + '</div>';
+    '</div>' + activity;
 }
 
 export function panelGit(t, ui) {
@@ -79,3 +86,4 @@ export function panelReview(t, ui) {
       (r.execId ? '<button type="button" class="link" data-act="log" data-id="' + esc(r.execId) + '">리뷰 로그</button>' : '') : '') +
     '<div class="actions"><select data-keep="revScenario">' + opt + '</select>' + B('review', other + ' 리뷰 실행(mock)', t.status === 'review_pending' && !(r && r.status === 'running')) + '</div>';
 }
+

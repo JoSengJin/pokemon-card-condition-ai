@@ -23,8 +23,10 @@ export function onClick(ev) {
   if (!el || el.disabled) return;
   const act = el.dataset.act;
   if (el.dataset.stage && ui.selected) ui.stage[ui.selected] = el.dataset.stage;
-  if (act === 'select') { ui.selected = el.dataset.id; ui.logChoice = null; }
-  else if (act === 'log' || act === 'logagent') { ui.logChoice = act === 'log' ? el.dataset.id || null : null; ui.keep.infoOpen = true; }
+  if (act === 'select') ui.selected = el.dataset.id;
+  else if (act === 'log') ui.keep.logSel = el.dataset.id;
+  else if (act === 'logfollow') ui.keep.logFollow = ui.keep.logFollow === false;
+  else if (act === 'logpause') ui.keep.logPaused = !ui.keep.logPaused;
   else if (act === 'copy') return copyText(document.getElementById(el.dataset.target), el.dataset.what);
   else if (act === 'maincopy') return copyText(document.getElementById('mainMemo'), '이양 메모');
   else if (ACTIONS[act]) return run(act, el);
@@ -120,9 +122,10 @@ function keepResult(act, t, d) {
 }
 
 async function copyText(el, what) {
-  if (!el || !el.value) return say(what + ': 복사할 내용이 없습니다', 'warn');
-  try { await navigator.clipboard.writeText(el.value); say(what + ' 복사됨', 'ok'); }
-  catch { el.select(); say('자동 복사를 못 했습니다. 선택된 텍스트를 직접 복사하세요(⌘C)', 'warn'); }
+  const text = el && (el.value ?? el.textContent); // 칸(textarea)은 value, 로그(pre)는 textContent
+  if (!text) return say(what + ': 복사할 내용이 없습니다', 'warn');
+  try { await navigator.clipboard.writeText(text); say(what + ' 복사됨', 'ok'); }
+  catch { if (el.select) el.select(); else window.getSelection().selectAllChildren(el); say('자동 복사를 못 했습니다. 선택된 텍스트를 직접 복사하세요(⌘C)', 'warn'); }
 }
 
 /** data-keep 입력값을 다시 그려도 남도록 ui.keep에 저장한다. 메인 역할을 펼치면 이양 안전 확인을 한다. */
@@ -132,6 +135,7 @@ export function onInput(ev) {
   const k = el.dataset && el.dataset.keep;
   if (!k) return;
   ui.keep[k] = el.type === 'checkbox' ? el.checked : el.tagName === 'DETAILS' ? el.open : el.value;
+  if (k === 'logSel' || k === 'logFind') return ui.rerender(); // 로그 선택·찾기는 바로 다시 그린다
   if (k !== 'pushConfirm') return;
   const p = ui.state.push && ui.state.push.plan, v = el.value.trim().toLowerCase();
   const b = document.querySelector('[data-act=push]');

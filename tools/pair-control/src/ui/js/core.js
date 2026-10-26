@@ -2,8 +2,8 @@
 // 다시 그리기는 ui.rerender / ui.refreshNow(함수 참조, app.js가 채움)로 별도 시작점에서 실행한다.
 export const ui = {
   state: null, selected: null, stage: {}, keep: {}, diff: null, prompt: {}, handoff: {}, memo: '', mainBlockers: null,
-  logChoice: null, log: { exec: null, next: 0, text: '' }, rerender: null, refreshNow: null,
-  seen: {}, changedAt: null, // 직전에 그린 단계 상태(바뀐 노드를 깜빡이게)와 마지막 변화 시각
+  log: { id: null, next: 0, text: '' }, rerender: null, refreshNow: null,
+  seen: {}, changedAt: null, shownStage: null, activity: {}, activityAt: 0, // 직전에 그린 단계 상태(바뀐 노드를 깜빡이게)와 마지막 변화 시각
 };
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };

@@ -12,7 +12,7 @@ import { acknowledgeFindings, prepareRevert, preflight, runPush, verifyPush } fr
 import { progressDraft, progressItems } from '../executor/progress.ts';
 import { setMain, swapBlockers } from '../executor/mainRole.ts';
 import { bindRuntime, getExecutor, prepareTask, snapshot, startReview, startTask, resumeStep } from '../runtime.ts';
-import { createVenv, setArchived, withdrawApproval } from '../executor/taskControl.ts';
+import { activityOf, createVenv, setArchived, tailPostLog, withdrawApproval } from '../executor/taskControl.ts';
 import { extractScope } from '../executor/scope.ts';
 import fs from 'node:fs';
 
@@ -146,6 +146,8 @@ function buildRoutes() {
     registerApiRoute('/pair/api/tasks/:id/finish-manual', { method: 'POST', handler: act(async (c) => ex().finishManual(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/recollect', { method: 'POST', handler: act(async (c) => ex().recollect(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/create-venv', { method: 'POST', handler: act(async (c) => createVenv(ex(), id(c))) }),
+    registerApiRoute('/pair/api/tasks/:id/post-log', { method: 'GET', handler: act(async (c) => tailPostLog(ex(), id(c), String(c.req.query('check') ?? ''), Number(c.req.query('from') ?? 0))) }),
+    registerApiRoute('/pair/api/tasks/:id/activity', { method: 'GET', handler: act(async (c) => activityOf(ex(), id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/recheck-env', { method: 'POST', handler: act(async (c) => ex().recheckEnv(id(c))) }),
     registerApiRoute('/pair/api/progress', { method: 'GET', handler: act(async () => progressItems(ex())) }),
     registerApiRoute('/pair/api/progress/draft', { method: 'POST', handler: act(async (c) => progressDraft(ex(), String((await body(c)).id ?? ''))) }),

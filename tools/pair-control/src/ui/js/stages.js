@@ -92,10 +92,10 @@ export function stagesOf(t, push, mainAgent) {
       : review ? (r.checksPassed && testsOk ? ['action', '승인 대기 — diff 확인 후 승인', { act: 'diff', label: 'diff 보고 승인' }] : ['todo', 'Git 검사·작업 테스트 통과 후'])
         : ['done', t.approval ? 'SHA ' + t.approval.sha.slice(0, 12) : '승인됨'],
     integrate: s === 'approved' ? ['action', t.statusReason && /사용 중|깨끗하지|미준비/.test(t.statusReason) ? '대기: ' + t.statusReason : '통합 실행 대기', { act: 'integrate', label: '통합 실행' }]
-      : s === 'integrating' ? ['active', '통합 중'] : merged ? ['done', '통합됨']
+      : s === 'integrating' ? (post === 'running' ? ['done', '통합됨 · 통합 후 검사 중'] : ['active', '통합 중']) : merged ? ['done', '통합됨']
         : s === 'integration_refused' ? ['failed', '승인 무효화 — 재검토 필요', { act: 'rereview', label: '재검토' }]
           : s === 'integration_conflict' ? ['failed', '충돌로 중단(abort)'] : ['todo', '승인 후'],
-    postcheck: !merged ? ['todo', '통합 후'] : post === 'passed' ? ['done', '통과'] : post === 'failed' ? ['failed', '실패 — 복구 필요'] : ['skipped', '지정 없음(미실행)'],
+    postcheck: !merged ? (post === 'running' ? ['active', '통합 후 검사 실행 중'] : ['todo', '통합 후']) : post === 'passed' ? ['done', '통과'] : post === 'failed' ? ['failed', '실패 — 복구 필요'] : ['skipped', '지정 없음(미실행)'],
     push: ps ? [ps.status, ps.text, ps.primary || null] : ['todo', '통합 후'],
   };
   const who = { prepare: '사용자', build: t.agent, gitcheck: '도구', tests: '도구(사용자가 실행)', review: '리뷰 에이전트', handoff: main, approve: '사용자', integrate: '사용자→도구', postcheck: '도구', push: '사용자' };

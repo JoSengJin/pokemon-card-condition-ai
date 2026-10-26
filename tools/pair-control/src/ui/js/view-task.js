@@ -2,6 +2,7 @@
 import { B, esc } from './core.js';
 import { panelBuild, panelGit, panelPrepare, panelReview, panelTests } from './panels-work.js';
 import { panelApprove, panelHandoff, panelIntegrate, panelPostcheck, panelPush, pushRecords } from './panels-release.js';
+import { logTarget, renderLog } from './logview.js';
 import { currentKey, stagesOf } from './stages.js';
 
 const PANELS = { prepare: panelPrepare, build: panelBuild, gitcheck: panelGit, tests: panelTests, review: panelReview, handoff: panelHandoff, approve: panelApprove, integrate: panelIntegrate, postcheck: panelPostcheck, push: panelPush };
@@ -18,6 +19,7 @@ export function renderTask(state, ui) {
   const stages = stagesOf(t, state.push, state.main && state.main.agent);
   const cur = currentKey(stages);
   const key = ui.stage[t.taskId] && PANELS[ui.stage[t.taskId]] ? ui.stage[t.taskId] : cur;
+  ui.shownStage = key; // pollLog가 지금 보이는 단계의 로그를 받아 오도록
   const now = stages.find((s) => s.key === cur), st = stages.find((s) => s.key === key);
   const p = now.primary, u = t.turn;
   const prev = ui.seen[t.taskId];
@@ -36,7 +38,7 @@ export function renderTask(state, ui) {
     '<section class="stagePanel s-' + st.status + '"><h3><span class="num">' + idx + '</span> ' + esc(st.label) + ' <span class="pill s-' + st.status + '">' + WORD[st.status] + '</span>' +
       (key !== cur ? ' <button type="button" class="link small" data-act="stage" data-stage="' + cur + '">지금 단계로</button>' : '') + '</h3>' +
       '<p class="desc">' + esc(st.desc) + '</p><div class="small muted">담당: ' + esc(st.who) + ' · 상태: ' + esc(st.text) + '</div>' +
-      '<div class="panelBody">' + PANELS[key](t, ui) + (key === 'push' && state.push ? '<h4>푸시 기록</h4>' + pushRecords(state.push.records) : '') + '</div></section>' +
+      '<div class="panelBody">' + PANELS[key](t, ui) + renderLog(logTarget(t, key, ui), ui) + (key === 'push' && state.push ? '<h4>푸시 기록</h4>' + pushRecords(state.push.records) : '') + '</div></section>' +
     runInfo(t, ui);
 }
 
@@ -48,17 +50,14 @@ export function pipelineBar(stages, key, cur, changed) {
       '<span class="dot">' + (ICON[s.status] || '') + '</span><span class="nl">' + (i + 1) + '. ' + esc(s.label) + '</span><span class="nt">' + esc(s.text) + '</span></button></li>').join('') + '</ol>';
 }
 
-/** 접힌 실행 정보: Mastra 실행·프로세스·계약·로그. 사람이 평소에 볼 필요는 없는 값들. */
+/** 접힌 실행 정보: Mastra 실행·프로세스·계약(로그는 각 단계 패널에 있음). 사람이 평소에 볼 필요는 없는 값들. */
 export function runInfo(t, ui) {
   const e = t.exec, m = t.mastra;
   const open = ui.keep.infoOpen ? ' open' : '';
-  return '<details class="info" data-keep="infoOpen"' + open + '><summary>실행 정보 · 계약 · 로그</summary><div class="kv small">' +
+  return '<details class="info" data-keep="infoOpen"' + open + '><summary>실행 정보 · 계약</summary><div class="kv small">' +
     '<div>목표</div><div>' + esc(t.goal) + '</div>' +
     '<div>완료 조건</div><div>' + ((t.doneCriteria || []).map(esc).join('<br>') || '<span class="muted">(지정 없음)</span>') + '</div>' +
     '<div>계약 파일</div><div class="mono">' + esc(t.contractPath + ' @ ' + (t.contractSha || '').slice(0, 12)) + '</div>' +
     '<div>Mastra 실행</div><div class="mono">' + esc((t.runId || '—') + (m ? ' · ' + m.status + (m.suspendedStep ? ' @ ' + m.suspendedStep : '') : '')) + '</div>' +
-    '<div>실행 ID</div><div class="mono">' + esc(e ? e.execId : '—') + '</div><div>실행 권한</div><div>' + esc(t.permission || '—') + '</div></div>' +
-    '<h4>로그 <span class="muted small">' + (ui.logChoice ? '선택한 검사·리뷰' : '에이전트') + '</span>' +
-    (ui.logChoice ? ' <button type="button" class="link" data-act="logagent">에이전트 로그로</button>' : '') + '</h4>' +
-    '<pre id="log">' + esc(ui.log.text || '(없음)') + '</pre></details>';
+    '<div>실행 ID</div><div class="mono">' + esc(e ? e.execId : '—') + '</div><div>실행 권한</div><div>' + esc(t.permission || '—') + '</div></div></details>';
 }

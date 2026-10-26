@@ -2,6 +2,7 @@
 import { onClick, onInput } from './actions.js';
 import { api, say, ui } from './core.js';
 import { initForm } from './form.js';
+import { logTarget, paintLog } from './logview.js';
 import { renderHeader, renderList, renderMain, renderProbes } from './view-list.js';
 import { renderTask } from './view-task.js';
 
@@ -11,11 +12,12 @@ function render() {
   if (!ui.state) return;
   // 다시 그려도 입력 중이던 칸의 포커스·커서를 지킨다(1초 갱신 때문에 입력이 끊기지 않게).
   const a = document.activeElement, k = a && a.dataset && a.dataset.keep, pos = k && a.selectionStart;
+  const old = document.getElementById('log'), top = old ? old.scrollTop : 0; // 따라가기를 끈 사람의 스크롤 위치
   renderHeader(ui.state); renderMain(ui.state, ui); renderProbes(ui.state); renderList(ui.state, ui); renderTask(ui.state, ui);
   const el = k && document.querySelector('[data-keep="' + k + '"]');
   if (el && el !== a) { el.focus(); if (typeof pos === 'number' && el.setSelectionRange) el.setSelectionRange(pos, pos); }
   const log = document.getElementById('log');
-  if (log) log.scrollTop = log.scrollHeight;
+  if (log) log.scrollTop = ui.keep.logFollow === false ? top : log.scrollHeight;
   // 좁은 화면에서 단계 줄이 넘치면 고른 노드가 보이도록 가로로만 옮긴다(페이지는 움직이지 않음).
   const pipe = document.querySelector('.pipe'), sel = pipe && pipe.querySelector('.node.sel');
   if (sel) pipe.scrollLeft = sel.offsetLeft - (pipe.clientWidth - sel.offsetWidth) / 2;
@@ -45,17 +47,38 @@ async function refresh() {
 
 async function pollLog() {
   const t = ui.state && ui.state.tasks.find((x) => x.taskId === ui.selected);
-  const id = ui.logChoice || (t && t.exec && t.exec.execId);
-  if (!id) return;
-  if (id !== ui.log.exec) ui.log = { exec: id, next: 0, text: '' };
+  const g = t && !ui.keep.logPaused && logTarget(t, ui.shownStage, ui);
+  if (!g) return;
+  if (g.id !== ui.log.id) ui.log = { id: g.id, next: 0, text: '' };
   try {
-    const d = await api('execs/' + encodeURIComponent(id) + '/log?from=' + ui.log.next);
-    if (!d.text) return;
-    ui.log.text = (ui.log.text + d.text).slice(-60000);
-    ui.log.next = d.next;
-    const el = document.getElementById('log');
-    if (el) { el.textContent = ui.log.text; el.scrollTop = el.scrollHeight; }
+    const d = await api(g.api + ui.log.next);
+    if (d.text) { ui.log.text = (ui.log.text + d.text).slice(-200000); ui.log.next = d.next; }
+    paintLog(g, ui);
   } catch { /* 다음 주기에 다시 받는다 */ }
+}
+
+/** 수동 모드 작업 폴더의 활동(새 커밋·변경 파일)을 3초마다 받아 바뀌었을 때만 다시 그린다. */
+async function pollActivity() {
+  const t = ui.state && ui.state.tasks.find((x) => x.taskId === ui.selected);
+  if (!t || t.status !== 'manual_working' || Date.now() - ui.activityAt < 3000) return;
+  ui.activityAt = Date.now();
+  try {
+    const a = await api('tasks/' + encodeURIComponent(t.taskId) + '/activity');
+    const same = JSON.stringify({ ...a, at: 0 }) === JSON.stringify({ ...ui.activity[t.taskId], at: 0 });
+    ui.activity[t.taskId] = a;
+    if (!same) render();
+  } catch { /* 다음 주기에 다시 받는다 */ }
+}
+
+/** 로그를 위로 올려 보면 따라가기를 끄고, 맨 아래로 내리면 다시 켠다(버튼 글자만 바꾸고 다시 그리지 않음). */
+function onLogScroll(ev) {
+  const el = ev.target;
+  if (!el || el.id !== 'log') return;
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+  if (atBottom === (ui.keep.logFollow !== false)) return;
+  ui.keep.logFollow = atBottom;
+  const b = document.getElementById('logFollowBtn');
+  if (b) b.textContent = atBottom ? '따라가기 켜짐' : '따라가기 꺼짐';
 }
 
 ui.rerender = render;
@@ -63,6 +86,7 @@ ui.refreshNow = refresh;
 document.addEventListener('click', onClick);
 document.addEventListener('input', onInput);
 document.addEventListener('change', onInput);
+document.addEventListener('scroll', onLogScroll, true); // scroll도 버블링되지 않아 capture로 받는다
 document.addEventListener('toggle', onInput, true); // toggle은 버블링되지 않아 capture로 받는다
 // 숨겨진 탭은 브라우저가 타이머를 늦추므로, 다시 보일 때 바로 확인한다.
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
@@ -71,6 +95,6 @@ initForm();
 setInterval(async () => {
   if (busy) return;
   busy = true;
-  try { await refresh(); await pollLog(); } finally { busy = false; }
+  try { await refresh(); await pollLog(); await pollActivity(); } finally { busy = false; }
 }, 1000);
 refresh().then(pollLog);

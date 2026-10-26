@@ -11,6 +11,7 @@ import * as G from './git.ts';
 import { conflicts, effectiveGroups, isAllowed, needsDevelopLock, TaskInput, type ConflictReason, type TaskInputT } from './contract.ts';
 import { chargeRisks, mockPlan, probe, realPlan, realReadiness, type LaunchPlan, type Probe } from './adapters.ts';
 import { scanArgs } from './nocharge.ts';
+import { runLogged } from './logstream.ts';
 import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
 import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
 import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
@@ -92,7 +93,7 @@ export interface Task extends TaskInputT {
   approval?: Approval | null;
   integration?: {
     at: string; outcome: string; detail: string; newHead?: string | null; preHead?: string | null; conflictFiles?: string[]; commits?: string[];
-    postStatus?: 'passed' | 'failed' | 'not_run'; postChecks?: CheckRun[];
+    postStatus?: 'running' | 'passed' | 'failed' | 'not_run'; postChecks?: CheckRun[];
   } | null;
 }
 
@@ -950,11 +951,12 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     for (const c of t.postChecks) {
       const r = this.resolveCheck(checkout, c, vars);
       const item: CheckRun = { id: c.id, name: c.name, display: ['./develop', '--', ...r.display], cwd: '.', status: 'running', sha: vars.head, startedAt: new Date().toISOString() };
-      const res = await G.run(develop, ['--', r.command, ...r.args], checkout, 600_000, sanitizedChildEnv());
-      const logPath = path.join(this.cfg.stateDir, 'runs', `post-${crypto.randomUUID()}.log`);
-      fs.mkdirSync(path.dirname(logPath), { recursive: true });
-      fs.writeFileSync(logPath, redact(res.stdout + (res.stderr ? `\n[stderr]\n${res.stderr}` : '')));
-      item.status = res.code === 0 ? 'passed' : 'failed'; item.exitCode = res.code; item.logPath = logPath; item.endedAt = new Date().toISOString();
+      // 화면이 실행 중에도 로그를 이어받도록: 실행 중 항목을 먼저 통합 기록에 남기고, 출력은 줄 단위로 가려 바로 파일에 쓴다.
+      item.logPath = path.join(this.cfg.stateDir, 'runs', `post-${crypto.randomUUID()}.log`);
+      t.integration = { ...(t.integration ?? { at: item.startedAt!, outcome: 'integrating', detail: '통합 후 검사 실행 중' }), postStatus: 'running', postChecks: [...items, item] };
+      this.save();
+      const res = await runLogged(develop, ['--', r.command, ...r.args], checkout, 600_000, sanitizedChildEnv(), item.logPath, redact);
+      item.status = res.code === 0 ? 'passed' : 'failed'; item.exitCode = res.code; item.endedAt = new Date().toISOString();
       items.push(item);
     }
     return { status: items.every((i) => i.status === 'passed') ? 'passed' as const : 'failed' as const, items };

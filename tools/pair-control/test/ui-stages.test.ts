@@ -38,6 +38,16 @@ test('.venv가 없어서 막힌 준비 단계의 대표 버튼은 환경 만들�
   assert.equal(venvMissing({ ready: true, checks: [] }), false);
 });
 
+test('통합 후 검사가 도는 중이면 통합은 완료, 통합 후 검사가 진행 중이고 그 단계가 지금 단계', () => {
+  const ok = { result, verification: passed, approval: { sha: SHA } };
+  const running = base({ status: 'integrating', ...ok, integration: { postStatus: 'running', postChecks: [{ id: 'p1', name: 'x', status: 'running', logPath: 'x.log' }] } });
+  const st = stagesOf(running, null);
+  assert.equal(by(st).integrate, 'done');
+  assert.equal(by(st).postcheck, 'active');
+  assert.equal(currentKey(st), 'postcheck');
+  assert.equal(by(stagesOf(base({ status: 'integrating', ...ok }), null)).integrate, 'active', '검사 전의 통합 중은 그대로');
+});
+
 test('수동 작업 중은 구현 단계가 진행 중이고 대표 행동은 작업 완료', () => {
   const st = stagesOf(base({ status: 'manual_working' }), null);
   assert.equal(by(st).build, 'active');

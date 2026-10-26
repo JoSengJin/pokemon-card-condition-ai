@@ -1,7 +1,9 @@
 // 작업 제어: 승인 취소(승인됨 → 검토 단계), 작업 보관(목록에서 숨기기), 실행 환경 만들기(.venv). 에이전트를 다시 실행하지 않는다.
 import fs from 'node:fs';
+import { isAllowed } from './contract.ts';
 import { sanitizedChildEnv } from './freeGuard.ts';
 import * as G from './git.ts';
+import { tailFile } from './logstream.ts';
 import { appendEvent } from './store.ts';
 import { OCCUPYING, UserError, type Executor, type Task } from './executor.ts';
 
@@ -63,4 +65,26 @@ export async function createVenv(ex: Executor, taskId: string) {
   record(ex, t, 'venv_created', { code: r.code, stderr: r.stderr.slice(0, 300) });
   if (r.code !== 0) throw new UserError(`python3 -m venv 실패(code ${r.code}): ${r.stderr.trim().slice(0, 300)}`);
   return ex.recheckEnv(taskId);
+}
+
+/** 통합 후 검사 항목의 로그를 이어서 읽는다. 파일은 작업 상태에 기록된 항목에서만 찾는다(클라이언트가 경로를 주지 않음). */
+export function tailPostLog(ex: Executor, taskId: string, checkId: string, from: number) {
+  const item = ex.task(taskId).integration?.postChecks?.find((i) => i.id === checkId);
+  if (!item?.logPath) throw new UserError('통합 후 검사 로그 없음');
+  return tailFile(item.logPath, Math.max(0, from));
+}
+
+/**
+ * 수동 모드처럼 볼 출력이 없는 작업의 활동: 작업 폴더의 새 커밋, 변경 파일(커밋됨·미커밋), 허용 범위 밖 변경.
+ * 읽기만 한다(git log/status). 숫자와 목록은 화면이 그대로 보여 주며 판정에는 쓰이지 않는다.
+ */
+export async function activityOf(ex: Executor, taskId: string) {
+  const t = ex.task(taskId);
+  const base = t.contractSha || t.baseSha; // 계약 커밋 위의 작업만(Git 계약 검사와 같은 기준)
+  const log = await G.git(t.worktree, 'log', '--format=%h%x09%cI%x09%s', `${base}..HEAD`);
+  const commits = log.stdout.split('\n').filter(Boolean).slice(0, 30).map((l) => { const [sha, at, ...s] = l.split('\t'); return { sha, at, subject: s.join('\t') }; });
+  const changed = await G.changedFiles(t.worktree, base, 'HEAD');
+  const dirty = await G.dirtyFiles(t.worktree);
+  const all = [...new Set([...changed, ...dirty])];
+  return { commits, changed: changed.slice(0, 100), dirty: dirty.slice(0, 100), outOfScope: all.filter((f) => !isAllowed(f, t.allowedFiles)).slice(0, 100), at: new Date().toISOString() };
 }
