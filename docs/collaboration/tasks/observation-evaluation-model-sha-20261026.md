@@ -6,6 +6,7 @@ branch: codex/observation-evaluation-model-sha-20261026
 goal: 관찰독립평가에서도구역/면별평가와같이실제로로드한analyzer.model_sha256을사전고정checkpointSHA와대조하여다른모델의점수를정상후보로기록하지못하게한다.
 allowed_files:
 - card_condition/observation_heldout.py
+- card_condition/evaluation_inputs.py
 - tests/test_observation_evaluation_model_sha.py
 - tests/test_observation_heldout.py
 - tests/test_physical_uncertainty_evaluation.py
@@ -24,3 +25,5 @@ structure: observation_heldout1→1, 기존검사함수수유지, 신규검사<=
 checks: 수정전wrong loadedSHA를허용하고4개analyze후정상checkpointSHA보고재현. 수정후wrongSHA/correctSHA/CLI/claim보존·재시도거절, 기존97회귀(legacy실학습모듈제외)/AST/diff/HTML/main/push. 실사진추론·새학습·외부AI0.
 experiment: 없음,합성입력/mock로딩검사만.
 handoff: 실제검사/미실행legacy학습/리스크/롤백/원격상태기록.
+
+계약보완(같은모델식별경계): 공유matched_model이alias경로변경으로고정hashmap의키를찾지못하면KeyError로CLI계약을깨는반례를확인했다. missing expected SHA는동일ValueError로거절하며어떤다른hash도추정하지않는다. evaluation_inputs함수5→5유지, 임시symlink교체회귀추가.

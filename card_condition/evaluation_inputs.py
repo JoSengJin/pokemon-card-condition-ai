@@ -25,7 +25,8 @@ def track_photos(records, hashes):
 
 def matched_model(analyzer, hashes, checkpoint):
     """The analyzer must have read the very checkpoint whose SHA the report will record."""
-    if analyzer.model_sha256 != hashes[str(Path(checkpoint).resolve())]:
+    expected = hashes.get(str(Path(checkpoint).resolve()))
+    if expected is None or analyzer.model_sha256 != expected:
         raise ValueError('Analyzer loaded a different checkpoint than the recorded one; no report saved')
 
 

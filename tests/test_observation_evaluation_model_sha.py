@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 from card_condition import observation_heldout, frozen_test
 from card_condition.cli import main
 from card_condition.release import file_sha256
+from card_condition.evaluation_inputs import matched_model
 from test_evaluation_inputs import evaluation_fixture
 
 
@@ -84,3 +85,18 @@ class ObservationEvaluationShaTest(unittest.TestCase):
             self.assertIn('different checkpoint', json.loads(err.getvalue())['error'])
             self.assertTrue(json.loads(err.getvalue())['requires_gemini'])
             model.analyze.assert_not_called()
+
+    def test_changed_checkpoint_alias_is_a_structured_validation_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            old, new, alias = root/'old.pt', root/'new.pt', root/'current.pt'
+            old.write_bytes(b'first fixture')
+            new.write_bytes(b'second fixture')
+            alias.symlink_to(old)
+            hashes = {str(alias.resolve()): file_sha256(old)}
+            alias.unlink()
+            alias.symlink_to(new)
+            with self.assertRaisesRegex(ValueError, 'different checkpoint'):
+                matched_model(Mock(model_sha256=file_sha256(new)), hashes, alias)
+            with self.assertRaisesRegex(ValueError, 'different checkpoint'):
+                matched_model(Mock(model_sha256=None), {}, alias)
