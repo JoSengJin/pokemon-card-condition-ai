@@ -45,29 +45,34 @@ def subgroup_denominators(rows, metadata, question, side):
                  negative_physical_cards=len(g['negative'])) for (dimension, value), g in sorted(groups.items())]
 
 
-def question_cells(rows, supported, questions, metadata):
+def question_cells(rows, supported, questions, metadata, *, question_areas=None):
     cells = []
+    canonical_areas = {area for areas in (question_areas or {}).values() for area in areas}
     for question in questions:
         for side in ('front', 'back'):
-            part = [r for r in rows if r['side'] == side]
+            side_rows = [r for r in rows if r['side'] == side]
+            part = [r for r in side_rows if not (question in (question_areas or {})
+                    and r['labels'].get(question) is None and r.get('area') in canonical_areas
+                    and r['area'] not in question_areas[question])]
             available = question in supported
-            known = [r for r in part if r['labels'].get(question) is not None] if available else []
+            known = [r for r in part if r['labels'].get(question) is not None]
             positive = [r for r in known if r['labels'][question] == 1]
             negative = [r for r in known if r['labels'][question] == 0]
-            missing_positive = sum(r['probabilities'][question] is None for r in positive)
-            missing_negative = sum(r['probabilities'][question] is None for r in negative)
+            missing_positive = sum(not available or r['probabilities'].get(question) is None for r in positive)
+            missing_negative = sum(not available or r['probabilities'].get(question) is None for r in negative)
             counts = confusion_counts(part, [question])[question] if available else dict(tp=0, tn=0, fp=0, fn=0)
             fn = counts['fn'] / len(positive) if positive and not missing_positive else None
             fp = counts['fp'] / len(negative) if negative and not missing_negative else None
             pg, ng = len({r['group'] for r in positive}), len({r['group'] for r in negative})
-            c_met = len(positive) >= 20 and len(negative) >= 20 and pg >= 5 and ng >= 5
+            c_met = available and len(positive) >= 20 and len(negative) >= 20 and pg >= 5 and ng >= 5
             cells.append(dict(question=question, side=side, supported=available, raw_counts=counts,
                               positive_units=len(positive), negative_units=len(negative),
                               positive_physical_cards=pg, negative_physical_cards=ng,
                               unknown_truth_units=sum(r['labels'].get(question) is None for r in part),
+                              out_of_scope_unknown_units=len(side_rows) - len(part),
                               unavailable_positive_scores=missing_positive, unavailable_negative_scores=missing_negative,
                               false_negative_rate=fn, false_positive_rate=fp,
                               c_numeric_condition_met=c_met and fn is not None and fp is not None and fn <= .05 and fp <= .10,
                               d1_class_quantity_met=pg >= 30 and ng >= 30,
-                              subgroups=subgroup_denominators(part, metadata, question, side) if available else []))
+                              subgroups=subgroup_denominators(part, metadata, question, side)))
     return cells

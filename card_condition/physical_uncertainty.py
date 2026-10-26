@@ -27,13 +27,14 @@ def event_summary(outcomes, limit):
                 numeric_condition_met=n >= 30 and upper is not None and upper <= limit)
 
 
-def physical_uncertainty(predictions, supported):
+def physical_uncertainty(predictions, supported, *, question_areas=None):
     """Collapse supplied judgment units by group/side/question, never by patch or photo count.
 
     Normal means all supplied units for that question/side are known normal. It does not
     establish an entirely normal card or coverage of unannotated regions outside the input.
     """
-    groups = {}
+    groups, out_of_scope = {}, {}
+    canonical_areas = {area for areas in (question_areas or {}).values() for area in areas}
     for row in predictions:
         if (not isinstance(row, dict) or type(row.get('group')) is not str or not row['group'].strip()
                 or row.get('side') not in ('front', 'back')
@@ -49,6 +50,11 @@ def physical_uncertainty(predictions, supported):
                 raise ValueError('Truth must be 0, 1 or None')
             if score is not None and (type(score) not in (int, float) or not math.isfinite(score) or not 0 <= score <= 1):
                 raise ValueError('Raw score must be finite within [0,1] or None')
+            if (truth is None and question in (question_areas or {})
+                    and row.get('area') in canonical_areas and row['area'] not in question_areas[question]):
+                key = (question, row['side'])
+                out_of_scope[key] = out_of_scope.get(key, 0) + 1
+                continue
             groups.setdefault((question, row['side']), {}).setdefault(row['group'], []).append((truth, score))
     cells = []
     for question in QUESTIONS:
@@ -69,6 +75,7 @@ def physical_uncertainty(predictions, supported):
             cells.append(dict(question=question, side=side, supported=question in supported,
                               miss=miss, false_alarm=false_alarm,
                               unknown_truth_units=unknown_units, cards_with_unknown_truth=unknown_cards,
+                              out_of_scope_unknown_units=out_of_scope.get((question, side), 0),
                               numeric_conditions_met=miss['numeric_condition_met'] and false_alarm['numeric_condition_met']
                               and unknown_units == 0))
     return dict(schema_version=1, threshold=.5, confidence='one-sided 95% Wilson', z=Z, cells=cells,
@@ -76,5 +83,6 @@ def physical_uncertainty(predictions, supported):
                 milestone_verified=False,
                 limitations=['Caller-supplied physical groups and input judgment-unit coverage are not independently verified.',
                              'D1 sealing, D2 candidate independence and language/edition/capture subgroups require separate evidence.',
-                             'Unknown truth is unscored; a normal denominator requires all supplied units known normal.',
+                             'Unknown truth is unscored; a normal denominator requires all applicable supplied units known normal.',
+                             'Only canonical non-applicable unknown regions are excluded when question area scope is supplied.',
                              'Raw scores retain held units; these rates do not measure whole-card normality or localization.'])

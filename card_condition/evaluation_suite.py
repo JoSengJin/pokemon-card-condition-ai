@@ -14,6 +14,7 @@ def assess_suite(manifest, seal, seal_sha256, candidate, candidate_sha256, repor
     from .evaluation_inputs import unchanged_inputs
     from .point_dataset import point_rows
     from .region_dataset import region_rows
+    from .regions import REGION_TARGET_AREAS
     from .side_experiment import side_rows
     from .visibility_model import visibility_rows
 
@@ -58,8 +59,9 @@ def assess_suite(manifest, seal, seal_sha256, candidate, candidate_sha256, repor
                 raise ValueError('Saved raw confusion counts differ from predictions')
             sources[operation] = dict(judgment_units=len(normalized), supported=supported,
                                       model_sha256=plan['models'][operation]['sha256'])
-        local = question_cells(normalized, supported, questions, metadata)
-        uncertainty = physical_uncertainty(normalized, supported)
+        areas = REGION_TARGET_AREAS if operation == 'region_final' else None
+        local = question_cells(normalized, supported, questions, metadata, question_areas=areas)
+        uncertainty = physical_uncertainty(normalized, supported, question_areas=areas)
         by_cell = {(c['question'], c['side']): c for c in uncertainty['cells']}
         for cell in local:
             key = (cell['question'], cell['side'])

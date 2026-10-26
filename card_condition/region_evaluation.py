@@ -11,6 +11,7 @@ from .physical_uncertainty import physical_uncertainty
 from .frozen_test import claim_test
 from .data import load_manifest
 from .region_dataset import region_rows
+from .regions import REGION_TARGET_AREAS
 from .point_dataset import point_rows
 from .region_model import RegionAnalyzer
 from .region_thresholds import group_error_rates
@@ -93,7 +94,7 @@ def evaluate_regions(manifest, checkpoint, output, history, device='auto', *, te
               'predictions':predictions, 'positive_faces_without_region_labels':missing,
               'history':receipts, 'model_sha256':input_hashes[str(Path(checkpoint).resolve())],
               'manifest_sha256':input_hashes[str(Path(manifest).resolve())],
-              'physical_card_uncertainty':physical_uncertainty(predictions, meta['supported']),
+              'physical_card_uncertainty':physical_uncertainty(predictions, meta['supported'], question_areas=REGION_TARGET_AREAS),
               'requires_gemini':True, 'production_ready':False, 'actual_calls_saved':0,
               'limitations':['Caller must supply complete development history and group other photos of the same physical card.',
                              'Unknown labels are unscored; this measures labeled patches, not whole-card condition.',

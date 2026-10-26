@@ -14,9 +14,10 @@ from card_condition import frozen_test, frozen_candidate, region_evaluation, sid
 from card_condition.evaluation_suite import assess_suite
 from card_condition.evaluation_suite_cli import main
 from card_condition.release import file_sha256
+from card_condition.regions import REGION_TARGET_AREAS
 
 
-def saved_suite(root, n=30, *, alias=False):
+def saved_suite(root, n=30, *, alias=False, surface_center=False, region_supported=None):
     history, manifest = root / 'history.jsonl', root / 'test.jsonl'
     image = root / 'development.png'
     Image.new('RGB', (40, 60), (255, 0, 255)).save(image)
@@ -35,6 +36,9 @@ def saved_suite(root, n=30, *, alias=False):
                 record['side_annotations'][side] = dict(image=str(image), box=[0, 0, 1, 1], labels=dict(record['labels']),
                     region_labels={'upper_left': {q: truth for q in ('corner_defect', 'edge_defect', 'surface_defect')}},
                     visibility_issues=['glare'] if truth else [], glare_areas=[])
+            if surface_center:
+                for annotation in record['side_annotations'].values():
+                    annotation['region_labels']['center'] = dict(corner_defect=None, edge_defect=None, surface_defect=truth)
             records.append(record)
     if alias:
         copied = copy.deepcopy(records[0])
@@ -46,7 +50,7 @@ def saved_suite(root, n=30, *, alias=False):
                 development_image_hashes=used['_image_hashes'])
     models = {op: root / (op + '.pt') for op in ('region_final', 'side_final', 'observation_final')}
     torch.save(dict(base, architecture='mobilenet_v3_small_region_v1',
-                    supported=['corner_defect', 'edge_defect', 'surface_defect']), models['region_final'])
+                    supported=region_supported or ['corner_defect', 'edge_defect', 'surface_defect']), models['region_final'])
     torch.save(dict(base, architecture='mobilenet_v3_small_single_side_v1', supported=list(LABELS), labels=list(LABELS), crop=True), models['side_final'])
     torch.save(dict(base, architecture='mobilenet_v3_small_visibility_v1', target='observation_limited'), models['observation_final'])
     seal, candidate = root / 'seal.json', root / 'candidate.json'
@@ -54,9 +58,11 @@ def saved_suite(root, n=30, *, alias=False):
     frozen_candidate.pin_candidate(seal, file_sha256(seal), manifest, models, candidate, 'cpu')
     options = dict(test_seal=seal, test_seal_sha256=file_sha256(seal), test_candidate=candidate,
                    test_candidate_sha256=file_sha256(candidate))
-    def region_scores(image, *args, **kwargs):
+    def region_scores(image, card_box, area, unknown_labels=()):
         truth = int(Path(image).name.split('-')[1])
-        return dict(probabilities={q: .9 if truth else .1 for q in ('corner_defect', 'edge_defect', 'surface_defect')}, null_reasons={})
+        return dict(probabilities={q: (.9 if truth else .1) if area in REGION_TARGET_AREAS[q]
+                    and (region_supported is None or q in region_supported) else None
+                    for q in ('corner_defect', 'edge_defect', 'surface_defect')}, null_reasons={})
     def side_scores(image, *args, **kwargs):
         truth = int(Path(image).name.split('-')[1])
         return {q: .9 if q == 'gradable' or truth else .1 for q in LABELS}
