@@ -1,5 +1,6 @@
 from contextlib import redirect_stdout
 import io
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -15,10 +16,14 @@ DAY = 86400
 def entry(at, index=0, outcome='ok', warm=True, faces=2, release='r1', seconds=5., analyze=4., defect=0, unknown=3):
     """A hand-built schema-1 usage record; every number here is a test input, not a measurement."""
     ok = outcome == 'ok'
+    digest = hashlib.sha256((release or 'direct').encode()).hexdigest()
+    pinned = dict(release_id=release, package_version='fixture', input_contract='listing-request-v1',
+                  manifest_sha256=digest, checkpoint_sha256={'region': digest}) if release else None
     return dict(schema_version=1, kind='listing_predict_usage', outcome=outcome, error_type=None if ok else 'ValueError',
-                started_unix=at, request_id=f'card-{index}', faces=faces, started_at='x', total_seconds=seconds,
+                started_unix=at, request_id=f'card-{index}', faces=faces, started_at='x', total_seconds=max(seconds, analyze) if ok else seconds,
                 load_seconds=None, analyze_seconds=analyze if ok else None, warm=warm,
-                release=dict(release_id=release) if release and ok else None, release_requested=release is not None,
+                release=pinned, release_requested=release is not None, model_sha256=digest if ok else None,
+                device='cpu' if ok else None, image_size=224 if ok else None, batched_views=False if ok else None,
                 attempted_release_id=release, report_sha256=f'sha-{index}' if ok else None,
                 cells=dict(normal=10, defect=defect, unknown=unknown) if ok else None)
 
@@ -65,6 +70,7 @@ class PilotSummaryTest(unittest.TestCase):
             rows += [entry(3000 + i * 10, 200 + i, release='r2') for i in range(2)] + [entry(4000, 300, release=None)]
             lost = entry(5000, 400, outcome='error')
             lost['attempted_release_id'] = None
+            lost['release'] = None
             report = summarize(write(root, rows + [lost]))
             by_id = {g['release_id']: g for g in report['releases']}
             self.assertEqual(['r1', 'r2', 'unattributed (release requested, manifest unreadable)',
