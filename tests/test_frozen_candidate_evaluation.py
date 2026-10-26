@@ -43,6 +43,7 @@ class CandidateEvaluationTest(unittest.TestCase):
                  patch.object(region_evaluation, 'RegionAnalyzer', return_value=analyzer), \
                  patch.object(side_evaluation, 'SideAnalyzer', return_value=analyzer), \
                  patch.object(observation_heldout, 'VisibilityAnalyzer') as observation:
+                observation.return_value.model_sha256 = file_sha256(models['observation_final'])
                 observation.return_value.analyze.return_value = dict(observation_limit_score=.9)
                 reports = [region_evaluation.evaluate_regions(manifest, models['region_final'], root / 'region.json',
                                                               [history], 'cpu', **options),

@@ -105,6 +105,7 @@ class FrozenTestEvaluationTest(unittest.TestCase):
             frozen_test.seal_test(manifest, [history], seal)
             with patch.object(frozen_test, 'LEDGER', root / 'ledger'), \
                  patch.object(observation_heldout, 'VisibilityAnalyzer') as model:
+                model.return_value.model_sha256 = file_sha256(checkpoint)
                 model.return_value.analyze.return_value = dict(observation_limit_score=.9)
                 report = observation_heldout.evaluate_heldout(checkpoint, manifest, root / 'out',
                     file_sha256(checkpoint), 'cpu', test_seal=seal, test_seal_sha256=file_sha256(seal))

@@ -50,6 +50,7 @@ class UncertaintyEvaluationTest(unittest.TestCase):
                                      visibility_issues=['glare'] if truth else []))
             with patch.object(observation_heldout, 'visibility_rows', return_value=(rows, [])), \
                  patch.object(observation_heldout, 'VisibilityAnalyzer') as analyzer:
+                analyzer.return_value.model_sha256 = digest(checkpoint)
                 analyzer.return_value.analyze.return_value = {'observation_limit_score': .9}
                 report = observation_heldout.evaluate_heldout(checkpoint, manifest, root / 'out',
                                                              digest(checkpoint), 'cpu')

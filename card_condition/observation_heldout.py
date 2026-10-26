@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import torch
 from .point_probe import digest
-from .evaluation_inputs import development_sets
+from .evaluation_inputs import development_sets, matched_model
 from .visibility_model import TARGET,VisibilityAnalyzer,visibility_rows
 from .observation_crossfit import crossfit_summary,reject_duplicate_groups
 from .score_diagnostics import score_diagnostics
@@ -41,6 +41,7 @@ def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto
             raise ValueError('Frozen test inputs differ from the evaluation inputs')
         hashes.update(claim['input_hashes'])
     analyzer=VisibilityAnalyzer(checkpoint,device)
+    matched_model(analyzer, hashes, checkpoint)
     predictions=[]
     for row in rows:
         result=analyzer.analyze(row['image'],row['box'],side=row['side'])

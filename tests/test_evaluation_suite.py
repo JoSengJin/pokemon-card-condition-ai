@@ -66,7 +66,7 @@ def saved_suite(root, n=30, *, alias=False):
     region.analyze.side_effect = region_scores
     side = Mock(model_sha256=file_sha256(models['side_final']))
     side.predict.side_effect = side_scores
-    observation = Mock()
+    observation = Mock(model_sha256=file_sha256(models['observation_final']))
     observation.analyze.side_effect = observation_scores
     paths = dict(region_final=root/'region.json', side_final=root/'side.json', observation_final=root/'observation/report.json')
     with patch.object(frozen_test, 'LEDGER', root/'ledger'), \
