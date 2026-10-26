@@ -1,6 +1,6 @@
 task_id: listing-whole-scope-review-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: aa119eab4f4e0fc6386c196ef8b01560973e6114
 branch: codex/listing-whole-scope-review-20261026
 goal: 기존42개구역검토에앞뒤센터링/관찰제한4개사람확인항목을추가하고전체질문검토상태를분리기록한다. 모델보류/관찰제한을결함으로혼동하지않는다.
@@ -21,3 +21,5 @@ contract:
 checks: 합성사진·고정fixture결과로4항목표시/관찰의미/legacy호환/부분검토/중복·정답종류오류·누락사진정상거절/escape/CLIrecord, 기존listing_review*와관련57개회귀. 기존검사에무작위합성checkpoint추론포함가능하며실사진추론·새학습·외부AI0. demo만127.0.0.1정적서버로노출하여CUA의DOM/화면/내보내기JS확인후서버종료한다(외부네트워크/터널없음).
 experiment: 없음. 실제모델성능평가/비교아님.
 handoff: 실제검사/화면확인/리스크/롤백/원격동기화를완료후기록.
+
+완료: main28f3135.71개회귀PASS(합성무작위모델추론포함)/compileall/diff PASS. 함수소스7/검사7. CUA DOM·스크린샷/42+4선택·812px넘침없음확인. 다운로드권한user declined로실브라우저export는미실행·미검증,우회없음. 서버/임시탭종료. 실제E2coverage/실사진성능미평가. 세부리스크/롤백은 reports/listing-whole-scope-review-20261026.md.
