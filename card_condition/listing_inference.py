@@ -1,6 +1,8 @@
 """Validation-only whole supported-region inference, without ground-truth selection."""
 from contextlib import nullcontext
 import json
+import hashlib
+import io
 import math
 from pathlib import Path
 import time
@@ -24,8 +26,10 @@ def infer_listings(manifest, checkpoint, output, device='auto', observation_chec
     if output.exists():
         raise ValueError('Output exists: choose a new report path')
     before = {str(Path(p).resolve()): digest(p) for p in (manifest, checkpoint)}
+    observation_sha256 = None
     if observation_checkpoint is not None:
-        before[str(Path(observation_checkpoint).resolve())] = digest(observation_checkpoint)
+        observation_sha256 = digest(observation_checkpoint)
+        before[str(Path(observation_checkpoint).resolve())] = observation_sha256
     records = load_manifest(manifest, splits={'val'}, require_gradable=False)
     records = [r for r in records if not r.get('excluded')]
     if not records:
@@ -36,7 +40,11 @@ def infer_listings(manifest, checkpoint, output, device='auto', observation_chec
             if row.get(side):
                 before[row[side]] = digest(row[side])
     device = device_for(device)
-    meta, backbone, head, policy = load_probe_model(checkpoint, device)
+    checkpoint_bytes = Path(checkpoint).read_bytes()
+    if hashlib.sha256(checkpoint_bytes).hexdigest() != before.get(str(Path(checkpoint).resolve())):
+        raise ValueError('Listing checkpoint changed before loading; no report saved')
+    meta, backbone, head, policy = load_probe_model(io.BytesIO(checkpoint_bytes), device)
+    del checkpoint_bytes
     supported = meta['supported']
     predictions = []
     features_for = batched_patch_features if batch_views else patch_features
@@ -69,7 +77,8 @@ def infer_listings(manifest, checkpoint, output, device='auto', observation_chec
     observation = None
     if observation_checkpoint is not None:
         from .listing_observation import observation_evidence
-        observation = observation_evidence(records, observation_checkpoint, str(device))
+        observation = observation_evidence(records, observation_checkpoint, str(device),
+            expected_model_sha256=observation_sha256)
     if device.type == 'mps':
         torch.mps.synchronize()
     if any(digest(path) != sha for path, sha in before.items()):

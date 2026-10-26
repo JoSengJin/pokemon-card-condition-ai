@@ -4,9 +4,11 @@ import math
 from .visibility_model import VisibilityAnalyzer
 
 
-def observation_evidence(records, checkpoint, device, *, analyzer=None):
+def observation_evidence(records, checkpoint, device, *, analyzer=None, expected_model_sha256=None):
     if analyzer is None:
         analyzer = VisibilityAnalyzer(checkpoint, device)
+    if expected_model_sha256 is not None and analyzer.model_sha256 != expected_model_sha256:
+        raise ValueError('Observation analyzer loaded a different checkpoint; no listing report saved')
     faces = []
     for row in records:
         for side in ('front', 'back'):

@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -102,7 +103,7 @@ class ListingInferenceTest(unittest.TestCase):
                 observation_checkpoint=root/'observation.pt'
                 observation_checkpoint.write_bytes(b'frozen-observation-fixture')
                 with patch('card_condition.listing_observation.VisibilityAnalyzer') as analyzer:
-                    analyzer.return_value.model_sha256='fixture-observation-sha'
+                    analyzer.return_value.model_sha256=hashlib.sha256(observation_checkpoint.read_bytes()).hexdigest()
                     analyzer.return_value.analyze.side_effect=lambda image, box, side: dict(
                         observation_limit_score=.01 if side=='back' else .99)
                     composed=infer_listings(manifest,checkpoint,root/(policy+'-composed.json'),
@@ -122,7 +123,7 @@ class ListingInferenceTest(unittest.TestCase):
                 self.assertFalse(evidence['routing_changed'])
                 self.assertEqual(0,composed['actual_calls_saved'])
                 with patch('card_condition.listing_observation.VisibilityAnalyzer') as analyzer:
-                    analyzer.return_value.model_sha256='fixture-observation-sha'
+                    analyzer.return_value.model_sha256=hashlib.sha256(observation_checkpoint.read_bytes()).hexdigest()
                     def race(image,box,side):
                         observation_checkpoint.write_bytes(b'changed-during-inference')
                         return dict(observation_limit_score=.5)
