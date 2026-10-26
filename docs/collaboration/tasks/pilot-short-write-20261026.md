@@ -1,6 +1,6 @@
 task_id: pilot-short-write-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: be3d0b86c8e00d666f9f1ccec5be8916c3790874
 branch: codex/pilot-short-write-20261026
 goal: F2 usage로그의os.write가짧게쓰는경우기록성공/요청성공/warm완료로계수되지않게한다.
@@ -19,3 +19,5 @@ structure: pilot_record함수7→7, 테스트파일<=7함수, 호출경로추가
 checks: 실제부분prefix쓰기/zero쓰기/정상line/fsync·close/완료계수/CLI실패 합성회귀. 수정전실패를기록하고수정후통과, 관련pilot 및기존검사, AST/diff/HTML/main/push. 학습·실사진추론·외부AI0.
 experiment: 없음
 handoff: 실제검사/부분로그보존의운영리스크/롤백/원격상태기록.
+
+완료: main72c7854,85합성회귀PASS/compileall/diff PASS. pilot_record7/검사6함수. 실제로그수정·실사진추론·학습·외부AI0. 손상로그보존과운영감사의존/롤백/HTML은 reports/pilot-short-write-20261026.md.
