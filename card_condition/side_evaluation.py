@@ -53,7 +53,7 @@ def evaluate_sides(manifest, checkpoint, output, kind, history=(), device='auto'
     metrics,predictions=score(rows,probabilities,meta['supported'])
     if not any(sum(counts.values()) for counts in metrics.values()):
         raise ValueError('No scored supported test labels')
-    uncertainty_rows = [dict(prediction, group=row['group'], side=row['side'])
+    uncertainty_rows = [dict(prediction, group=row['group'], side=row['id'].rsplit('/', 1)[1])
                         for row, prediction in zip(rows, predictions)]
     unchanged_inputs(input_hashes)
     report = {'evaluation_kind':kind,'n_cards':len({r['group'] for r in rows}),'n_sides':len(rows),
