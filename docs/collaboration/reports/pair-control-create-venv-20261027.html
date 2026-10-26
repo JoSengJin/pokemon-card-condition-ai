@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pair-control 환경 만들기</title>
+<style>
+:root { --bg:#f6f6f3; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#dddcd6; --ok:#1f7a4d; --warn:#a15c00; --bad:#b3261e; --info:#2457a6; --chip:#efeee9; --code:#f1f0ec; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151514; --panel:#1f1f1d; --ink:#ecebe6; --muted:#a09f99; --line:#3a3935; --ok:#5cc28d; --warn:#e5ab45; --bad:#f07a70; --info:#7aa7f0; --chip:#2a2a27; --code:#262623; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+h1 { font-size: 20px; margin: 0; } h2 { font-size: 15px; margin: 0 0 8px; }
+.hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; } .stat span { color: var(--muted); font-size: 12px; }
+.mono, code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; }
+.pipe { display: flex; overflow-x: auto; gap: 0; list-style: none; padding: 0; margin: 8px 0; }
+.pipe li { flex: 1 0 78px; text-align: center; font-size: 12px; }
+.pipe i { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); font-style: normal; font-weight: 700; }
+.d i { background: var(--ok); border-color: var(--ok); color: #fff; } .a i { background: var(--warn); border-color: var(--warn); color: #fff; } .r i { border-color: var(--info); }
+.s i { border-style: dashed; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>준비 단계 "환경 만들기" 버튼</h1>
+    <p class="muted">task <span class="mono">pair-control-create-venv-20261027</span> · 담당 Claude · 브랜치 <span class="mono">claude/pair-control</span> · 2026-10-27</p>
+    <div class="hero">
+      <div class="stat"><span>전체 개발 진척률 (usable-card-analysis-v1.0)</span><b>30 / 100</b><span>변동 없음 — 관제 도구 작업이며 카드 분석 모델 이정표가 아님</span></div>
+      <div class="stat"><span>검증한 코드 SHA</span><b class="mono" style="font-size:13px">771ec49322eaf5ba9a525c1927c5353ad3794a9d</b><span>기준 0808ac7</span></div>
+      <div class="stat"><span>이번 성과</span><b style="font-size:15px">준비 단계 막힘 해소</b><span>.venv 없음 → 버튼 한 번</span></div>
+      <div class="stat"><span>회귀 검사</span><b>77 / 77</b><span>npm test(기존 75 + 신규 2) · typecheck 통과 — 합성 검사</span></div>
+    </div>
+    <p class="small muted">진척률 출처: development-progress.json(main) score 30/100, usable-card-analysis-v1.0. 모델 학습·추론·모델 호출 없음, 모델 성능 미평가.</p>
+  </section>
+  <section>
+    <h2>왜 막혔고 무엇을 했나</h2>
+    <p>새 worktree에는 <code>.venv</code>가 없고(git이 추적하지 않음), 기본 범위의 <span class="mono">card_condition/</span> 때문에 모든 작업이 <code>./develop</code> 잠금과 자체 <code>.venv</code>를 요구했습니다. 매번 터미널에서 명령을 직접 실행해야 했습니다(task-1026-2, task-1027-1).</p>
+    <table>
+      <tr><th>항목</th><th>내용</th></tr>
+      <tr><td>실행하는 일</td><td>그 작업의 등록된 worktree에서 <span class="mono">python3 -m venv .venv</span> 하나. 셸·패키지 설치·네트워크 없음.</td></tr>
+      <tr><td>거부</td><td>기본 checkout, 등록되지 않은 폴더, 시작 전이 아닌 작업, 이미 있는 .venv(링크 포함). 도구는 .venv를 지우지 않고 다른 checkout 것을 공유하지 않음.</td></tr>
+      <tr><td>화면</td><td>.venv가 없어 막힌 경우에만 "지금 단계" 상자의 대표 버튼이 "환경 만들기". 확인창에 고정 명령을 보여 줌. 끝나면 준비 재확인 → "작업 시작"으로 바뀜.</td></tr>
+      <tr><td>python-project</td><td>.venv만 만들고 pip install은 하지 않음(남은 안내는 그대로)</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>변경 파일 (0808ac7 → 771ec49)</h2>
+    <table>
+      <tr><th>파일</th><th>내용</th></tr>
+      <tr><td class="mono">src/executor/taskControl.ts</td><td>createVenv 추가(함수 4개)</td></tr>
+      <tr><td class="mono">src/mastra/index.ts</td><td>POST tasks/:id/create-venv</td></tr>
+      <tr><td class="mono">src/ui/js/stages.js · panels-work.js · actions.js</td><td>venvMissing 판정, 대표 버튼·패널 버튼, 확인 문구·결과</td></tr>
+      <tr><td class="mono">test/task-control.test.ts · test/ui-stages.test.ts</td><td>신규 검사 2개</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>실행한 검사</h2>
+    <ul>
+      <li class="ok">typecheck 통과, npm test 77/77 (Node 24.21.0)</li>
+      <li class="ok">합성 데모 서버(실제 저장소 아님)에서 같은 증상을 재현 → 버튼 클릭 → 확인창 → "준비가 끝났습니다" → "작업 시작" 활성, 콘솔 오류 0. 확인 후 데모 서버 종료.</li>
+    </ul>
+    <h2>실행하지 않은 검사</h2>
+    <ul>
+      <li class="warn">사용자의 실제 저장소 작업(task-1027-1 등)에서 버튼을 눌러 보는 흐름. 확인 시점에 4111 서버가 꺼져 있었고 실제 worktree를 바꾸는 일이라 하지 않았습니다. 새 코드를 쓰려면 서버를 다시 시작해야 합니다.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>리스크 · 롤백</h2>
+    <ul>
+      <li>python3은 시스템 기본(이 환경 3.9.6)을 씁니다. 다른 버전이 필요하면 직접 만드세요.</li>
+      <li>만든 .venv는 각 worktree 안에 있고 git이 추적하지 않습니다. 롤백은 <span class="mono">git revert 771ec49</span>와 문서 커밋.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

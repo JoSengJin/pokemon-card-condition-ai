@@ -2,7 +2,7 @@
 
 - task_id: `pair-control-create-venv-20261027`
 - owner: Claude
-- status: implementing
+- status: handoff (코드 커밋 `771ec49322eaf5ba9a525c1927c5353ad3794a9d`)
 - base_sha: `0808ac7` (claude/pair-control, 미커밋 변경 없음 확인)
 - 실행 Node: v24.21.0(nvm)
 
@@ -43,4 +43,11 @@
 
 ## 결과
 
-(인계 시 갱신)
+- 코드 커밋 `771ec49322eaf5ba9a525c1927c5353ad3794a9d` (검사는 같은 작업 트리에서 실행).
+- 함수 수: `taskControl.ts` 4(record·withdrawApproval·setArchived·createVenv), `stages.js` 7(venvMissing 추가), `actions.js` 7(표·분기만 추가), `panels-work.js` 5. 호출 경로: `route → createVenv → G.run` / `createVenv → recheckEnv → checkVenv`(전이 2~3).
+- 동작: 준비 패널·"지금 단계" 상자에 "환경 만들기"(`.venv`가 없어 막힌 경우에만 대표 버튼). 확인창에 고정 명령을 보여 주고, 서버는 등록된 worktree에서 `python3 -m venv .venv`만 실행한 뒤 준비를 다시 확인한다. 기본 checkout·등록되지 않은 폴더·시작 전이 아닌 작업·이미 있는 `.venv`는 거부. `python-project`는 `.venv`만 만들고 `pip install`은 하지 않는다.
+- checks: typecheck 통과, `npm test` 77/77(기존 75 + 신규 2: 환경 만들기 / 대표 버튼 판정).
+- 실행 확인(합성 데모 서버, 실제 저장소 아님): 기본 범위로 작업을 만들면 사용자 화면과 같은 "실행 환경 준비 필요 · 자체 .venv 없음"이 재현되고, 대표 버튼이 "환경 만들기"로 나온다. 클릭 → 확인창(고정 명령 표시) → ".venv를 만들었고 실행 준비가 끝났습니다" → 대표 버튼이 "작업 시작"으로 바뀌고 시작 버튼 활성. 콘솔 오류 0. 확인 후 데모 서버를 종료했다.
+- 미확인: 사용자의 실제 저장소 작업(task-1027-1 등)에서 같은 버튼을 눌러 보는 흐름. 확인 시점에 4111 서버가 꺼져 있었고(사용자 서버는 시작·종료하지 않음), 실제 worktree를 바꾸는 일이라 하지 않았다. 새 코드를 쓰려면 사용자가 서버를 다시 시작해야 한다.
+- 알려진 한계: `python3`이 시스템 기본(이 환경 3.9.6)이다. 다른 버전이 필요하면 직접 만든다. 도구는 `.venv`를 지우지 않는다.
+- 롤백: 코드·문서 커밋 `git revert`. 만들어진 `.venv`는 각 worktree 안에 있고 git이 추적하지 않는다.
