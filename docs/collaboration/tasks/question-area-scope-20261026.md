@@ -1,6 +1,6 @@
 task_id: question-area-scope-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: 79b4d064b378c27e3f1066cb0075f737539692d2
 branch: codex/question-area-scope-20261026
 goal: 고정 구역 정의에서 비해당 미확인과 해당 미확인을 구분하고, 모델 지원 여부와 source 정답 수량을 분리한다.
@@ -23,3 +23,5 @@ structure: physical_uncertainty 3→3, region_evaluation 1→1, suite 1→1, met
 checks: 수정 전 center 비해당 unknown 때문에 corner 정상 실물 0/unknown 1 재현. 수정 후 해당/비해당/불명확/known missing/미지원 수량/동결 suite 합성 대조, 기존102회귀, AST/compile/diff. 실사진 추론·학습·외부 AI 없음. HTML 생성·열기/렌더 구분, main 통합 및 push.
 experiment: 없음. 합성 통계/저장 보고서 재집계이며 모델 성능 실험 아님.
 handoff: 변경 파일/실제 검사/리스크/롤백/원격 상태/HTML 기록. progress 30/100 유지.
+
+완료: main c103450.108 합성 회귀 PASS8.367s/compile/AST/diff PASS. 보고서에 리스크/롤백/미측정 명시. 전체진척30/100 유지.
