@@ -1,6 +1,6 @@
 task_id: release-null-checkpoint-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: a38cbdb9f5ada69da599c5e0d9a62775c4821505
 branch: codex/release-null-checkpoint-20261026
 goal: release.checkpoints.region=null 시 CLI의 uncaught KeyError를 없애고, 선언된 모든 checkpoint의 null을 추론 전에 기존 ValueError/JSON 오류 계약으로 거절한다.
@@ -19,3 +19,5 @@ structure: release.py3→3함수. 신규검사<=7함수. 호출경로변경없�
 checks: null3역할/optional생략/기존SHA거절/공용CLIJSON오류·모델로딩0 합성검사. 실제모델학습·추론·외부AI0. diff/AST/HTML/main/push.
 experiment: 없음
 handoff: 완료시실행검사·리스크·롤백기록.
+
+완료: main66fd35c, 신규3/관련44총47PASS. release함수3유지·신규검사4함수. 학습/실사진추론/외부AI0, null모델로딩0. 세부결과/롤백/HTML은 reports/release-null-checkpoint-20261026.md.
