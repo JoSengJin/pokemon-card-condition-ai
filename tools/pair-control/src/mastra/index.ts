@@ -13,6 +13,7 @@ import { progressDraft, progressItems } from '../executor/progress.ts';
 import { setMain, swapBlockers } from '../executor/mainRole.ts';
 import { bindRuntime, getExecutor, prepareTask, snapshot, startReview, startTask, resumeStep } from '../runtime.ts';
 import { setArchived, withdrawApproval } from '../executor/taskControl.ts';
+import { SCOPE_PRESET, extractScope } from '../executor/scope.ts';
 import fs from 'node:fs';
 
 const cfg = loadConfig();
@@ -119,6 +120,7 @@ function buildRoutes() {
     }),
     registerApiRoute('/pair/api/tasks/:id/unapprove', { method: 'POST', handler: act(async (c) => withdrawApproval(ex(), id(c), resumeStep, startReview)) }),
     registerApiRoute('/pair/api/tasks/:id/archive', { method: 'POST', handler: act(async (c) => setArchived(ex(), id(c), (await body(c)).archived !== false)) }),
+    registerApiRoute('/pair/api/scope', { method: 'POST', handler: act(async (c) => { const b = await body(c); return b.preset ? { found: true, files: SCOPE_PRESET.files, rejected: [], note: `프리셋 "${SCOPE_PRESET.name}": 데이터·라벨·산출물·공용 설정은 포함하지 않습니다.` } : extractScope(String(b.text ?? '')); }) }),
     registerApiRoute('/pair/api/tasks/:id/rereview', { method: 'POST', handler: act(async (c) => startReview(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/diff', { method: 'GET', handler: act(async (c) => ({ diff: await ex().diff(id(c)) })) }),
     registerApiRoute('/pair/api/execs/:id/log', {

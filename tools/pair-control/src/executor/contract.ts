@@ -22,6 +22,15 @@ const relPath = z.string().min(1).max(300)
   .refine((p) => !p.startsWith('/') && !p.split('/').includes('..') && !p.includes('\0') && !p.includes('\\'), '상대경로만 허용')
   .refine((p) => !/[*?[\]]/.test(p), 'glob은 허용하지 않음. 정확한 파일 또는 "디렉터리/"');
 
+/**
+ * 허용 파일 경로. 정리된 표기만 받는다: "./"·"."(저장소 전체), "./docs/", "a//b", "a/./b"는 거부한다.
+ * 경로 비교(isAllowed·isForbidden·pathsOverlap)는 글자 그대로의 접두어 비교라, 정리되지 않은 표기는 어떤 파일과도 맞지 않거나
+ * 금지·충돌 검사를 지나쳐 버린다.
+ */
+const scopePath = relPath
+  .refine((p) => p !== '.' && p !== './' && !p.startsWith('./') && !p.includes('//') && !p.includes('/./') && !p.endsWith('/.'),
+    '정리되지 않은 경로: "./"·"."(저장소 전체)·"./docs/" 표기는 거부합니다. 정확한 파일 또는 "디렉터리/"만 쓰세요');
+
 /** 검사 명령에 허용하는 실행 파일. 셸·임의 경로는 받지 않는다. .venv/bin/python은 해당 checkout의 자체 가상환경. */
 export const CHECK_EXECUTABLES = ['git', 'node', '.venv/bin/python'] as const;
 /** 검사로 실행하면 안 되는 진입점(학습·실험 기록·자동 교차 검토·잠금 우회). */
@@ -49,7 +58,7 @@ export const TaskInput = z.object({
   branch: z.string().regex(/^(claude|codex)\/[A-Za-z0-9._\/-]{1,100}$/),
   worktree: z.string().min(2).refine((p) => p.startsWith('/'), '절대경로'),
   baseSha: z.string().regex(/^[0-9a-f]{40}$/, '전체 40자 SHA'),
-  allowedFiles: z.array(relPath).min(1).max(200),
+  allowedFiles: z.array(scopePath).min(1).max(200),
   conflictGroups: z.array(z.string().regex(/^[a-z0-9:._-]{1,64}$/)).max(20).default([]),
   goal: z.string().min(1).max(500),
   prompt: z.string().max(8000).default(''),

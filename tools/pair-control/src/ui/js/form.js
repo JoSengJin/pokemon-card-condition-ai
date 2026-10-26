@@ -1,6 +1,7 @@
 // 새 작업 만들기 폼. 입력하면 서버의 plan(읽기 전용)으로 자동 준비될 값을 미리 보여 주고,
 // 제출하면 Mastra prepare-task workflow가 worktree·브랜치·계약을 만든다.
 import { api, esc, say, ui } from './core.js';
+import { onScopeClick } from './form-scope.js';
 import { onSpecClick, onSpecInput, renderSpecs, resetSpecs, specs } from './form-specs.js';
 
 let planTimer = null, planSeq = 0;
@@ -10,6 +11,7 @@ export function initForm() {
   f.addEventListener('input', (ev) => { onSpecInput(ev.target); schedulePlan(); });
   f.addEventListener('change', () => { if (ui.state) ui.rerender(); schedulePlan(); });
   f.addEventListener('click', (ev) => { if (onSpecClick(ev.target.closest('[data-spec]'))) schedulePlan(); });
+  f.addEventListener('click', onScopeClick);
   f.addEventListener('submit', onSubmit);
   document.getElementById('progSel').addEventListener('change', applyDraft);
   resetSpecs(); renderSpecs(); updatePlan(); loadProgress();

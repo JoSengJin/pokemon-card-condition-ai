@@ -129,6 +129,7 @@ details > summary { cursor: pointer; }
 .panelBody { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
 .runrow { font-size: 13px; padding: 2px 0; }
 .rec { border-top: 1px solid var(--line); padding: 8px 0; }
+.scopeHelp { border: 1px dashed var(--line); border-radius: 8px; padding: 6px 8px; }
 .archive { margin-top: 6px; } .archRow { padding: 4px 6px; border-radius: 6px; } .archRow.sel { background: var(--chip); }
 .info summary { color: var(--muted); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); align-items: center; }
@@ -193,7 +194,13 @@ details > summary { cursor: pointer; }
             <div class="stepTitle">3. 어디를 고쳐도 되나요?</div>
             <label>파일·폴더 (한 줄에 하나, 폴더는 끝에 /)
               <textarea name="allowedFiles" rows="5" class="mono" placeholder="예:&#10;card_condition/side_evidence.py&#10;tests/test_side_evidence.py"></textarea></label>
-            <div class="muted small">진행률 항목을 고르면 제안 파일이 채워집니다(수정 가능). 데이터·라벨·산출물 경로와 다른 작업이 쓰는 경로는 아래 미리보기에서 알려 줍니다.</div>
+            <details class="scopeHelp">
+              <summary class="small muted">범위를 모르겠나요? 받은 프롬프트에서 가져오기</summary>
+              <textarea id="scopeText" rows="4" placeholder="전달받은 프롬프트를 붙여 넣으세요. 이 칸은 저장·커밋되지 않습니다."></textarea>
+              <div class="actions"><button type="button" data-scope="extract">허용 파일 추출</button><button type="button" data-scope="preset" title="card_condition/ · tests/ · tools/experiments/ · docs/collaboration/ (데이터·라벨·산출물 제외)">코드·테스트·문서</button></div>
+              <div id="scopeInfo" class="small"></div>
+            </details>
+            <div class="muted small">진행률 항목을 고르면 제안 파일이 채워집니다(수정 가능). 저장소 전체("./")는 허용하지 않습니다. 데이터·라벨·산출물 경로와 다른 작업이 쓰는 경로는 아래 미리보기에서 알려 줍니다.</div>
           </div>
         </div>
         <details>
