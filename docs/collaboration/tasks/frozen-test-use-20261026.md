@@ -1,6 +1,6 @@
 task_id: frozen-test-use-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: d7adcf84aa6c4912c06dac0008007149c55f6684
 branch: codex/frozen-test-use-20261026
 goal: test-only manifest·사진·제공 개발이력을 봉인한 뒤 SHA 고정 입력으로만 평가하고, 같은 실물/사진을 봉인 복제·다른 후보·다른 평가기에서 재사용하면 추론 전에 차단한다.
@@ -28,3 +28,5 @@ structure: frozen_test.py 신규 최대7함수, frozen_test_cli.py 신규1함수
 checks: 표준라이브러리 claim/tamper/concurrent/reuse 합성 검사, 기본checkout 기존 fixture를 사용한 실제 manifest 봉인+mock evaluator/CLI 연결, diff/AST, HTML 생성/내용대조/열기. 새 실제학습·실사진추론·외부AI0.
 experiment: 없음. 합성/mock 계약검사만 수행한다.
 handoff: 실제 결과/구조/리스크/롤백/원격상태를 완료시 기록한다.
+
+실행결과: main 구현6694634, 신규3/1함수·기존각1유지, 신규검사7/6함수. 23개 합성/mock PASS, compileall/diff PASS. 세부리스크/롤백/HTML은 reports/frozen-test-use-20261026.md. 모델성능·D1/D2완료 미주장.
