@@ -11,12 +11,13 @@ allowed_files:
 - card_condition/evaluation_suite_cli.py
 - tests/test_evaluation_suite.py
 - tests/test_evaluation_suite_inputs.py
+- tests/test_evaluation_suite_safety.py
 - docs/collaboration/tasks/frozen-suite-assessment-20261026.md
 - docs/collaboration/reports/frozen-suite-assessment-20261026.md
 - ignored artifacts/frozen-suite-assessment-20261026/index.html
 forbidden_files: 기존 모든소스/Claude소유파일/원본/라벨/학습/모델/기존실험/진척률/기준/소비서비스/비밀설정
 contract:
-- 사전 고정 후보의 역할별보고서/receipt/hash/seal/checkpoint/threshold/manifest/input_hashes가 일치해야 한다. 가짜독립성·단순 'final'명칭만으로 통과시키지 않는다. 셀 선택은 고정: edge/corner/surface=region_final, centering=side_final, observation=observation_final. 사후 더좋은역할로 교체하지 않는다.
+- 각 역할별 보고서는 원래 저장한 path/SHA256을 명시한다. 사전 고정 후보의 역할별보고서/receipt/hash/seal/checkpoint/threshold/manifest/input_hashes가 일치해야 한다. 가짜독립성·단순 'final'명칭만으로 통과시키지 않는다. 셀 선택은 고정: edge/corner/surface=region_final, centering=side_final, observation=observation_final. 사후 더좋은역할로 교체하지 않는다.
 - 원래 sealed manifest의 역할별 projection과 각 prediction ID·정답·group·side·사진·geometry를 대조한다. 누락/추가/중복/바뀐정답 거절. side의 group/side는 기존 row생성 계약으로 복구하며 추측하지 않는다.
 - raw .5에서 질문/앞뒤 FN/FP·양성/정상단위와 group수를 다시 계산한다. D2의C수치20단위/5실물, D1각30실물, D3실물사건Wilson10%/20%를 구분한다. 보류분모제외금지·점수None미측정·미확인정답정상화금지.
 - 사람 metadata의 language/edition(비어있지않은문자열 또는미확인), annotation.visibility_issues에 따른 촬영제한 하위군 분모와 미확인범위를 공개한다. 이름/사진에서 언어/판본을 추정하지 않는다. source에 없는값은unknown으로만 집계한다.
