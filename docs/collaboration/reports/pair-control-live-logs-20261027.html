@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pair-control 실시간 로그</title>
+<style>
+:root { --bg:#f6f6f3; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#dddcd6; --ok:#1f7a4d; --warn:#a15c00; --bad:#b3261e; --info:#2457a6; --chip:#efeee9; --code:#f1f0ec; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151514; --panel:#1f1f1d; --ink:#ecebe6; --muted:#a09f99; --line:#3a3935; --ok:#5cc28d; --warn:#e5ab45; --bad:#f07a70; --info:#7aa7f0; --chip:#2a2a27; --code:#262623; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+h1 { font-size: 20px; margin: 0; } h2 { font-size: 15px; margin: 0 0 8px; }
+.hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; } .stat span { color: var(--muted); font-size: 12px; }
+.mono, code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; }
+.pipe { display: flex; overflow-x: auto; gap: 0; list-style: none; padding: 0; margin: 8px 0; }
+.pipe li { flex: 1 0 78px; text-align: center; font-size: 12px; }
+.pipe i { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); font-style: normal; font-weight: 700; }
+.d i { background: var(--ok); border-color: var(--ok); color: #fff; } .a i { background: var(--warn); border-color: var(--warn); color: #fff; } .r i { border-color: var(--info); }
+.s i { border-style: dashed; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>단계별 실시간 로그</h1>
+    <p class="muted">task <span class="mono">pair-control-live-logs-20261027</span> · 담당 Claude · 브랜치 <span class="mono">claude/pair-control</span> · 2026-10-27</p>
+    <div class="hero">
+      <div class="stat"><span>전체 개발 진척률 (usable-card-analysis-v1.0)</span><b>30 / 100</b><span>변동 없음 — 관제 도구 작업이며 카드 분석 모델 이정표가 아님</span></div>
+      <div class="stat"><span>검증한 코드 SHA</span><b class="mono" style="font-size:13px">f2315f5f0b88f457534f80465587deca505e5233</b><span>기준 2940df4</span></div>
+      <div class="stat"><span>이번 성과</span><b style="font-size:15px">ArgoCD식 로그 창</b><span>단계 패널 안에서 출력이 흐름</span></div>
+      <div class="stat"><span>회귀 검사</span><b>82 / 82</b><span>npm test(기존 77 + 신규 5) · typecheck 통과 — 합성 검사</span></div>
+    </div>
+    <p class="small muted">진척률 출처: development-progress.json(main) score 30/100, usable-card-analysis-v1.0. 모델 학습·추론·모델 호출 없음(mock 프로세스만), 모델 성능 미평가. 유료 요소 없음.</p>
+  </section>
+  <section>
+    <h2>무엇이 생겼나</h2>
+    <table>
+      <tr><th>단계</th><th>보이는 로그</th></tr>
+      <tr><td>구현</td><td>에이전트 출력(상태 줄: 실행 중/종료·코드·PID·줄 수·경과)</td></tr>
+      <tr><td>작업 테스트</td><td>검사 명령별 로그(선택 상자), 실행 중인 명령이 기본</td></tr>
+      <tr><td>리뷰</td><td>리뷰 프로세스 출력</td></tr>
+      <tr><td>통합 후 검사</td><td>실행 중 실시간(이전에는 끝난 뒤 파일에만 남고 화면에서 볼 수 없었음)</td></tr>
+      <tr><td>수동 모드(구현)</td><td>출력이 없어 작업 폴더 활동: 새 커밋·변경·미커밋·범위 밖(읽기만)</td></tr>
+    </table>
+    <p class="small">조작: 따라가기(스크롤을 올리면 꺼지고 맨 아래로 내리면 켜짐) · 일시정지/이어서 보기 · 찾기(일치하는 줄만) · 복사.</p>
+  </section>
+  <section>
+    <h2>변경 파일 (2940df4 → f2315f5)</h2>
+    <table>
+      <tr><th>파일</th><th>내용</th></tr>
+      <tr><td class="mono">src/executor/logstream.ts</td><td>신규: 줄 단위 비밀 가림·즉시 기록 실행·이어 읽기</td></tr>
+      <tr><td class="mono">src/executor/executor.ts</td><td>runPostChecks만: 실행 전 기록·실행 중 로그(postStatus에 running)</td></tr>
+      <tr><td class="mono">src/executor/taskControl.ts · src/mastra/index.ts</td><td>통합 후 로그·활동 조회와 경로 2개</td></tr>
+      <tr><td class="mono">src/ui/js/logview.js 외</td><td>로그 창, 단계 패널 연결, 폴링·스크롤 추적, 수동 활동, 단계 판정</td></tr>
+      <tr><td class="mono">test/logs.test.ts · test/ui-stages.test.ts</td><td>신규 검사 5개</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>실행한 검사</h2>
+    <ul>
+      <li class="ok">typecheck 통과, npm test 82/82 (Node 24.21.0). 서버 쪽은 실제 프로세스로 검증: 실행 중 첫 줄이 먼저 기록, 시간 제한 종료, 비밀이 청크 경계에 걸려도 가려짐, 통합 후 검사 실행 중 로그 조회.</li>
+      <li class="ok">사용자 서버(4111) 읽기 전용: 기존 실제 작업 3개의 구현·작업 테스트 로그가 단계 패널에 렌더. 실시간 동작은 페이지 안에서만 fetch를 가짜로 바꿔 확인(서버·작업 상태 변경, POST 0건): 줄 증가, 따라가기 자동 꺼짐/켜짐, 일시정지/재개, 찾기, 종료 전환, 수동 활동.</li>
+    </ul>
+    <h2>실행하지 않은 검사</h2>
+    <ul>
+      <li class="warn">에이전트 프로세스가 도는 동안 브라우저에서 로그가 흐르는 끝까지의 흐름. 사용자의 서버가 실행 중이라 같은 폴더에 데모 서버를 하나 더 띄울 수 없었고, 그 서버에서 작업을 시작하지 않았습니다.</li>
+      <li class="warn">복사 버튼의 클립보드 성공: 이 브라우저 창에는 권한이 없어 "직접 복사" 안내(글 선택)로만 확인했습니다.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>리스크 · 롤백</h2>
+    <ul>
+      <li>로그는 CLI가 내보낸 만큼만 보입니다. 끝에 한꺼번에 출력하는 모드면 중간 과정은 안 보입니다.</li>
+      <li>1초 폴링이라 최대 1초 지연입니다(SSE는 하지 않았습니다). 찾기는 받아 둔 최근 20만 자 안에서만 동작합니다.</li>
+      <li>통합 후 검사 중 서버가 죽으면 통합 기록의 postStatus가 running으로 남을 수 있습니다(기존 재시작 복구 규칙은 그대로).</li>
+      <li>롤백: <span class="mono">git revert f2315f5</span>와 문서 커밋. 통합 후 검사 로그 파일은 상태 폴더(.state/runs/post-*.log)에만 있습니다.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

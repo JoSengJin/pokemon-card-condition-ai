@@ -86,4 +86,3 @@ export function panelReview(t, ui) {
       (r.execId ? '<button type="button" class="link" data-act="log" data-id="' + esc(r.execId) + '">리뷰 로그</button>' : '') : '') +
     '<div class="actions"><select data-keep="revScenario">' + opt + '</select>' + B('review', other + ' 리뷰 실행(mock)', t.status === 'review_pending' && !(r && r.status === 'running')) + '</div>';
 }
-
