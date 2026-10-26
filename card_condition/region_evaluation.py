@@ -16,7 +16,8 @@ from .region_model import RegionAnalyzer
 from .region_thresholds import group_error_rates
 
 
-def evaluate_regions(manifest, checkpoint, output, history, device='auto', *, test_seal=None, test_seal_sha256=None):
+def evaluate_regions(manifest, checkpoint, output, history, device='auto', *, test_seal=None, test_seal_sha256=None,
+                     test_candidate=None, test_candidate_sha256=None):
     if not history:
         raise ValueError('최종평가에는 모든 이전 개발 manifest를 --history로 제공하세요.')
     output = Path(output)
@@ -55,7 +56,8 @@ def evaluate_regions(manifest, checkpoint, output, history, device='auto', *, te
         rows, missing = region_rows(manifest, splits={'test'})
     if not rows:
         raise ValueError('No explicitly annotated test regions')
-    claim = claim_test(test_seal, test_seal_sha256, manifest, checkpoint, 'region_final')
+    claim = claim_test(test_seal, test_seal_sha256, manifest, checkpoint, 'region_final',
+                       candidate_path=test_candidate, candidate_sha256=test_candidate_sha256, device=device)
     if claim is not None:
         if any(name in input_hashes and input_hashes[name] != sha for name, sha in claim['input_hashes'].items()):
             raise ValueError('Frozen test inputs differ from the evaluation inputs')

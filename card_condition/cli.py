@@ -30,6 +30,8 @@ def main():
     heldout.add_argument('--device', choices=('auto','cpu','mps'), default='auto')
     heldout.add_argument('--test-seal')
     heldout.add_argument('--test-seal-sha256')
+    heldout.add_argument('--test-candidate')
+    heldout.add_argument('--test-candidate-sha256')
     crossfit = commands.add_parser('visibility-crossfit')
     crossfit.add_argument('manifest')
     crossfit.add_argument('output')
@@ -133,6 +135,8 @@ def main():
     region_eval.add_argument("--device", choices=("auto", "cpu", "mps"), default="auto")
     region_eval.add_argument('--test-seal')
     region_eval.add_argument('--test-seal-sha256')
+    region_eval.add_argument('--test-candidate')
+    region_eval.add_argument('--test-candidate-sha256')
     region_predict = commands.add_parser("region-predict")
     region_predict.add_argument("checkpoint")
     region_predict.add_argument("image")
@@ -219,6 +223,8 @@ def main():
     side_eval.add_argument("--device", choices=("auto", "cpu", "mps"), default="auto")
     side_eval.add_argument('--test-seal')
     side_eval.add_argument('--test-seal-sha256')
+    side_eval.add_argument('--test-candidate')
+    side_eval.add_argument('--test-candidate-sha256')
     snap = commands.add_parser("snapshot")
     snap.add_argument("inventory")
     snap.add_argument("output")
@@ -258,7 +264,7 @@ def main():
             result = experiment(args.manifest, args.output, args.epochs, args.device, tiles=args.tiles, centroid=args.centroid, interior=args.interior, backbone_name=args.backbone, local_signals=args.local_signals, standardize=args.standardize, side_aware=args.side_aware)
         elif args.command == 'visibility-heldout':
             from .observation_heldout import evaluate_heldout
-            result = evaluate_heldout(args.checkpoint,args.manifest,args.output,args.expected_model_sha256,args.device, test_seal=args.test_seal, test_seal_sha256=args.test_seal_sha256)
+            result = evaluate_heldout(args.checkpoint,args.manifest,args.output,args.expected_model_sha256,args.device, test_seal=args.test_seal, test_seal_sha256=args.test_seal_sha256, test_candidate=args.test_candidate, test_candidate_sha256=args.test_candidate_sha256)
         elif args.command == 'visibility-crossfit':
             from .observation_crossfit import group_crossfit
             result = group_crossfit(args.manifest,args.output,args.device,compare_ridge=args.compare_ridge, compare_context=args.compare_context, compare_logistic=args.compare_logistic, compare_glare_only=args.compare_glare_only)
@@ -325,7 +331,7 @@ def main():
             result = point_audit(args.manifest, args.output)
         elif args.command == "region-evaluate":
             from .region_evaluation import evaluate_regions
-            result = evaluate_regions(args.manifest, args.checkpoint, args.output, args.history, args.device, test_seal=args.test_seal, test_seal_sha256=args.test_seal_sha256)
+            result = evaluate_regions(args.manifest, args.checkpoint, args.output, args.history, args.device, test_seal=args.test_seal, test_seal_sha256=args.test_seal_sha256, test_candidate=args.test_candidate, test_candidate_sha256=args.test_candidate_sha256)
         elif args.command == "region-predict":
             from .region_model import RegionAnalyzer
             result = RegionAnalyzer(args.checkpoint, args.device).analyze(args.image, args.card_box, args.area, args.unknown, args.batch_views)
@@ -371,7 +377,7 @@ def main():
             result = SideAnalyzer(args.checkpoint, args.device).analyze(args.front, args.back, args.front_box, args.back_box)
         elif args.command == "side-evaluate":
             from .side_evaluation import evaluate_sides
-            result = evaluate_sides(args.manifest, args.checkpoint, args.output, args.kind, args.history, args.device, test_seal=args.test_seal, test_seal_sha256=args.test_seal_sha256)
+            result = evaluate_sides(args.manifest, args.checkpoint, args.output, args.kind, args.history, args.device, test_seal=args.test_seal, test_seal_sha256=args.test_seal_sha256, test_candidate=args.test_candidate, test_candidate_sha256=args.test_candidate_sha256)
         elif args.command == "snapshot":
             from .snapshot import snapshot
             result = snapshot(args.inventory, args.output, args.reference, args.unassigned)

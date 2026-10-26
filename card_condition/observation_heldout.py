@@ -13,7 +13,8 @@ from .physical_uncertainty import physical_uncertainty
 from .frozen_test import claim_test
 
 
-def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto', *, test_seal=None, test_seal_sha256=None):
+def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto', *, test_seal=None, test_seal_sha256=None,
+                     test_candidate=None, test_candidate_sha256=None):
     output=Path(output); checkpoint=Path(checkpoint)
     if output.exists():raise ValueError('Output exists: choose a new heldout report directory')
     if not isinstance(expected_sha256,str) or len(expected_sha256)!=64 or any(c not in '0123456789abcdef' for c in expected_sha256):
@@ -33,7 +34,8 @@ def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto
         hashes[row['image']]=digest(row['image'])
     if {r['labels'][TARGET] for r in rows}!={0,1}:
         raise ValueError('Both explicit heldout observation classes required')
-    claim = claim_test(test_seal, test_seal_sha256, manifest, checkpoint, 'observation_final')
+    claim = claim_test(test_seal, test_seal_sha256, manifest, checkpoint, 'observation_final',
+                       candidate_path=test_candidate, candidate_sha256=test_candidate_sha256, device=device)
     if claim is not None:
         if any(name in hashes and hashes[name] != sha for name, sha in claim['input_hashes'].items()):
             raise ValueError('Frozen test inputs differ from the evaluation inputs')

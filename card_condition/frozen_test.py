@@ -87,16 +87,24 @@ def read_seal(path, expected_sha256, manifest):
     return seal, dict(seal['input_hashes'], **{str(path): expected_sha256})
 
 
-def claim_test(path, expected_sha256, manifest, checkpoint, operation):
+def claim_test(path, expected_sha256, manifest, checkpoint, operation, *,
+               candidate_path=None, candidate_sha256=None, device=None):
     """Reserve before inference. A subsequent failure retains this exposure claim, without retry."""
-    if path is None and expected_sha256 is None:
+    if path is None and expected_sha256 is None and candidate_path is None and candidate_sha256 is None:
         return None
     if path is None or expected_sha256 is None:
         raise ValueError('Test seal and its expected SHA256 must be supplied together')
     seal, hashes = read_seal(path, expected_sha256, manifest)
+    candidate = None
+    if candidate_path is not None or candidate_sha256 is not None:
+        from .frozen_candidate import read_candidate
+        if candidate_path is None or candidate_sha256 is None:
+            raise ValueError('Candidate and its SHA256 must be supplied together')
+        candidate, candidate_hashes = read_candidate(candidate_path, candidate_sha256, expected_sha256, checkpoint, operation, device)
+        hashes.update(candidate_hashes)
     receipt = dict(schema_version=1, kind='frozen_test_use', status='exposure_claimed',
                    claimed_at=datetime.now(timezone.utc).isoformat(), operation=operation,
-                   seal_sha256=expected_sha256, manifest_sha256=seal['manifest_sha256'],
+                   seal_sha256=expected_sha256, candidate_sha256=candidate_sha256, manifest_sha256=seal['manifest_sha256'],
                    model_sha256=file_sha256(checkpoint), physical_groups=seal['physical_groups'],
                    decoded_photo_sha256=seal['decoded_photo_sha256'])
     LEDGER.mkdir(parents=True, exist_ok=True)
@@ -110,8 +118,13 @@ def claim_test(path, expected_sha256, manifest, checkpoint, operation):
                 raise ValueError('Invalid existing test usage receipt; manual audit required')
             if (set(used['physical_groups']) & set(seal['physical_groups'])
                     or set(used['decoded_photo_sha256']) & set(seal['decoded_photo_sha256'])):
-                raise ValueError('Frozen test cards or photos already used; no automatic retry')
-        target = LEDGER / (expected_sha256 + '.json')
+                if not (candidate is not None and used.get('candidate_sha256') == candidate_sha256
+                        and used.get('seal_sha256') == expected_sha256
+                        and used.get('operation') in candidate['models'] and used['operation'] != operation):
+                    raise ValueError('Frozen test cards or photos already used; no automatic retry')
+        suffix = '-' + operation if candidate is not None else ''
+        target = LEDGER / (expected_sha256 + suffix + '.json')
         write_new_report(target, receipt)
-    return dict(seal_sha256=expected_sha256, receipt_sha256=file_sha256(target),
+    return dict(seal_sha256=expected_sha256, candidate_sha256=candidate_sha256, operation=operation,
+                receipt_sha256=file_sha256(target),
                 receipt=str(target), status='exposure_claimed', input_hashes=hashes)
