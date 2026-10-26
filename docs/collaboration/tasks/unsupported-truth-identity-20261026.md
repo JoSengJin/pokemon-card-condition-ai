@@ -1,6 +1,6 @@
 task_id: unsupported-truth-identity-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: b293080b1f0c7c798c7564bed5ba2d895d111b33
 branch: codex/unsupported-truth-identity-20261026
 goal: 모델 미지원 질문의 source 수량에도 동일사진/면/구역/질문 known truth 중복을 거절해 D1 분모 팽창을 방지한다.
@@ -16,3 +16,5 @@ structure: evaluation_suite_inputs2→2, 새 test<=7. 기존 루프 대상만 �
 checks: 수정 전 unsupported edge known alias2행 accepted 재현. 미지원known alias·상충truth·source photo mapping·unknown·다른질문·다른사진·score지원 유지 회귀 + 기존121; AST/compile/diff/HTML/main push.
 experiment: 없음. 합성 JSON/projection 검사이며 모델 학습·실사진 추론·외부 AI 호출 없음.
 handoff: 파일/diff/실검사/미검증/리스크/롤백/HTML/원격.진척30/100 유지.
+
+완료:cc376c9.126합성회귀PASS24.336s.진척30/100. 보고서에리스크·롤백.
