@@ -93,7 +93,7 @@ def checked_predictions(report, rows, operation, supported, *, photo_sha256=None
         if digest is not None:
             if photo_sides.setdefault(digest, row['side']) != row['side']:
                 raise ValueError('Same decoded photo is assigned to both front and back')
-            for question in supported:
+            for question in QUESTIONS:
                 if question not in QUESTIONS or row['labels'].get(question) is None:
                     continue
                 unit = (digest, row['side'], row.get('area', 'face'), question)
