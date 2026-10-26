@@ -1,6 +1,6 @@
 task_id: listing-loaded-checkpoint-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: 2732efbb912e20967548bfc08d5d1de3db25eb3c
 branch: codex/listing-loaded-checkpoint-20261026
 goal: validation listing 추론도 사전고정 checkpoint SHA와 실제 읽은 모델 바이트를 결속하고 observation 모델 불일치를 사진 analyze 전에 거절한다.
@@ -21,3 +21,5 @@ structure: listing_inference1→1, observation1→1, 기존 검사4→4, 신규 
 checks: path 재개방시 임시 다른 metadata 로드 후 원복으로 기존 최종hash검사를 통과하는 반례; 변경 전후 snapshot fixture, 읽기전 교체거절, observation mismatch/동일SHA. 기존114 + 실제사진 없는 listing 합성회귀, AST/compile/diff/HTML/main push.
 experiment: 없음. 합성 로딩/계약 검사이며 성능 실험 아님.
 handoff: 실제 검사/미측정/파일·diff/리스크·메모리 비용/롤백/원격/HTML 기록.진척30/100 유지.
+
+완료:95eb546.121합성회귀PASS24.451s/AST/compile/diffPASS. 리스크·롤백·미측정은 보고서.진척30/100.
