@@ -42,3 +42,5 @@ D3 완료에 추가로 필요한 근거: D1 봉인 시험자료, D2 동일 동�
 worktree: 이번 Codex checkout은 최신 완료 작업의 롤백 확인용으로 유지한다. 다른 Claude/기존 Codex checkout은 이 작업에서 소유·통합·사용중 여부가 확정되지 않아 변경하지 않았다.
 
 원격 반영: git push origin main은 자동 승인 검토에서 거절되어 미실행. 기존 승인은 검증한 Claude 결과에 한정되고 이번 Codex 단독 변경의 외부 전송 승인이 확인되지 않았다는 이유다. 사용자 명시 승인 전에는 재시도하지 않는다. 로컬 구현과 검증은 완료했다.
+
+후속 사용자 승인(2026-10-26): 이번 Codex 변경을 origin/main에 push하도록 명시 승인했다. 향후 Codex 직접 개발·검증 변경에도 재확인 없이 일반 push하는 상시 승인을 확대해 AGENTS.md/PAIR_CODING.md에 반영했다. force push·이력 재작성은 승인 범위에 포함되지 않는다. 승인 지침의 롤백은 해당 문서 변경 커밋을 git revert한다.

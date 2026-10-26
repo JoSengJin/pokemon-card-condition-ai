@@ -113,7 +113,7 @@ Codex와 Claude 모두 docs/collaboration/HTML_REPORTING.md를 따른다. 작업
 
 ## 검증한 main의 push와 세션 간 기준 동기화
 
-2026-10-25 사용자 상시 승인. Codex는 Claude 결과를 검토·검사하고 main에 통합하면 origin/main에 일반 push까지 수행한다. 이 요청으로 검증된 main 통합의 원격 반영은 매번 다시 묻지 않는다. 미검토 Claude 브랜치를 임의로 통합하거나 모든 브랜치를 push하지 않는다.
+2026-10-25 사용자 상시 승인, 2026-10-26 적용 범위 확대. Codex는 직접 개발·검증한 변경과 Claude 결과를 검토·검사해 main에 통합한 변경 모두 origin/main에 일반 push까지 수행한다. 검증된 main 변경의 원격 반영은 매번 다시 묻지 않는다. 미검토 Claude 브랜치를 임의로 통합하거나 모든 브랜치를 push하지 않는다.
 
 1. 통합 전 origin/main을 fetch하고 기준 SHA·작업 트리·진행 중 Git 작업·개발 잠금을 확인한다. 다른 사용자의 미커밋 변경을 포함해 커밋하거나 stash/reset하지 않는다. 원격 변경이 있으면 근거를 검토해 먼저 반영하고 관련 검사를 다시 실행한다. 변경된 기준 위에서 이전 승인을 재사용하지 않는다.
 2. 검증된 main을 명시적으로 git push origin main으로 반영한다. force/force-with-lease·이력 재작성은 별도 사용자 요청 없이 사용하지 않는다. push가 거절되면 최신 원격을 다시 확인하고 원인을 해결한다. 인증/권한 문제로 해결하지 못하면 로컬 SHA·원격 상태·차단 이유를 보고하며 push 완료라고 쓰지 않는다.
