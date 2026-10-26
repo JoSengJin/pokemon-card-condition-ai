@@ -17,12 +17,14 @@ PRINTED = dict(ensure_ascii=False, indent=2, allow_nan=False)
 
 
 def append_line(path, entry):
-    """Single O_APPEND write plus fsync: concurrent processes cannot interleave a line."""
+    """One O_APPEND write plus fsync; a short write fails without retrying a fragment."""
     line = (json.dumps(entry, ensure_ascii=False, allow_nan=False) + '\n').encode()
     fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o644)
     try:
-        os.write(fd, line)
+        written = os.write(fd, line)
         os.fsync(fd)
+        if written != len(line):
+            raise OSError('Usage record was not fully written')
     finally:
         os.close(fd)
 
