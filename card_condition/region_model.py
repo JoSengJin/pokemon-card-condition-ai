@@ -1,5 +1,6 @@
 """Independent experimental patch inference with explicit observation limits."""
 import hashlib
+import io
 import math
 from pathlib import Path
 import time
@@ -17,7 +18,8 @@ from .side_model import backbone_for
 class RegionAnalyzer:
     def __init__(self, checkpoint, device='auto'):
         self.device = device_for(device)
-        self.meta = torch.load(checkpoint, map_location='cpu', weights_only=True)
+        checkpoint_bytes = Path(checkpoint).read_bytes()
+        self.meta = torch.load(io.BytesIO(checkpoint_bytes), map_location='cpu', weights_only=True)
         supported = self.meta.get('supported') if isinstance(self.meta, dict) else None
         name = self.meta.get('backbone_name', 'mobilenet_v3_small') if isinstance(self.meta, dict) else None
         self.policy = False
@@ -25,7 +27,7 @@ class RegionAnalyzer:
             '_point_grid_v1', '_point_edge_views_v1', '_point_edge_tiles_v1',
             '_point_edge_tiles_max_v1', '_point_surface_tiles_v1')) if name in ('mobilenet_v3_small', 'resnet18') else ()
         if isinstance(self.meta, dict) and self.meta.get('architecture') in point_architectures:
-            self.meta, self.backbone, self.head, self.policy = load_probe_model(checkpoint, self.device)
+            self.meta, self.backbone, self.head, self.policy = load_probe_model(io.BytesIO(checkpoint_bytes), self.device)
         else:
             if (not isinstance(self.meta, dict) or name not in ('mobilenet_v3_small', 'resnet18')
                     or self.meta.get('architecture') != name + '_region_v1'
@@ -40,7 +42,7 @@ class RegionAnalyzer:
         self.image_size = self.meta.get('image_size', 224)
         if type(self.image_size) is not int or self.image_size not in (224, 448):
             raise ValueError('Invalid checkpoint image_size')
-        self.model_sha256 = hashlib.sha256(Path(checkpoint).read_bytes()).hexdigest()
+        self.model_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
 
     def analyze(self, image, card_box, area, unknown_labels=(), batch_views=False):
         if type(batch_views) is not bool:
