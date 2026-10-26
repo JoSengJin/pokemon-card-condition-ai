@@ -17,6 +17,13 @@ from .regions import GLARE_AREAS, region_box
 DECISIONS = ('confirmed', 'corrected_defect', 'corrected_normal', 'undecidable')
 STATES = dict(normal='정상', defect='결함 의심', unknown='보류')
 esc = html.escape
+FACE_OPTIONS = {
+    'centering_defect': dict(confirmed='보류 사유 확인', corrected_defect='센터링 이상 확인',
+                             corrected_normal='센터링 이상 없음 확인', undecidable='판단 불가'),
+    'observation_limited': dict(confirmed_limited='관찰 제한 확인', confirmed_observable='관찰 가능한 사진',
+                                undecidable='판단 불가'),
+}
+FACE_NAMES = dict(centering_defect='센터링', observation_limited='관찰 제한')
 
 
 def checked_inputs(report_path, request_path):
@@ -115,6 +122,21 @@ def side_view(side, face, cells, notes):
             + ''.join(marks) + '</div></div></section>')
 
 
+def whole_face_cells(report):
+    """Four manual audit questions; region results never supply a whole-face model verdict."""
+    source = report['listing_readiness']['records'][0]['cells']
+    cells = []
+    for side in ('front', 'back'):
+        reasons = {c['reason'] for c in source if c['side'] == side}
+        missing = next((r for r in ('missing_photo', 'missing_card_region') if r in reasons), None)
+        for label, reason in (('centering_defect', 'centering_not_evaluated'),
+                              ('observation_limited', 'whole_listing_observability_not_validated')):
+            cells.append(dict(side=side, area='face', label=label, state='unknown', score=None,
+                              reason=missing or reason,
+                              options=['undecidable'] if missing else list(FACE_OPTIONS[label])))
+    return cells
+
+
 def review_page(report_path, request_path, output):
     report, request, report_sha = checked_inputs(report_path, request_path)
     record = report['listing_readiness']['records'][0]
@@ -122,6 +144,13 @@ def review_page(report_path, request_path, output):
     release = report.get('release')
     identity = (f"릴리스 {esc(release['release_id'])} · 패키지 {esc(release['package_version'])} · 모델 {esc(', '.join(sorted(release['checkpoint_sha256'])))}"
                 if release else '고정 릴리스 아님(직접 checkpoint 실행) — 운영 검토 근거로 쓰지 않는다')
+    faces = whole_face_cells(report)
+    face_rows = ''.join(
+        f"<tr data-face-key='{c['side']}|face|{c['label']}'><td>{c['side']}</td>"
+        f"<td>{FACE_NAMES[c['label']]}</td><td class='unknown'>모델 보류</td><td>{esc(c['reason'])}</td>"
+        f"<td><select aria-label='{c['side']} {FACE_NAMES[c['label']]} 사람 확인'><option value=''>미검토</option>"
+        + ''.join(f"<option value='{d}'>{FACE_OPTIONS[c['label']][d]}</option>" for d in c['options'])
+        + '</select></td></tr>' for c in faces)
     rows = ''.join(
         f"<tr data-key='{esc(c['side'])}|{esc(c['area'])}|{esc(c['label'])}'><td>{esc(c['side'])}</td><td>{esc(c['area'])}</td>"
         f"<td>{esc(c['label'])}</td><td class='{esc(c['state'])}'>{STATES[c['state']]}</td>"
@@ -130,7 +159,8 @@ def review_page(report_path, request_path, output):
         "<td><select>" + ''.join(f'<option>{d}</option>' for d in ('', *DECISIONS)) + "</select></td></tr>"
         for c in record['cells'])
     payload = json.dumps(dict(report_sha256=report_sha, id=report['id'], release=release,
-                              cells=[[c['side'], c['area'], c['label']] for c in record['cells']])).replace('</', '<\\/')
+                              cells=[[c['side'], c['area'], c['label']] for c in record['cells']],
+                              face_cells=[[c['side'], c['area'], c['label']] for c in faces])).replace('</', '<\\/')
     page = f"""<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Listing Result Review</title><style>
 :root{{--bg:#f4f6f9;--fg:#172537;--line:#c6cfdb;--held:#f1c75b;--defect:#d9534f;--normal:#3c8d5a}}
@@ -149,18 +179,23 @@ table{{border-collapse:collapse;width:100%;font-size:13px}}td,th{{border:1px sol
 {side_view('back', request.get('back'), [c for c in record['cells'] if c['side'] == 'back'], notes)}</div>
 {evidence}
 <h2>칸별 판정·보류 이유와 검토</h2><div class="wrap"><table><tr><th>면</th><th>구역</th><th>종류</th><th>판정</th><th>점수</th><th>보류 이유</th><th>추가 근거</th><th>검토</th></tr>{rows}</table></div>
+<h2>전체 사진 질문 확인 · 센터링과 관찰 제한</h2>
+<p class="warn">추가 4항목은 모델이 평가하지 못한 질문의 사람 검토 기록이다. 관찰 제한은 카드 손상을 뜻하지 않는다.
+사진·영역이 없으면 판단 불가만 기록한다. 모든 항목 검토도 모델 전체 완료나 학습 정답을 뜻하지 않는다.</p>
+<div class="wrap"><table><tr><th>면</th><th>질문</th><th>모델 상태</th><th>보류 이유</th><th>사람 확인</th></tr>{face_rows}</table></div>
 <p><button id="export">검토 기록 내보내기</button> <span id="status"></span></p>
 <script type="application/json" id="data">{payload}</script><script>
 const data=JSON.parse(document.getElementById('data').textContent);
 document.getElementById('export').onclick=()=>{{
  const decisions=[...document.querySelectorAll('tr[data-key]')].map(r=>{{const [side,area,label]=r.dataset.key.split('|');return {{side,area,label,decision:r.querySelector('select').value}}}});
- const left=decisions.filter(d=>!d.decision).length;
- document.getElementById('status').textContent=left?`미검토 ${{left}}칸 — 완료로 기록되지 않음`:'모든 칸 검토';
- const blob=new Blob([JSON.stringify({{report_sha256:data.report_sha256,id:data.id,decisions}},null,2)],{{type:'application/json'}});
+ const face_decisions=[...document.querySelectorAll('tr[data-face-key]')].map(r=>{{const [side,area,label]=r.dataset.faceKey.split('|');return {{side,area,label,decision:r.querySelector('select').value}}}});
+ const left=decisions.filter(d=>!d.decision).length, faceLeft=face_decisions.filter(d=>!d.decision).length;
+ document.getElementById('status').textContent=left||faceLeft?`미검토: 구역 ${{left}}칸 · 전체 사진 질문 ${{faceLeft}}개`:'모든 질문 검토 — 모델 전체 완료나 학습 정답 아님';
+ const blob=new Blob([JSON.stringify({{report_sha256:data.report_sha256,id:data.id,decisions,face_decisions}},null,2)],{{type:'application/json'}});
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`review-${{data.id}}.json`;a.click();
 }};</script></html>"""
     atomic_write(Path(output), page)
-    return dict(output=str(output), report_sha256=report_sha, cells=len(record['cells']), release=release,
+    return dict(output=str(output), report_sha256=report_sha, cells=len(record['cells']), release=release, manual_face_cells=len(faces),
                 recall_candidates=len(notes), observation_faces=len((report.get('observation_evidence') or {}).get('records', [])))
 
 
@@ -178,6 +213,20 @@ def review_record(report_path, decisions_path, output):
     given = [(d.get('side'), d.get('area'), d.get('label')) for d in decisions.get('decisions', [])]
     if sorted(given) != sorted(keys) or any(d.get('decision') not in ('', *DECISIONS) for d in decisions['decisions']):
         raise ValueError('Decisions must cover every result cell once with a known decision')
+    face_cells = whole_face_cells(report)
+    face_values = {(c['side'], c['area'], c['label']): None for c in face_cells}
+    if 'face_decisions' in decisions:
+        supplied = decisions['face_decisions']
+        if (not isinstance(supplied, list) or any(not isinstance(d, dict) or any(
+                type(d.get(k)) is not str for k in ('side', 'area', 'label', 'decision')) for d in supplied)):
+            raise ValueError('Invalid whole-face review decisions')
+        given_faces = [(d['side'], d['area'], d['label']) for d in supplied]
+        if len(given_faces) != len(face_values) or set(given_faces) != set(face_values):
+            raise ValueError('Whole-face decisions must cover each manual question once')
+        allowed = {(c['side'], c['area'], c['label']): c['options'] for c in face_cells}
+        if any(d['decision'] not in ('', *allowed[key]) for key, d in zip(given_faces, supplied)):
+            raise ValueError('Whole-face decision contradicts the question or missing input')
+        face_values = {key: d['decision'] or None for key, d in zip(given_faces, supplied)}
     recalled = recall_cells(report, set(keys))
     by_key = {(d['side'], d['area'], d['label']): d['decision'] or None for d in decisions['decisions']}
     counts = {name: sum(v == name for v in by_key.values()) for name in DECISIONS}
@@ -190,5 +239,17 @@ def review_record(report_path, decisions_path, output):
                                   decision=by_key[(s, a, l)]) for (s, a, l), c in zip(keys, cells)],
                   counts=counts, review_completed=all(v is not None for v in by_key.values()),
                   ground_truth=False, used_for_training=False, changes_model_verdict=False)
+    record.update(region_review_completed=record['review_completed'],
+                  face_review_completed=all(v is not None for v in face_values.values()),
+                  full_scope_review_completed=record['review_completed'] and all(v is not None for v in face_values.values()),
+                  manual_face_cells=len(face_cells), face_unreviewed=sum(v is None for v in face_values.values()),
+                  face_decisions=[dict(side=c['side'], area=c['area'], label=c['label'], model_state=c['state'],
+                                       model_reason=c['reason'], decision=face_values[(c['side'], c['area'], c['label'])])
+                                  for c in face_cells],
+                  face_counts={label: {name: sum(value == name for (side, area, key), value in face_values.items() if key == label)
+                                      for name in choices} for label, choices in FACE_OPTIONS.items()},
+                  face_decisions_are_model_predictions=False)
     atomic_write(output, json.dumps(record, ensure_ascii=False, indent=2))
-    return {k: record[k] for k in ('id', 'cells', 'unreviewed', 'counts', 'review_completed', 'ground_truth')}
+    return {k: record[k] for k in ('id', 'cells', 'unreviewed', 'counts', 'review_completed', 'ground_truth',
+                                         'region_review_completed', 'face_review_completed', 'full_scope_review_completed',
+                                         'manual_face_cells', 'face_unreviewed')}
