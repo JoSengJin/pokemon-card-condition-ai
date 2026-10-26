@@ -42,16 +42,18 @@ class OutputSafetyTest(unittest.TestCase):
                 setup = self.build(kind, module, constructor)
                 before = sorted(os.listdir(setup.root))
                 good = setup.method.return_value
-                # A NaN probability makes the real json.dump fail after it has already written part of the report.
+                # Invalid scores are refused before publication; a separate valid run tests disk failure.
                 setup.method.return_value = ({**good, 'probabilities': {**good['probabilities'], 'corner_defect': math.nan}}
                                              if kind == 'region' else {**good, 'corner_defect': math.nan})
                 with self.assertRaises(ValueError):
                     self.run_eval(setup)
                 self.assertFalse(setup.output.exists())
                 self.assertEqual(before, sorted(os.listdir(setup.root)))
-                with patch.object(json, 'dump', side_effect=OSError(errno.ENOSPC, 'No space left on device')):
+                setup.method.return_value = good
+                with patch.object(json, 'dump', side_effect=OSError(errno.ENOSPC, 'No space left on device')) as dump:
                     with self.assertRaises(OSError):
                         self.run_eval(setup)
+                dump.assert_called_once()
                 self.assertFalse(setup.output.exists())
                 self.assertEqual(before, sorted(os.listdir(setup.root)))
                 setup.method.return_value = good
@@ -89,6 +91,10 @@ class OutputSafetyTest(unittest.TestCase):
         from card_condition.evaluation_output import write_new_report
         folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
         output = folder / 'report.json'
+        # Exercise real json.dump failing after a serializable prefix was written.
+        with self.assertRaises(ValueError):
+            write_new_report(output, {'ok': 1, 'bad': math.nan})
+        self.assertEqual([], os.listdir(folder))
         for target in ('os.fsync', 'os.link'):
             with patch(target, side_effect=OSError(errno.EIO, 'Input/output error')), self.assertRaises(OSError):
                 write_new_report(output, {'ok': 1})
