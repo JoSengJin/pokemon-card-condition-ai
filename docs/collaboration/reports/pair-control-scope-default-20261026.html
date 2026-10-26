@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pair-control 허용 범위 기본값</title>
+<style>
+:root { --bg:#f6f6f3; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#dddcd6; --ok:#1f7a4d; --warn:#a15c00; --bad:#b3261e; --info:#2457a6; --chip:#efeee9; --code:#f1f0ec; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151514; --panel:#1f1f1d; --ink:#ecebe6; --muted:#a09f99; --line:#3a3935; --ok:#5cc28d; --warn:#e5ab45; --bad:#f07a70; --info:#7aa7f0; --chip:#2a2a27; --code:#262623; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+h1 { font-size: 20px; margin: 0; } h2 { font-size: 15px; margin: 0 0 8px; }
+.hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; } .stat span { color: var(--muted); font-size: 12px; }
+.mono, code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; }
+.pipe { display: flex; overflow-x: auto; gap: 0; list-style: none; padding: 0; margin: 8px 0; }
+.pipe li { flex: 1 0 78px; text-align: center; font-size: 12px; }
+.pipe i { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); font-style: normal; font-weight: 700; }
+.d i { background: var(--ok); border-color: var(--ok); color: #fff; } .a i { background: var(--warn); border-color: var(--warn); color: #fff; } .r i { border-color: var(--info); }
+.s i { border-style: dashed; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>허용 범위를 비워 두면 기본 범위</h1>
+    <p class="muted">task <span class="mono">pair-control-scope-default-20261026</span> · 담당 Claude · 브랜치 <span class="mono">claude/pair-control</span> · 2026-10-26</p>
+    <div class="hero">
+      <div class="stat"><span>전체 개발 진척률 (usable-card-analysis-v1.0)</span><b>30 / 100</b><span>변동 없음 — 관제 도구 작업이며 카드 분석 모델 이정표가 아님</span></div>
+      <div class="stat"><span>검증한 코드 SHA</span><b class="mono" style="font-size:13px">fa183e96598ce2f7573c0704181963af8b7892c7</b><span>기준 b58e244</span></div>
+      <div class="stat"><span>이번 성과</span><b style="font-size:15px">3번 칸이 선택으로</b><span>비우면 코드·테스트·문서 범위 자동 적용</span></div>
+      <div class="stat"><span>회귀 검사</span><b>75 / 75</b><span>npm test(기존 74 + 신규 1) · typecheck 통과 — 합성 검사</span></div>
+    </div>
+    <p class="small muted">진척률 출처: development-progress.json(main) score 30/100, usable-card-analysis-v1.0. 모델 학습·추론·모델 호출 없음, 모델 성능 미평가.</p>
+  </section>
+  <section>
+    <h2>왜 범위를 없애지 않았나</h2>
+    <p>허용 범위는 실행 중 쓰기를 막는 장치가 아닙니다(사후 diff 검사뿐). 하는 일은 세 가지입니다: 병렬 작업의 겹침 감지·직렬화, 데이터·라벨·산출물 보호, 범위 밖 변경의 사후 표시. PAIR_CODING.md가 "작업별 소유 파일 분리"를 요구하므로 범위 자체는 두고, <b>사람이 채우지 않아도 되게</b> 기본값을 넣었습니다.</p>
+    <table>
+      <tr><th>입력</th><th>결과</th></tr>
+      <tr><td>비움</td><td>기본 범위 <span class="mono">card_condition/ tests/ tools/experiments/ docs/collaboration/</span> 적용, 미리보기에 "기본 범위" 표시</td></tr>
+      <tr><td>직접 적음</td><td>적은 그대로. 금지 경로(data/ labels 등)는 여전히 거부</td></tr>
+      <tr><td><code>./</code> 등</td><td>여전히 거부(저장소 전체 표기)</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>변경 파일 (b58e244 → fa183e9)</h2>
+    <table>
+      <tr><th>파일</th><th>내용</th></tr>
+      <tr><td class="mono">src/executor/prepare.ts</td><td>빈 범위 → 기본 범위, scopeDefault 반환</td></tr>
+      <tr><td class="mono">src/ui/page.html · js/form.js · js/form-scope.js</td><td>3번 칸 선택·문구, "기본 범위" 칩, 중복된 프리셋 버튼 제거</td></tr>
+      <tr><td class="mono">src/mastra/index.ts</td><td>/pair/api/scope의 preset 분기 제거(추출만)</td></tr>
+      <tr><td class="mono">test/prepare.test.ts · test/scope.test.ts</td><td>기존 "빈 범위는 실패" 검사를 의도된 동작 변경에 맞춰 수정, 신규 1개</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>실행한 검사</h2>
+    <ul>
+      <li class="ok">typecheck 통과, npm test 75/75 (Node 24.21.0)</li>
+      <li class="ok">실서버(4111, 소스 변경 반영): plan에 빈 범위 → ok, 기본 4개, env python</li>
+      <li class="ok">브라우저 폼: 목표만 입력 → 미리보기 "기본 범위"·준비 버튼 활성, 콘솔 오류 0</li>
+    </ul>
+    <h2>실행하지 않은 검사</h2>
+    <ul><li class="warn">폼을 끝까지 제출해 실제 작업·worktree를 만드는 흐름(실제 저장소에 worktree가 생겨서).</li></ul>
+  </section>
+  <section>
+    <h2>리스크 · 롤백</h2>
+    <ul>
+      <li>기본 범위에 <span class="mono">card_condition/</span>가 있어 빈 범위 작업은 항상 ./develop 잠금과 자체 .venv가 필요합니다(준비 단계에서 안내).</li>
+      <li>기본 범위끼리는 같은 폴더라 직렬화됩니다. 병렬로 돌리려면 서로 다른 파일로 좁혀야 합니다.</li>
+      <li>기존 "빈 범위는 실패" 동작에 기대던 호출은 이제 기본 범위가 적용됩니다.</li>
+      <li>롤백: <span class="mono">git revert fa183e9</span>와 문서 커밋. 이미 배정된 작업은 바뀌지 않습니다.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
