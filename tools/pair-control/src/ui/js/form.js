@@ -43,7 +43,7 @@ async function updatePlan() {
     const kv = !t ? '' : '<div class="kv"><div>task ID</div><div class="mono">' + esc(t.taskId) + '</div>' +
       '<div>브랜치</div><div class="mono">' + esc(t.branch) + mk + '</div><div>작업 폴더</div><div class="mono">' + esc(t.worktree) + mk + '</div>' +
       '<div>시작 시점</div><div><span class="mono">' + esc(t.baseSha.slice(0, 12)) + '</span> · ' + esc(p.baseRef + ' · ' + p.baseSubject) + '</div>' +
-      '<div>고칠 수 있는 곳</div><div class="mono">' + t.allowedFiles.map(esc).join(', ') + '</div>' +
+      '<div>고칠 수 있는 곳</div><div class="mono">' + t.allowedFiles.map(esc).join(', ') + (p.scopeDefault ? ' <span class="chip">기본 범위</span>' : '') + '</div>' +
       '<div>실행 환경</div><div>' + esc({ none: 'Python 불필요', python: '자체 .venv 필요', 'python-project': '자체 .venv + 프로젝트 import 필요' }[t.env]) + (p.envAuto ? ' <span class="chip">자동</span>' : '') + '</div>' +
       '<div>작업 테스트</div><div class="mono small">' + (t.checks.map((c) => esc([c.executable].concat(c.args).join(' '))).join('<br>') || '<span class="bad">없음 — 승인할 수 없음</span>') + '</div>' +
       '<div>계약 파일</div><div class="mono">docs/collaboration/tasks/' + esc(t.taskId) + '.md <span class="chip">작업 브랜치에 커밋</span></div></div>';

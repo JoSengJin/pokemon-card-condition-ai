@@ -27,8 +27,9 @@ test('미리보기: 담당·목표·파일만으로 ID·브랜치·기준 SHA·w
     const bad = await planTask(env.ex, { agent: 'codex', goal: 'x', allowedFiles: ['data/labels.jsonl'] });
     assert.equal(bad.ok, false);
     assert.ok(bad.checks.some((c) => !c.ok && /금지 경로/.test(c.detail)));
+    // 비우면 실패가 아니라 기본 범위(코드·테스트·문서)가 적용된다(scope.test.ts에서 자세히 검사).
     const empty = await planTask(env.ex, { agent: 'codex', goal: 'x', allowedFiles: [] });
-    assert.equal(empty.ok, false);
+    assert.equal(empty.scopeDefault, true);
   } finally { env.cleanup(); }
 });
 

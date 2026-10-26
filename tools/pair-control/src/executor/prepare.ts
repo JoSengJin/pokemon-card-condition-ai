@@ -6,6 +6,7 @@ import { z } from 'zod';
 import * as G from './git.ts';
 import { AGENTS, MODES, MOCK_SCENARIOS, conflicts, TaskInput, type ConflictReason, type TaskInputT } from './contract.ts';
 import { OCCUPYING, type Check, type Executor } from './executor.ts';
+import { SCOPE_PRESET } from './scope.ts';
 
 export const PrepareInput = z.object({
   taskId: z.string().trim().optional().default(''),
@@ -39,6 +40,8 @@ export interface Plan {
   conflicts: ConflictReason[];
   warnings: string[];
   envAuto?: boolean;
+  /** 허용 파일을 비워 기본 범위(코드·테스트·문서)가 적용됨 */
+  scopeDefault?: boolean;
 }
 
 
@@ -117,19 +120,21 @@ export async function planTask(ex: Executor, raw: unknown): Promise<Plan> {
     }
   }
 
-  // 허용 파일
-  if (!input.allowedFiles.length) add('허용 파일', false, '고칠 파일·폴더를 하나 이상 고르세요');
+  // 허용 파일: 비우면 기본 범위. 데이터·라벨·산출물·공용 설정은 기본 범위에 없고, 직접 적어도 금지 경로 규칙이 막는다.
+  const scopeDefault = !input.allowedFiles.length;
+  const allowed = scopeDefault ? [...SCOPE_PRESET.files] : input.allowedFiles;
+  if (scopeDefault) add('허용 파일', true, `비워 두어 기본 범위 적용: ${allowed.join(', ')}`);
   const tracked = await listTracked(repo, baseSha);
-  const missing = input.allowedFiles.filter((f) => !(f.endsWith('/') ? tracked.dirs.has(f) : tracked.files.has(f)));
+  const missing = allowed.filter((f) => !(f.endsWith('/') ? tracked.dirs.has(f) : tracked.files.has(f)));
   if (missing.length) warnings.push(`기준 커밋에 없는 경로(새 파일로 간주): ${missing.join(', ')}`);
 
   // 실행 환경 자동 판단: Python 파일·모델 경로·.venv 검사가 있으면 자체 가상환경이 필요하다.
   const envAuto = input.env === 'auto';
-  const usesPython = input.allowedFiles.some((f) => f.endsWith('.py') || /^(card_condition|tests|tools\/experiments)(\/|$)/.test(f))
+  const usesPython = allowed.some((f) => f.endsWith('.py') || /^(card_condition|tests|tools\/experiments)(\/|$)/.test(f))
     || [...input.checks, ...input.postChecks].some((c: any) => c?.executable === '.venv/bin/python');
   const envProfile = envAuto ? (usesPython ? 'python' : 'none') : input.env;
   const task = { taskId, agent: input.agent, mode: input.mode, mockScenario: input.mockScenario, branch, worktree, baseSha,
-    allowedFiles: input.allowedFiles, conflictGroups: input.conflictGroups, goal: input.goal, prompt: input.prompt,
+    allowedFiles: allowed, conflictGroups: input.conflictGroups, goal: input.goal, prompt: input.prompt,
     doneCriteria: input.doneCriteria, checks: input.checks, postChecks: input.postChecks, env: envProfile, requiredModules: input.requiredModules };
   const v = TaskInput.safeParse(task);
   if (!v.success) add('계약 규칙', false, v.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(' / '));
@@ -147,7 +152,7 @@ export async function planTask(ex: Executor, raw: unknown): Promise<Plan> {
   if (ex.guardAlert) add('무료 가드', false, `발동됨: ${ex.guardAlert.detail}`);
 
   const ok = checks.every((c) => c.ok);
-  return { ok, task: v.success ? v.data : null, createWorktree, baseRef, baseSubject, checks, conflicts: found, warnings, envAuto };
+  return { ok, task: v.success ? v.data : null, createWorktree, baseRef, baseSubject, checks, conflicts: found, warnings, envAuto, scopeDefault };
 }
 
 /** 재사용 가능한 이전 준비인지: 같은 브랜치의 등록된 worktree이고, 기준 SHA 이후 커밋은 이 task의 계약 파일만 바꿨으며 미커밋 변경이 없다. */

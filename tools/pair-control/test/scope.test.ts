@@ -1,7 +1,7 @@
 // 허용 파일 정리 규칙·프롬프트 추출·프리셋. 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { TaskInput, isForbidden } from '../src/executor/contract.ts';
+import { TaskInput, conflicts, isForbidden } from '../src/executor/contract.ts';
 import { planTask } from '../src/executor/prepare.ts';
 import { SCOPE_PRESET, extractScope } from '../src/executor/scope.ts';
 import { setup, task } from './helpers.ts';
@@ -58,5 +58,30 @@ test('작업 만들기 미리보기(planTask)와 assign(API 직접 호출) 모�
     assert.match(JSON.stringify(p.checks), /정리되지 않은 경로/);
     await assert.rejects(env.ex.assign(task(env, 'task-a', { allowedFiles: ['./'] })), /정리되지 않은 경로/);
     assert.equal(Object.keys(env.ex.state.tasks).length, 0, '거부된 작업은 등록되지 않음');
+  } finally { env.cleanup(); }
+});
+
+test('허용 파일을 비우면 기본 범위 적용, 금지 경로·"./"는 직접 적어도 여전히 거부, 같은 기본 범위끼리는 겹침', async () => {
+  const env = setup();
+  try {
+    const p = await planTask(env.ex, { agent: 'claude', goal: '범위 비움', allowedFiles: [] });
+    assert.equal(p.scopeDefault, true);
+    assert.deepEqual(p.task!.allowedFiles, SCOPE_PRESET.files);
+    assert.ok(p.checks.some((c) => c.name === '허용 파일' && c.ok && /기본 범위/.test(c.detail)));
+    assert.ok(p.checks.every((c) => c.ok || /worktree|브랜치|환경/.test(c.name)), JSON.stringify(p.checks.filter((c) => !c.ok)));
+
+    // 기본 범위끼리는 같은 폴더라 겹친다 — 병렬로 돌리려면 범위를 좁혀야 한다는 뜻이다.
+    const other = { ...p.task!, taskId: 'task-other', branch: 'claude/task-other', worktree: '/tmp/wt-other' };
+    assert.ok(conflicts(p.task!, other).some((c) => c.kind === 'files'), '기본 범위끼리 겹침');
+
+    const own = await planTask(env.ex, { agent: 'claude', goal: '직접 적음', allowedFiles: ['src_a/'] });
+    assert.equal(own.scopeDefault, false);
+    assert.deepEqual(own.task!.allowedFiles, ['src_a/']);
+
+    for (const bad of [['data/labels.jsonl'], ['./']]) {
+      const r = await planTask(env.ex, { agent: 'claude', goal: 'x', allowedFiles: bad });
+      assert.equal(r.ok, false, `${bad} 거부`);
+      assert.equal(r.scopeDefault, false);
+    }
   } finally { env.cleanup(); }
 });
