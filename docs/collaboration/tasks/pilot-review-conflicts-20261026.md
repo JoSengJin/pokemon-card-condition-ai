@@ -1,6 +1,6 @@
 task_id: pilot-review-conflicts-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: beb532a77261b0bd5ba41d034362e969d7145cc1
 branch: codex/pilot-review-conflicts-20261026
 goal: 같은 결과 SHA의 완료 검토가 서로 다를 때 입력 순서로 수정 수량을 선택하지 않고, 음수/bool/누락 correction 수량을 거절한다.
@@ -19,3 +19,5 @@ structure: pilot_summary 7→7, 새 test<=7. summarize 내 기존 입력 루프�
 checks: old forward corrected_cells=-1, reverse=2 재현. 동일검토 중복/상충검토 양방향/미완료+완료/잘못된count·flag/CLI 오류 + 기존108회귀, AST/compile/diff/HTML/main push.
 experiment: 없음. 합성 JSON 검증만, 실사진 추론·학습·외부AI 없음.
 handoff: 파일·diff·실검사·미검증·리스크·롤백·HTML·원격 기록. 고정진척30/100 유지.
+
+완료: main225cce0.114합성회귀PASS8.636s/compile/AST/diff PASS. 보고서 참조.30/100 유지.
