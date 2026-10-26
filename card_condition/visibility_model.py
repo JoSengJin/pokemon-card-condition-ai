@@ -1,5 +1,7 @@
 """Experimental observation-limit classifier; never a condition or bypass decision."""
 from collections import Counter
+import hashlib
+import io
 import json
 import math
 from pathlib import Path
@@ -19,7 +21,8 @@ from .observation_signals import local_color_texture
 from .observation_scaling import fit_scaling, apply_scaling, validate_scaling
 from .side_experiment import side_image
 
-TARGET = 'observation_limited'
+from .observation_fitting import TARGET, class_group_weights, fit_centroid, fit_side_centroids
+from .observation_side_diagnostics import side_diagnostics
 
 
 def visibility_rows(manifest, splits=None):
@@ -42,58 +45,9 @@ def visibility_rows(manifest, splits=None):
     return rows, skipped
 
 
-def class_group_weights(rows):
-    counts = Counter((r['labels'][TARGET], r['group']) for r in rows)
-    groups = Counter(label for label, group in counts)
-    if set(groups) != {0, 1}:
-        raise ValueError('Both observation-limited and explicitly clear examples are required in train and val')
-    return [1 / (counts[r['labels'][TARGET], r['group']] * groups[r['labels'][TARGET]]) for r in rows]
-
-
-def fit_centroid(head, features, labels, weights):
-    """Train-only weighted means; squared-distance difference in mean feature units."""
-    with torch.no_grad():
-        means = [(features[labels == value] * weights[labels == value, None]).sum(0)
-                 / weights[labels == value].sum() for value in (0, 1)]
-        dimension = features.shape[1]
-        head.weight.copy_((2 * (means[1] - means[0]) / dimension).unsqueeze(0))
-        head.bias.copy_(((means[0].square().sum() - means[1].square().sum()) / dimension).reshape(1))
-
-
-def fit_side_centroids(head, features, rows):
-    for number, side in enumerate(('front','back')):
-        selected=[i for i,r in enumerate(rows) if r['side']==side]
-        part=[rows[i] for i in selected]
-        weights=features.new_tensor(class_group_weights(part))
-        labels=features.new_tensor([r['labels'][TARGET] for r in part])
-        local=nn.Linear(features.shape[1],1).to(features.device)
-        fit_centroid(local,features[selected],labels,weights)
-        with torch.no_grad():
-            head.weight[number].copy_(local.weight[0])
-            head.bias[number].copy_(local.bias[0])
-
-
 def observation_logits(head, features, sides):
     values=head(features)
     return values.gather(1,sides[:,None]).squeeze(1) if head.out_features==2 else values.squeeze(1)
-
-
-def side_diagnostics(predictions, training):
-    result={}
-    for side in ('front','back'):
-        part=[r for r in predictions if r['side']==side]
-        train=[r for r in training if r['side']==side]
-        metrics=dict(tp=0,tn=0,fp=0,fn=0)
-        for row in part:
-            truth=row['labels'][TARGET]; guess=int(row['probabilities'][TARGET]>=.5)
-            metrics[('t' if truth==guess else 'f')+('p' if guess else 'n')]+=1
-        ranking=score_diagnostics(part,[TARGET])[TARGET] if part else None
-        result[side]=dict(train_faces=len(train),train_groups=len({r['group'] for r in train}),
-            train_clear=sum(r['labels'][TARGET]==0 for r in train),train_limited=sum(r['labels'][TARGET]==1 for r in train),
-            validation_faces=len(part),validation_groups=len({r['group'] for r in part}),metrics_at_05=metrics,
-            ranking={k:ranking[k] for k in ('known','positive','negative','groups','auroc','average_precision','balanced_accuracy_at_05')} if ranking else None,
-            warning='missing_validation_class' if len({r['labels'][TARGET] for r in part})<2 else None)
-    return result
 
 
 def observation_features(backbone, row, device, tiles=False, interior=False, local_signals=False):
@@ -261,7 +215,8 @@ def experiment(manifest, output, epochs=20, device='auto', pretrained=True, tile
 class VisibilityAnalyzer:
     def __init__(self, checkpoint, device='auto'):
         self.device = device_for(device)
-        meta = torch.load(checkpoint, map_location='cpu', weights_only=True)
+        checkpoint_bytes = Path(checkpoint).read_bytes()
+        meta = torch.load(io.BytesIO(checkpoint_bytes), map_location='cpu', weights_only=True)
         name = meta.get('backbone_name', 'mobilenet_v3_small') if isinstance(meta, dict) else None
         if (not isinstance(meta, dict) or name not in BACKBONES or meta.get('architecture') != name+'_visibility_v1'
                 or meta.get('target') != TARGET or type(meta.get('image_size')) is not int
@@ -301,7 +256,7 @@ class VisibilityAnalyzer:
         self.interior = meta.get('preprocessing','box') == 'interior90'
         self.head = nn.Linear(dimension * (2 if self.policy == 'tiles' else 1) + (36 if self.local_signals else 0), 2 if self.side_aware else 1).to(self.device).eval()
         self.head.load_state_dict(meta['head'], strict=True)
-        self.model_sha256 = digest(checkpoint)
+        self.model_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
 
     def analyze(self, image, box, side=None):
         if self.supported_sides is not None and side not in self.supported_sides:
