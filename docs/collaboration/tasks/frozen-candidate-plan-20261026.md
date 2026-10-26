@@ -1,6 +1,6 @@
 task_id: frozen-candidate-plan-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: ccc9365a214f0ba3d2233b0fc49de6cfdd2259d4
 branch: codex/frozen-candidate-plan-20261026
 goal: 같은 봉인시험에 사용할 역할별 checkpoint·평가소스·런타임·threshold를 사전에 하나의 후보파일로 고정하고, 고정된 다른 역할만 각1회 허용한다. 후보교체·역할재실행·코드/런타임변경은 추론 전 차단한다.
@@ -27,3 +27,5 @@ structure: 신규 candidate최대3함수/CLI1함수, frozen_test3유지, 기존 
 checks: 역할별1회·전체묶음모델핀·코드/런타임변조·재핀/역할재실행거절·기존봉인회귀·공용CLI 합성검증, AST/diff, HTML생성/내용대조/열기, main통합/push.
 experiment: 없음
 handoff: 완료 후 실제검사·미검증·리스크·롤백 기록.
+
+최종검사: main 구현7900818, 32개 합성/mock PASS, compileall/diff PASS. 신규소스2/1함수, frozen_test3 및 기존각1유지, 신규검사6/6함수. 세부위험/롤백/HTML은 reports/frozen-candidate-plan-20261026.md.
