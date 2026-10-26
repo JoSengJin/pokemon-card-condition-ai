@@ -39,7 +39,10 @@ def matched_reports(candidate_path, candidate_sha256, seal_path, seal_sha256, ma
         if not isinstance(report, dict):
             raise ValueError('Evaluation report must be an object')
         link = report.get('test_seal')
-        if (report.get('evaluation_kind') not in KINDS[op] or report.get('manifest_sha256') != seal['manifest_sha256']
+        if not isinstance(report.get('input_hashes'), dict):
+            raise ValueError('Evaluation must record frozen input hashes')
+        recorded_manifest_sha = report.get('manifest_sha256', report['input_hashes'].get(str(Path(manifest).resolve())))
+        if (report.get('evaluation_kind') not in KINDS[op] or recorded_manifest_sha != seal['manifest_sha256']
                 or report.get('model_sha256') != checked['models'][op]['sha256']
                 or report.get('threshold', .5) != .5
                 or report.get('physical_card_uncertainty', {}).get('threshold') != .5
