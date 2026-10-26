@@ -42,7 +42,7 @@ def saved_suite(root, n=30):
     models = {op: root / (op + '.pt') for op in ('region_final', 'side_final', 'observation_final')}
     torch.save(dict(base, architecture='mobilenet_v3_small_region_v1',
                     supported=['corner_defect', 'edge_defect', 'surface_defect']), models['region_final'])
-    torch.save(dict(base, architecture='mobilenet_v3_small_single_side_v1', supported=list(LABELS), labels=list(LABELS)), models['side_final'])
+    torch.save(dict(base, architecture='mobilenet_v3_small_single_side_v1', supported=list(LABELS), labels=list(LABELS), crop=True), models['side_final'])
     torch.save(dict(base, architecture='mobilenet_v3_small_visibility_v1', target='observation_limited'), models['observation_final'])
     seal, candidate = root / 'seal.json', root / 'candidate.json'
     frozen_test.seal_test(manifest, [history], seal)
