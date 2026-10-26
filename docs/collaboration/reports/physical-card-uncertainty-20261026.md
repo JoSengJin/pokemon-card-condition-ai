@@ -40,3 +40,5 @@ D3 완료에 추가로 필요한 근거: D1 봉인 시험자료, D2 동일 동�
 
 최종 열기 결과: macOS open은 NSOSStatusErrorDomain -10661(호환 실행 앱 없음)로 실패. Codex browser 열기는 queued 응답뿐이며 렌더 성공 증거가 아니다. CUA에서 file URL 확인은 Browser Use URL policy로 차단됨. 화면 렌더 미확인. HTML 내용 대조(30/100, 기준버전, 코드 SHA, 12검사, pending, 리스크/롤백)는 완료. 로컬 파일 링크로 인계하며 서버/터널을 만들지 않았다.
 worktree: 이번 Codex checkout은 최신 완료 작업의 롤백 확인용으로 유지한다. 다른 Claude/기존 Codex checkout은 이 작업에서 소유·통합·사용중 여부가 확정되지 않아 변경하지 않았다.
+
+원격 반영: git push origin main은 자동 승인 검토에서 거절되어 미실행. 기존 승인은 검증한 Claude 결과에 한정되고 이번 Codex 단독 변경의 외부 전송 승인이 확인되지 않았다는 이유다. 사용자 명시 승인 전에는 재시도하지 않는다. 로컬 구현과 검증은 완료했다.
