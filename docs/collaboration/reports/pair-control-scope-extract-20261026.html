@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pair-control 허용 범위 도우미</title>
+<style>
+:root { --bg:#f6f6f3; --panel:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#dddcd6; --ok:#1f7a4d; --warn:#a15c00; --bad:#b3261e; --info:#2457a6; --chip:#efeee9; --code:#f1f0ec; }
+@media (prefers-color-scheme: dark) { :root { --bg:#151514; --panel:#1f1f1d; --ink:#ecebe6; --muted:#a09f99; --line:#3a3935; --ok:#5cc28d; --warn:#e5ab45; --bad:#f07a70; --info:#7aa7f0; --chip:#2a2a27; --code:#262623; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+h1 { font-size: 20px; margin: 0; } h2 { font-size: 15px; margin: 0 0 8px; }
+.hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; } .stat span { color: var(--muted); font-size: 12px; }
+.mono, code, pre { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--chip); font-size: 12px; }
+.pipe { display: flex; overflow-x: auto; gap: 0; list-style: none; padding: 0; margin: 8px 0; }
+.pipe li { flex: 1 0 78px; text-align: center; font-size: 12px; }
+.pipe i { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); font-style: normal; font-weight: 700; }
+.d i { background: var(--ok); border-color: var(--ok); color: #fff; } .a i { background: var(--warn); border-color: var(--warn); color: #fff; } .r i { border-color: var(--info); }
+.s i { border-style: dashed; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>pair-control 허용 파일 추출 · 프리셋 · "./" 거부</h1>
+    <p class="muted">task <span class="mono">pair-control-scope-extract-20261026</span> · 담당 Claude · 브랜치 <span class="mono">claude/pair-control</span> · 2026-10-26</p>
+    <div class="hero">
+      <div class="stat"><span>전체 개발 진척률 (usable-card-analysis-v1.0)</span><b>30 / 100</b><span>변동 없음 — 관제 도구 작업이며 카드 분석 모델 이정표가 아님</span></div>
+      <div class="stat"><span>검증한 코드 SHA</span><b class="mono" style="font-size:13px">2df5104c30e998916dab25a08e002cc45a8b1fbe</b><span>기준 98712e8</span></div>
+      <div class="stat"><span>이번 성과</span><b style="font-size:15px">범위를 몰라도 배정 가능</b><span>프롬프트에서 허용 파일 추출 · 프리셋 · 저장소 전체 표기 거부</span></div>
+      <div class="stat"><span>회귀 검사</span><b>74 / 74</b><span>npm test(기존 69 + 신규 5) · typecheck 통과 — 합성 검사</span></div>
+    </div>
+    <p class="small muted">진척률 출처: development-progress.json(main) score 30/100, usable-card-analysis-v1.0. 모델 학습·추론·모델 호출 없음, 모델 성능 미평가.</p>
+  </section>
+  <section>
+    <h2>왜 필요했나</h2>
+    <p>task-1026-1이 허용 파일 <code>./</code>로 배정되어, Git 검사의 "허용 파일 범위"가 에이전트의 정상 파일 4개를 전부 범위 밖으로 판정했습니다. 경로 비교가 글자 그대로의 접두어 비교라 <code>./</code>는 어떤 파일과도 맞지 않았고, 같은 이유로 금지 경로·충돌 검사도 지나쳤습니다.</p>
+    <table>
+      <tr><th>기능</th><th>동작</th></tr>
+      <tr><td>"./" 거부</td><td><code>./</code>, <code>.</code>, <code>./docs/</code>, <code>a//b</code>, <code>a/./b</code>를 계약 검증에서 거부. 폼 미리보기("계약 규칙")와 API 직접 배정 모두 같은 규칙.</td></tr>
+      <tr><td>프롬프트에서 추출</td><td>붙여 넣은 글의 "허용 파일" 목록을 글자 그대로 옮김(모델·추측 없음). 목록이 없으면 채우지 않고 알림. 금지·절대경로·glob·전체 표기는 사유와 함께 제외. 붙여 넣은 글은 저장·커밋하지 않음.</td></tr>
+      <tr><td>코드·테스트·문서 프리셋</td><td><span class="mono">card_condition/ tests/ tools/experiments/ docs/collaboration/</span>. 데이터·라벨·산출물·공용 설정 제외.</td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>변경 파일 (98712e8 → 2df5104)</h2>
+    <table>
+      <tr><th>파일</th><th>내용</th></tr>
+      <tr><td class="mono">src/executor/contract.ts</td><td>허용 경로 규칙(scopePath) 추가</td></tr>
+      <tr><td class="mono">src/executor/scope.ts</td><td>신규: extractScope, 프리셋 (함수 4개)</td></tr>
+      <tr><td class="mono">src/mastra/index.ts</td><td>POST /pair/api/scope</td></tr>
+      <tr><td class="mono">src/ui/page.html · js/form.js · js/form-scope.js</td><td>접힌 "범위를 모르겠나요?" 칸, 추출·프리셋 버튼</td></tr>
+      <tr><td class="mono">test/scope.test.ts</td><td>신규 검사 5개</td></tr>
+    </table>
+    <p class="small">호출 경로(최장 3회 전이): <span class="mono">route → extractScope → gather → pathsIn</span>.</p>
+  </section>
+  <section>
+    <h2>실행한 검사</h2>
+    <ul>
+      <li class="ok">typecheck 통과, npm test 74/74 (Node 24.21.0)</li>
+      <li class="ok">실서버(4111, 소스 변경을 다시 불러온 상태): 프리셋·추출 응답, plan의 "./" 거부 확인</li>
+      <li class="ok">브라우저 폼: 붙여넣기 → 추출 → 칸 채움 + 제외 사유 표시, 프리셋 → "기존 입력을 바꿨습니다", 붙여 넣은 칸은 요청에 미포함, 콘솔 오류 0</li>
+    </ul>
+    <h2>실행하지 않은 검사</h2>
+    <ul>
+      <li class="warn">폼을 끝까지 제출해 실제 작업·worktree를 만드는 흐름. 실제 저장소에 worktree를 만들기 때문입니다(mock 회귀 검사가 정상 배정과 "./" 거부를 덮음).</li>
+      <li class="warn">이미 배정된 task-1026-1은 계약이 고정이라 바뀌지 않았습니다. 새 작업으로 옮기는 일은 별도 진행이 필요합니다.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>리스크 · 롤백</h2>
+    <ul>
+      <li>추출은 "허용 파일" 같은 표식과 목록 모양에 의존합니다. 형식이 다른 프롬프트는 "찾지 못함"으로 끝나며, 그때는 프리셋이나 직접 입력을 씁니다.</li>
+      <li>프리셋은 넓습니다. 같은 폴더를 쓰는 다른 작업과 직렬화되어 병렬 실행이 막힐 수 있습니다.</li>
+      <li>이미 저장된 옛 작업의 허용 파일은 다시 검증하지 않습니다(새 규칙은 새 배정에만 적용).</li>
+      <li>롤백: <span class="mono">git revert 2df5104</span>와 문서 커밋.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
