@@ -1,4 +1,7 @@
-// 작업 되돌리기 제어: 승인 취소(승인됨 → 검토 단계)와 작업 보관(목록에서 숨기기). 에이전트를 다시 실행하지 않는다.
+// 작업 제어: 승인 취소(승인됨 → 검토 단계), 작업 보관(목록에서 숨기기), 실행 환경 만들기(.venv). 에이전트를 다시 실행하지 않는다.
+import fs from 'node:fs';
+import { sanitizedChildEnv } from './freeGuard.ts';
+import * as G from './git.ts';
 import { appendEvent } from './store.ts';
 import { OCCUPYING, UserError, type Executor, type Task } from './executor.ts';
 
@@ -38,4 +41,26 @@ export function setArchived(ex: Executor, taskId: string, archived: boolean) {
   t.archivedAt = archived ? new Date().toISOString() : null;
   record(ex, t, archived ? 'task_archived' : 'task_unarchived');
   return t;
+}
+
+const BEFORE_START = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
+
+/**
+ * 이 작업의 worktree에 자체 .venv를 만든다. 고정 명령 `python3 -m venv .venv` 하나뿐이다: 셸 없음, 패키지 설치 없음, 네트워크 없음.
+ * 기본 checkout·등록되지 않은 폴더·진행 중 작업·이미 있는 .venv(링크 포함)는 거부한다. 끝나면 실행 준비를 다시 확인한다.
+ */
+export async function createVenv(ex: Executor, taskId: string) {
+  const t = ex.task(taskId);
+  if (!BEFORE_START.includes(t.status)) throw new UserError(`시작 전·중단된 작업에서만 환경을 만들 수 있음(${t.status})`);
+  const wts = await G.worktrees(ex.cfg.repo);
+  const real = fs.existsSync(t.worktree) ? fs.realpathSync.native(t.worktree) : t.worktree;
+  if (!wts.some((w) => w.path === real)) throw new UserError('저장소의 git worktree 목록에 없는 폴더');
+  if (real === wts[0]?.path) throw new UserError('기본 checkout에는 환경을 만들지 않음');
+  const venv = `${real}/.venv`;
+  try { fs.lstatSync(venv); throw new UserError('이미 .venv가 있음 — 지우고 다시 만들려면 직접 처리하세요(도구는 지우지 않음)'); }
+  catch (err) { if (err instanceof UserError) throw err; }
+  const r = await G.run('python3', ['-m', 'venv', '.venv'], real, 180_000, sanitizedChildEnv());
+  record(ex, t, 'venv_created', { code: r.code, stderr: r.stderr.slice(0, 300) });
+  if (r.code !== 0) throw new UserError(`python3 -m venv 실패(code ${r.code}): ${r.stderr.trim().slice(0, 300)}`);
+  return ex.recheckEnv(taskId);
 }

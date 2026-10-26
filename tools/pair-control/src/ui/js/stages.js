@@ -73,7 +73,7 @@ export function stagesOf(t, push, mainAgent) {
   }[s] || ['done', r ? '계약 이후 커밋 ' + r.commits.length + '개' : '완료'];
   const vals = {
     prepare: s === 'blocked' ? ['failed', t.statusReason || '시작 차단', { act: 'start', label: '다시 시작' }]
-      : s === 'assigned' ? (env && !env.ready ? ['action', '실행 환경 준비 필요', { act: 'env', label: '준비 상태 다시 확인' }]
+      : s === 'assigned' ? (env && !env.ready ? ['action', '실행 환경 준비 필요', venvMissing(env) ? { act: 'venv', label: '환경 만들기' } : { act: 'env', label: '준비 상태 다시 확인' }]
         : ['action', '시작 대기', { act: 'start', label: t.mode === 'manual' ? '작업 시작(파일 점유)' : '에이전트 시작' }])
         : ['done', '계약·환경 준비됨'],
     build: [build[0], build[1], s === 'manual_working' ? { act: 'finish', label: '작업 완료 — 결과 수집' }
@@ -100,6 +100,11 @@ export function stagesOf(t, push, mainAgent) {
   };
   const who = { prepare: '사용자', build: t.agent, gitcheck: '도구', tests: '도구(사용자가 실행)', review: '리뷰 에이전트', handoff: main, approve: '사용자', integrate: '사용자→도구', postcheck: '도구', push: '사용자' };
   return STAGES.map((st) => ({ ...st, status: vals[st.key][0], text: vals[st.key][1], primary: vals[st.key][2] || null, who: who[st.key] }));
+}
+
+/** 실행 환경이 막힌 이유가 '자체 .venv 없음'뿐인지(그러면 버튼 한 번으로 만들 수 있다). 검사 항목이 없으면 알 수 없으므로 false. */
+export function venvMissing(env) {
+  return !!env && !env.ready && (env.checks || []).some((c) => c.name === '자체 .venv' && !c.ok && c.detail === '없음');
 }
 
 /** 지금 볼 단계: 사람이 할 일·진행 중·실패·주의가 있는 첫 단계, 없으면 마지막 완료 단계. */

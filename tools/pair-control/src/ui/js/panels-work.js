@@ -1,6 +1,7 @@
 // 파이프라인 앞쪽 단계의 상세 패널: 준비 · 구현 · Git 검사 · 작업 테스트 · 리뷰.
 // 각 함수는 HTML 문자열만 만든다. 버튼은 data-act로 표시하고 동작은 actions.js가 처리한다.
 import { B, esc, lbl } from './core.js';
+import { venvMissing } from './stages.js';
 
 const STARTABLE = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
 
@@ -13,8 +14,8 @@ export function panelPrepare(t) {
     '<div>고칠 수 있는 곳</div><div class="mono">' + t.allowedFiles.map(esc).join('<br>') + '</div></div>' +
     '<h4>실행 환경 ' + (env ? (env.ready ? lbl('준비됨', 'ok') : lbl('준비 안 됨', 'bad')) : '') + '</h4>' +
     (env ? env.checks.map((c) => '<div>' + (c.ok ? lbl('✓', 'ok') : lbl('✗', 'bad')) + ' ' + esc(c.name) + ' <span class="muted">' + esc(c.detail) + '</span></div>').join('') : '') +
-    (env && env.fixes.length ? '<p class="small">아래 명령을 직접 실행한 뒤 "준비 상태 다시 확인"을 누르세요(도구는 설치하지 않습니다).</p>' + env.fixes.map((f) => '<pre class="cmd">' + esc(f) + '</pre>').join('') : '') +
-    '<div class="actions">' + B('start', t.mode === 'manual' ? '작업 시작(파일 점유)' : '에이전트 시작', can, 'primary') + B('env', '준비 상태 다시 확인', true) + '</div>';
+    (env && env.fixes.length ? '<p class="small">' + (venvMissing(env) ? '"환경 만들기"를 누르면 이 작업 폴더에 <code>python3 -m venv .venv</code>만 실행합니다(패키지 설치 없음). 직접 하려면 아래 명령을 실행한 뒤 "준비 상태 다시 확인"을 누르세요.' : '아래 명령을 직접 실행한 뒤 "준비 상태 다시 확인"을 누르세요(도구는 설치하지 않습니다).') + '</p>' + env.fixes.map((f) => '<pre class="cmd">' + esc(f) + '</pre>').join('') : '') +
+    '<div class="actions">' + B('venv', '환경 만들기(.venv)', venvMissing(env) && STARTABLE.includes(t.status), 'primary') + B('start', t.mode === 'manual' ? '작업 시작(파일 점유)' : '에이전트 시작', can, 'primary') + B('env', '준비 상태 다시 확인', true) + '</div>';
 }
 
 export function panelBuild(t, ui) {

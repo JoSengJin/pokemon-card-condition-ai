@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 // @ts-ignore 화면용 ESM 모듈(타입 없음)
-import { currentKey, stagesOf, STAGES } from '../src/ui/js/stages.js';
+import { currentKey, stagesOf, venvMissing, STAGES } from '../src/ui/js/stages.js';
 
 const SHA = 'a'.repeat(40);
 const base = (over: Record<string, unknown> = {}) => ({
@@ -27,6 +27,15 @@ test('환경 미준비·시작 차단은 준비 단계에서 표시', () => {
   const blocked = stagesOf(base({ status: 'blocked', statusReason: '충돌: task-x' }), null);
   assert.equal(blocked[0].status, 'failed');
   assert.equal(blocked[0].text, '충돌: task-x');
+});
+
+test('.venv가 없어서 막힌 준비 단계의 대표 버튼은 환경 만들기, 다른 이유면 다시 확인', () => {
+  const missing = { ready: false, checks: [{ name: '자체 .venv', ok: false, detail: '없음' }] };
+  assert.equal(stagesOf(base({ envReadiness: missing }), null)[0].primary.act, 'venv');
+  assert.equal(venvMissing(missing), true);
+  const other = { ready: false, checks: [{ name: '자체 .venv', ok: false, detail: '.venv가 심볼릭 링크 — 다른 checkout과 공유 금지' }] };
+  assert.equal(stagesOf(base({ envReadiness: other }), null)[0].primary.act, 'env');
+  assert.equal(venvMissing({ ready: true, checks: [] }), false);
 });
 
 test('수동 작업 중은 구현 단계가 진행 중이고 대표 행동은 작업 완료', () => {

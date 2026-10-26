@@ -2,7 +2,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { resumeStep, runInfo, startReview, startTask } from '../src/runtime.ts';
-import { setArchived, withdrawApproval } from '../src/executor/taskControl.ts';
+import { createVenv, setArchived, withdrawApproval } from '../src/executor/taskControl.ts';
+import fs from 'node:fs';
+import path from 'node:path';
 import { invocations, setup, task, verify, waitFor, type Env } from './helpers.ts';
 
 async function toApproved(env: Env, id: string) {
@@ -61,5 +63,30 @@ test('승인 취소는 승인됨 상태에서만, 보관은 진행 중·결정 �
       assert.ok(again.ex.task('task-a').archivedAt, '재시작 후에도 보관 유지');
       assert.equal(setArchived(again.ex, 'task-a', false).archivedAt, null);
     } finally { again.ex.stop(); }
+  } finally { env.cleanup(); }
+});
+
+test('환경 만들기: 고정 명령으로 .venv만 만들고 준비 완료, 이미 있으면·기본 checkout·진행 중이면 거부', async () => {
+  const env = setup();
+  try {
+    await env.ex.assign(task(env, 'task-a', { env: 'python' }));
+    const wt = env.ex.task('task-a').worktree;
+    assert.equal(fs.existsSync(path.join(wt, '.venv')), false);
+    const before = await env.ex.recheckEnv('task-a');
+    assert.equal(before!.ready, false);
+    assert.ok(before!.checks.some((c) => c.name === '자체 .venv' && !c.ok && c.detail === '없음'));
+
+    const after = await createVenv(env.ex, 'task-a');
+    assert.equal(after!.ready, true, JSON.stringify(after!.checks));
+    assert.ok(fs.existsSync(path.join(wt, '.venv', 'pyvenv.cfg')));
+    assert.equal(fs.existsSync(path.join(env.fixture.repo, '.venv')) && fs.lstatSync(path.join(env.fixture.repo, '.venv')).isSymbolicLink(), false, '다른 checkout 공유 없음');
+    await assert.rejects(createVenv(env.ex, 'task-a'), /이미 .venv가 있음/);
+
+    await env.ex.assign(task(env, 'task-b', { env: 'python', allowedFiles: ['src_b/'] }));
+    env.ex.task('task-b').worktree = env.fixture.repo; // 기본 checkout을 가리키는 비정상 기록
+    await assert.rejects(createVenv(env.ex, 'task-b'), /기본 checkout/);
+    env.ex.task('task-a').status = 'running';
+    await assert.rejects(createVenv(env.ex, 'task-a'), /시작 전·중단된 작업에서만/);
+    env.ex.task('task-a').status = 'assigned';
   } finally { env.cleanup(); }
 });
