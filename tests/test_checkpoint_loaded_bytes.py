@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import torch
-from card_condition import region_model, side_model
+from card_condition import region_model, side_model, point_probe
 from card_condition.data import LABELS
 from card_condition.regions import REGION_LABELS
 
@@ -14,7 +14,9 @@ from card_condition.regions import REGION_LABELS
 def checkpoint_fixture(root, architecture, labels):
     path = root / 'fixture.pt'
     meta = dict(architecture=architecture, labels=list(labels), supported=list(labels),
-                backbone={}, head={}, crop=True, image_size=224)
+                backbone={}, head={}, crop=True, image_size=224, backbone_name='mobilenet_v3_small',
+                development_groups=['synthetic-development'], development_ids=['synthetic-development'],
+                development_image_hashes=['0' * 64])
     torch.save(meta, path)
     return path, path.read_bytes(), meta
 
@@ -51,14 +53,15 @@ class LoadedBytesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path, original, meta = checkpoint_fixture(Path(directory), 'mobilenet_v3_small_point_grid_v1', REGION_LABELS)
             backbone, head = components()
-            received = []
-            def probe(snapshot, device):
-                received.append(snapshot.getvalue())
+            def replaced(*args, **kwargs):
                 path.write_bytes(b'replaced during point loading')
-                return meta, backbone, head, False
-            with patch.object(region_model, 'load_probe_model', side_effect=probe):
+            backbone.load_state_dict.side_effect = replaced
+            with patch.object(point_probe, 'backbone_for', return_value=(backbone, 1)), \
+                 patch('card_condition.region_head.region_head', return_value=head), \
+                 patch.object(region_model, 'load_probe_model', wraps=point_probe.load_probe_model) as delegate:
                 analyzer = region_model.RegionAnalyzer(path, 'cpu')
-            self.assertEqual([original], received)
+            self.assertEqual(original, delegate.call_args.args[0].getvalue())
+            self.assertEqual(meta, analyzer.meta)
             self.assertEqual(hashlib.sha256(original).hexdigest(), analyzer.model_sha256)
             self.assertNotEqual(hashlib.sha256(path.read_bytes()).hexdigest(), analyzer.model_sha256)
 
