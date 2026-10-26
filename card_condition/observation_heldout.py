@@ -9,6 +9,7 @@ from .observation_crossfit import crossfit_summary,reject_duplicate_groups
 from .score_diagnostics import score_diagnostics
 from .regions import VISIBILITY_ISSUES
 from .region_thresholds import group_error_rates
+from .physical_uncertainty import physical_uncertainty
 
 
 def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto'):
@@ -55,6 +56,7 @@ def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto
         model_sha256=expected_sha256,summary=summary,by_side=by_side,
         reason_coverage=reasons,by_group=groups,
         group_error_rates_at_05=group_error_rates(groups,[TARGET]),
+        physical_card_uncertainty=physical_uncertainty(predictions,[TARGET]),
         predictions=predictions,skipped=skipped,
         input_hashes=hashes,development_overlap=False,fitted_model=False,selected_model=False,
         production_ready=False,requires_gemini=True,actual_calls_saved=0,

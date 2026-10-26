@@ -9,6 +9,7 @@ allowed_files:
 - card_condition/physical_uncertainty.py
 - card_condition/region_evaluation.py
 - card_condition/side_evaluation.py
+- card_condition/observation_heldout.py
 - tests/test_physical_uncertainty.py
 - tests/test_physical_uncertainty_evaluation.py
 - docs/collaboration/tasks/physical-card-uncertainty-20261026.md
@@ -23,8 +24,8 @@ contract:
 - 새 필드는 진단 수치조건만 나타내고 milestone_verified=false 유지. D1/D2 봉인/독립성, 촬영조건/언어/판본 하위군 및 전범위 품질은 별도 근거 필요. 점수 자동변경 없음.
 - 기존 평가 raw FN/FP, 반환 필드, 보류정책 불변. 실제 추론/학습/외부호출 없이 mock/합성 검사만 수행.
 structure:
-- physical_uncertainty.py 신규 4함수 이하, region_evaluation.py 1→1, side_evaluation.py 1→1.
-- 신규 경로 evaluate_regions/evaluate_sides → physical_uncertainty → event_summary → wilson_upper (3전이), 모든 함수 표준 라이브러리만 사용. 기존 추론경로 전이 추가 없음.
+- physical_uncertainty.py 신규 4함수 이하, region_evaluation.py 1→1, side_evaluation.py 1→1, observation_heldout.py 1→1.
+- 신규 경로 evaluate_regions/evaluate_sides/evaluate_heldout → physical_uncertainty → event_summary → wilson_upper (3전이), 모든 함수 표준 라이브러리만 사용. 기존 추론경로 전이 추가 없음.
 checks: stdlib 합성단위검사, 기본checkout 통합 후 test_evaluation_inputs.py(mock 추론)/기존 평가 회귀, AST 함수수, diff --check, HTML 생성/내용 대조/열기(렌더 여부 별도).
 experiment: 없음. 합성 검사만. 새 실험/실사진 추론/AI호출 없음.
 handoff: 구현 후 실제 결과/리스크/롤백/HTML 열기 결과를 기록한다.
