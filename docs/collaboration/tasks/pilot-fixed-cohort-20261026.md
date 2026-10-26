@@ -1,6 +1,6 @@
 task_id: pilot-fixed-cohort-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: ed1932b6437a40a6bbcee808651628a1b0304c6b
 branch: codex/pilot-fixed-cohort-20261026
 goal: 릴리스이름만같은다른가중치/manifest·장치/모델입력크기/배치설정을합쳐F2지연/시범조건이통과하는것을막는다.
@@ -21,3 +21,5 @@ structure: pilot_summary기존5→최대7함수. validate_usage/configuration_st
 checks: 수정전mixed SHA/device/size그룹p95met=True재현. 고정구성정상boundary/identity충돌/누락/error불명/장치·크기·배치혼합/잘못된숫자·count거절,기존pilot및이전85개회귀. 기존test helper는producer의full identity/config를명시하는정상합성fixture로보완하되임곗값기존assert는유지한다. AST/diff/HTML/main/push.
 experiment: 없음,합성로그재계산만. 실사진추론/학습/외부AI0.
 handoff: 실제결과/legacy결과변경리스크/원격/롤백기록.
+
+완료: main27c6f20.91개합성회귀PASS/compileall/diff PASS. source7/기존검사7/신규검사7함수. label진단합계와full identity/config gate분리. 실제시범/진척상향미주장. 리스크/롤백/HTML은 reports/pilot-fixed-cohort-20261026.md.
