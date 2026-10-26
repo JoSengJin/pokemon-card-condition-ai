@@ -1,6 +1,6 @@
 task_id: physical-card-uncertainty-20261026
 owner: Codex
-status: implementing
+status: integrated
 base_sha: 4128dd1bf9891596fa0ccab4a82294fb24086d25
 branch: codex/physical-card-uncertainty-20261026
 
@@ -29,3 +29,12 @@ structure:
 checks: stdlib 합성단위검사, 기본checkout 통합 후 test_evaluation_inputs.py(mock 추론)/기존 평가 회귀, AST 함수수, diff --check, HTML 생성/내용 대조/열기(렌더 여부 별도).
 experiment: 없음. 합성 검사만. 새 실험/실사진 추론/AI호출 없음.
 handoff: 구현 후 실제 결과/리스크/롤백/HTML 열기 결과를 기록한다.
+
+최종 handoff (2026-10-26):
+- 구현 main: 30397ec, side 계약 수정35c0268, 관찰제한 연결a159122. 원본 branch: 025d87c,3fc3fbe,d984901.
+- 합성/mock 관련12개검사 통과, compileall/diff --check 통과. 학습/실사진 추론/외부호출0. 전체suite 미실행.
+- AST: 소스3/1/1/1, 신규검사6/2. 세부 결과·의존·리스크·롤백은 reports/physical-card-uncertainty-20261026.md.
+- HTML: artifacts/physical-card-uncertainty-20261026/index.html (ignored). 열기/렌더/원격반영 결과는 마지막 인계에 추가.
+
+최종 열기 결과: macOS open은 NSOSStatusErrorDomain -10661(호환 실행 앱 없음)로 실패. Codex browser 열기는 queued 응답뿐이며 렌더 성공 증거가 아니다. CUA에서 file URL 확인은 Browser Use URL policy로 차단됨. 화면 렌더 미확인. HTML 내용 대조(30/100, 기준버전, 코드 SHA, 12검사, pending, 리스크/롤백)는 완료. 로컬 파일 링크로 인계하며 서버/터널을 만들지 않았다.
+worktree: 이번 Codex checkout은 최신 완료 작업의 롤백 확인용으로 유지한다. 다른 Claude/기존 Codex checkout은 이 작업에서 소유·통합·사용중 여부가 확정되지 않아 변경하지 않았다.
