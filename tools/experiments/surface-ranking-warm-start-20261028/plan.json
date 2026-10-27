@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "surface-ranking-warm-start-20261028",
+  "hypothesis": "211902 고정모델진단은4새오류모두coef방향만으로flip함을확인했고국소ranking방향과최종변화는3/4에서반대였다. 기존training쌍11노출은이미margin1충족이었다. firstfold기존모델의같은augmented목적값≈.2700849가cold학습후.2714127보다낮다. 새손실이나값탐색대신이미검증된같은training-foldhead에서시작하면비볼록경로변화를줄이고기존오답보호하에실제성능을개선할수있는지1회검증한다.",
+  "change": "초기값하나만각fold의zero계수/절편→122011의동일train_ids 저장coef/rawbias. 중심화복원logit<=1e-8,기존rank/base손실/가중치/margin1/계수1/T.1/L2=1/LBFGS100/gradient1e-5/153RGB/마스크/점/4fold/뒷면maps/.5threshold/11cohort동일. teacher정규화추가·평가정답선택·초기값seed탐색없음.",
+  "success_criterion": "기존122011동일147구역 FN<=16/94,FP<=18/53,새오답0,최소1오류복구,typed51새누락0,기존11cohort모두통과. 추가로4fit수렴/초기logit재생<=1e-8/동일목적값비증가<=1e-8/held누수0/SHA보존. cold15/94·FP18/53및4회귀의전후는별도보고하며기준변경안함.",
+  "failure_criterion": "변화없음/기존보호·성능미통과는미채택. 수렴/분리/SHA/초기복원/목적비증가실패는failed,후보성능추정·수렴조건/초기값/반복수조정과자동재시도금지.",
+  "reference_result": "artifacts/experiments/20261025T122011-647b0e9c/result.json",
+  "acceptance": {
+    "max_fn": 16,
+    "max_fp": 18,
+    "no_new_errors": true,
+    "require_actual_point_guard": false
+  },
+  "required_cohorts": [
+    {
+      "id": "surface-original-regression",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-frozen-original-baseline",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-original-fixed-for-local",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface51-human-click-guard",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "surface51-existing-kind-corrected",
+      "reference_result": "artifacts/experiments/20261024T063834-3536c642/typed-point-reference.json",
+      "acceptance": {
+        "max_fn": 18,
+        "max_fp": 0,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    }
+  ],
+  "code_changes": [
+    {
+      "path": "artifacts/surface-ranking-warm-start-20261028/worker.py",
+      "baseline": null
+    },
+    {
+      "path": "artifacts/surface-ranking-warm-start-20261028/objective.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "new_evidence": "artifacts/experiments/20261027T211902-7ae1cc41/diagnostics.json: exactcoef/intercept/peak분해,전체training쌍이미margin충족,국소gradient와cold변화불일치. baseline primary목적+계측rank항 vs coldfit목적의firstfold차이+.00132777.새초기화가설이며원래rank계수/margin탐색아님.",
+  "human_truth": "artifacts/misdreavus-same-photo-normal-20261024/human-response.json",
+  "cache_source": "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt",
+  "tracked_source": "tools/experiments/surface-ranking-warm-start-20261028/worker.py",
+  "contract": "docs/collaboration/tasks/surface-ranking-warm-start-20261028.md",
+  "input_sha256": {
+    "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt": "8061e7ed4814a038930d5ba8611d85f3194ffdfe5f4e9082062272ed820eb84f",
+    "artifacts/experiments/20261024T060419-45e72d0a/training-tokens.pt": "2cc268945d5d909040ff3e7492d83a42862d4daeb4c466db91a0228af7e63e2f",
+    "artifacts/experiments/20261024T093945-04a7e5e8/local-heads.pt": "cdf8eeb7f576ae475d607beafce592fcb9c71a66601062b1d8d3131e04d5d872",
+    "card_condition/detail_bag.py": "21ec78db0570f8ca3a0b8181de801a48ce715d5aa51bb065224caa974e0e53b3",
+    "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+    "artifacts/experiments/20261025T122011-647b0e9c/fold-heads.pt": "4e31b43433d8c6d06115387dea97d0d401a2e0655a1df34c6258ebb716715fa0",
+    "artifacts/experiments/20261025T122011-647b0e9c/result.json": "eb73931a73eb7bfd7c2dd9ed104caeea76a91f9990fa337fcc09e30521bd977e",
+    "artifacts/experiments/20261025T122011-647b0e9c/observations.json": "f7e317a2aa7e8ec6c4aa85fcd1135554b95933d89660c40b2aed4c519c306419",
+    "artifacts/experiments/20261025T122011-647b0e9c/reference.json": "c7e6c1e163191744c168a661f0ba848aa5d79a6dd6e294f7dcc60daf1f116ca9",
+    "artifacts/experiments/20261025T122011-647b0e9c/plan.json": "18f5fa1169f773c3ec6a7be1002af6df8bcdb9ce6a025e76aa8ea624af6fd4a1",
+    "artifacts/experiments/20261025T122011-647b0e9c/diagnostics.json": "744254cdedca586f3c757f7cc880bdc1baa003d450042a1ace45a70411eabb4d",
+    "tools/experiments/surface-normal-coexclusion-20261025/worker.py": "5c2f573f110042b8695170755d95e52af26367f363ed013e6591e68ec47c6a59",
+    "tools/experiments/surface-front-joint-holdout-baseline-20261025/worker.py": "5db79c3d20743fa7cae0c355f81f80be592dcf92a3d674187fe8e07a5b94094b",
+    "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17",
+    "artifacts/experiments/20261027T132418-8a5aa6ae/diagnostics.json": "072a514fb541ad56d56959c3d6f0d6bd6d8bf8222ab90d0fee3182df5b855a82",
+    "artifacts/experiments/20261024T062258-2932de20/diagnostics.json": "314eccc6f99fe2cf72665d8aa011580149f37e7bb06df7f57459191ee6558e5f",
+    "artifacts/experiments/20261024T062428-8e82e9ed/result.json": "4d98114ec6478a19d525893bedafb4f71e914a716f232d5a511d9c8823b2bef9",
+    "artifacts/experiments/20261027T133213-807fae2a/record.json": "a95bf15019e59e075c146915dc25219dde1fae1a2c094a7f6062380908877d5b",
+    "artifacts/experiments/20261024T061542-a90ac171/diagnostics.json": "3d462d178c995d59f7a2669e26c593af70f96b088e36562c05dbee63512b4fbb",
+    "artifacts/misdreavus-same-photo-normal-20261024/human-response.json": "c733369c8efdc7f52321580d6964bfb28dd0674c427d90072fd0febeb2e32c6d",
+    "artifacts/experiments/20261027T144107-8f7674cd/record.json": "24933bdfbe6e1196fe63e01aabf7466ad48b0310abf5779efa234da2aa74d3e0",
+    "artifacts/experiments/20261027T144107-8f7674cd/failure-diagnostics.json": "b220d874c4250dfa6bd1c897aef355cca469ae11771273614b1cdae470a3213c",
+    "artifacts/experiments/20261027T211902-7ae1cc41/record.json": "3f79ad8e2b6e0e9e117eb94d50e1d9620bf0c385c916fcf03bb7968d38952d18",
+    "artifacts/experiments/20261027T211902-7ae1cc41/diagnostics.json": "7b9bf0fe97c496aae490a7e0b03ff4b43e5791387f53d6b0da9fe7046f81035f",
+    "artifacts/experiments/20261027T145641-21c22382/diagnostics.json": "1304964d4f747e5aee87bfdf1452c4c6c538fa4c3f352205e6b3b0b7be8d03c2",
+    "tools/experiments/surface-ranking-warm-start-20261028/worker.py": "e2ba1ff6c224c7cac67117aa6a98a401a97cab94e8ad1e09a940732a99342843",
+    "tools/experiments/surface-ranking-warm-start-20261028/objective.py": "372f84c36f26d4b054f05786ac8561483948aba72b398920e5754b3120a0baeb"
+  },
+  "training_only_ids": [
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-1",
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-2",
+    "ebay-pair-ff69b8955593fc/photo3-first-attack-surface-confirmed-normal",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-1",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-2",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-3"
+  ],
+  "objective": {
+    "ranking_coefficient": 1.0,
+    "margin": 1.0,
+    "normal_temperature": 0.1,
+    "original_loss": "unchanged",
+    "normal": "max_bound",
+    "penalty": 1.0,
+    "initialization": "saved_training_fold"
+  },
+  "proposal": "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json",
+  "proposal_sha256": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17"
+}

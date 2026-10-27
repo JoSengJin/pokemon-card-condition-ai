@@ -26,3 +26,7 @@ forbidden: card_condition/*,Claude데이터/사진/라벨·모든checkout,기존
 checks: 입력초기head보존/센터복원logit동치/같은목적함수의정지점재시작동치/손실함수·gradient동일/invalid초기shape拒否. main합성후입력SHA/학습fold教師train_ids/3쌍·2실물/11cohort검증후commonrunner1회.
 HTML: 실험index.html의실제사람정답/전후score·누락오탐分母/%p,전4신규오류와全91구역. sourceSHA/30점/검사/리스크/롤백·독립아님·열기/렌더구분.
 rollback: 기존모델/정답은안바꿈. 신규연구source는미채택으로보존하거나통합SHA를 ./develop -- git revert 후검사/일반push. 실제기록/사진은실패포함보존,운영채택0.
+
+## 구현 인계
+
+helper4/worker2/검사4함수(AST실측),새학습경로최대3전이. 입력teacher는clone하여그대로보존하고초기raw→centered절편재생오차와동일목적함수초기/최종값을기록한다. 추가정규화나손실식변경없음. zero초기화시coldfit동치·정지점재시작·원손실/gradient동일·초기headshape/유한성검사와기존원인/대조감독회귀합계11검사OK(3.769초),diff검사통과. main통합후실제4fold1회실행예정.
