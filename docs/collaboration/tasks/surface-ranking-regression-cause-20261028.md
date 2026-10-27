@@ -29,3 +29,9 @@ forbidden: card_condition/*,이전worker/실험/head/cache/사진·사람정답�
 checks: synthetic가산분해·center좌표이동불변·gradient검산·같은bias이동상쇄. main통합후1회공통진단. 실제성능/独立검증개선으로보고하지않는다.
 HTML: 실험index.html에4오류/5복구사진·人정답/전후점수/분모/%p·가산원인·확정/미확정한계. 추적reports공개집계와30/100·sourceSHA/검사/변경/위험/롤백. 열기요청/렌더구분.
 rollback: 통합SHA를 ./develop -- git revert 후검사/일반push. 기존모델/정답미변경으로복구불필요,진단/이전실험은보존. 근거가나오기전새훈련후보는확정하지않는다.
+
+## 구현 인계
+
+worker5/검사3함수(AST실측),모듈guard직접순차호출. 모델학습/optimizer호출없고저장head의cache투영·autograd검산만있다. components는공통center의가산합/peak이동/counterfactual, pair_readout는분석식과기존rankloss autograd를대조한다. source경로 pair_readout→same_photo_ranking_loss 최대1전이이며새계층없음.
+
+격리합성3+기존rank4검사합계7검사OK(3.803초),diff검사통과. peak변경의가산식·center변환시총logit불변·gradient검산/동일bias상쇄를확인했다. 진단성공은모델품질통과가아니다. main재검사와고정모델의실측분해는후속이다.
