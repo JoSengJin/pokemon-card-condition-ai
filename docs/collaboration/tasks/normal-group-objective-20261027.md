@@ -1,6 +1,6 @@
 task_id: normal-group-objective-20261027
 owner: Codex
-status: implementing
+status: integrated
 base_sha: 084a2c3b854f59cbe4d5d6f72e10312e8a1ba95c
 branch: codex/normal-group-objective-20261027
 
@@ -31,3 +31,8 @@ rollback: 신규 실험 helper/worker는 미채택시 연구 전용으로 보존
 ## 구현 인계
 
 실제 정상 그룹 질량은 혼합 클래스 실물 때문에 같지 않을 수 있어 기존 mass를 정상 그룹별로 합산한 가중 log-mean-exp를 사용한다. 이는 가중치식 변경이 아니라 집계 연산 하나의 변경이다. objective2함수·worker1함수·검사3함수(AST실측), 최대 학습전이3. 합성3개 통과: 정상1실물일 때 기존 coef/bias 2e-6 이내·목적값1e-8 일치, 불균등 정상 그룹 질량의 수렴, 누락그룹/0질량/클래스비중변경 거절. 기존모델소스는수정하지않았다. 실제실험은main통합뒤1회만실행한다.
+
+
+## Codex 최종실행 인계
+
+첫fold수렴실패/statusfailed/후보성능미측정·미채택/자동재시도0。실제record경로/표본·판정·변경파일·검증·리스크·롤백은동명reports MD/HTML 참조. main관련12검사통과,원본입력SHA불변,Claude데이터작업미변경。진척30/100유지。사진HTML열기queued/탭존재확인,정책차단으로HTML실제렌더미확인。최신Codex목적식checkout보존/이전완료checkout정리감사기록보존。

@@ -1,6 +1,6 @@
 task_id: normal-coexclusion-run-20261027
 owner: Codex
-status: implementing
+status: integrated
 base_sha: e1414c76cb44c4996d9c6d85fc3172b74bc329cb
 source_branch: claude/task-1026-1
 source_commits: 1fec3d7e64eb71608adb7528f752581b25fc0015, a3508669bedfe54c6c4cc5eb16e85726df0d54b5
@@ -22,3 +22,8 @@ source_commits: 1fec3d7e64eb71608adb7528f752581b25fc0015, a3508669bedfe54c6c4cc5
 HTML: 실제 사진구역별 사람정답/점수는 새 실험 index.html. 추적 성과 HTML은 개인사진/이름/홈 경로 없이 집계·실제명령·변경·위험·롤백·진척을 기재한다. 둘 다 열기 요청하고 실제렌더 여부를 구분한다.
 
 롤백: 모델/라벨 변경 없으므로 복구 불필요. 통합코드 커밋은 ./develop -- git revert 후 관련검사/일반push. 실험기록은 실패 포함 보존. 검증 후 origin/main 일반push, 정리규칙에 따라 통합확인된clean작업만 정리하고 최신1개 유지. Claude 데이터/미통합/사용중은 보존한다.
+
+
+## Codex 최종실행 인계
+
+completed/H3단일일치·16fit수렴·primary재생통과/전체acceptancefalse。실제record경로/표본·판정·변경파일·검증·리스크·롤백은동명reports MD/HTML 참조. main관련12검사통과,원본입력SHA불변,Claude데이터작업미변경。진척30/100유지。사진HTML열기queued/탭존재확인,정책차단으로HTML실제렌더미확인。최신Codex목적식checkout보존/이전완료checkout정리감사기록보존。
