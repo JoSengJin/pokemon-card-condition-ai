@@ -50,6 +50,8 @@ export interface ReviewRecord {
   worktreeFingerprint: string;
   status: 'running' | 'done' | 'failed' | 'cancelled' | 'unknown'; verdict?: ReviewVerdict | null; summary?: string;
   execId?: string; startedAt: string; endedAt?: string; note?: string;
+  /** 메인 인계 자동 확인용 리뷰. 통과하면 인계를 자동 확인으로 기록한다(사람 승인은 아님). */
+  forHandoff?: boolean;
 }
 
 /** reviewVerdict는 감사 기록일 뿐 승인 조건이 아니다(리뷰 결과가 사람 승인을 대신하지 않음). */
@@ -57,7 +59,7 @@ export interface ReviewRecord {
  * 메인 에이전트에게 넘기는 인계 기록. 인계 문서는 작업 브랜치에 커밋하지 않는다(PAIR_CODING §4: 완료 후 추가 커밋 금지, SHA 고정).
  * 상태 폴더에 저장하고 복사용으로 보여 준다. 코드 SHA가 바뀌면 인계는 낡은 것으로 본다.
  */
-export interface Handoff { at: string; to: 'codex' | 'claude'; headSha: string; file: string; confirmedAt?: string; note?: string; cancelledAt?: string }
+export interface Handoff { at: string; to: 'codex' | 'claude'; headSha: string; file: string; confirmedAt?: string; note?: string; cancelledAt?: string; auto?: boolean }
 
 export interface Approval { sha: string; baseBranch: string; baseHead: string; files: string[]; filesHash: string; contractHash: string; reviewVerdict: ReviewVerdict | null; mainConfirmedAt: string | null; at: string }
 
@@ -601,7 +603,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
   }
 
   /** 구현이 끝났음을 메인에게 넘긴다. 도구가 Git으로 교차 확인하며(커밋 없음·미커밋 변경·SHA 변경은 거절) 인계 문서는 상태 폴더에만 저장한다. */
-  async handoffToMain(taskId: string) {
+  async handoffToMain(taskId: string, o: { auto?: boolean } = {}) {
     const t = this.task(taskId);
     if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 인계(${t.status})`);
     const r = t.result;
@@ -619,7 +621,13 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     t.handoff = { at: new Date().toISOString(), to: this.mainAgent, headSha: head, file };
     this.event('handoff', { taskId, to: t.handoff.to, headSha: head });
     this.save();
-    return { handoff: t.handoff, text, message: this.handoffMessage(t) };
+    let autoNote: string | undefined;
+    if (o.auto) {
+      // 자동 확인은 구독 로그인 가드를 통과한 실제 CLI로만 한다. 막히면 인계는 유지하고 사람이 붙여 넣는 기존 방식으로 남긴다.
+      try { await this.startReviewJob(taskId, { reviewer: this.mainAgent, mode: 'real', forHandoff: true }); autoNote = `${this.mainAgent} 자동 확인 시작(별도 프로세스, read-only)`; }
+      catch (err) { autoNote = `자동 확인 안 함: ${(err as Error).message} — 안내문을 직접 전달하세요`; }
+    }
+    return { handoff: t.handoff, text, message: this.handoffMessage(t), autoNote };
   }
 
   /** 메인 에이전트 세션에 붙여 넣을 한 줄 안내. */
@@ -979,7 +987,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
    * 고정 SHA·diff·계약·검사 결과를 묶어 별도 리뷰 작업으로 실행한다.
    * 리뷰 CLI는 묶음 폴더에서만 실행되고 구현 worktree 경로를 받지 않는다. 현재 대화창에 메시지를 보내는 것이 아니다.
    */
-  async startReviewJob(taskId: string, o: { reviewer?: 'codex' | 'claude'; mode?: 'mock' | 'real'; mockScenario?: (typeof REVIEW_MOCK_SCENARIOS)[number] } = {}) {
+  async startReviewJob(taskId: string, o: { reviewer?: 'codex' | 'claude'; mode?: 'mock' | 'real'; mockScenario?: (typeof REVIEW_MOCK_SCENARIOS)[number]; forHandoff?: boolean } = {}) {
     const t = this.task(taskId);
     if (this.tripped) throw new UserError('과금 신호 감지 상태 — 실행하지 않음');
     if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 리뷰를 등록(${t.status})`);
@@ -1032,7 +1040,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
         if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
         command = this.probes[reviewer]!.binary!; display = [reviewer, ...args.slice(0, -1).map((a) => (a === bundleDir ? '<리뷰 묶음>' : a)), '<prompt>'];
       }
-      t.review = { reviewId, reviewer, mode, sha, contractHash: t.contractHash, bundleDir, worktreeFingerprint: await this.worktreeFingerprint(t), status: 'running', startedAt: new Date().toISOString() };
+      t.review = { reviewId, reviewer, mode, sha, contractHash: t.contractHash, bundleDir, worktreeFingerprint: await this.worktreeFingerprint(t), status: 'running', startedAt: new Date().toISOString(), ...(o.forHandoff ? { forHandoff: true } : {}) };
       const ex = this.spawnSupervised(t, { kind: 'review', runId: reviewId, cwd: bundleDir, command, args, display, sha });
       t.review.execId = ex.execId;
       this.event('review_started', { taskId, reviewId, reviewer, mode, sha });
@@ -1068,7 +1076,19 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     const verdicts: ReviewVerdict[] = ['approve', 'changes_requested', 'insufficient_evidence'];
     if (!parsed || !verdicts.includes(parsed.verdict)) return done('failed', '판정 형식을 읽지 못함 — "통과" 같은 문구만으로는 판정으로 보지 않음');
     if (parsed.sha !== rv.sha) return done('failed', `다른 SHA(${String(parsed.sha).slice(0, 12)})에 대한 판정 — 사용하지 않음`);
-    return done('done', ex.observedAfterRestart ? '서버 재시작 후 종료 관찰' : undefined, parsed.verdict, String(parsed.summary ?? '').slice(0, 2000));
+    done('done', ex.observedAfterRestart ? '서버 재시작 후 종료 관찰' : undefined, parsed.verdict, String(parsed.summary ?? '').slice(0, 2000));
+    this.autoConfirmHandoff(t, rv);
+  }
+
+  /** 인계용 리뷰가 approve이고 인계·SHA가 그대로일 때만 인계를 자동 확인으로 기록한다. 사람 승인은 대신하지 않는다. */
+  private autoConfirmHandoff(t: Task, rv: ReviewRecord) {
+    const h = t.handoff;
+    if (!rv.forHandoff || rv.status !== 'done' || rv.verdict !== 'approve') return;
+    if (t.status !== 'review_pending' || !h || h.cancelledAt || h.confirmedAt || h.to !== rv.reviewer || h.headSha !== rv.sha || h.headSha !== t.result?.headSha) return;
+    h.confirmedAt = new Date().toISOString(); h.auto = true;
+    h.note = `자동 확인: 별도 ${rv.reviewer} 프로세스(리뷰 ${rv.reviewId.slice(0, 8)})의 approve — 대화 중인 메인 세션의 확인이 아님`;
+    this.event('handoff_confirmed', { taskId: t.taskId, headSha: h.headSha, auto: true });
+    this.save();
   }
 
   // ---------- 화면용 ----------

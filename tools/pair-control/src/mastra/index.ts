@@ -139,7 +139,7 @@ function buildRoutes() {
         return ex().startPrompt(id(c), { unattended: b.unattended === true, extraDocs: Array.isArray(b.extraDocs) ? b.extraDocs.map(String) : [] });
       }),
     }),
-    registerApiRoute('/pair/api/tasks/:id/handoff', { method: 'POST', handler: act(async (c) => ex().handoffToMain(id(c))) }),
+    registerApiRoute('/pair/api/tasks/:id/handoff', { method: 'POST', handler: act(async (c) => ex().handoffToMain(id(c), { auto: (await body(c)).auto === true })) }),
     registerApiRoute('/pair/api/tasks/:id/handoff-text', { method: 'GET', handler: act(async (c) => ex().readHandoff(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/handoff-confirm', { method: 'POST', handler: act(async (c) => ex().confirmHandoff(id(c), String((await body(c)).note ?? ''))) }),
     registerApiRoute('/pair/api/tasks/:id/handoff-cancel', { method: 'POST', handler: act(async (c) => ex().cancelHandoff(id(c))) }),

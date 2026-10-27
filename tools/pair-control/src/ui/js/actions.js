@@ -8,7 +8,7 @@ const ACTIONS = {
   finish: { p: 'finish-manual', n: '작업 완료' }, apply: { p: 'apply-exit', n: '결과 반영' }, ack: { p: 'ack-unknown', n: '결과 불명 확정' },
   recollect: { p: 'recollect', n: '다시 수집' }, checks: { p: 'run-checks', n: '작업 테스트 실행' }, review: { p: 'review', n: '리뷰 작업' },
   prompt: { p: 'start-prompt', n: '시작 프롬프트' }, handoff: { p: 'handoff', n: '인계' }, hshow: { p: 'handoff-text', get: true, n: '인계 안내문' },
-  hconfirm: { p: 'handoff-confirm', n: '메인 확인' }, hcancel: { p: 'handoff-cancel', n: '인계 취소' }, diff: { p: 'diff', get: true, n: 'diff' },
+  handoffauto: { p: 'handoff', n: '인계 + 자동 확인' }, hconfirm: { p: 'handoff-confirm', n: '메인 확인' }, hcancel: { p: 'handoff-cancel', n: '인계 취소' }, diff: { p: 'diff', get: true, n: 'diff' },
   approve: { p: 'approve', n: '승인' }, reject: { p: 'reject', n: '거절' }, integrate: { p: 'integrate', n: '통합' }, rereview: { p: 'rereview', n: '재검토' },
   venv: { p: 'create-venv', n: '환경 만들기' }, unapprove: { p: 'unapprove', n: '승인 취소' }, archive: { p: 'archive', n: '보관' }, unarchive: { p: 'archive', n: '보관 해제' },
   pushcheck: { g: 'push/preflight', n: '푸시 점검' }, pushack: { g: 'push/ack', n: '오탐 확인' }, push: { g: 'push/run', n: '푸시' },
@@ -44,6 +44,7 @@ function askText(act, t, el) {
     case 'hconfirm': return '메인 에이전트가 확인을 끝냈습니까? 이 표시는 승인 기록에 남지만 승인을 대신하지 않습니다.';
     case 'approve': return '승인 SHA ' + t.result.headSha + '\n코드·계약·기준 브랜치·관련 파일이 바뀌면 승인은 무효화됩니다.';
     case 'integrate': return '승인 SHA를 재검증한 뒤 통합 checkout에서 ./develop -- git cherry-pick -x 를 실행합니다. push는 하지 않습니다.' + (t.postChecks.length ? '\n이어서 통합 후 검사:\n' + t.postChecks.map((c) => '  ' + [c.executable].concat(c.args).join(' ')).join('\n') : '\n통합 후 검사 없음(미실행으로 표시)');
+    case 'handoffauto': return '인계한 뒤 메인(' + ((ui.state.main && ui.state.main.agent) || 'codex') + ')을 별도 CLI 프로세스로 실행해 확인시킵니다(read-only, 구독 로그인 가드 통과 시에만). 대화 중인 메인 세션이 아니며 승인을 대신하지 않습니다. 구독 사용량이 소모됩니다.';
     case 'push': return '원격 ' + ui.state.push.remote + '/' + ui.state.push.branch + ' 에 ' + plan.commits.length + '개 커밋을 푸시합니다.\n' + plan.remoteHead.slice(0, 12) + ' → ' + plan.localHead.slice(0, 12) + '\n\n푸시는 취소할 수 없습니다(실수는 되돌림 커밋으로만 바로잡습니다). 계속할까요?';
     case 'pushack': return '다음 항목이 실제 비밀이 아니라 가짜·예시 값임을 확인했습니까?\n\n' + plan.findings.filter((f) => f.kind === 'secret_pattern' && !f.acknowledged).map((f) => f.file + ':' + f.line + ' (커밋 ' + (f.commit || '').slice(0, 8) + ')').join('\n') + '\n\n이 확인은 해당 커밋·파일·줄에만 적용되고 기록됩니다.';
     case 'revert': return '푸시한 커밋마다 되돌림(revert) 커밋을 통합 checkout에 만듭니다(로컬만, ./develop 잠금 안). 원격은 바뀌지 않으며, 만든 뒤 ①~③ 절차로 푸시합니다.';
@@ -62,6 +63,7 @@ function bodyOf(act, t, el) {
     case 'prompt': return { unattended: !!ui.keep.pUnattended, extraDocs: String(ui.keep.pDocs || '').split(',').map((x) => x.trim()).filter(Boolean) };
     case 'review': return { mode: 'mock', mockScenario: ui.keep.revScenario || 'approve' };
     case 'approve': return { sha: t.result.headSha };
+    case 'handoffauto': return { auto: true };
     case 'reject': { const reason = prompt('거절 사유'); return reason === null ? null : { reason }; }
     case 'push': return { confirm: String(ui.keep.pushConfirm || '').trim() };
     case 'pushack': return { fingerprints: ui.state.push.plan.findings.filter((f) => f.kind === 'secret_pattern' && !f.acknowledged).map((f) => f.fingerprint) };
@@ -101,7 +103,7 @@ function keepResult(act, t, d) {
   switch (act) {
     case 'env': return d && d.ready ? ['실행 준비됨', 'ok'] : ['아직 준비 안 됨 — 안내된 명령을 직접 실행하세요', 'warn'];
     case 'prompt': ui.prompt[id] = d.text; return ['프롬프트 생성됨 — 복사해서 에이전트 세션에 붙여 넣으세요', 'ok'];
-    case 'handoff': case 'hshow': ui.handoff[id] = d.message + '\n\n' + d.text; return [act === 'handoff' ? '인계됨 — 안내문을 메인 에이전트에게 전달하세요' : '인계 안내문을 불러왔습니다', 'ok'];
+    case 'handoff': case 'handoffauto': case 'hshow': ui.handoff[id] = d.message + '\n\n' + d.text; if (d.autoNote) return [d.autoNote, d.autoNote.startsWith('자동 확인 안 함') ? 'warn' : 'ok']; return [act === 'handoff' ? '인계됨 — 안내문을 메인 에이전트에게 전달하세요' : '인계 안내문을 불러왔습니다', 'ok'];
     case 'diff': ui.diff = { key: id + ':' + t.result.headSha, text: d.diff || '(변경 없음)' }; return ['diff를 불러왔습니다', 'ok'];
     case 'checks': return ['작업 테스트 시작 — 결과는 작업 테스트 단계에서 확인', 'ok'];
     case 'review': return ['fake 리뷰 CLI 시작(모델 요청 없음)', 'ok'];

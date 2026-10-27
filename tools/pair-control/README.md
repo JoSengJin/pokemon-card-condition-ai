@@ -169,6 +169,8 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 | `confirmedSubscriptionAuth` ≠ true | 두 CLI 모두 로그인 방식을 코드로 확인하는 명령을 문서에서 찾지 못함 → 사용자가 구독 로그인과 추가 크레딧 꺼짐을 직접 확인했다는 표시가 마지막 방어선 |
 | `--help`에서 필요한 옵션 미확인 | claude: `--print`, `--permission-mode`, `--allowedTools` / codex: `exec`의 `--cd`, `--sandbox` |
 
+- **Codex 추가 검사**(공식 문서 기준): `~/.codex/config.toml`(또는 `$CODEX_HOME`)의 최상위 `forced_login_method`가 `chatgpt`가 아니거나, `model_provider`가 `openai`가 아니거나, `openai_base_url`이 있으면 차단한다. 그리고 CLI 확인 때 `codex login status`가 "Logged in using ChatGPT"가 아니면(API 키·로그아웃·알 수 없음) 차단한다(`login_not_chatgpt`). 자격 증명 파일은 열지 않는다.
+- **인계 + 자동 확인**: 인계 직후 메인 에이전트를 **별도 CLI 프로세스**(`codex exec --sandbox read-only`, 리뷰 묶음만 읽음)로 실행해 approve가 나오면 인계를 자동 확인으로 기록한다(`auto: true`). 대화 중인 메인 세션의 확인이 아니며 승인을 대신하지 않는다. 가드가 막으면 인계만 하고 사유를 알린다. changes_requested/insufficient는 확인하지 않는다.
 - Claude 실행은 `--permission-mode acceptEdits`와 `--allowedTools`(Read, Edit, Write, `git status/diff/log/add/commit`)만 쓴다. 그 밖의 Bash는 `-p` 모드에서 자동 거부된다. Codex의 `--sandbox workspace-write` 값은 미검증이다.
 - **한도 도달은 정지 신호**다: 한도 문구가 나오면 실행 중인 작업을 멈추고 실제 CLI 시작을 거부하며 서비스는 유지한다. 재시도·크레딧 구매는 하지 않고, 사용자가 풀렸음을 확인해야 해제된다. 한도 안내문에 섞인 "extra usage" 같은 권유 문구는 과금으로 보지 않는다. 반대로 `credit balance` 같은 확실한 과금 문구는 서비스를 종료한다. 한도 문구 목록은 CLI 버전마다 달라질 수 있어 목록에 없는 문구는 일반 실패로 끝난다(자동 재시도·구매는 어느 경우에도 없음).
 - 로그인 정보 파일(`auth.json`, 키체인)은 열지 않는다.

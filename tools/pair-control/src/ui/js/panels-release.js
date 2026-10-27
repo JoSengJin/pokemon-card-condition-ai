@@ -10,9 +10,9 @@ export function panelHandoff(t, ui) {
   const live = !!h && !h.cancelledAt && !!r && h.headSha === r.headSha;
   return '<p class="small muted">인계 문서는 브랜치에 커밋하지 않습니다.</p>' +
     (h ? '<div class="kv small"><div>받는 쪽</div><div>' + esc(h.to) + '</div><div>인계 SHA</div><div class="mono">' + esc(h.headSha) + '</div>' +
-      '<div>상태</div><div>' + esc(h.cancelledAt ? '취소됨' : h.confirmedAt ? '메인 확인 ' + h.confirmedAt : '메인 확인 중') + '</div></div>' : '') +
+      '<div>상태</div><div>' + esc(h.cancelledAt ? '취소됨' : h.confirmedAt ? (h.auto ? '자동 확인(별도 프로세스) ' : '메인 확인 ') + h.confirmedAt : '메인 확인 중') + '</div></div>' : '') +
     '<textarea id="hText" readonly rows="6" placeholder="인계하면 메인에게 붙여 넣을 안내문이 나타납니다">' + esc(ui.handoff[t.taskId] || '') + '</textarea>' +
-    '<div class="actions">' + B('handoff', '메인에게 인계', s === 'review_pending' && !!r && !live, 'primary') + B('hshow', '안내문 다시 불러오기', !!h) +
+    '<div class="actions">' + B('handoff', '메인에게 인계', s === 'review_pending' && !!r && !live, 'primary') + B('handoffauto', '인계 + 자동 확인', s === 'review_pending' && !!r && !live) + B('hshow', '안내문 다시 불러오기', !!h) +
     B('copy', '안내문 복사', !!ui.handoff[t.taskId], '', ' data-target="hText" data-what="인계 안내문"') +
     B('hconfirm', '메인 확인 완료', s === 'review_pending' && live && !h.confirmedAt) +
     B('hcancel', '인계 취소', !!h && !h.cancelledAt && !t.approval, 'danger') + '</div>';

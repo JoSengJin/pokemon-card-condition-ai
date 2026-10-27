@@ -9,12 +9,22 @@ if (args[0] === 'exec' && args.includes('--help')) {
   console.log('Usage: codex exec [OPTIONS] [PROMPT]\n  -C, --cd <DIR>        Working directory\n  -s, --sandbox <MODE>  Sandbox policy (read-only, workspace-write)');
   process.exit(0);
 }
+if (args[0] === 'login' && args[1] === 'status') { console.log(process.env.FAKE_CODEX_LOGIN || 'Logged in using ChatGPT'); process.exit(0); }
 const cd = args[args.indexOf('--cd') + 1];
 const prompt = args[args.length - 1] || '';
 console.log('[fake-codex] args: ' + args.slice(0, -1).join(' '));
 console.log('[fake-codex] OPENAI_API_KEY: ' + (process.env.OPENAI_API_KEY ? 'PRESENT' : 'absent') + ' CODEX_API_KEY: ' + (process.env.CODEX_API_KEY ? 'PRESENT' : 'absent'));
 process.chdir(cd);
 if (prompt.includes('[fake:limit]')) { console.log('You have reached your usage limit. Try again later.'); process.exit(1); }
+if (prompt.includes('REVIEW_REQUEST.md')) {
+  const meta = JSON.parse(fs.readFileSync('meta.json', 'utf8'));
+  // 자식 프로세스 환경은 정리되어 전달되므로, 판정은 테스트가 이 파일 옆에 두는 표시 파일로 정한다.
+  const flag = path.join(path.dirname(process.argv[1]), '.fake-verdict');
+  const verdict = fs.existsSync(flag) ? fs.readFileSync(flag, 'utf8').trim() : 'approve';
+  fs.writeFileSync('review-result.json', JSON.stringify({ verdict, sha: meta.sha, summary: 'fake codex review' }));
+  console.log('[fake-codex] review ' + verdict);
+  process.exit(0);
+}
 const m = prompt.match(/docs\/collaboration\/tasks\/([a-z0-9._-]+)\.md/);
 const text = fs.readFileSync(`docs/collaboration/tasks/${m[1]}.md`, 'utf8');
 const json = JSON.parse(text.match(/```json\n([\s\S]*?)\n```/)[1]);
