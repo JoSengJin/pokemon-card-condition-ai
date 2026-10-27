@@ -11,15 +11,16 @@ const ACTIONS = {
   handoffauto: { p: 'handoff', n: '인계 + 자동 확인' }, hconfirm: { p: 'handoff-confirm', n: '메인 확인' }, hcancel: { p: 'handoff-cancel', n: '인계 취소' }, diff: { p: 'diff', get: true, n: 'diff' },
   approve: { p: 'approve', n: '승인' }, reject: { p: 'reject', n: '거절' }, integrate: { p: 'integrate', n: '통합' }, rereview: { p: 'rereview', n: '재검토' },
   venv: { p: 'create-venv', n: '환경 만들기' }, unapprove: { p: 'unapprove', n: '승인 취소' }, archive: { p: 'archive', n: '보관' }, unarchive: { p: 'archive', n: '보관 해제' },
+  discard: { p: 'discard', n: '폐기' }, archivefin: { g: 'archive-finished', n: '끝난 작업 보관' },
   pushcheck: { g: 'push/preflight', n: '푸시 점검' }, pushack: { g: 'push/ack', n: '오탐 확인' }, push: { g: 'push/run', n: '푸시' },
   verify: { g: 'push/verify', n: '원격 확인' }, revert: { g: 'push/revert-prepare', n: '되돌림 준비' },
   maincheck: { g: 'main/blockers', get: true, n: '이양 안전 확인' }, mainswap: { g: 'main/swap', n: '메인 이양' },
   limitclear: { g: 'limit/clear', n: '한도 해제' }, probe: { g: 'probes', n: 'CLI 확인' },
 };
 
-
 // 보기만 하거나 선택을 바꾸는 동작은 보던 단계에 머문다. 나머지 작업 동작은 성공하면 지금 단계로 화면이 따라간다.
 const STAY = new Set(['prompt', 'hshow', 'diff', 'archive', 'unarchive', 'discard', 'archivefin']);
+
 export function onClick(ev) {
   const el = ev.target.closest('[data-act]');
   if (!el || el.disabled) return;
@@ -43,10 +44,10 @@ function askText(act, t, el) {
     case 'finish': return '에이전트 세션의 작업이 끝났고 커밋까지 마쳤습니까? 결과를 수집해 Git 검사로 넘어갑니다.';
     case 'ack': return '결과 불명을 확정합니다. 완료로 보지 않고 잠금만 해제합니다.';
     case 'checks': return '작업 폴더에서 아래 명령을 셸 없이 차례로 실행합니다(SHA ' + t.result.headSha.slice(0, 12) + '):\n' + t.checks.map((c) => '  ' + [c.executable].concat(c.args).join(' ')).join('\n') + '\n\n계속할까요?';
+    case 'handoffauto': return '인계한 뒤 메인(' + ((ui.state.main && ui.state.main.agent) || 'codex') + ')을 별도 CLI 프로세스로 실행해 확인시킵니다(read-only, 구독 로그인 가드 통과 시에만). 대화 중인 메인 세션이 아니며 승인을 대신하지 않습니다. 구독 사용량이 소모됩니다.';
     case 'hconfirm': return '메인 에이전트가 확인을 끝냈습니까? 이 표시는 승인 기록에 남지만 승인을 대신하지 않습니다.';
     case 'approve': return '승인 SHA ' + t.result.headSha + '\n코드·계약·기준 브랜치·관련 파일이 바뀌면 승인은 무효화됩니다.';
     case 'integrate': return '승인 SHA를 재검증한 뒤 통합 checkout에서 ./develop -- git cherry-pick -x 를 실행합니다. push는 하지 않습니다.' + (t.postChecks.length ? '\n이어서 통합 후 검사:\n' + t.postChecks.map((c) => '  ' + [c.executable].concat(c.args).join(' ')).join('\n') : '\n통합 후 검사 없음(미실행으로 표시)');
-    case 'handoffauto': return '인계한 뒤 메인(' + ((ui.state.main && ui.state.main.agent) || 'codex') + ')을 별도 CLI 프로세스로 실행해 확인시킵니다(read-only, 구독 로그인 가드 통과 시에만). 대화 중인 메인 세션이 아니며 승인을 대신하지 않습니다. 구독 사용량이 소모됩니다.';
     case 'push': return '원격 ' + ui.state.push.remote + '/' + ui.state.push.branch + ' 에 ' + plan.commits.length + '개 커밋을 푸시합니다.\n' + plan.remoteHead.slice(0, 12) + ' → ' + plan.localHead.slice(0, 12) + '\n\n푸시는 취소할 수 없습니다(실수는 되돌림 커밋으로만 바로잡습니다). 계속할까요?';
     case 'pushack': return '다음 항목이 실제 비밀이 아니라 가짜·예시 값임을 확인했습니까?\n\n' + plan.findings.filter((f) => f.kind === 'secret_pattern' && !f.acknowledged).map((f) => f.file + ':' + f.line + ' (커밋 ' + (f.commit || '').slice(0, 8) + ')').join('\n') + '\n\n이 확인은 해당 커밋·파일·줄에만 적용되고 기록됩니다.';
     case 'revert': return '푸시한 커밋마다 되돌림(revert) 커밋을 통합 checkout에 만듭니다(로컬만, ./develop 잠금 안). 원격은 바뀌지 않으며, 만든 뒤 ①~③ 절차로 푸시합니다.';
@@ -62,10 +63,11 @@ function askText(act, t, el) {
 /** 요청 본문. null이면 사용자가 입력을 취소한 것이다. */
 function bodyOf(act, t, el) {
   switch (act) {
+    case 'handoffauto': return { auto: true };
     case 'prompt': return { unattended: !!ui.keep.pUnattended, extraDocs: String(ui.keep.pDocs || '').split(',').map((x) => x.trim()).filter(Boolean) };
     case 'review': return { mode: 'mock', mockScenario: ui.keep.revScenario || 'approve' };
     case 'approve': return { sha: t.result.headSha };
-    case 'handoffauto': return { auto: true };
+    case 'discard': { const reason = prompt('폐기 사유(다른 사람이 볼 수 있게 기록됩니다)'); return reason === null ? null : { reason }; }
     case 'reject': { const reason = prompt('거절 사유'); return reason === null ? null : { reason }; }
     case 'push': return { confirm: String(ui.keep.pushConfirm || '').trim() };
     case 'pushack': return { fingerprints: ui.state.push.plan.findings.filter((f) => f.kind === 'secret_pattern' && !f.acknowledged).map((f) => f.fingerprint) };
@@ -91,9 +93,9 @@ export async function run(act, el) {
     const d = await api(a.g || 'tasks/' + encodeURIComponent(t.taskId) + '/' + a.p, a.get ? undefined : body);
     const m = keepResult(act, t, d);
     say(m[0], m[1]);
+    if (t && !a.g && !STAY.has(act)) delete ui.stage[t.taskId]; // 고정을 풀면 renderTask가 지금 단계를 연다
   } catch (e) {
     say(a.n + ' 실패: ' + e.message, 'bad');
-    if (t && !a.g && !STAY.has(act)) delete ui.stage[t.taskId]; // 고정을 풀면 renderTask가 지금 단계를 연다
     if (act === 'maincheck') ui.mainBlockers = { error: e.message };
   }
   ui.rerender();
@@ -118,6 +120,8 @@ function keepResult(act, t, d) {
     case 'pushack': return ['오탐으로 기록했습니다. 다시 점검하세요', 'ok'];
     case 'venv': return d && d.ready ? ['.venv를 만들었고 실행 준비가 끝났습니다 — 이제 시작할 수 있습니다', 'ok'] : ['.venv를 만들었습니다. 남은 준비 항목을 확인하세요', 'warn'];
     case 'unapprove': return ['승인을 취소했습니다 — 검토 단계로 돌아왔습니다(에이전트 재실행 없음)', 'ok'];
+    case 'discard': ui.selected = null; return [id + ' 폐기됨 — 아래 "보관된 작업"에 사유와 함께 남습니다(브랜치·작업 폴더는 지우지 않음)', 'ok'];
+    case 'archivefin': return [d.archived.length ? '끝난 작업 ' + d.archived.length + '개를 보관했습니다: ' + d.archived.join(', ') : '보관할 끝난 작업이 없습니다', d.archived.length ? 'ok' : 'muted'];
     case 'archive': ui.selected = null; return [id + ' 보관됨 — 아래 "보관된 작업"에서 해제할 수 있습니다', 'ok'];
     case 'unarchive': ui.selected = id; return [id + ' 보관 해제됨', 'ok'];
     case 'maincheck': ui.mainBlockers = { list: d.blockers }; return ['', ''];

@@ -12,7 +12,7 @@ import { acknowledgeFindings, prepareRevert, preflight, runPush, verifyPush } fr
 import { progressDraft, progressItems } from '../executor/progress.ts';
 import { setMain, swapBlockers } from '../executor/mainRole.ts';
 import { bindRuntime, getExecutor, prepareTask, snapshot, startReview, startTask, resumeStep } from '../runtime.ts';
-import { activityOf, createVenv, setArchived, tailPostLog, withdrawApproval } from '../executor/taskControl.ts';
+import { activityOf, archiveFinished, createVenv, discardTask, setArchived, tailPostLog, withdrawApproval } from '../executor/taskControl.ts';
 import { extractScope } from '../executor/scope.ts';
 import fs from 'node:fs';
 
@@ -120,6 +120,8 @@ function buildRoutes() {
     }),
     registerApiRoute('/pair/api/tasks/:id/unapprove', { method: 'POST', handler: act(async (c) => withdrawApproval(ex(), id(c), resumeStep, startReview)) }),
     registerApiRoute('/pair/api/tasks/:id/archive', { method: 'POST', handler: act(async (c) => setArchived(ex(), id(c), (await body(c)).archived !== false)) }),
+    registerApiRoute('/pair/api/tasks/:id/discard', { method: 'POST', handler: act(async (c) => discardTask(ex(), id(c), String((await body(c)).reason ?? ''), resumeStep)) }),
+    registerApiRoute('/pair/api/archive-finished', { method: 'POST', handler: act(async () => archiveFinished(ex())) }),
     registerApiRoute('/pair/api/scope', { method: 'POST', handler: act(async (c) => extractScope(String((await body(c)).text ?? ''))) }),
     registerApiRoute('/pair/api/tasks/:id/rereview', { method: 'POST', handler: act(async (c) => startReview(id(c))) }),
     registerApiRoute('/pair/api/tasks/:id/diff', { method: 'GET', handler: act(async (c) => ({ diff: await ex().diff(id(c)) })) }),

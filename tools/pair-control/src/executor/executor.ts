@@ -87,6 +87,8 @@ export interface Task extends TaskInputT {
   handoff?: Handoff | null;
   /** 보관 시각. 목록에서만 숨기며 기록·worktree·브랜치는 그대로 둔다(taskControl.ts). */
   archivedAt?: string | null;
+  /** 폐기 기록(누가 왜 버렸는지 화면에 남김). 폐기해도 브랜치·worktree·기록은 지우지 않는다. */
+  discard?: { at: string; reason: string } | null;
   /** 수동 모드: 사용자가 에이전트 세션에서 작업하는 동안의 소유권 기록. 프로세스는 없다. */
   manual?: { execId: string; runId: string; startedAt: string; endedAt?: string; ended?: 'finished' | 'cancelled' } | null;
   result?: {
@@ -288,7 +290,8 @@ export class Executor {
     const execId = crypto.randomUUID();
     const r = this.reserve(t, execId);
     if (!r.ok) {
-      const reason = r.conflicts?.length ? `${r.reason}: ${r.conflicts.map((c) => `${c.otherTask}(${c.kind} ${c.detail})`).join(', ')}` : r.reason;
+      const occupants = [...new Set((r.conflicts ?? []).map((c) => c.otherTask))].map((id) => `${id}[${this.state.tasks[id]?.status ?? '?'}]`).join(', ');
+      const reason = r.conflicts?.length ? `${r.reason}: ${r.conflicts.map((c) => `${c.otherTask}(${c.kind} ${c.detail})`).join(', ')} — 점유 작업 ${occupants}. 필요 없으면 그 작업을 열어 "폐기"하세요` : r.reason;
       this.event('start_refused', { taskId, reason });
       // 실행 중 작업의 중복 시작이면 상태를 건드리지 않고, 시작 가능한 작업이면 거절 사유만 남긴다.
       if (STARTABLE.includes(t.status)) { t.statusReason = `시작 거절: ${reason}`; t.updatedAt = new Date().toISOString(); this.save(); }

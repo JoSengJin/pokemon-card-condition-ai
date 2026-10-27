@@ -45,6 +45,46 @@ export function setArchived(ex: Executor, taskId: string, archived: boolean) {
   return t;
 }
 
+/** 폐기: 결정이 남은 작업은 거절 흐름으로, 시작 전·끝난 작업은 바로 보관함으로 보낸다. 사유를 꼭 남겨 다른 사람이 이유를 알 수 있게 한다. */
+const DISCARD_VIA_REJECT = ['review_pending', 'approved', 'integration_refused', 'integration_blocked'];
+const DISCARD_DIRECT = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
+export const DISCARDABLE = [...DISCARD_VIA_REJECT, ...DISCARD_DIRECT];
+
+export async function discardTask(ex: Executor, taskId: string, reason: string, resume: Resume) {
+  const t = ex.task(taskId);
+  const why = String(reason ?? '').trim().slice(0, 300);
+  if (why.length < 2) throw new UserError('폐기 사유를 적어 주세요(다른 사람이 이유를 알 수 있게 기록됩니다)');
+  const prev = t.status;
+  if (DISCARD_VIA_REJECT.includes(prev)) {
+    const runId = t.runId, step = prev === 'approved' ? 'integrate-gate' : 'review-gate';
+    ex.reject(taskId, `폐기: ${why}`);
+    if (runId && (prev === 'approved' || prev === 'review_pending')) await resume(runId, step, step === 'review-gate' ? { decision: 'reject', reason: why } : { action: 'reject', reason: why });
+  } else if (!DISCARD_DIRECT.includes(prev)) {
+    throw new UserError(prev === 'integrated' || prev === 'integrated_check_failed'
+      ? `이미 기준 브랜치에 통합됨(${prev}) — 폐기가 아니라 푸시 후 "보관"하거나, 되돌리려면 푸시 화면의 되돌림을 쓰세요`
+      : `진행 중인 작업은 폐기할 수 없음(${prev}) — 먼저 중단하거나 결과를 확정하세요`);
+  }
+  const at = new Date().toISOString();
+  t.discard = { at, reason: why };
+  t.archivedAt = at;
+  record(ex, t, 'task_discarded', { from: prev, reason: why });
+  return ex.task(taskId);
+}
+
+/** 끝난 작업을 한꺼번에 보관한다: 거절·결과 불명 확정, 그리고 통합되고 원격 반영까지 확인된 작업. 중단됨(다시 시작할 수 있음)은 건드리지 않는다. */
+export function archiveFinished(ex: Executor) {
+  const pushed = new Set(Object.values(ex.state.pushes ?? {}).filter((r) => r.status === 'pushed_verified').flatMap((r) => r.tasks));
+  const archived: string[] = [];
+  for (const t of Object.values(ex.state.tasks)) {
+    if (t.archivedAt) continue;
+    if (!(['rejected', 'abandoned'].includes(t.status) || (t.status === 'integrated' && pushed.has(t.taskId)))) continue;
+    t.archivedAt = new Date().toISOString();
+    record(ex, t, 'task_archived', { bulk: true });
+    archived.push(t.taskId);
+  }
+  return { archived };
+}
+
 const BEFORE_START = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
 
 /**
