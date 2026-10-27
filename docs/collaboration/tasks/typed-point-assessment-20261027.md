@@ -1,6 +1,6 @@
 task_id: typed-point-assessment-20261027
 owner: Codex
-status: implementing
+status: integrated
 base_sha: c6babdf60192e99946af56ae5011b447b23c721e
 branch: codex/typed-point-assessment-20261027
 
@@ -36,3 +36,12 @@ handoff: 완료 시 아래 추가. 미통합 Claude 작업·사용 중 checkout�
 - 위험: numeric_gates에 c_typed_point_all=false가 추가된다. 모든 gate를 함께 요구하는 호출자는 점수 미제공 시 더 보수적으로 실패한다. 기존 raw gate 값은 보존.
 - 롤백: 통합 커밋을 ./develop -- git revert로 되돌리고 관련 검사 후 일반 push. 원본 데이터/모델 복구 불필요.
 - main 통합 후 동일75개 재검사와 HTML 열기 결과를 별도 보고서에 기록한다.
+
+
+## Codex 통합 완료
+
+- source: 7952ef4 → main cae59f1408d214edd514d279864d715c9199e2df. 계약은8f0a573.
+- main 회귀75개 OK, diff 검사·허용7파일 대조·AST2/1/6/7함수 확인. 실제 성능 평가는 없음.
+- 코드 main/origin SHA 일치 확인. 보고 MD/HTML은 후속 문서 커밋으로 push한다.
+- HTML 열기도구 queued(요청 전달), 실제 렌더 미확인. MD와 HTML 본문 정적 일치 확인.
+- 이전 Codex frozen-report-loaded-bytes 작업 checkout은 고유4커밋 통합·clean·잠금·증거보존 확인 후 일반 제거. branch/SHA 보존. 현재 typed-point-assessment checkout은 최근 완료 롤백용 유지. Claude와 기타 작업 checkout은 그대로 보존.
