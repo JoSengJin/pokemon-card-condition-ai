@@ -38,14 +38,14 @@ export function panelBuild(t, ui) {
   const run = !e ? '' : '<h4>도구가 실행한 에이전트 프로세스</h4><div class="kv small"><div>명령</div><div class="mono">' + esc(e.display.join(' ')) + '</div>' +
     '<div>PID / PGID</div><div class="mono">' + esc(e.pid + ' / ' + e.pgid) + (e.groupAlive ? ' (실행 중)' : ' (종료)') + '</div>' +
     '<div>종료코드 / 신호</div><div class="mono">' + esc((e.exitCode ?? '—') + ' / ' + (e.signal ?? '—')) + '</div><div>토큰 · 비용</div><div>미측정</div></div>';
-  return '<p>' + (manual ? '수동 모드: 도구는 에이전트를 실행하지 않고 파일 점유만 유지합니다. 에이전트 세션에서 작업·커밋을 마친 뒤 "작업 완료 — 결과 수집"을 누르세요.'
+  return activity + '<p>' + (manual ? '수동 모드: 도구는 에이전트를 실행하지 않고 파일 점유만 유지합니다. 에이전트 세션에서 작업·커밋을 마친 뒤 "작업 완료 — 결과 수집"을 누르세요.'
     : t.mode === 'real' ? '도구가 실제 ' + esc(t.agent) + ' CLI를 구독 로그인으로 실행합니다.' : '연습(mock) 프로세스입니다. 코드 품질을 검증하지 않습니다.') + '</p>' +
     (t.statusReason ? '<p class="muted">' + esc(t.statusReason) + '</p>' : '') + promptBox + run +
     '<div class="actions">' + B('finish', '작업 완료 — 결과 수집', s === 'manual_working', 'primary') +
     B('apply', '재시작 후 결과 반영', s === 'exit_observed', 'primary') +
     B('cancel', manual ? '작업 취소(파일 점유 해제)' : '실행 중단(이 실행기 프로세스만)', ['running', 'cancelling', 'orphan_running', 'manual_working'].includes(s), 'danger') +
     B('ack', '결과 불명 확정(완료 아님)', s === 'unknown', 'danger') + B('start', '다시 시작', ['failed', 'cancelled', 'abandoned'].includes(s)) +
-    '</div>' + activity;
+    '</div>';
 }
 
 export function panelGit(t, ui) {
