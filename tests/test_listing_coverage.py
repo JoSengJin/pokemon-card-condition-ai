@@ -35,6 +35,7 @@ def scenario(root):
                                      for area in GLARE_AREAS})))
     region = Mock(meta=dict(supported=['surface_defect'], architecture='mobilenet_v3_small_region_v1'),
                   model_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(), image_size=224, device='cpu')
+    region.analyze_regions.side_effect=lambda image,box,areas,**kw:[region.analyze(image,box,area,**kw) for area in areas]
     region.analyze.side_effect = lambda image, box, area, **kw: dict(box=region_box(box,area),
         probabilities=dict(corner_defect=None,edge_defect=None,surface_defect=.1))
     with patch('card_condition.listing_model.RegionAnalyzer', return_value=region):

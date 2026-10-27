@@ -20,6 +20,7 @@ class ListingModelTest(unittest.TestCase):
                 region.model_sha256 = 'frozen'; region.image_size = 224; region.device = 'cpu'
                 region.analyze.side_effect = lambda image, box, area, **kw: dict(
                     box=region_box(box, area), probabilities={key: .1 if key == 'edge_defect' else None for key in REGION_LABELS})
+                region.analyze_regions.side_effect=lambda image,box,areas,**kw:[region.analyze(image,box,area,**kw) for area in areas]
                 analyzer = ListingAnalyzer('model.pt', 'cpu')
                 request = dict(id='one', front=dict(image=str(image), box=[0,0,1,1]))
                 original = copy.deepcopy(request)
@@ -83,6 +84,7 @@ class ListingModelTest(unittest.TestCase):
                 region.model_sha256='region';region.image_size=224;region.device='cpu'
                 region.analyze.side_effect=lambda image,box,area,**kw:dict(
                     box=region_box(box,area),probabilities={key:.1 if key=='edge_defect' else None for key in REGION_LABELS})
+                region.analyze_regions.side_effect=lambda image,box,areas,**kw:[region.analyze(image,box,area,**kw) for area in areas]
                 observation=obs_cls.return_value;observation.model_sha256='observation'
                 observation.analyze.side_effect=lambda image,box,side:dict(observation_limit_score=.99 if side=='front' else .01)
                 request=dict(id='one',front=dict(image=str(image),box=[0,0,1,1]),

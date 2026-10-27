@@ -73,15 +73,14 @@ class ListingAnalyzer:
             if annotation['box'] is None or side in unreviewed:
                 continue
             issues, glare = annotation['visibility_issues'], annotation['glare_areas']
-            for area in GLARE_AREAS:
-                if (not any(area in REGION_TARGET_AREAS[key] for key in supported)
-                        or set(issues) - {'glare'}
-                        or 'glare' in issues and (not glare or area in glare)):
-                    continue
-                result = self.region.analyze(row[side], annotation['box'], area,
-                                             batch_views=batch_views)
-                if self.recall is not None:
-                    extra = self.recall.analyze(row[side], annotation['box'], area, batch_views=batch_views)
+            areas=[area for area in GLARE_AREAS
+                if any(area in REGION_TARGET_AREAS[key] for key in supported)
+                and not (set(issues)-{'glare'} or 'glare' in issues and (not glare or area in glare))]
+            results=self.region.analyze_regions(row[side],annotation['box'],areas,batch_views=batch_views)
+            extras=(self.recall.analyze_regions(row[side],annotation['box'],areas,batch_views=batch_views)
+                    if self.recall is not None else [None]*len(areas))
+            for area,result,extra in zip(areas,results,extras,strict=True):
+                if extra is not None:
                     review_candidates.extend(dict(side=side, area=area, box=result['box'], **item)
                         for item in review_labels(result['probabilities'], extra['probabilities']))
                 predictions.append(dict(card_id=row['id'], group=row['group'], side=side,

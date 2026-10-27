@@ -1,4 +1,6 @@
 """Experimental full patch plus outer-edge views; no labels are changed."""
+from itertools import islice
+
 import torch
 
 from .side_experiment import view_tensors
@@ -28,10 +30,11 @@ def fixed_tile_boxes(row):
             [left, mid_y, mid_x, bottom], [mid_x, mid_y, right, bottom]]
 
 
-def patch_features(backbone, row, device, edge_views=False, image_size=224):
+def patch_features(backbone, row, device, edge_views=False, image_size=224, *, prepared_views=None):
     boxes = (fixed_tile_boxes(row) if edge_views in ('tiles', 'tiles-max')
              else edge_view_boxes(row) if edge_views else [])
-    tensors = view_tensors(row['image'], [row['box'], *boxes], image_size)
+    tensors = (view_tensors(row['image'], [row['box'], *boxes], image_size)
+               if prepared_views is None else iter(prepared_views))
     full = backbone(next(tensors).unsqueeze(0).to(device)).mean((2, 3))
     if not edge_views:
         return full
@@ -58,13 +61,15 @@ def tile_tail_features(tail, maps):
     return torch.cat((pooled[:, 0], pooled[:, 1:].amax(1)), dim=1)
 
 
-def batched_patch_features(backbone, row, device, edge_views=False, image_size=224):
+def batched_patch_features(backbone, row, device, edge_views=False, image_size=224, *, prepared_views=None):
     """Same fixed views/pooling as patch_features; opt-in inference-only batching."""
     if not torch.is_inference_mode_enabled() or any(module.training for module in backbone.modules()):
         raise ValueError('Batched views require inference mode and an eval backbone')
     boxes = (fixed_tile_boxes(row) if edge_views in ('tiles', 'tiles-max')
              else edge_view_boxes(row) if edge_views else [])
-    tensors = torch.stack(list(view_tensors(row['image'], [row['box'], *boxes], image_size))).to(device)
+    views = (view_tensors(row['image'], [row['box'], *boxes], image_size)
+             if prepared_views is None else prepared_views)
+    tensors = torch.stack(list(views)).to(device)
     maps = backbone(tensors)
     full = maps[:1].mean((2, 3))
     if not edge_views:
@@ -72,3 +77,23 @@ def batched_patch_features(backbone, row, device, edge_views=False, image_size=2
     outer = (maps[1:].amax((2, 3)) if edge_views == 'tiles-max' else maps[1:].mean((2, 3))) if boxes else full
     outer = outer.amax(0, keepdim=True) if edge_views in ('tiles', 'tiles-max') else outer.mean(0, keepdim=True)
     return torch.cat((full, outer), dim=1)
+
+
+def region_features(backbone, rows, device, edge_views=False, image_size=224, batch_views=False):
+    """Decode one face once; preserve each region's forward shape and view order."""
+    if not rows:
+        return
+    if not torch.is_inference_mode_enabled() or any(module.training for module in backbone.modules()):
+        raise ValueError('Shared photo views require inference mode and an eval backbone')
+    if len({(r['image'],tuple(r['card_box'])) for r in rows})!=1:
+        raise ValueError('Shared photo views require one image and card box')
+    boxes=[[r['box'], *(fixed_tile_boxes(r) if edge_views in ('tiles','tiles-max')
+             else edge_view_boxes(r) if edge_views else [])] for r in rows]
+    stream=view_tensors(rows[0]['image'],[box for group in boxes for box in group],image_size)
+    features_for=batched_patch_features if batch_views else patch_features
+    for row,group in zip(rows,boxes):
+        # Finish preprocessing here, before the feature call, and retain no views between regions.
+        views=list(islice(stream,len(group)))
+        features=features_for(backbone,row,device,edge_views,image_size,prepared_views=views)
+        del views
+        yield features

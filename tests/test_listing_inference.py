@@ -78,14 +78,14 @@ class ListingInferenceTest(unittest.TestCase):
                 self.assertTrue(batched['batched_views'])
                 self.assertNotIn('memory_profile',batched)
                 failed_output=root/(policy+'-memory-failure.json')
-                original_batched=__import__('card_condition.listing_inference',fromlist=['batched_patch_features']).batched_patch_features
+                original_batched=__import__('card_condition.edge_views',fromlist=['batched_patch_features']).batched_patch_features
                 calls=[]
                 def fail_second(*args,**kwargs):
                     calls.append(1)
                     if len(calls)==2:
                         raise torch.OutOfMemoryError('simulated batch allocation failure')
                     return original_batched(*args,**kwargs)
-                with patch('card_condition.listing_inference.batched_patch_features',side_effect=fail_second):
+                with patch('card_condition.edge_views.batched_patch_features',side_effect=fail_second):
                     with self.assertRaises(torch.OutOfMemoryError):
                         infer_listings(manifest,checkpoint,failed_output,'cpu',batch_views=True)
                 self.assertEqual(2,len(calls))
@@ -159,11 +159,11 @@ class ListingInferenceTest(unittest.TestCase):
                 self.assertEqual(result['predictions'],again['predictions'])
                 with self.assertRaisesRegex(ValueError,'Output exists'):
                     infer_listings(manifest,checkpoint,root/(policy+'.json'),'cpu')
-            original_features = __import__('card_condition.listing_inference',fromlist=['patch_features']).patch_features
+            original_features = __import__('card_condition.edge_views',fromlist=['patch_features']).patch_features
             def mutate(*args,**kwargs):
                 manifest.write_bytes(before+b'\n')
                 return original_features(*args,**kwargs)
-            with patch('card_condition.listing_inference.patch_features',side_effect=mutate):
+            with patch('card_condition.edge_views.patch_features',side_effect=mutate):
                 with self.assertRaisesRegex(ValueError,'inputs changed'):
                     infer_listings(manifest,checkpoint,root/'race.json','cpu')
             self.assertFalse((root/'race.json').exists())
