@@ -30,3 +30,10 @@ forbidden: card_condition/*, Claude 모든checkout/데이터보완·새라벨·�
 checks: 정상/정확점loss·gradient동일,동일토큰weakloss동일·유효토큰gradient분산·masked불변,weak양성없는fit동치/합성수렴. 합성확인뒤main통합하고입력SHA/11cohort/원본·decoded분리/기준선재생대조후 ./experiment --plan ... -- .venv/bin/python artifacts/.../worker.py 로1회. 실제실패시gradient/objective를기록하되성능값생성안함.
 HTML: 새실험index.html에실제사진위구역정답/점수/누락·오탐분모/%p,반복개발/독립아님표시. 추적reports HTML에는공개가능집계와진척30/100,실행record·상태·수용판정·파일·검사·위험·롤백. 열기요청/렌더구분.
 rollback: 운영/기존모델소스수정없음. 미채택은전용연구파일/실험기록으로보존하고운영경로에연결하지않는다. 코드제거는통합SHA를 ./develop -- git revert 후관련검사/일반push. 실제기록은실패포함보존.
+
+## 구현 인계
+
+- ready_for_review: objective3/worker2/검사4함수(AST실측),새소스호출전이최대4. fitter본문diff는손실호출2곳과실패gradient/objective메시지뿐이며optimizer/초기화/중심화/가중치/수렴기준동일.
+- 정상/실제점손실과gradient는bitwise동일,weak없는fit의coef/bias2e-6·목적값1e-8동치. weak동일토큰loss불변,유효토큰gradient분산·masked0·합성수렴과기존worker회귀합계13검사OK(1.070초). diff검사통과.
+- 이검사는성능증거가아니며main검사후실제4fold를1회실행한다. 기존4fold제안/원본·decoded분리와147/11cohort재생은기존공통검증을재사용한다. 현재실패가설은재시도하지않는다.
+- 실제수렴실패가생기면새실험failure-diagnostics.json에fold/gradient/objective/완료fold수를남기고raise하여공통record.failed를보존한다. 누락률/오탐률을만들지않는다.
