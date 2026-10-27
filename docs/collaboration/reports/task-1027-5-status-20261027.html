@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>task-1027-5 상태 보고 — 2026-10-27</title>
+<style>
+  body { font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; margin: 0; background: #f7f7f5; color: #222; line-height: 1.6; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 8px; }
+  h2 { font-size: 1.1rem; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-top: 28px; }
+  .summary { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
+  .score { font-size: 2rem; font-weight: 700; }
+  .muted { color: #666; font-size: 0.9rem; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 0.92rem; }
+  th { background: #efefec; }
+  code { background: #eee; padding: 1px 4px; border-radius: 3px; word-break: break-all; }
+  .bar { height: 14px; background: #e4e4e0; border-radius: 7px; overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 30%; background: #5b7fa6; }
+</style>
+</head>
+<body>
+<main>
+  <h1>task-1027-5 상태 보고</h1>
+  <p class="muted">2026-10-27 · 기준 HEAD <code>1f2ef012768b3c1e4cc5544ed805d8d05101fc0c</code> · 기준 base <code>692f7666bc703495e688856bbd32af7487e98683</code></p>
+
+  <section class="summary">
+    <div class="score">30 / 100</div>
+    <div class="bar"><span></span></div>
+    <p class="muted">usable-card-analysis-v1.0 고정 기준 (PROGRESS_CRITERIA.md). 이번 턴 변화 +0%p.</p>
+    <p><strong>이번 성과:</strong> 모델 성능은 개선하거나 새로 평가하지 않았다. 계약 금지 범위를 지키고, 막힌 지점과 다음 승인 지점을 기록했다.</p>
+    <p><strong>성능 수치:</strong> 이번 턴 새 측정 없음. 정상 공동 제외 재생 결과는 FN 16/94(17.02%), FP 18/53(33.96%)로 이전과 동일(0.00%p)이다. 이는 같은 147구역 개발 평가의 재생이며 독립 검증이 아니다.</p>
+  </section>
+
+  <h2>실행 범위</h2>
+  <table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td>계약</td><td><code>docs/collaboration/tasks/task-1027-5.md</code> (goal: ai모델 성능 개선, 완료 조건 지정 없음)</td></tr>
+    <tr><td>변경 파일</td><td>이 보고서의 <code>.md</code>·<code>.html</code>만 추가</td></tr>
+    <tr><td>소스 변경</td><td>없음 (<code>card_condition/</code>, <code>tests/</code>, <code>tools/experiments/</code>)</td></tr>
+    <tr><td>실험 실행</td><td>없음 (<code>./experiment</code> 기록 없음)</td></tr>
+    <tr><td>금지 항목</td><td>학습, 모델 비교, 사진 추론, 라벨 수정, 외부 AI 호출, 의존성 설치, push 모두 없음</td></tr>
+  </table>
+
+  <h2>막힌 지점</h2>
+  <table>
+    <tr><th>구분</th><th>상태</th><th>근거</th></tr>
+    <tr><td>정상 공동 제외 진단 (H3)</td><td>진단 평가에서만 일치, 독립 근거 아님</td><td><code>artifacts/experiments/20261027T132418-8a5aa6ae/record.json</code></td></tr>
+    <tr><td>정상 실물 손실 집계 후보</td><td>첫 fold 수렴 실패, 후보 FN/FP 미산출</td><td><code>artifacts/experiments/20261027T133213-807fae2a/record.json</code></td></tr>
+    <tr><td>다음 평가 자료</td><td>사람 정답이 있는 다양한 정상 실물 필요 (Claude 데이터 보완 의존)</td><td>이 턴에서 생성 불가</td></tr>
+  </table>
+
+  <h2>사용자 판단 필요</h2>
+  <ol>
+    <li><strong>(A)</strong> 실패 원인을 보기 위해 gradient를 저장하는 <strong>새 진단 실험</strong>을 별도 계획으로 승인할지. 기존 실패 기록과 worker는 덮어쓰지 않는다. 재학습·온도·반복수 변경은 사전 기준 위반이므로 하지 않는다.</li>
+    <li><strong>(B)</strong> 데이터 보완 결과가 준비되면 그 자료로 단일 가설 실험을 승인할지.</li>
+  </ol>
+
+  <h2>검증·리스크·롤백</h2>
+  <ul>
+    <li>검사: 소스 변경이 없어 단위 검사는 새로 실행하지 않았다. <code>git diff --check</code>는 문서 커밋 후 결과를 handoff에 기록한다.</li>
+    <li>리스크: 문서만 추가하므로 운영·모델·데이터에 영향 없음. 이 보고는 성능 증거가 아니다.</li>
+    <li>롤백: 문서 커밋을 <code>git revert</code>로 되돌린다. 이번 턴에는 push하지 않았다.</li>
+  </ul>
+
+  <h2>에튜 포인트</h2>
+  <p>실험 결과를 보기 전에 기준을 고정하는 이유: 실패 뒤에 온도나 반복수를 바꾸면 같은 가설을 여러 번 시도하게 되고, 그중 우연히 좋아 보이는 수치가 성과처럼 보인다. 그래서 실패 기록을 그대로 두고 다음 승인 지점을 적었다.</p>
+
+  <p class="muted">열기 확인: 이 HTML은 외부 CDN·스크립트 없이 정적으로 작성했다. 열기 결과는 handoff에 기록한다.</p>
+</main>
+</body>
+</html>
