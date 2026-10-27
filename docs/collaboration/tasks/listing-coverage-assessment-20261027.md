@@ -26,3 +26,13 @@ forbidden: 기존 모델·학습/실험·listing/평가/라벨/coverage UI 소�
 checks: 작은 합성 자료의 실제 ListingAnalyzer 생산 결과로 입출력 연결, known/unknown/부분glare/누락report/누락사진/미지원 분모 보존, SHA·geometry·중복·잘못된 점수/정책 거절, 기존출력/원본보존, CLI. 실제품질/독립평가/운영시나리오완료 아님.
 HTML: 동명reports HTML과 ignored 합성 CLI보고서를 생성·내용대조·열기요청. 실제렌더가차단되면 구체적으로기록. 진척30/100유지(고정완료조건이실제충족되지않는한).
 rollback: 통합코드커밋을 ./develop -- git revert 후관련검사/일반push. 원본데이터/모델/기존결과를수정하지않아복구불필요.
+
+## 구현 인계
+
+- 상태: ready_for_review. 신규 집계모듈2함수/입력모듈3함수/검사7함수(AST실측). assess→checked_case→listing_readiness/photo_request→validate_annotations→validate_defect_points 최대4전이. CLI는모듈guard직접호출.
+- 신규5검사와기존매물/보류/전체면검토/릴리스회귀합계23검사통과(격리checkout,8.433초),git diff --check와컴파일통과.
+- 합성테스트는기존ListingAnalyzer 생산코드에Mock구역점수를주입해저장결과를만든다.집계호출중RegionAnalyzer생성이없음을검사했다.실제모델정확도/독립평가를측정하지않았다.
+- manifest의box_reviewed/명시적visibility/지역정답은분모준비요건이며미준비셀을제외사유별공개한다.부분집계가A3/E2완료를증명하지않는다.각질문/면집계와누락사례도보존한다.
+- 공개API: python -m card_condition.listing_coverage MANIFEST RELEASE BUNDLE OUTPUT --bundle-sha256 SHA. bundle은 schema_version1/manifest_sha256/release_sha256/cases,각case는id와request/report의path/sha256이다.기존cli.py수정없음.
+- 실제자료집계는Claude데이터보완후동결정답과같은릴리스의원래요청/결과SHA가필요하다.새정답/실제coverage를만들거나과거미동결자료를독립으로재명명하지않는다.
+- main통합후동일관련검사/합성CLI시연/HTML생성·열기결과를동명보고서에기록한다.
