@@ -20,6 +20,11 @@ test('명령·오류·경고·통과 요약만 색을 입히고 나머지는 그
   assert.match(html[6], /<span class="warn">경고/);
   assert.equal(html[7], '<span class="ln" data-t="">일반 설명 줄</span>');
   assert.equal(html[8], '<span class="ln" data-t="">&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;x&quot;</span>', '태그는 글자로만 보임');
+  // 설명 글(줄 중간의 낱말)은 칠하지 않는다
+  const prose = paintLines([row('계약의 c1 검사는 통과했고 실패한 것은 없습니다.'), row('코드의 error 처리를 확인했고 경고 문구도 읽었습니다'), row('  → 오류: boom'), row('Error: x')]).split('\n');
+  assert.ok(!prose[0].includes('class="bad"') && !prose[1].includes('class="bad"') && !prose[1].includes('class="warn"'), '줄 중간 낱말은 색 없음');
+  assert.match(prose[2], /class="bad"/);
+  assert.match(prose[3], /class="bad"/);
   assert.equal(paintLines([]), '');
   assert.ok(!paintLines([row('a')]).includes('14:'), '시각은 글자(textContent)에 들어가지 않고 data-t로만');
 });

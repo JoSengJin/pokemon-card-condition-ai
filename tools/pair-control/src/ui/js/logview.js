@@ -38,11 +38,11 @@ export function logRows(ui, id) {
 }
 
 const HTML = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
-const KIND = [[/^\s*\$ /, 'info'], [/^\[완료\] 정상/, 'ok'], [/(error|exception|traceback|failed|fatal|실패|오류|에러)/i, 'bad'], [/(warn|경고|주의)/i, 'warn'], [/^\s*(ok|ran \d+ tests?.*|.*\b\d+ passed\b.*|\[[\w./-]+ [0-9a-f]{7,}\].*)\s*$/i, 'ok']];
+const KIND = [[/^\s*\$ /, 'info'], [/^\s*\[완료\] 정상/, 'ok'], [/^\s*(→\s*)?(오류|error|exception|traceback|fatal|failed|\[한도\])(?!\w)/i, 'bad'], [/^\s*(경고|warn(ing)?)\s*[:：]/i, 'warn'], [/^\s*(ok|ran \d+ tests?.*|.*\b\d+ passed\b.*|\[[\w./-]+ [0-9a-f]{7,}\].*)\s*$/i, 'ok']];
 
 /**
  * 줄마다 받은 시각(CSS ::before라 복사에는 안 들어감)을 붙이고 종류를 가볍게 구분해 색을 입힌다:
- * `$ ` 명령은 파랑, 오류·실패는 빨강, 경고는 주황, 테스트 통과 요약·커밋 결과(`[브랜치 해시]`)는 초록. 글자 패턴만 보는 표시용이라 판정에는 쓰이지 않는다.
+ * `$ ` 명령은 파랑, 줄이 오류/경고 표지로 *시작*하면 빨강/주황, 테스트 통과 요약·커밋 결과(`[브랜치 해시]`)는 초록. 줄 중간에 낱말이 있다고 칠하면 에이전트의 설명 글이 온통 빨개지므로 줄 머리 표지만 본다. 표시용이라 판정에는 쓰이지 않는다.
  * 호출 깊이 때문에 esc 대신 여기서 직접 이스케이프한다.
  */
 export function paintLines(rows) {
