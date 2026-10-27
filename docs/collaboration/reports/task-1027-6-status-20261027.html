@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>task-1027-6 상태 보고 — 2026-10-27</title>
+<style>
+  body { font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; margin: 0; background: #f7f7f5; color: #222; line-height: 1.6; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 8px; }
+  h2 { font-size: 1.1rem; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-top: 28px; }
+  .summary { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
+  .score { font-size: 2rem; font-weight: 700; }
+  .muted { color: #666; font-size: 0.9rem; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 0.92rem; }
+  th { background: #efefec; }
+  code { background: #eee; padding: 1px 4px; border-radius: 3px; word-break: break-all; }
+  .bar { height: 14px; background: #e4e4e0; border-radius: 7px; overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 30%; background: #5b7fa6; }
+</style>
+</head>
+<body>
+<main>
+  <h1>task-1027-6 상태 보고</h1>
+  <p class="muted">2026-10-27 · 계약 커밋 <code>0ce631f</code> · base <code>4f5c4b03afb78d53c27e4057f52435cada369234</code></p>
+
+  <section class="summary">
+    <div class="score">30 / 100</div>
+    <div class="bar"><span></span></div>
+    <p class="muted">usable-card-analysis-v1.0 고정 기준 (PROGRESS_CRITERIA.md, development-progress.json). 이번 턴 변화 +0%p.</p>
+    <p><strong>이번 성과:</strong> 모델 성능은 개선하거나 새로 평가하지 않았다. 수렴 실패의 원인 후보를 코드 읽기로 정리하고 다음 승인 지점을 기록했다.</p>
+    <p><strong>성능 수치:</strong> 이번 턴 새 측정 없음. 이전 수치는 재사용하지 않는다.</p>
+  </section>
+
+  <h2>실행 범위</h2>
+  <table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td>계약</td><td><code>docs/collaboration/tasks/task-1027-6.md</code> (goal: ai모델 성능 개선, 완료 조건 지정 없음)</td></tr>
+    <tr><td>변경 파일</td><td>이 보고서의 <code>.md</code>·<code>.html</code>만 추가</td></tr>
+    <tr><td>소스 변경</td><td>없음 (<code>card_condition/</code>, <code>tests/</code>, <code>tools/experiments/</code>)</td></tr>
+    <tr><td>함수 수·호출 깊이</td><td>코드 변경이 없어 해당 없음</td></tr>
+    <tr><td>실험 실행</td><td>없음 (<code>./experiment</code> 기록 없음)</td></tr>
+    <tr><td>금지 항목</td><td>학습, 모델 비교, 사진 추론, 라벨 수정, 자동 교차 검토, 외부 AI 호출, 의존성 설치, push 모두 없음</td></tr>
+  </table>
+
+  <h2>막힌 지점의 원인 후보 (코드 읽기만)</h2>
+  <table>
+    <tr><th>위치</th><th>내용</th></tr>
+    <tr><td><code>objective.py:53</code>, <code>card_condition/detail_bag.py:56</code></td><td>마지막 closure 기울기가 1e-5를 넘으면 <code>Detail head did not converge</code>로 실패</td></tr>
+    <tr><td>LBFGS 설정</td><td><code>max_iter=100</code>, 한 번 호출 뒤 바로 판정</td></tr>
+    <tr><td>새 목적식</td><td>정상 실물 손실을 temperature 0.1 log-mean-exp로 묶음. 그룹 손실 차이가 크면 수렴이 느려질 가능성</td></tr>
+  </table>
+  <p class="muted">가능성일 뿐이다. 실제 gradient 값이 저장되지 않아 확인하지 못했고, 학습 금지 범위라 실행하지 않았다.</p>
+
+  <h2>사용자 판단 필요</h2>
+  <ol>
+    <li><strong>(A)</strong> gradient와 반복별 기울기를 저장하는 <strong>새 진단 실험</strong>을 별도 계획으로 승인할지. 기존 실패 기록과 worker는 덮어쓰지 않는다.</li>
+    <li><strong>(B)</strong> Claude 데이터 보완에서 다양한 정상 실물의 사람 정답이 준비되면, 그 자료로 단일 가설 실험을 승인할지.</li>
+  </ol>
+
+  <h2>검증·리스크·롤백</h2>
+  <ul>
+    <li>검사: 소스 변경이 없어 단위 검사를 새로 실행하지 않았다. <code>git diff --check</code>는 계약 검사 c1로 실행기가 따로 확인한다.</li>
+    <li>리스크: 문서만 추가하므로 운영·모델·데이터에 영향 없음. 이 보고는 성능 증거가 아니다.</li>
+    <li>롤백: 문서 커밋을 <code>git revert</code>로 되돌린다.</li>
+  </ul>
+
+  <h2>에튜 포인트</h2>
+  <p>수렴 실패를 "기준을 완화하면 통과"로 풀면 실패 원인이 가려진다. 먼저 기울기가 왜 내려가지 않는지 값으로 보고, 그다음 목적식이나 반복 수 중 한 가지만 바꿔야 결과를 해석할 수 있다.</p>
+
+  <p class="muted">열기 확인: 이 HTML은 외부 CDN·스크립트 없이 정적으로 작성했다. 열기 명령 결과와 렌더 확인은 아래 handoff에 기록한다.</p>
+</main>
+</body>
+</html>
