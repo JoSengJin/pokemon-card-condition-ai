@@ -94,12 +94,13 @@ export function chargeRisks(agent: 'codex' | 'claude', cfg: PairConfig, ctx: { w
   ];
 }
 
-export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig): LaunchPlan | { refused: string } {
+/** startPrompt는 실행기가 만든 시작 프롬프트(AGENTS.md 읽기·허용 파일·진행 방식 포함). 없으면 계약 경로만 넘기는 짧은 지시를 쓴다. */
+export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig, startPrompt?: string): LaunchPlan | { refused: string } {
   if (!cfg.allowRealModelCalls) return { refused: '실제 모델 호출은 별도 승인 작업입니다(config.allowRealModelCalls=false).' };
   if (!cfg.confirmedSubscriptionAuth) return { refused: '무과금 가드: CLI가 구독 로그인으로 동작하고 추가 크레딧이 꺼져 있음을 확인했다는 표시가 없음(config.confirmedSubscriptionAuth=false).' };
   if (!p.installed || !p.binary) return { refused: `${task.agent} CLI 미설치: ${p.note}` };
   if (p.missingFlags.length) return { refused: `--help에서 확인되지 않은 옵션: ${p.missingFlags.join(', ')}` };
-  const prompt = agentPrompt(task);
+  const prompt = startPrompt || agentPrompt(task);
   let plan: LaunchPlan;
   if (task.agent === 'codex') {
     // exec/--cd/--sandbox 이름은 --help로 확인한다. 값(workspace-write)은 실제 CLI에서 별도 확인 필요.

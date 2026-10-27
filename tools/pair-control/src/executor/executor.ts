@@ -318,7 +318,9 @@ export class Executor {
       if (t.mode === 'mock') plan = mockPlan(t, this.cfg);
       else {
         this.probes[t.agent] = await probe(t.agent, this.cfg);
-        plan = realPlan(t, this.probes[t.agent]!, this.cfg);
+        // 수동 경로와 같은 시작 프롬프트를 쓴다. 사용자가 자리에 없으므로 unattended(사람 정답 추정·재요청 금지)를 켠다.
+        const start = await buildStartPrompt(t, this.mainAgent, { unattended: true });
+        plan = realPlan(t, this.probes[t.agent]!, this.cfg, start.text);
       }
       if (failed.length || 'refused' in plan) {
         const reason = failed.length ? `사전 검사 실패: ${failed.map((c) => `${c.name}(${c.detail})`).join(', ')}` : (plan as { refused: string }).refused;

@@ -106,6 +106,7 @@ test('가짜 claude로 실제 어댑터 경로: 문서 옵션만 사용, --bare 
     assert.ok(!/--bare|--max-budget-usd|--betas/.test(log));
     assert.ok(log.includes(CLAUDE_ALLOWED_TOOLS[0]) && log.includes('Bash(git commit *)'));
     assert.doesNotMatch(log, /Bash\(\*\)|Bash,/, '일반 Bash는 허용하지 않음');
+    assert.match(log, /prompt: agents=true proceed=true unattended=true/, '자동 실행도 수동 경로와 같은 시작 프롬프트를 받음');
     assert.ok(ex.display.join(' ').length < 800, '긴 지시는 CLI 인자가 아니라 계약 파일');
     assert.ok(t.result!.checksPassed, JSON.stringify(t.result!.checks));
     assert.equal(ex.mode, 'real');
