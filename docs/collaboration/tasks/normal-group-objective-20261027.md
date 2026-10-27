@@ -16,9 +16,9 @@ allowed_files:
 ignored: artifacts/surface-normal-group-objective-20261027/ 미러·출력검사, 새 실험 폴더 산출물만.
 forbidden: card_condition/*, Claude checkout, 데이터 확보/라벨/사진/manifest/캐시·기존실험 수정, consumer, 운영모델, 범위/배점/완료조건, 외부AI 호출.
 
-가설: H3에서 정상 c/ㄴ의 상호제외가 각각FP+3/9,+4/9였다. 평균 정상 손실은 어려운 정상 실물의 손실을 나머지 정상 실물로 희석할 수 있다. 같은 정상 bag loss를 실물별 평균한 뒤 temperature0.1 log-mean-exp로 묶으면 미관찰 정상 실물에 대한 FP가 줄 수 있다. 인과로 확정하지 않는다.0.1은 기존 max_bound 고정 평활상수 재사용이며 탐색/조정하지 않는다.
+가설: H3에서 정상 c/ㄴ의 상호제외가 각각FP+3/9,+4/9였다. 평균 정상 손실은 어려운 정상 실물의 손실을 나머지 정상 실물로 희석할 수 있다. 같은 정상 bag loss를 실물별 기존가중평균한 뒤 temperature0.1 log-mean-exp로 묶으면 미관찰 정상 실물에 대한 FP가 줄 수 있다. 인과로 확정하지 않는다.0.1은 기존 max_bound 고정 평활상수 재사용이며 탐색/조정하지 않는다.
 
-변경 변수: 앞면 정상 실물 간 집계만 산술평균→0.1*log(mean(exp(group_loss/0.1))). 양성항 가중치0.5·정상항0.5·L2=1·중심화·max_bound·실제점감독·특징153행·4fold·threshold.5·뒷면maps 고정. 참조는 122011 공동제외 결과이며 동일147행 FN16/94·FP18/53,typed21/51. 기존11required_cohorts 삭제/완화 금지.
+변경 변수: 앞면 정상 실물 간 집계만 산술평균→0.1*log(weighted_mean(exp(group_loss/0.1))). 양성항 가중치0.5·정상항0.5·L2=1·중심화·max_bound·실제점감독·특징153행·4fold·threshold.5·뒷면maps 고정. 참조는 122011 공동제외 결과이며 동일147행 FN16/94·FP18/53,typed21/51. 기존11required_cohorts 삭제/완화 금지.
 
 사전 성공: 같은147행에서 FN<=16, FP<=18, 새오답0, 적어도1오류복구, typed51 신규누락0, 기존11cohort 전체통과. 미충족/변화없음은 미채택. 수렴·분리·재현·SHA 실패면 failed이며 수치성과로 해석/자동재시도하지 않는다.
 
@@ -27,3 +27,7 @@ forbidden: card_condition/*, Claude checkout, 데이터 확보/라벨/사진/man
 구조: objective fit+closure 2함수,worker load1함수(추가loader는 필요시7이내). fit→closure→detail_bag_loss→point_bag_loss=3전이, 모듈guard에서직접fit 호출. 전용 목적식은 card_condition 운영 경로에 연결하지 않는다. 정상 실물1개이면 기존목적식과 동일함을 수치 검산한다.
 checks: 작은합성목적식/입력/1실물동치 검증,컴파일/AST,기존worker 재사용계약. 실행후record/status/acceptance/실제FNFP/typed분모/%p와원본SHA·4fit수렴·동결11cohort대조. 모델바깥 source 변경 없음을 확인. HTML에사진구역정답/출력·반복개발평가 표시; 열기/렌더구분.
 rollback: 신규 실험 helper/worker는 미채택시 연구 전용으로 보존하며 운영소스 복구 불필요. 코드통합revert후관련검사/일반push. 실험기록은보존. 진척30/100은실제고정수용조건이없으면 유지.
+
+## 구현 인계
+
+실제 정상 그룹 질량은 혼합 클래스 실물 때문에 같지 않을 수 있어 기존 mass를 정상 그룹별로 합산한 가중 log-mean-exp를 사용한다. 이는 가중치식 변경이 아니라 집계 연산 하나의 변경이다. objective2함수·worker1함수·검사3함수(AST실측), 최대 학습전이3. 합성3개 통과: 정상1실물일 때 기존 coef/bias 2e-6 이내·목적값1e-8 일치, 불균등 정상 그룹 질량의 수렴, 누락그룹/0질량/클래스비중변경 거절. 기존모델소스는수정하지않았다. 실제실험은main통합뒤1회만실행한다.
