@@ -2,7 +2,7 @@
 import { B, esc } from './core.js';
 import { panelBuild, panelGit, panelPrepare, panelReview, panelTests } from './panels-work.js';
 import { panelApprove, panelHandoff, panelIntegrate, panelPostcheck, panelPush, pushRecords } from './panels-release.js';
-import { logTarget, renderLog } from './logview.js';
+import { logTarget, renderLog, statText } from './logview.js';
 import { currentKey, stagesOf } from './stages.js';
 
 const PANELS = { prepare: panelPrepare, build: panelBuild, gitcheck: panelGit, tests: panelTests, review: panelReview, handoff: panelHandoff, approve: panelApprove, integrate: panelIntegrate, postcheck: panelPostcheck, push: panelPush };
@@ -26,6 +26,7 @@ export function renderTask(state, ui) {
   const changed = prev ? stages.filter((s) => prev[s.key] !== s.status).map((s) => s.key) : [];
   ui.seen[t.taskId] = Object.fromEntries(stages.map((s) => [s.key, s.status]));
   const idx = stages.indexOf(st) + 1;
+  const lg = logTarget(t, key, ui); // 로그 단계면 패널 제목 바로 아래에 로그 창
   box.innerHTML =
     '<div class="thead"><div><h2>' + esc(t.taskId) + '</h2><div class="goal">' + esc(t.goal) + '</div></div>' +
       '<div class="meta"><span class="chip">' + esc(t.agent) + ' · ' + esc({ manual: '수동', real: '실제 CLI', mock: '연습' }[t.mode] || t.mode) + '</span> <span class="mono small">' + esc(t.branch) + '</span>' +
@@ -36,9 +37,10 @@ export function renderTask(state, ui) {
       (p ? B(p.act, p.label, true, 'primary', ' data-stage="' + cur + '"' + (p.id ? ' data-id="' + esc(p.id) + '"' : '')) : '') + '</div>' +
     pipelineBar(stages, key, cur, changed) +
     '<section class="stagePanel s-' + st.status + '"><h3><span class="num">' + idx + '</span> ' + esc(st.label) + ' <span class="pill s-' + st.status + '">' + WORD[st.status] + '</span>' +
-      (key !== cur ? ' <button type="button" class="link small" data-act="stage" data-stage="' + cur + '">지금 단계로</button>' : '') + '</h3>' +
+      (lg ? ' <span class="small muted" id="logStat">' + statText(lg) + '</span>' : '') +
+      (key !== cur ? ' <button type="button" class="link small" data-act="stage" data-stage="' + cur + '">지금 단계로</button>' : '') + '</h3>' + renderLog(lg, ui) +
       '<p class="desc">' + esc(st.desc) + '</p><div class="small muted">담당: ' + esc(st.who) + ' · 상태: ' + esc(st.text) + '</div>' +
-      '<div class="panelBody">' + PANELS[key](t, ui) + renderLog(logTarget(t, key, ui), ui) + (key === 'push' && state.push ? '<h4>푸시 기록</h4>' + pushRecords(state.push.records) : '') + '</div></section>' +
+      '<div class="panelBody">' + PANELS[key](t, ui) + (key === 'push' && state.push ? '<h4>푸시 기록</h4>' + pushRecords(state.push.records) : '') + '</div></section>' +
     runInfo(t, ui);
 }
 
