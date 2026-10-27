@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from .evaluation_output import write_new_report
+from .evaluation_typed_points import typed_point_cells
 from .evaluation_suite_inputs import matched_reports, checked_predictions
 from .evaluation_suite_metrics import ROLE_QUESTIONS, confusion_counts, question_cells
 from .physical_uncertainty import QUESTIONS, physical_uncertainty
@@ -25,6 +26,7 @@ def assess_suite(manifest, seal, seal_sha256, candidate, candidate_sha256, repor
     records = load_manifest(manifest, require_gradable=False)
     metadata = {r['id']: r for r in records}
     photo_sha256 = {r['id']: dict(zip((s for s in ('front', 'back') if r.get(s)), r['_image_hashes'])) for r in records}
+    typed = typed_point_cells({}, [], [])
     cells, sources = [], {}
     for operation, questions in ROLE_QUESTIONS.items():
         normalized, supported = [], []
@@ -52,6 +54,8 @@ def assess_suite(manifest, seal, seal_sha256, candidate, candidate_sha256, repor
                     or any(type(q) is not str or q not in allowed for q in supported)):
                 raise ValueError('Invalid supported scope in candidate metadata')
             normalized = checked_predictions(report, expected, operation, supported, photo_sha256=photo_sha256)
+            if operation == 'region_final':
+                typed = typed_point_cells(report, records, supported)
             measured = confusion_counts(normalized, supported)
             recorded = ({'observation_limited': report.get('summary', {}).get('metrics_at_05')}
                         if operation == 'observation_final' else report.get('metrics'))
@@ -66,18 +70,19 @@ def assess_suite(manifest, seal, seal_sha256, candidate, candidate_sha256, repor
         for cell in local:
             key = (cell['question'], cell['side'])
             cell['physical_uncertainty'] = by_cell[key]
-            cell['typed_point_response'] = dict(status='unmeasured', points=None, missed_points=None) if cell['question'] in ROLE_QUESTIONS['region_final'] else None
+            cell['typed_point_response'] = typed[key] if cell['question'] in ROLE_QUESTIONS['region_final'] else None
             cell['source_role'] = operation
         cells.extend(local)
     unchanged_inputs(hashes)
     result = dict(schema_version=1, evaluation_kind='frozen_candidate_assessment', threshold=.5,
         seal_sha256=seal_sha256, candidate_sha256=candidate_sha256, manifest_sha256=frozen['manifest_sha256'],
         sources=sources, missing_roles=sorted(set(ROLE_QUESTIONS) - set(found)), input_hashes=hashes, cells=cells,
-        numeric_gates=dict(c_raw_all_questions=all(c['c_numeric_condition_met'] for c in cells),
+        numeric_gates=dict(c_typed_point_all=all(c['numeric_condition_met'] for c in typed.values()),
+                           c_raw_all_questions=all(c['c_numeric_condition_met'] for c in cells),
                            d1_class_quantity=all(c['d1_class_quantity_met'] for c in cells),
                            d3_card_event_bounds=all(c['physical_uncertainty']['numeric_conditions_met'] for c in cells)),
         d1_verified=False, d2_verified=False, d3_verified=False, production_ready=False,
-        required_evidence=['Correct-kind actual-point response remains unmeasured; region scores cannot substitute for click response.',
+        required_evidence=['Correct-kind actual-point responses require saved point scores; region scores cannot substitute. Numeric gates do not certify score provenance.',
                            'Human provenance, complete prior usage and pre-selection independence need separate audit.',
                            'Required experiment/regression protections must be verified for this same candidate.',
                            'Unknown subgroup metadata is disclosed, never inferred from filenames or artwork.'],

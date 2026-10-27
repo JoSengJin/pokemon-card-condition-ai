@@ -17,7 +17,7 @@ from card_condition.release import file_sha256
 from card_condition.regions import REGION_TARGET_AREAS
 
 
-def saved_suite(root, n=30, *, alias=False, surface_center=False, region_supported=None):
+def saved_suite(root, n=30, *, alias=False, surface_center=False, region_supported=None, typed_points=False):
     history, manifest = root / 'history.jsonl', root / 'test.jsonl'
     image = root / 'development.png'
     Image.new('RGB', (40, 60), (255, 0, 255)).save(image)
@@ -36,6 +36,10 @@ def saved_suite(root, n=30, *, alias=False, surface_center=False, region_support
                 record['side_annotations'][side] = dict(image=str(image), box=[0, 0, 1, 1], labels=dict(record['labels']),
                     region_labels={'upper_left': {q: truth for q in ('corner_defect', 'edge_defect', 'surface_defect')}},
                     visibility_issues=['glare'] if truth else [], glare_areas=[])
+            if typed_points and truth:
+                for annotation in record['side_annotations'].values():
+                    annotation['defect_points'] = [dict(label=q, x=x, y=.1)
+                        for q in ('edge_defect', 'corner_defect', 'surface_defect') for x in (.1, .2, .8, .9)]
             if surface_center:
                 for annotation in record['side_annotations'].values():
                     annotation['region_labels']['center'] = dict(corner_defect=None, edge_defect=None, surface_defect=truth)
@@ -93,7 +97,8 @@ class EvaluationSuiteTest(unittest.TestCase):
             root = Path(directory).resolve()
             args, reports = saved_suite(root)
             result = assess_suite(*args, reports, root/'assessment.json')
-            self.assertTrue(all(result['numeric_gates'].values()))
+            self.assertTrue(all(v for k, v in result['numeric_gates'].items() if k != 'c_typed_point_all'))
+            self.assertFalse(result['numeric_gates']['c_typed_point_all'])
             self.assertEqual(10, len(result['cells']))
             self.assertEqual([], result['missing_roles'])
             for flag in ('d1_verified', 'd2_verified', 'd3_verified', 'production_ready'):

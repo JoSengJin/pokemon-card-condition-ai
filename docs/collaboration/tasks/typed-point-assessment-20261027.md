@@ -24,3 +24,15 @@ checks: 신규 합성 단위검사; canonical 통합 후 evaluation_suite 및 �
 experiment: 불필요(저장 점수 집계만).
 HTML: docs/collaboration/reports/typed-point-assessment-20261027.html. 실제 검사 결과·30/100·위험·롤백을 표시하고 로컬 열기 요청/렌더 결과를 구분.
 handoff: 완료 시 아래 추가. 미통합 Claude 작업·사용 중 checkout은 보존한다.
+
+## 구현 인계
+
+- status: ready_for_review
+- 코드: 새 helper 2함수, suite 1함수; 테스트 6/7함수(AST 실측). assess_suite→typed_point_cells→checked_typed_points→validate_annotations→validate_defect_points/validate_visibility_points 최대4전이. 표준 라이브러리 내부와 기존 별도 모델 실행 경로는 새 호출에 포함하지 않는다.
+- 격리 환경에서 card_condition import가 현재 checkout을 가리키는 것을 확인했다. 의존성은 기존 설치본을 새 venv에 독립 복사했으며 공유 symlink·새 다운로드·editable 설치는 없다.
+- 합성 회귀75개 통과(15개 모듈), git diff --check 통과. 실제 학습·사진 추론·성능평가·외부 AI 호출 0회.
+- typed_point_predictions는 원래 보고서 SHA로 보호되는 선택 입력이다. 생산 worker의 실제 token-map 점수 내보내기는 이번에 실행하거나 추가하지 않았다. 수치집계는 점수의 산출 과정/독립성을 증명하지 않는다.
+- 진척30/100 유지. E2 비보류 coverage는 별도 의존으로 남는다. 기존 review 기록은 ground_truth=false이고 지역별 관찰가능한 알려진 평가 정답을 제공하지 않으므로 임의로 평가 분모로 사용하지 않는다.
+- 위험: numeric_gates에 c_typed_point_all=false가 추가된다. 모든 gate를 함께 요구하는 호출자는 점수 미제공 시 더 보수적으로 실패한다. 기존 raw gate 값은 보존.
+- 롤백: 통합 커밋을 ./develop -- git revert로 되돌리고 관련 검사 후 일반 push. 원본 데이터/모델 복구 불필요.
+- main 통합 후 동일75개 재검사와 HTML 열기 결과를 별도 보고서에 기록한다.
