@@ -1,6 +1,6 @@
 task_id: listing-coverage-assessment-20261027
 owner: Codex
-status: implementing
+status: integrated
 base_sha: 692f7666bc703495e688856bbd32af7487e98683
 branch: codex/listing-coverage-assessment-20261027
 
@@ -36,3 +36,11 @@ rollback: 통합코드커밋을 ./develop -- git revert 후관련검사/일반pu
 - 공개API: python -m card_condition.listing_coverage MANIFEST RELEASE BUNDLE OUTPUT --bundle-sha256 SHA. bundle은 schema_version1/manifest_sha256/release_sha256/cases,각case는id와request/report의path/sha256이다.기존cli.py수정없음.
 - 실제자료집계는Claude데이터보완후동결정답과같은릴리스의원래요청/결과SHA가필요하다.새정답/실제coverage를만들거나과거미동결자료를독립으로재명명하지않는다.
 - main통합후동일관련검사/합성CLI시연/HTML생성·열기결과를동명보고서에기록한다.
+
+
+## Codex 통합·실행 인계
+
+- source7839f87 → main ddd07698feceb40606e34eebe913bc386a2792f3. main 회귀23개 OK(9.508초), 합성 CLI4사례 산출9/23·0/23·0/23·7/10, 모든E2flag=false. 원본 합성입력SHA보존, diff검사통과.
+- 실제자료의coverage/성능평가는미실행. 모델·라벨·Claude데이터작업과기존소스변경0. 필요한동결정답/동일release저장입력은동명보고서에명시.
+- 코드main/origin SHA일치확인후보고문서push. 이전Codex정상목적식checkout은통합대응/clean/잠금/증거보존확인후정리,최신coveragecheckout은롤백용유지. Claude와다른미통합작업은보존.
+- HTML경로/열기·렌더결과/검증/리스크/롤백은동명reports MD/HTML에기록.
