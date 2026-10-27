@@ -14,6 +14,8 @@ export interface PairConfig {
   allowRealModelCalls: boolean;
   /** 사용자가 각 CLI가 API 키가 아닌 기존 구독 로그인으로 동작함을 직접 확인했다는 표시. 없으면 실제 시작 거부. */
   confirmedSubscriptionAuth: boolean;
+  /** 실제 CLI를 줄 단위 이벤트(JSONL) 출력으로 실행한다(기본 true). 옵션이 --help에서 확인되지 않으면 텍스트 모드로 돌아간다. */
+  streamOutput: boolean;
   /** 실제 CLI 실행 파일 경로(선택). 없으면 PATH에서 찾는다. */
   cli: { codex?: string | null; claude?: string | null };
   stateDir: string;
@@ -47,6 +49,7 @@ export function loadConfig(overrides: Partial<PairConfig> = {}): PairConfig {
     port: Number(process.env.PAIR_CONTROL_PORT ?? raw.port ?? 4111),
     allowRealModelCalls: raw.allowRealModelCalls === true,
     confirmedSubscriptionAuth: raw.confirmedSubscriptionAuth === true,
+    streamOutput: raw.streamOutput !== false,
     cli: { codex: raw.cli?.codex ?? null, claude: raw.cli?.claude ?? null },
     stateDir: process.env.PAIR_CONTROL_STATE_DIR ?? path.join(toolRoot, '.state'),
     toolRoot,

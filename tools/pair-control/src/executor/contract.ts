@@ -7,7 +7,7 @@ export const AGENTS = ['codex', 'claude'] as const;
 export const MODES = ['mock', 'real', 'manual'] as const;
 export type Agent = (typeof AGENTS)[number];
 
-export const MOCK_SCENARIOS = ['success', 'fail', 'hang', 'spawn-child', 'touch-forbidden', 'paid-message', 'slow-success', 'edit-contract'] as const;
+export const MOCK_SCENARIOS = ['success', 'fail', 'hang', 'spawn-child', 'touch-forbidden', 'paid-message', 'slow-success', 'edit-contract', 'stream', 'stream-quote', 'stream-api-key', 'stream-error-event'] as const;
 
 /** 기본 checkout 단일 담당자만 다루는 경로. 병렬 구현 작업에 배정하지 않는다. */
 export const FORBIDDEN_PREFIXES = ['data/', 'artifacts/', '.backups/', '.venv/', '.git/', 'build/', 'dist/'];

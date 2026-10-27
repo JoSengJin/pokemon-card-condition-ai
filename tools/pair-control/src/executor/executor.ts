@@ -12,6 +12,7 @@ import { conflicts, effectiveGroups, isAllowed, needsDevelopLock, TaskInput, typ
 import { chargeRisks, mockPlan, probe, realPlan, realReadiness, type LaunchPlan, type Probe } from './adapters.ts';
 import { scanArgs } from './nocharge.ts';
 import { runLogged } from './logstream.ts';
+import { scanOutput } from './streamGuard.ts';
 import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
 import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
 import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
@@ -398,8 +399,12 @@ export class Executor {
       const fd = fs.openSync(ex.logPath, 'r');
       const buf = Buffer.alloc(Math.min(size - off, 1_000_000));
       fs.readSync(fd, buf, 0, buf.length, off); fs.closeSync(fd);
-      this.logOffsets.set(ex.execId, off + buf.length);
-      this.guard.scanLog(buf.toString(), `exec:${ex.execId}`);
+      // 줄 단위 이벤트(JSON)가 읽는 중간에 잘렸으면 그 줄은 다음 주기에 이어 읽는다(조각이 일반 글로 검사되지 않게).
+      let text = buf.toString(), used = buf.length;
+      const cut = text.lastIndexOf('\n') + 1;
+      if (text.slice(cut).startsWith('{') && size - off <= 1_000_000) { text = text.slice(0, cut); used = Buffer.byteLength(text); }
+      this.logOffsets.set(ex.execId, off + used);
+      scanOutput(this.guard, text, `exec:${ex.execId}`);
     } catch { /* log not yet created */ }
   }
 

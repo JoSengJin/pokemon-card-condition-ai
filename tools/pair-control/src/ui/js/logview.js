@@ -30,17 +30,15 @@ export function logTarget(t, key, ui) {
   return { ...sel, list };
 }
 
-/** 화면에 보일 줄들 [{t: 받은 시각, s: 글}]. 찾기 칸에 적은 말이 있으면 그 말이 든 줄만. */
+/** 화면에 보일 줄들 [{t: 받은 시각, s: 글}](이벤트는 app.js가 받을 때 이미 읽기 쉬운 줄로 바꿔 둠). 찾기 칸에 적은 말이 있으면 그 말이 든 줄만. */
 export function logRows(ui, id) {
   if (ui.log.id !== id) return [];
-  const lines = ui.log.text.split('\n');
-  if (lines[lines.length - 1] === '') lines.pop();
   const q = String(ui.keep.logFind || '').trim().toLowerCase();
-  return lines.map((s, i) => ({ t: ui.log.stamps[i] || '', s })).filter((r) => !q || r.s.toLowerCase().includes(q));
+  return q ? ui.log.rows.filter((r) => r.s.toLowerCase().includes(q)) : ui.log.rows;
 }
 
 const HTML = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
-const KIND = [[/^\s*\$ /, 'info'], [/(error|exception|traceback|failed|fatal|실패|오류|에러)/i, 'bad'], [/(warn|경고|주의)/i, 'warn'], [/^\s*(ok|ran \d+ tests?.*|.*\b\d+ passed\b.*|\[[\w./-]+ [0-9a-f]{7,}\].*)\s*$/i, 'ok']];
+const KIND = [[/^\s*\$ /, 'info'], [/^\[완료\] 정상/, 'ok'], [/(error|exception|traceback|failed|fatal|실패|오류|에러)/i, 'bad'], [/(warn|경고|주의)/i, 'warn'], [/^\s*(ok|ran \d+ tests?.*|.*\b\d+ passed\b.*|\[[\w./-]+ [0-9a-f]{7,}\].*)\s*$/i, 'ok']];
 
 /**
  * 줄마다 받은 시각(CSS ::before라 복사에는 안 들어감)을 붙이고 종류를 가볍게 구분해 색을 입힌다:
@@ -66,7 +64,7 @@ export function statText(g) {
 
 /** 로그 창 아래 줄: 줄 수와 따라가기 안내. */
 export function footText(g, ui) {
-  const n = g && !g.empty && ui.log.id === g.id ? ui.log.text.split('\n').length - (ui.log.text.endsWith('\n') || !ui.log.text ? 1 : 0) : 0;
+  const n = g && !g.empty && ui.log.id === g.id ? ui.log.rows.length : 0;
   return n + '줄 · 새 출력이 오면 ' + (ui.keep.logFollow !== false ? '자동으로 아래로 이동' : '그 자리에 머무름') + (ui.keep.logPaused ? ' · 일시정지 중' : '');
 }
 

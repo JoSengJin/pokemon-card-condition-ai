@@ -24,20 +24,17 @@ test('명령·오류·경고·통과 요약만 색을 입히고 나머지는 그
   assert.ok(!paintLines([row('a')]).includes('14:'), '시각은 글자(textContent)에 들어가지 않고 data-t로만');
 });
 
-test('logRows: 줄별 시각 정렬·끝의 빈 줄 제외·찾기는 일치하는 줄만·다른 로그면 비움', () => {
-  const ui: any = { keep: {}, log: { id: 'e1', next: 0, text: 'a\nGit add\nb\n', stamps: ['', '14:00:01', '14:00:02'] } };
-  assert.deepEqual(logRows(ui, 'e1'), [{ t: '', s: 'a' }, { t: '14:00:01', s: 'Git add' }, { t: '14:00:02', s: 'b' }]);
+test('logRows: 쌓인 줄을 그대로·찾기는 일치하는 줄만·다른 로그면 비움, 푸터는 줄 수', () => {
+  const ui: any = { keep: {}, log: { id: 'e1', next: 0, pending: '', rows: [{ t: '', s: 'a' }, { t: '14:00:01', s: 'Git add' }, { t: '14:00:02', s: 'b' }] } };
+  assert.deepEqual(logRows(ui, 'e1').map((r: any) => r.s), ['a', 'Git add', 'b']);
   ui.keep.logFind = 'GIT';
   assert.deepEqual(logRows(ui, 'e1'), [{ t: '14:00:01', s: 'Git add' }], '대소문자 구분 없이 일치하는 줄만');
   assert.deepEqual(logRows(ui, 'other'), []);
-  ui.keep.logFind = '';
-  ui.log.text = 'a\nb'; ui.log.stamps = ['', ''];
-  assert.equal(logRows(ui, 'e1').length, 2, '마지막 줄이 아직 끝나지 않아도 보임');
-  assert.equal(footText({ id: 'e1' }, ui), '2줄 · 새 출력이 오면 자동으로 아래로 이동');
+  assert.equal(footText({ id: 'e1' }, ui), '3줄 · 새 출력이 오면 자동으로 아래로 이동', '푸터 줄 수는 찾기와 무관한 전체');
 });
 
 test('로그 단계는 시작 전에도 창을 보여 주고(안내문), 로그가 없는 단계는 null, 기록이 있으면 실행 중 로그를 고름', () => {
-  const ui: any = { keep: {}, log: { id: null, text: '', stamps: [] } };
+  const ui: any = { keep: {}, log: { id: null, rows: [], pending: '' } };
   const base: any = { taskId: 't1', mode: 'mock', exec: null, review: null, verification: null, integration: null };
   for (const key of ['build', 'tests', 'review', 'postcheck']) assert.ok(logTarget(base, key, ui).empty, `${key} 시작 전 안내`);
   for (const key of ['prepare', 'gitcheck', 'handoff', 'approve', 'integrate', 'push']) assert.equal(logTarget(base, key, ui), null);

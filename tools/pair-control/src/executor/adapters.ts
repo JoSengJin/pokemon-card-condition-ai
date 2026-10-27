@@ -16,6 +16,8 @@ export interface Probe {
   missingFlags: string[];
   note: string;
   checkedAt: string;
+  /** 줄 단위 이벤트 출력 옵션(claude --output-format·--verbose, codex --json)이 --help에서 확인됨 */
+  stream?: boolean;
 }
 
 export interface LaunchPlan { command: string; args: string[]; display: string[]; permission: string }
@@ -25,6 +27,8 @@ const REQUIRED: Record<'codex' | 'claude', { help: string[]; flags: string[] }> 
   codex: { help: ['exec', '--help'], flags: ['--cd', '--sandbox'] },
   claude: { help: ['--help'], flags: ['--print', '--permission-mode', '--allowedTools'] },
 };
+
+const STREAM_FLAGS = { codex: ['--json'], claude: ['--output-format', '--verbose'] };
 
 function findOnPath(name: string): string | null {
   for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
@@ -43,10 +47,11 @@ export async function probe(agent: 'codex' | 'claude', cfg: PairConfig): Promise
   if (ver.code !== 0) return { ...base, installed: false, version: null, note: `--version 실행 실패(code ${ver.code}): ${ver.stderr.slice(0, 120)}` };
   const help = await run(binary, REQUIRED[agent].help, cfg.toolRoot, 10_000);
   const text = help.stdout + help.stderr;
-  const verified = REQUIRED[agent].flags.filter((f) => new RegExp(`(^|[\\s,])${f.replace(/-/g, '\\-')}(?=[\\s=,]|$)`, 'm').test(text));
+  const seen = (f: string) => new RegExp(`(^|[\\s,])${f.replace(/-/g, '\\-')}(?=[\\s=,]|$)`, 'm').test(text);
+  const verified = REQUIRED[agent].flags.filter(seen);
   return {
     ...base, installed: true, version: ver.stdout.trim().slice(0, 80), verifiedFlags: verified,
-    missingFlags: REQUIRED[agent].flags.filter((f) => !verified.includes(f)),
+    missingFlags: REQUIRED[agent].flags.filter((f) => !verified.includes(f)), stream: STREAM_FLAGS[agent].every(seen),
     note: help.code === 0 ? '--help 확인 완료(모델 요청 없음)' : `--help 실패(code ${help.code})`,
   };
 }
@@ -87,13 +92,15 @@ export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig): LaunchPla
   let plan: LaunchPlan;
   if (task.agent === 'codex') {
     // exec/--cd/--sandbox 이름은 --help로 확인한다. 값(workspace-write)은 실제 CLI에서 별도 확인 필요.
-    const args = ['exec', '--cd', task.worktree, '--sandbox', 'workspace-write', prompt];
+    const stream = cfg.streamOutput && p.stream === true; // 줄 단위 이벤트 출력(실시간 로그용). 옵션이 확인되지 않으면 텍스트 모드
+    const args = ['exec', ...(stream ? ['--json'] : []), '--cd', task.worktree, '--sandbox', 'workspace-write', prompt];
     plan = { command: p.binary, args, display: [p.binary, ...args.slice(0, -1), '<prompt>'],
       permission: 'codex --sandbox workspace-write(값 미검증): worktree 쓰기 허용. 허용 파일 단위 제한은 아님(사후 검사).' };
   } else {
     // --print/--permission-mode(acceptEdits)/--allowedTools는 Claude Code 문서의 옵션이다. --bare는 구독 로그인을 쓰지 않으므로 쓰지 않는다.
     // --allowedTools는 값을 여러 개 받으므로 띄어 쓰면 뒤의 프롬프트까지 도구로 삼킨다(실제 CLI에서 재현). `=`로 붙여 한 값으로 넘긴다.
-    const args = ['--print', '--permission-mode', 'acceptEdits', `--allowedTools=${CLAUDE_ALLOWED_TOOLS.join(',')}`, prompt];
+    const stream = cfg.streamOutput && p.stream === true; // stream-json은 --print에서 --verbose와 함께 쓴다
+    const args = ['--print', ...(stream ? ['--output-format=stream-json', '--verbose'] : []), '--permission-mode', 'acceptEdits', `--allowedTools=${CLAUDE_ALLOWED_TOOLS.join(',')}`, prompt];
     plan = { command: p.binary, args, display: [p.binary, ...args.slice(0, -1), '<prompt>'],
       permission: `claude --permission-mode acceptEdits + --allowedTools(${CLAUDE_ALLOWED_TOOLS.length}개): 편집 자동 승인, git 커밋만 허용. 허용 파일 단위 제한은 아님(사후 검사).` };
   }

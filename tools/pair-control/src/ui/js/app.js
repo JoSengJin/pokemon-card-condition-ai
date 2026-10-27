@@ -1,6 +1,7 @@
 // 화면 시작점. 1초마다 상태를 받아 바뀌었을 때만 다시 그리고, 선택한 실행의 로그를 이어 받는다.
 import { onClick, onInput } from './actions.js';
 import { api, say, ui } from './core.js';
+import { appendLog } from './events.js';
 import { initForm } from './form.js';
 import { logTarget, paintLog } from './logview.js';
 import { renderHeader, renderList, renderMain, renderProbes } from './view-list.js';
@@ -50,27 +51,14 @@ async function pollLog() {
   const g = t && logTarget(t, ui.shownStage, ui);
   if (!g) return;
   if (g.empty) { paintLog(g, ui); return; } // 아직 기록이 없는 단계: 안내문만(상태 줄은 갱신)
-  if (g.id !== ui.log.id) ui.log = { id: g.id, next: 0, text: '', stamps: [] };
+  if (g.id !== ui.log.id) ui.log = { id: g.id, next: 0, rows: [], pending: '' };
   if (ui.keep.logPaused) return paintLog(g, ui); // 일시정지: 새 출력은 받지 않고 경과만 갱신
   try {
     const d = await api(g.api + ui.log.next);
-    if (d.text) appendLog(d.text, ui.log.next === 0);
+    appendLog(ui.log, d.text || '', ui.log.next === 0, g.live);
     ui.log.next = d.next;
     paintLog(g, ui);
   } catch { /* 다음 주기에 다시 받는다 */ }
-}
-
-/** 받은 글을 붙이고 새로 시작된 줄에 받은 시각을 매긴다. 처음 열 때 이미 있던 줄은 시각을 비운다(실제 출력 시각을 모르므로). */
-function appendLog(chunk, firstFetch) {
-  const started = (s) => (s ? s.split('\n').length - (s.endsWith('\n') ? 1 : 0) : 0);
-  const before = started(ui.log.text);
-  ui.log.text += chunk;
-  const d = new Date(), now = [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':'); // HH:MM:SS(로케일 글자 길이에 흔들리지 않게)
-  for (let i = before; i < started(ui.log.text); i++) ui.log.stamps[i] = firstFetch ? '' : now;
-  while (ui.log.text.length > 200000) { // 너무 길면 앞쪽 줄부터 버린다(시각도 같이)
-    ui.log.text = ui.log.text.slice(ui.log.text.indexOf('\n') + 1);
-    ui.log.stamps.shift();
-  }
 }
 
 /** 수동 모드 작업 폴더의 활동(새 커밋·변경 파일)을 3초마다 받아 바뀌었을 때만 다시 그린다. */
