@@ -2,7 +2,7 @@
 
 - task_id: surface-all-human-points-20261028
 - owner: Codex
-- status: implementing
+- status: integrated
 - base_sha: f58a98aadb43d9796e5ecc63577b7f86f3029509
 - branch: codex/surface-all-human-points-20261028
 - worktree: 로컬 전용, 원격 문서에 경로 기록하지 않음
@@ -40,3 +40,8 @@ ignored: artifacts/surface-all-human-points-20261028/ (원본 무변경 SHA와 a
 ## 인계·리스크·롤백
 
 실행record/status/판정·소스SHA/검사·변경파일·side effect·원격SHA일치·미검증·남은의존을 기록한다. 다중점은 독립실물 수를 늘리지 않으며 전체구역감독이 아니다. 원본 클릭/정답은 그대로, 연구후보 미채택이면 운영변경0. 제거는 통합source커밋을 ./develop -- git revert 후 관련검사/일반push, ignored실험은 보존한다. 최신완료checkout 하나 유지 규칙과 unique증거SHA보존을 지키며 Claude/미통합checkout은 보존한다.
+
+
+## 실제 실행 인계
+
+source70dda82, 격리source5142f4e. 관련14검사 양쪽OK, 함수4/2/3·최대4전이. record20261027T222515-1d33d82d statuscompleted/4fit수렴/수용false. 같은147 FN16→12/94,FP18→20/53,typed21/51동일. 새누락0·오탐2로미채택. 새val a~e 읽기전용확인,학습0·라벨변경0·운영0. 보고서는 동명reports MD/HTML, 사진은실험폴더 index/comparison.html. 입력·record SHA와수치대조완료,열기요청/렌더미확인은최종기록참조. 일반push후최근완료checkout1개만유지하며Claude/미통합작업은보존한다.
