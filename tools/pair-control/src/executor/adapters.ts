@@ -66,7 +66,10 @@ export function mockPlan(task: TaskInputT, cfg: PairConfig): LaunchPlan {
 }
 
 /** 에이전트가 계약 범위에서 커밋까지 할 수 있게 허용하는 도구. 그 밖의 Bash는 -p 모드에서 자동 거부된다(docs: Manual mode). */
-export const CLAUDE_ALLOWED_TOOLS = ['Read', 'Edit', 'Write', 'Bash(git status *)', 'Bash(git diff *)', 'Bash(git log *)', 'Bash(git add *)', 'Bash(git commit *)'];
+export const CLAUDE_ALLOWED_TOOLS = ['Read', 'Edit', 'Write', 'Bash(git status *)', 'Bash(git diff *)', 'Bash(git log *)', 'Bash(git add *)', 'Bash(git commit *)',
+  // 읽기 전용 탐색과 단위 테스트. 복합 명령(; | &&)은 조각마다 허용돼야 하므로 head/grep 등도 포함한다.
+  'Bash(ls *)', 'Bash(cat *)', 'Bash(head *)', 'Bash(tail *)', 'Bash(grep *)', 'Bash(wc *)',
+  'Bash(.venv/bin/python -m pytest *)', 'Bash(.venv/bin/python --version)'];
 
 export function agentPrompt(task: Pick<TaskInputT, 'taskId' | 'goal'>) {
   // 긴 지시는 커밋된 계약 파일에 있다. CLI 인자에는 계약 경로만 넘겨 인자 길이 제한을 피한다.
@@ -102,7 +105,7 @@ export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig): LaunchPla
     const stream = cfg.streamOutput && p.stream === true; // stream-json은 --print에서 --verbose와 함께 쓴다
     const args = ['--print', ...(stream ? ['--output-format=stream-json', '--verbose'] : []), '--permission-mode', 'acceptEdits', `--allowedTools=${CLAUDE_ALLOWED_TOOLS.join(',')}`, prompt];
     plan = { command: p.binary, args, display: [p.binary, ...args.slice(0, -1), '<prompt>'],
-      permission: `claude --permission-mode acceptEdits + --allowedTools(${CLAUDE_ALLOWED_TOOLS.length}개): 편집 자동 승인, git 커밋만 허용. 허용 파일 단위 제한은 아님(사후 검사).` };
+      permission: `claude --permission-mode acceptEdits + --allowedTools(${CLAUDE_ALLOWED_TOOLS.length}개): 편집 자동 승인, git 커밋·읽기 전용 탐색·pytest만 허용. 허용 파일 단위 제한은 아님(사후 검사).` };
   }
   const risks = scanArgs(plan.args);
   if (risks.length) return { refused: `무과금 가드: ${risks.map((r) => r.message).join('; ')}` };
