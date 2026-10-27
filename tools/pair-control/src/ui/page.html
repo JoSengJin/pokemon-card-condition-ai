@@ -212,6 +212,17 @@ details > summary { cursor: pointer; }
             <div id="progInfo" class="small muted"></div>
             <label>목표 (한 줄)<input name="goal" required placeholder="예: 데이터 부족표 집계 오류 수정"></label>
             <label>상세 지시 (선택, 계약 파일에 기록 — 실제 CLI는 계약 파일을 읽음)<textarea name="prompt" placeholder="자세한 지시가 있으면 적으세요"></textarea></label>
+            <label>읽을 문서 (선택 · 한 줄에 하나, 커밋된 저장소 경로) <span class="muted small">에이전트의 worktree에는 data·artifacts가 없으니, 근거는 커밋된 문서로 알려 주세요</span>
+              <textarea name="readDocs" rows="2" class="mono" placeholder="예: docs/collaboration/reports/some-report.md"></textarea></label>
+            <details class="scopeHelp">
+              <summary class="small muted">메인 에이전트가 계약을 써 주게 하기 — 수동으로 "프롬프트 달라고" 하던 것과 같은 흐름</summary>
+              <div class="small muted">① 요청문을 만들어 메인(상단의 메인 역할)에게 붙여 넣기 → ② 메인의 답을 아래에 붙여 넣고 "폼에 채우기". 메인이 누구든 같은 형식입니다. 붙여 넣은 칸은 저장·커밋되지 않습니다.</div>
+              <div class="actions"><button type="button" data-contract="request">메인에게 보낼 계약 작성 요청 복사</button></div>
+              <textarea id="contractReq" rows="5" readonly hidden></textarea>
+              <textarea id="contractReply" rows="5" placeholder="메인이 준 계약(## 목표 / ## 완료 조건 / ## 허용 파일 / ## 읽을 문서 / ## 상세 지시)을 붙여 넣으세요"></textarea>
+              <div class="actions"><button type="button" data-contract="fill">폼에 채우기</button></div>
+              <div id="contractInfo" class="small"></div>
+            </details>
           </div>
           <div class="step">
             <div class="stepTitle">3. 어디를 고쳐도 되나요? <span class="muted small">(선택 — 비우면 기본 범위)</span></div>

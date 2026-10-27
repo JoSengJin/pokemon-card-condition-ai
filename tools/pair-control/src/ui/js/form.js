@@ -1,6 +1,7 @@
 // 새 작업 만들기 폼. 입력하면 서버의 plan(읽기 전용)으로 자동 준비될 값을 미리 보여 주고,
 // 제출하면 Mastra prepare-task workflow가 worktree·브랜치·계약을 만든다.
 import { api, esc, say, ui } from './core.js';
+import { onContractClick } from './form-contract.js';
 import { onScopeClick } from './form-scope.js';
 import { onSpecClick, onSpecInput, renderSpecs, resetSpecs, specs } from './form-specs.js';
 
@@ -12,6 +13,7 @@ export function initForm() {
   f.addEventListener('change', () => { if (ui.state) ui.rerender(); schedulePlan(); });
   f.addEventListener('click', (ev) => { if (onSpecClick(ev.target.closest('[data-spec]'))) schedulePlan(); });
   f.addEventListener('click', onScopeClick);
+  f.addEventListener('click', onContractClick);
   f.addEventListener('submit', onSubmit);
   document.getElementById('progSel').addEventListener('change', applyDraft);
   resetSpecs(); renderSpecs(); updatePlan(); loadProgress();
@@ -19,10 +21,10 @@ export function initForm() {
 
 function formBody() {
   const b = Object.fromEntries(new FormData(document.getElementById('assign')).entries());
-  const [allowedFiles, conflictGroups, requiredModules, doneCriteria] = [[b.allowedFiles, '\n'], [b.conflictGroups, ','], [b.requiredModules, ','], [b.doneCriteria, '\n']]
+  const [allowedFiles, conflictGroups, requiredModules, doneCriteria, readDocs] = [[b.allowedFiles, '\n'], [b.conflictGroups, ','], [b.requiredModules, ','], [b.doneCriteria, '\n'], [b.readDocs, '\n']]
     .map(([v, sep]) => String(v || '').split(sep).map((x) => x.trim()).filter(Boolean));
   return {
-    ...b, allowedFiles, conflictGroups, requiredModules, doneCriteria,
+    ...b, allowedFiles, conflictGroups, requiredModules, doneCriteria, readDocs,
     checks: specs.c.map((c, i) => ({ id: 'c' + (i + 1), name: c.name || '검사 ' + (i + 1), executable: c.executable, args: c.args, cwd: c.cwd || '.' })),
     postChecks: specs.p.map((c, i) => ({ id: 'p' + (i + 1), name: c.name || '통합 후 검사 ' + (i + 1), executable: c.executable, args: c.args, cwd: '.' })),
   };

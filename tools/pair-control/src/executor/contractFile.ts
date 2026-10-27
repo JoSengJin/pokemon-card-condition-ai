@@ -18,6 +18,8 @@ export function renderContract(t: TaskInputT): string {
     task_id: t.taskId, owner: t.agent, branch: t.branch, base_sha: t.baseSha, mode: t.mode, goal: t.goal,
     done_criteria: t.doneCriteria, allowed_files: t.allowedFiles, conflict_groups: t.conflictGroups, env: t.env,
     required_modules: t.requiredModules, checks: t.checks, post_checks: t.postChecks,
+    // 값이 있을 때만 넣어, 읽을 문서가 없는 기존 계약의 내용(해시)은 바뀌지 않는다.
+    ...(t.readDocs?.length ? { read_docs: t.readDocs } : {}),
   };
   const list = (xs: string[], empty: string) => (xs.length ? xs.map((x) => `- ${x}`).join('\n') : `- ${empty}`);
   return `# 작업 계약: ${t.taskId}
@@ -40,7 +42,11 @@ ${t.goal}
 
 ${list(t.doneCriteria, '(지정 없음)')}
 
-## allowed_files
+${t.readDocs?.length ? `## 읽을 문서
+
+${list(t.readDocs.map((f) => `\`${f}\``), '')}
+
+` : ''}## allowed_files
 
 ${list(t.allowedFiles.map((f) => `\`${f}\``), '(없음)')}
 

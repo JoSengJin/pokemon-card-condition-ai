@@ -26,7 +26,7 @@ export async function validateExtraDocs(worktree: string, docs: string[]): Promi
 export async function buildStartPrompt(t: Task, mainAgent: 'codex' | 'claude', o: PromptOptions = {}) {
   const head = await G.revParse(t.worktree, 'HEAD');
   if (!head) throw new Error('worktree HEAD를 읽지 못함');
-  const extra = await validateExtraDocs(t.worktree, o.extraDocs ?? []);
+  const extra = await validateExtraDocs(t.worktree, [...(t.readDocs ?? []), ...(o.extraDocs ?? [])]);
   const lines: string[] = [];
   const add = (...x: string[]) => lines.push(...x);
   add('작업 위치:', t.worktree, '', `브랜치: ${t.branch}`, `시작 HEAD: ${head}`, `기준 SHA: ${t.baseSha} (계약 커밋 ${t.contractSha})`, '');
@@ -39,7 +39,12 @@ export async function buildStartPrompt(t: Task, mainAgent: 'codex' | 'claude', o
   if (t.usesDevelopLock) add('card_condition/·tools/experiments/ 파일 수정은 `./develop -- <수정 명령>` 안에서 수행하세요(AGENTS.md). 이 worktree의 자체 `.venv/bin/python`이 필요합니다.');
   add('');
   if (t.checks.length) add('검사 (에이전트 종료 후 실행기가 별도로 실행하며, 미실행·실패는 통과가 아닙니다):', ...t.checks.map((c) => `- ${c.name}: ${[c.executable, ...c.args].join(' ')}`), '');
-  add('진행 방식:', '단계별로 커밋하고 다음 단계로 계속 진행하세요. 어떤 항목이 막히면 사유를 기록하고 독립 작업을 이어가세요.');
+  add('진행 방식:', '단계별로 커밋하고 다음 단계로 계속 진행하세요. 어떤 항목이 막히면 사유를 기록하고 독립 작업을 이어가세요.',
+    '문서 검토·상태 보고서만으로 끝내지 마세요. 계약과 읽을 문서에서 구현할 단일 대상을 정하고 코드·테스트·커밋까지 진행하세요.',
+    '이 worktree에는 data·artifacts가 없습니다. 그 내용이 필요한 근거는 계약·읽을 문서에 있는 것만 쓰고, 정답·수치를 추정하지 마세요.',
+    '구현할 대상을 정할 근거가 계약에 없으면 임의로 기능을 만들지 말고, 필요한 계약 보완을 한 줄로 보고한 뒤 종료하세요(보고서를 여러 개 만들지 마세요).',
+    '모르는 사실이나 사람 판단이 필요한 항목은 그 항목만 미해결로 남기고 독립 단계는 계속하세요. 커밋은 의미 단위로 하고 `git add .`로 전체를 올리지 마세요.',
+    '이미 있는 untracked 파일을 빈 작업물로 보고 삭제·초기화하지 마세요. 인계에는 PAIR_CODING의 함수 수·호출 깊이 제한 대비 변경 전·후 수치를 적고, 정적으로 확정하지 못한 것은 미확인으로 적으세요.');
   if (o.unattended) add('사용자는 자리에 없습니다. 사람 정답을 추정하거나 재요청하지 마세요.');
   add('', '금지: 실제 학습·모델 비교·사진 추론·라벨 수정·외부 AI 호출·자동 교차 검토, 의존성 설치·모델 다운로드, push.', '');
   add(`완료하면 전체 커밋 SHA 순서·검사 결과·미해결·리스크·롤백을 한 번에 인계하세요. main 통합과 push는 ${AGENT_LABEL[mainAgent]}가 담당합니다.`);

@@ -13,6 +13,10 @@ export const STAGES = [
   { key: 'push', label: '푸시', desc: '통합 브랜치를 원격에 올립니다. 취소할 수 없으므로 점검→SHA 입력→푸시→원격 확인 순서입니다.' },
 ];
 
+/** 파일을 점유 중인 작업 상태(서버 OCCUPYING과 같은 목록). 새 작업 폼이 메인에게 점유 작업을 알려 줄 때 쓴다. */
+export const OCCUPYING_STATUSES = ['starting', 'running', 'manual_working', 'collecting', 'cancelling', 'orphan_running', 'exit_observed', 'unknown',
+  'review_pending', 'approved', 'integrating', 'integration_refused', 'integration_conflict', 'integration_blocked'];
+
 /** 현재 HEAD·계약 기준 작업 테스트 상태. 다른 SHA·계약의 결과는 통과로 보지 않는다. */
 export function testState(t) {
   const v = t.verification, sha = t.result && t.result.headSha;

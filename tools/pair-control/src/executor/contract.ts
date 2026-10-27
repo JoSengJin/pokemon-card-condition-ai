@@ -65,6 +65,8 @@ export const TaskInput = z.object({
   mockScenario: z.enum(MOCK_SCENARIOS).default('success'),
   requiresExperiment: z.boolean().default(false),
   doneCriteria: z.array(z.string().min(1).max(300)).max(20).default([]),
+  /** 에이전트가 먼저 읽을 저장소 문서(상대경로). 메인이 본 근거를 담은 문서를 가리킨다(worktree에는 data·artifacts가 없다). */
+  readDocs: z.array(scopePath).max(20).default([]),
   checks: z.array(CheckSpec).max(20).default([]),
   postChecks: z.array(CheckSpec).max(20).default([]),
   env: z.enum(ENV_PROFILES).default('none'),
