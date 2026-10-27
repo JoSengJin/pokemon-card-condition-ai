@@ -1,10 +1,10 @@
 # 같은 면의 구역 추론에서 사진 1회 디코딩
 
-- task_id: region-photo-decode-once-20271028
+- task_id: region-photo-decode-once-20261028
 - owner: Codex
 - status: implementing
 - base_sha: 1a0c3c1c85a01a5f15c989a888ee0856532a8d53
-- branch: codex/region-photo-decode-once-20271028
+- branch: codex/region-photo-decode-once-20261028
 - worktree: 로컬 전용
 - goal: 같은 사진의 여러 기존 구역을 추론할 때 출력/판정은 유지하고 중복 디코딩과 실제 처리시간을 줄인다. Claude 자료 확보·검토와 독립이다.
 
@@ -24,13 +24,13 @@ ListingAnalyzer.analyze와 infer_listings는 같은 면의 각 구역마다 patc
 - tests/test_listing_model.py
 - tests/test_listing_coverage.py
 - tests/test_listing_inference.py
-- tools/experiments/region-photo-decode-once-20271028/worker.py
-- tools/experiments/region-photo-decode-once-20271028/plan.json
-- docs/collaboration/tasks/region-photo-decode-once-20271028.md
-- docs/collaboration/reports/region-photo-decode-once-20271028.md
-- docs/collaboration/reports/region-photo-decode-once-20271028.html
+- tools/experiments/region-photo-decode-once-20261028/worker.py
+- tools/experiments/region-photo-decode-once-20261028/plan.json
+- docs/collaboration/tasks/region-photo-decode-once-20261028.md
+- docs/collaboration/reports/region-photo-decode-once-20261028.md
+- docs/collaboration/reports/region-photo-decode-once-20261028.html
 
-ignored artifacts/region-photo-decode-once-20271028/ (수정 전 Python snapshot/후속 인계·감사), 공통 실행기의 새 artifacts/experiments/<run>/record·speed·사진 HTML.
+ignored artifacts/region-photo-decode-once-20261028/ (수정 전 Python snapshot/후속 인계·감사), 공통 실행기의 새 artifacts/experiments/<run>/record·speed·사진 HTML.
 금지: Claude 모든checkout/수집·검토/새사진·라벨/manifest/cache/head/과거실험, 기준·점수, PokeCollector·운영 Gemini 경로, provider호출. side_experiment.py와 학습 경로의 기본 동작은 변경하지 않는다.
 
 ## 구조·관련 경로
