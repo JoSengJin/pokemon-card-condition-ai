@@ -97,3 +97,37 @@ test('인계 자동 확인: 과금 가드가 막으면 인계만 하고 사유�
     assert.equal(env.ex.task('task-a').review, null);
   } finally { env.cleanup(); }
 });
+
+test('자동 확인이 approve가 아니면 인계는 확인되지 않고 결과가 남으며, 화면 승인은 메인 확인 전에는 거부된다', async () => {
+  const env = setup(real);
+  const flag = path.join(path.dirname(fakeCli.codex), '.fake-verdict');
+  fs.writeFileSync(flag, 'insufficient_evidence');
+  try {
+    await readyForHandoff(env, 'task-a');
+    const sha = env.ex.task('task-a').result!.headSha!;
+    await assert.rejects(env.ex.approve('task-a', sha, { requireHandoff: true }), /메인 인계가 끝나지 않음/);
+    await env.ex.handoffToMain('task-a', { auto: true });
+    await waitFor(() => env.ex.task('task-a').review?.status === 'done', '리뷰 종료');
+    const h = env.ex.task('task-a').handoff!;
+    assert.equal(h.confirmedAt, undefined, 'approve가 아니면 자동 확인하지 않음');
+    assert.equal(h.autoResult!.verdict, 'insufficient_evidence');
+    assert.match(h.autoResult!.summary!, /fake codex review/);
+    await assert.rejects(env.ex.approve('task-a', sha, { requireHandoff: true }), /메인 확인이 끝나지 않음/);
+    env.ex.confirmHandoff('task-a', '사람이 결과를 보고 확인');
+    const a = await env.ex.approve('task-a', sha, { requireHandoff: true });
+    assert.equal(a.sha, sha);
+    assert.ok(a.mainConfirmedAt, '확인 완료 기록이 승인에 남음');
+  } finally { fs.rmSync(flag, { force: true }); env.cleanup(); }
+});
+
+test('승인 전제조건: 리뷰가 실행 중이면 승인할 수 없다', async () => {
+  const env = setup(real);
+  try {
+    await readyForHandoff(env, 'task-a');
+    const t = env.ex.task('task-a'), sha = t.result!.headSha!;
+    await env.ex.handoffToMain('task-a');
+    env.ex.confirmHandoff('task-a');
+    t.review = { reviewId: 'r', reviewer: 'codex', mode: 'real', sha, contractHash: t.contractHash, bundleDir: '', worktreeFingerprint: '', status: 'running', startedAt: 'x' };
+    await assert.rejects(env.ex.approve('task-a', sha, { requireHandoff: true }), /리뷰가 실행 중/);
+  } finally { env.cleanup(); }
+});

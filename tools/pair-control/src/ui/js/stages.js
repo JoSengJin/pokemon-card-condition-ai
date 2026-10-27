@@ -6,8 +6,8 @@ export const STAGES = [
   { key: 'gitcheck', label: 'Git 검사', desc: '브랜치·커밋·계약 불변·허용 파일 범위만 봅니다. 코드가 맞는지는 검사하지 않습니다.' },
   { key: 'tests', label: '작업 테스트', desc: '계약의 검사 명령을 실행기가 따로 실행합니다. 미실행·이전 SHA 결과는 통과가 아닙니다.' },
   { key: 'review', label: '리뷰', desc: '선택 단계. 다른 에이전트가 고정 SHA 묶음을 별도로 검토합니다. 결과는 참고이며 승인을 대신하지 않습니다.' },
-  { key: 'handoff', label: '메인 인계', desc: '메인 에이전트에게 결과를 넘깁니다. 자동 호출은 없으니 안내문을 메인에게 붙여 넣으세요.' },
-  { key: 'approve', label: '사람 승인', desc: 'diff와 검사 결과를 보고 전체 SHA를 승인하거나 거절합니다.' },
+  { key: 'handoff', label: '메인 인계', desc: '메인 에이전트에게 결과를 넘기고 확인받습니다. 안내문을 메인에게 붙여 넣거나 "인계 + 자동 확인"을 쓰며, 자동 확인이 approve가 아니면 사람이 확인 완료를 눌러야 다음 단계로 갑니다.' },
+  { key: 'approve', label: '사람 승인', desc: '앞 단계가 모두 끝난 뒤에만 열립니다. diff와 검사 결과를 보고 전체 SHA를 승인하거나 거절합니다.' },
   { key: 'integrate', label: '통합', desc: '승인한 SHA를 다시 확인한 뒤 통합 checkout에서 ./develop 잠금 안으로 cherry-pick 합니다.' },
   { key: 'postcheck', label: '통합 후 검사', desc: '통합 checkout에서 계약의 통합 후 검사를 실행합니다. 지정이 없으면 미실행으로 남습니다.' },
   { key: 'push', label: '푸시', desc: '통합 브랜치를 원격에 올립니다. 취소할 수 없으므로 점검→SHA 입력→푸시→원격 확인 순서입니다.' },
@@ -38,7 +38,17 @@ export function handoffState(t) {
   const h = t.handoff, sha = t.result && t.result.headSha;
   if (!h || h.cancelledAt) return { status: 'none', text: '미인계' };
   if (h.headSha !== sha) return { status: 'stale', text: '인계 후 코드 변경 — 다시 인계' };
-  return h.confirmedAt ? { status: 'done', text: h.to + ' 확인 완료' } : { status: 'active', text: h.to + ' 확인 중' };
+  if (h.confirmedAt) return { status: 'done', text: h.to + (h.auto ? ' 자동 확인 완료' : ' 확인 완료') };
+  // 도는 프로세스가 있을 때만 진행 중(회전)으로 본다. 그 밖에는 사람이 확인해 줘야 하는 대기다.
+  const r = t.review;
+  if (r && r.forHandoff && r.status === 'running' && r.sha === h.headSha) return { status: 'active', text: h.to + ' 자동 확인 중(별도 프로세스)' };
+  // 이 기능 이전에 끝난 자동 확인 리뷰는 autoResult가 없으므로 리뷰 기록에서 같은 결과를 읽는다.
+  const a = h.autoResult || (r && r.forHandoff && r.status !== 'running' && r.sha === h.headSha ? { status: r.status, verdict: r.verdict } : null);
+  if (a) {
+    const word = { insufficient_evidence: '근거 부족', changes_requested: '수정 필요', approve: '승인' }[a.verdict] || ({ failed: '실패', cancelled: '중단', unknown: '결과 불명' }[a.status] || a.status);
+    return { status: 'action', text: '자동 확인 결과: ' + word + ' — 사람이 내용을 보고 확인 완료 또는 인계 취소' };
+  }
+  return { status: 'action', text: h.to + ' 확인 대기 — 안내문을 전달하고 끝나면 "메인 확인 완료"' };
 }
 
 /** 이 작업의 통합 커밋이 들어간 가장 최근 푸시 기록으로 판정한다(기록은 최신순). */
@@ -83,8 +93,10 @@ export function stagesOf(t, push, mainAgent) {
     tests: !has ? ['todo', '구현 후'] : testsOk ? ['done', '통과'] : tests.status === 'running' ? ['active', '실행 중']
       : review ? [tests.status === 'none' ? 'action' : tests.status === 'stale' ? 'action' : 'failed', tests.text, { act: 'checks', label: '작업 테스트 실행' }]
         : ['warn', tests.text],
-    review: !has ? ['todo', '구현 후'] : [rv.status, rv.text, review && rv.status !== 'active' ? { act: 'review', label: '리뷰 실행' } : null],
-    handoff: !has ? ['todo', '구현 후'] : ho.status === 'done' ? ['done', ho.text] : ho.status === 'active' ? ['active', ho.text, { act: 'hconfirm', label: '메인 확인 완료' }]
+    // 인계 자동 확인용 리뷰는 6. 메인 인계 단계의 일부다. 5단계가 돌고 있다고 6단계를 막지 않는다.
+    review: !has ? ['todo', '구현 후'] : rv.status === 'active' && t.review && t.review.forHandoff ? ['skipped', '자동 확인 중 — 6. 메인 인계에서 진행', null]
+      : [rv.status, rv.text, review && rv.status !== 'active' ? { act: 'review', label: '리뷰 실행' } : null],
+    handoff: !has ? ['todo', '구현 후'] : ho.status === 'done' ? ['done', ho.text] : (ho.status === 'active' || ho.status === 'action') ? [ho.status, ho.text, ho.status === 'action' ? { act: 'hconfirm', label: '메인 확인 완료' } : null]
       : ho.status === 'stale' ? ['warn', ho.text, { act: 'handoff', label: '다시 인계' }]
         : review ? (testsOk ? ['action', main + '에게 인계할 차례', { act: 'handoff', label: '메인에게 인계' }] : ['todo', '작업 테스트 통과 후'])
           : ['skipped', '인계 없이 진행됨'],
@@ -99,7 +111,22 @@ export function stagesOf(t, push, mainAgent) {
     push: ps ? [ps.status, ps.text, ps.primary || null] : ['todo', '통합 후'],
   };
   const who = { prepare: '사용자', build: t.agent, gitcheck: '도구', tests: '도구(사용자가 실행)', review: '리뷰 에이전트', handoff: main, approve: '사용자', integrate: '사용자→도구', postcheck: '도구', push: '사용자' };
-  return STAGES.map((st) => ({ ...st, status: vals[st.key][0], text: vals[st.key][1], primary: vals[st.key][2] || null, who: who[st.key] }));
+  return gate(STAGES.map((st) => ({ ...st, status: vals[st.key][0], text: vals[st.key][1], primary: vals[st.key][2] || null, who: who[st.key] })));
+}
+
+/**
+ * 단계 전환 규칙: 앞 단계가 완료(done)되거나 선택 단계라 건너뛴(skipped) 경우에만 다음 단계가 열린다.
+ * 앞 단계가 끝나지 않았으면 뒤 단계의 '할 일·진행 중'은 대기로 낮추고 버튼도 없앤다(눌러도 서버가 막는다).
+ * 리뷰는 선택·참고 단계라 돌고 있을 때(active)만 뒤를 막고, 근거 부족 같은 의견은 막지 않는다. 실패·주의 단계는 그대로 보여 준다.
+ */
+export function gate(stages) {
+  let wait = null;
+  return stages.map((s) => {
+    const out = wait && ['action', 'active'].includes(s.status)
+      ? { ...s, status: 'todo', text: '앞 단계(' + wait.label + ') 완료 후', primary: null } : s;
+    if (!wait && !['done', 'skipped'].includes(s.status) && !(s.key === 'review' && s.status !== 'active')) wait = s;
+    return out;
+  });
 }
 
 /** 실행 환경이 막힌 이유가 '자체 .venv 없음'뿐인지(그러면 버튼 한 번으로 만들 수 있다). 검사 항목이 없으면 알 수 없으므로 false. */

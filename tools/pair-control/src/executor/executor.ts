@@ -59,7 +59,9 @@ export interface ReviewRecord {
  * 메인 에이전트에게 넘기는 인계 기록. 인계 문서는 작업 브랜치에 커밋하지 않는다(PAIR_CODING §4: 완료 후 추가 커밋 금지, SHA 고정).
  * 상태 폴더에 저장하고 복사용으로 보여 준다. 코드 SHA가 바뀌면 인계는 낡은 것으로 본다.
  */
-export interface Handoff { at: string; to: 'codex' | 'claude'; headSha: string; file: string; confirmedAt?: string; note?: string; cancelledAt?: string; auto?: boolean }
+export interface Handoff { at: string; to: 'codex' | 'claude'; headSha: string; file: string; confirmedAt?: string; note?: string; cancelledAt?: string; auto?: boolean;
+  /** 자동 확인 리뷰가 approve가 아니거나 실패했을 때의 결과. 인계는 확인되지 않은 채 사람 차례로 남는다. */
+  autoResult?: { at: string; status: string; verdict?: string | null; summary?: string } }
 
 export interface Approval { sha: string; baseBranch: string; baseHead: string; files: string[]; filesHash: string; contractHash: string; reviewVerdict: ReviewVerdict | null; mainConfirmedAt: string | null; at: string }
 
@@ -781,9 +783,20 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     return { files, filesHash: crypto.createHash('sha256').update(files.join('\0')).digest('hex'), baseHead };
   }
 
-  async approve(taskId: string, sha: string): Promise<Approval> {
+  /**
+   * requireHandoff: 화면·API 승인은 앞 단계(리뷰가 돌고 있지 않음, 메인 인계 확인 완료)가 끝난 뒤에만 허용한다.
+   * 내부 호출(테스트 등)은 기본 false로 기존 동작을 유지한다.
+   */
+  async approve(taskId: string, sha: string, o: { requireHandoff?: boolean } = {}): Promise<Approval> {
     const t = this.task(taskId);
     if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태가 아님(${t.status})`);
+    if (o.requireHandoff) {
+      if (t.review?.status === 'running') throw new UserError('리뷰가 실행 중 — 끝난 뒤 승인할 수 있음');
+      const h = t.handoff;
+      if (!h || h.cancelledAt) throw new UserError('메인 인계가 끝나지 않음 — 인계하고 확인 완료를 받은 뒤 승인할 수 있음');
+      if (h.headSha !== t.result?.headSha) throw new UserError('인계 후 코드가 바뀜 — 다시 인계하고 확인을 받으세요');
+      if (!h.confirmedAt) throw new UserError('메인 확인이 끝나지 않음 — 확인 완료 후 승인할 수 있음');
+    }
     if (!G.FULL_SHA.test(sha)) throw new UserError('전체 40자 SHA로 승인해야 함');
     if (!t.result?.checksPassed) throw new UserError('Git 계약 검사 실패가 있어 승인할 수 없음');
     const v = t.verification;
@@ -1067,6 +1080,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
       rv.status = status; rv.note = note; rv.verdict = verdict; rv.summary = summary;
       this.event('review_finished', { taskId: t.taskId, reviewId: rv.reviewId, status, verdict });
       this.save();
+      this.settleHandoffReview(t, rv);
     };
     if (r.unknown) return done('unknown', '리뷰 프로세스가 종료 기록 없이 사라짐(결과 불명)');
     if (r.cancelled) return done('cancelled', '사용자 중단');
@@ -1081,18 +1095,25 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     const verdicts: ReviewVerdict[] = ['approve', 'changes_requested', 'insufficient_evidence'];
     if (!parsed || !verdicts.includes(parsed.verdict)) return done('failed', '판정 형식을 읽지 못함 — "통과" 같은 문구만으로는 판정으로 보지 않음');
     if (parsed.sha !== rv.sha) return done('failed', `다른 SHA(${String(parsed.sha).slice(0, 12)})에 대한 판정 — 사용하지 않음`);
-    done('done', ex.observedAfterRestart ? '서버 재시작 후 종료 관찰' : undefined, parsed.verdict, String(parsed.summary ?? '').slice(0, 2000));
-    this.autoConfirmHandoff(t, rv);
+    return done('done', ex.observedAfterRestart ? '서버 재시작 후 종료 관찰' : undefined, parsed.verdict, String(parsed.summary ?? '').slice(0, 2000));
   }
 
-  /** 인계용 리뷰가 approve이고 인계·SHA가 그대로일 때만 인계를 자동 확인으로 기록한다. 사람 승인은 대신하지 않는다. */
-  private autoConfirmHandoff(t: Task, rv: ReviewRecord) {
+  /**
+   * 인계용 리뷰가 끝났을 때 인계에 결과를 반영한다. approve이고 인계·SHA가 그대로일 때만 자동 확인으로 기록하고,
+   * 그 밖(근거 부족·수정 필요·실패·중단·결과 불명)은 확인하지 않은 채 결과를 남겨 사람이 이유를 보고 결정하게 한다. 사람 승인은 대신하지 않는다.
+   */
+  private settleHandoffReview(t: Task, rv: ReviewRecord) {
     const h = t.handoff;
-    if (!rv.forHandoff || rv.status !== 'done' || rv.verdict !== 'approve') return;
-    if (t.status !== 'review_pending' || !h || h.cancelledAt || h.confirmedAt || h.to !== rv.reviewer || h.headSha !== rv.sha || h.headSha !== t.result?.headSha) return;
-    h.confirmedAt = new Date().toISOString(); h.auto = true;
-    h.note = `자동 확인: 별도 ${rv.reviewer} 프로세스(리뷰 ${rv.reviewId.slice(0, 8)})의 approve — 대화 중인 메인 세션의 확인이 아님`;
-    this.event('handoff_confirmed', { taskId: t.taskId, headSha: h.headSha, auto: true });
+    if (!rv.forHandoff || !h || h.cancelledAt || h.confirmedAt || h.to !== rv.reviewer || h.headSha !== rv.sha || t.status !== 'review_pending') return;
+    const at = new Date().toISOString();
+    if (rv.status === 'done' && rv.verdict === 'approve' && h.headSha === t.result?.headSha) {
+      h.confirmedAt = at; h.auto = true; delete h.autoResult;
+      h.note = `자동 확인: 별도 ${rv.reviewer} 프로세스(리뷰 ${rv.reviewId.slice(0, 8)})의 approve — 대화 중인 메인 세션의 확인이 아님`;
+      this.event('handoff_confirmed', { taskId: t.taskId, headSha: h.headSha, auto: true });
+    } else {
+      h.autoResult = { at, status: rv.status, verdict: rv.verdict ?? null, summary: (rv.summary ?? rv.note ?? '').slice(0, 600) };
+      this.event('handoff_auto_result', { taskId: t.taskId, headSha: h.headSha, status: rv.status, verdict: rv.verdict ?? null });
+    }
     this.save();
   }
 

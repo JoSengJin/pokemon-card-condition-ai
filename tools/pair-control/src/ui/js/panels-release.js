@@ -10,7 +10,8 @@ export function panelHandoff(t, ui) {
   const live = !!h && !h.cancelledAt && !!r && h.headSha === r.headSha;
   return '<p class="small muted">인계 문서는 브랜치에 커밋하지 않습니다.</p>' +
     (h ? '<div class="kv small"><div>받는 쪽</div><div>' + esc(h.to) + '</div><div>인계 SHA</div><div class="mono">' + esc(h.headSha) + '</div>' +
-      '<div>상태</div><div>' + esc(h.cancelledAt ? '취소됨' : h.confirmedAt ? (h.auto ? '자동 확인(별도 프로세스) ' : '메인 확인 ') + h.confirmedAt : '메인 확인 중') + '</div></div>' : '') +
+      '<div>상태</div><div>' + esc(h.cancelledAt ? '취소됨' : h.confirmedAt ? (h.auto ? '자동 확인(별도 프로세스) ' : '메인 확인 ') + h.confirmedAt : '메인 확인 대기') + '</div>' +
+      (h.autoResult && !h.confirmedAt ? '<div>자동 확인 결과</div><div class="warn">' + esc(h.autoResult.verdict || h.autoResult.status) + ' — ' + esc(h.autoResult.summary || '') + '</div>' : '') + '</div>' : '') +
     '<textarea id="hText" readonly rows="6" placeholder="인계하면 메인에게 붙여 넣을 안내문이 나타납니다">' + esc(ui.handoff[t.taskId] || '') + '</textarea>' +
     '<div class="actions">' + B('handoff', '메인에게 인계', s === 'review_pending' && !!r && !live, 'primary') + B('handoffauto', '인계 + 자동 확인', s === 'review_pending' && !!r && !live) + B('hshow', '안내문 다시 불러오기', !!h) +
     B('copy', '안내문 복사', !!ui.handoff[t.taskId], '', ' data-target="hText" data-what="인계 안내문"') +
@@ -21,10 +22,9 @@ export function panelHandoff(t, ui) {
 export function panelApprove(t, ui) {
   const s = t.status, r = t.result, sha = r && r.headSha;
   const seen = !!sha && !!ui.diff && ui.diff.key === t.taskId + ':' + sha;
-  const ts = testState(t), rv = reviewState(t), h = t.handoff;
-  const why = s !== 'review_pending' ? '' : !r || !r.checksPassed ? 'Git 검사 실패' : ts.status !== 'passed' ? '작업 테스트 ' + ts.text : !seen ? '먼저 "diff 보기"로 변경 내용을 확인하세요' : '';
+  const ts = testState(t), rv = reviewState(t), h = t.handoff, rvRunning = rv.status === 'active';
+  const why = s !== 'review_pending' ? '' : !r || !r.checksPassed ? 'Git 검사 실패' : ts.status !== 'passed' ? '작업 테스트 ' + ts.text : !seen ? '먼저 "diff 보기"로 변경 내용을 확인하세요' : !(h && !h.cancelledAt && h.confirmedAt && h.headSha === sha) ? '메인 인계가 끝나지 않음 — 인계하고 확인 완료 후 승인할 수 있습니다' : rvRunning ? '리뷰가 실행 중입니다' : '';
   const notes = s !== 'review_pending' || why ? [] : [
-    !(h && !h.cancelledAt && h.confirmedAt && h.headSha === sha) ? '메인 확인 전입니다 — 승인은 가능하지만 확인하세요' : '',
     rv.text !== '승인 의견' ? '리뷰: ' + rv.text + ' — 승인은 가능하지만 확인하세요' : '',
   ].filter(Boolean);
   const a = t.approval;

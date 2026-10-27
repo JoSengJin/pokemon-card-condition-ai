@@ -95,7 +95,7 @@ function buildRoutes() {
     registerApiRoute('/pair/api/tasks/:id/approve', {
       method: 'POST', handler: act(async (c) => {
         const t = ex().task(id(c)); const { sha } = await body(c);
-        const a = await ex().approve(t.taskId, String(sha ?? ''));
+        const a = await ex().approve(t.taskId, String(sha ?? ''), { requireHandoff: true });
         await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
         return a;
       }),

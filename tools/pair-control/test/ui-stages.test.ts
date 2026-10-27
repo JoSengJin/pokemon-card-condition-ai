@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 // @ts-ignore 화면용 ESM 모듈(타입 없음)
-import { currentKey, stagesOf, venvMissing, STAGES } from '../src/ui/js/stages.js';
+import { currentKey, gate, stagesOf, venvMissing, STAGES } from '../src/ui/js/stages.js';
 
 const SHA = 'a'.repeat(40);
 const base = (over: Record<string, unknown> = {}) => ({
@@ -67,7 +67,9 @@ test('검토 단계: 테스트 미실행이면 작업 테스트가 사람 차례
   assert.equal(by(st).tests, 'done');
   assert.equal(by(st).handoff, 'action');
   assert.match(st.find((s: any) => s.key === 'handoff').text, /codex에게 인계/);
-  assert.equal(by(st).approve, 'action', '인계는 승인의 필수 조건이 아님');
+  assert.equal(by(st).approve, 'todo', '앞 단계(메인 인계)가 끝나기 전에는 승인이 열리지 않음');
+  assert.match(st.find((s: any) => s.key === 'approve').text, /앞 단계\(메인 인계\) 완료 후/);
+  assert.equal(st.find((s: any) => s.key === 'approve').primary, null);
   assert.equal(currentKey(st), 'handoff');
 });
 
@@ -84,7 +86,8 @@ test('이전 SHA의 테스트 결과는 통과로 보지 않음, Git 검사 실�
 test('인계 진행 중이면 메인 차례, 인계 후 코드가 바뀌면 주의', () => {
   const h = { to: 'codex', headSha: SHA };
   let st = stagesOf(base({ status: 'review_pending', result, verification: passed, handoff: h }), null);
-  assert.equal(by(st).handoff, 'active');
+  assert.equal(by(st).handoff, 'action', '도는 프로세스가 없으면 회전(진행 중)이 아니라 사람이 할 일');
+  assert.equal(by(st).approve, 'todo');
   assert.equal(st.find((s: any) => s.key === 'handoff').who, 'codex');
   st = stagesOf(base({ status: 'review_pending', result, verification: passed, handoff: { ...h, headSha: 'c'.repeat(40) } }), null);
   assert.equal(by(st).handoff, 'warn');
@@ -106,4 +109,34 @@ test('승인·통합·통합 후 검사·푸시 단계', () => {
   assert.equal(by(st).postcheck, 'failed');
   assert.equal(by(stagesOf(base({ status: 'integration_conflict', ...ok }), null)).integrate, 'failed');
   assert.equal(by(stagesOf(base({ status: 'rejected', ...ok }), null)).approve, 'failed');
+});
+
+test('자동 확인: 별도 프로세스가 도는 동안만 진행 중, approve가 아니면 사람 차례로 남고 승인은 열리지 않는다', () => {
+  const h = { to: 'codex', headSha: SHA };
+  const rv = (over: any) => ({ reviewer: 'codex', forHandoff: true, sha: SHA, status: 'running', ...over });
+  let st = stagesOf(base({ status: 'review_pending', result, verification: passed, handoff: h, review: rv({}) }), null);
+  assert.equal(by(st).handoff, 'active');
+  assert.equal(by(st).approve, 'todo');
+  const res = { at: 'x', status: 'done', verdict: 'insufficient_evidence', summary: '근거 부족' };
+  st = stagesOf(base({ status: 'review_pending', result, verification: passed, handoff: { ...h, autoResult: res }, review: rv({ status: 'done', verdict: 'insufficient_evidence' }) }), null);
+  assert.equal(by(st).handoff, 'action');
+  assert.match(st.find((s: any) => s.key === 'handoff').text, /자동 확인 결과: 근거 부족/);
+  assert.equal(st.find((s: any) => s.key === 'handoff').primary.act, 'hconfirm');
+  assert.equal(by(st).approve, 'todo');
+  st = stagesOf(base({ status: 'review_pending', result, verification: passed, handoff: { ...h, confirmedAt: 'now', auto: true } }), null);
+  assert.equal(by(st).handoff, 'done');
+  assert.equal(by(st).approve, 'action', '메인 확인이 끝나면 승인이 열림');
+});
+
+test('단계 전환: 앞 단계가 끝나지 않으면 뒤 단계의 할 일은 대기로 낮추고, 선택 단계(리뷰) 의견은 막지 않는다', () => {
+  const mk = (key: string, status: string) => ({ key, label: key, status, text: '', primary: { act: 'x' } });
+  const out = gate([mk('a', 'done'), mk('b', 'action'), mk('c', 'action'), mk('d', 'todo')]);
+  assert.deepEqual(out.map((s: any) => s.status), ['done', 'action', 'todo', 'todo']);
+  assert.equal(out[2].primary, null);
+  const withReview = gate([mk('tests', 'done'), mk('review', 'warn'), mk('handoff', 'action')]);
+  assert.equal(withReview[2].status, 'action', '리뷰 의견(warn)은 뒤를 막지 않음');
+  const running = gate([mk('tests', 'done'), mk('review', 'active'), mk('handoff', 'action')]);
+  assert.equal(running[2].status, 'todo', '리뷰가 도는 동안은 대기');
+  const failed = gate([mk('gitcheck', 'failed'), mk('tests', 'action')]);
+  assert.deepEqual(failed.map((s: any) => s.status), ['failed', 'todo']);
 });
