@@ -56,3 +56,10 @@ edge_views 함수6→7, RegionAnalyzer 메서드2→3, listing_model3→3, listi
 계약 보충: infer_listings의 실제 feature 호출 위치가 edge_views.region_features로 옮겨져, 기존 OOM/입력변경 fault-injection 검사의 patch 대상을 실제 호출 위치로 옮긴다. 테스트 수/조건은 늘리지 않는다.
 
 실측 입력 정정(실행 전): 지정된 기존 report를 직접 파싱하니 정확한 지원/known 평가는27구역(양성15·정상12)/9면이다. 과거 다른26구역 benchmark와 혼동하지 않는다. 이 원래 report의 정답·구역/순서를 사전 필터 규칙으로 고정하며 원본을 바꾸지 않는다. 속도/동치 수용 기준은 동일하다.
+
+
+## 실측 뒤 채택 범위 축소 (원래 계획·기준·실패 판정 불변)
+
+실행225304-e0ad355a의 context는 median11.38%감소/점수차0, tiles는1.89%감소/점수차0이다. 두 모델 모두5%를 요구한 전체가설은실패다. 원래 plan/record/속도문장/분모를수정하거나 타일실패를통과로바꾸지않는다.
+
+최종 소스는 per-model5%를 충족한 context 경로만 공유디코딩을 유지한다. edge_views(True/tiles/tiles-max)는 기존 features_for 호출 경로로돌려구역별디코딩을보존한다. 동일타일자료를재측정하거나 새조건으로통과시키지않는다. 이최종분기는원본반환형·모델입력/forwardshape·원래점수와같음을 기존 회귀에서 재검증한다. context의 원래 측정 경로는 그대로이며, 최종routing의 별도CPU/MPS속도측정은미실행으로명시한다. 새성능조건을만들지않으며 원래실험전체는failed timing hypothesis로보고한다.
