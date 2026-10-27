@@ -1,6 +1,6 @@
 task_id: surface-smooth-presence-20261027
 owner: Codex
-status: implementing
+status: integrated
 base_sha: 4f5c4b03afb78d53c27e4057f52435cada369234
 branch: codex/surface-smooth-presence-20261027
 
@@ -37,3 +37,8 @@ rollback: 운영/기존모델소스수정없음. 미채택은전용연구파일/
 - 정상/실제점손실과gradient는bitwise동일,weak없는fit의coef/bias2e-6·목적값1e-8동치. weak동일토큰loss불변,유효토큰gradient분산·masked0·합성수렴과기존worker회귀합계13검사OK(1.070초). diff검사통과.
 - 이검사는성능증거가아니며main검사후실제4fold를1회실행한다. 기존4fold제안/원본·decoded분리와147/11cohort재생은기존공통검증을재사용한다. 현재실패가설은재시도하지않는다.
 - 실제수렴실패가생기면새실험failure-diagnostics.json에fold/gradient/objective/완료fold수를남기고raise하여공통record.failed를보존한다. 누락률/오탐률을만들지않는다.
+
+
+## Codex 최종실행 인계
+
+record20261027T144107-8f7674cd/statusfailed/front-joint-3/완료2fold/gradient2.461965647833353e-5/후보성능미측정。두가설모두재시도/온도·계수·margin·수렴조건변경0。최종17검사OK/입력SHA보존/운영모델변경0。정확한파일·실행·검증·HTML·리스크·롤백과worktree감사는동명reports에기록。source main/origin f75c0c5일치후문서push。
