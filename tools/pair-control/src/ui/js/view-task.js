@@ -39,6 +39,7 @@ export function renderTask(state, ui) {
     '<section class="stagePanel s-' + st.status + '"><h3><span class="num">' + idx + '</span> ' + esc(st.label) + ' <span class="pill s-' + st.status + '">' + WORD[st.status] + '</span>' +
       (lg ? ' <span class="small muted" id="logStat">' + statText(lg) + '</span>' : '') +
       (key !== cur ? ' <button type="button" class="link small" data-act="stage" data-stage="' + cur + '">지금 단계로</button>' : '') + '</h3>' + renderLog(lg, ui) +
+      (lg ? '' : '<div class="small muted logHint">실행 로그는 ' + ['build', 'tests', 'review', 'postcheck'].map((k) => '<button type="button" class="link" data-act="stage" data-stage="' + k + '">' + (stages.findIndex((x) => x.key === k) + 1) + '. ' + esc(stages.find((x) => x.key === k).label) + '</button>').join(' · ') + ' 단계에서 볼 수 있습니다(누르면 그 단계로 이동).</div>') +
       '<p class="desc">' + esc(st.desc) + '</p><div class="small muted">담당: ' + esc(st.who) + ' · 상태: ' + esc(st.text) + '</div>' +
       '<div class="panelBody">' + PANELS[key](t, ui) + (key === 'push' && state.push ? '<h4>푸시 기록</h4>' + pushRecords(state.push.records) : '') + '</div></section>' +
     runInfo(t, ui);
