@@ -18,6 +18,8 @@ const ACTIONS = {
 };
 
 
+// 보기만 하거나 선택을 바꾸는 동작은 보던 단계에 머문다. 나머지 작업 동작은 성공하면 지금 단계로 화면이 따라간다.
+const STAY = new Set(['prompt', 'hshow', 'diff', 'archive', 'unarchive', 'discard', 'archivefin']);
 export function onClick(ev) {
   const el = ev.target.closest('[data-act]');
   if (!el || el.disabled) return;
@@ -91,6 +93,7 @@ export async function run(act, el) {
     say(m[0], m[1]);
   } catch (e) {
     say(a.n + ' 실패: ' + e.message, 'bad');
+    if (t && !a.g && !STAY.has(act)) delete ui.stage[t.taskId]; // 고정을 풀면 renderTask가 지금 단계를 연다
     if (act === 'maincheck') ui.mainBlockers = { error: e.message };
   }
   ui.rerender();
