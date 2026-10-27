@@ -27,3 +27,7 @@ checks: 같은사진/실물/정확종류/직접normal만쌍구성·held제외·c
 HTML: 새실험index.html실제사진의정답/점수/누락오탐·분모/%p/반복개발·독립아님,추적동명reports HTML의실제성과/30점/검사/위험/롤백. 열기와렌더확인구분.
 리스크: 3쌍/2실물뿐이며다른crop맥락차이가있다. source조건을줄이는감독가설이지새실물일반화나위치IoU보장이아니다. 수치미달시운영채택0.
 rollback: 운영source미변경. 미채택연구코드와실험은보존하고운영경로미연결. 코드제거는통합SHA를 ./develop -- git revert 후관련검사/일반push. 기존/새실험기록은삭제하지않는다.
+
+## 구현 인계
+
+helper4/worker2/검사5함수(AST실측,검사fixture포함). 소스경로최대3전이,기존weak/point/normal손실·mass·L2·solver보존,추가항만rankloss로분리. pair없는fit은baseline과coef/bias2e-6·목적값1e-8동치. rankgradient는정확점상승/명시적정상만하강이며전체logit동일shift의gradient합0(1e-12). 다른실물·held제외·잘못된종류·unknown정상·point-normal기하모순차단,합성수렴과기존worker합계13검사OK(1.099초). 실제고정캐시의3쌍/2실물과직접사람응답동일성은main에서실행전/worker에서재검사한다. 실제성능검증은아직실행전이다.
