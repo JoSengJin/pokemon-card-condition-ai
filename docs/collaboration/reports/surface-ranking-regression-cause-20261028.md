@@ -1,0 +1,73 @@
+# 새 누락2·새 오탐2의 원인 진단 — 2026-10-28 KST
+
+개발 진척률 **30/100(+0%p)**. 고정 모델을 재학습 없이 재생해, 네 오류가 단순 절편이나 최대반응 위치만의 문제가 아니라 **학습 계수 방향이 달라진 영향**임을 수치로 확인했다. 특정 사진/학습쌍이 왜 그 방향을 만들었는지까지 확정한 것은 아니다.
+
+## 실제 실행·판정
+
+- record: `artifacts/experiments/20261027T211902-7ae1cc41/record.json` (UTC폴더명, 실행KST2026-10-28).
+- status=completed. fit0·backbone0. 저장head의cache투영과국소gradient검산만 실행했다.
+- 양쪽147저장점수/91앞면map 재생오차0. 가산분해와분석/autograd검산 통과. 아래의counterfactual로모델/threshold를선택하지않았다.
+- primary_acceptance_passed=true는후보145641의FN15/94·FP18/53·typed21/51을그대로재생했다는뜻이다. 전체acceptance=false이며모델개선이아니다.
+
+## 4개 오류의 수치 분해
+
+두 모델이 실제 학습에 쓴 같은 training center에서 `Δmaxlogit = Δcentered_bias + 기존peak의Δcoef반응 + peak이동`으로 분해했다. 원래bias만보면좌표원점에따라오해할수있어center를고정했다. 양수는손상원점수증가, 음수는감소다.
+
+| 사례(고정row index) | 사람정답 | centered절편 | 계수방향 | peak이동 | 총logit변화 |
+|---|---:|---:|---:|---:|---:|
+| 새누락58 |1|-0.092503|-0.418135|+0.005303|-0.505336|
+| 새누락72 |1|-0.012680|-0.651515|+0.181633|-0.482562|
+| 새오탐9 |0|+0.014245|+0.248473|0|+0.262718|
+| 새오탐21 |0|-0.069928|+0.108992|+0.039481|+0.078544|
+
+- 계수방향만 바꿔도 네사례 모두 판정이 뒤집힌다.
+- 절편만 바꾸면72 한사례는 경계를넘지만 나머지3사례는넘지 않는다. 즉72도 절편만의 문제로단정할수없다.
+- peak이동은 두누락에서 오히려 하락을 일부 완화했다. 오탐21에서는상승을더했으나계수변화만으로도오탐이난다.
+- 네사례는서로다른4fold에서발생했다. 새누락2개의사람정답은human_region의손상1이며정확클릭점은없다. ID의normal이라는문자열을정상정답으로읽지않는다. 실제점51의누락이동일한것과모순되지않는다.
+
+## training 대조쌍과 최적화 경로
+
+고유 대조는3쌍/2실물이고fold내노출합계11개다. 모든기존모델에서point-minus-normal-bound margin이요구1을이미넘었다(3.2807~5.2731). 그래도softplus는0이되지않아작은추가gradient가남았다.
+
+그국소gradient의4사례점수변화예상방향은실제최종변화와3/4에서반대였다. 실제계수변화와rank하강gradient의cosine도작았다. 따라서한쌍을범인으로지목하거나국소gradient를전체재학습의인과효과라고해석하지않는다. 원래weak-presence hardmax가비볼록이고, 추가항이최적화경로를바꿀가능성이남는다.
+
+첫fold에서같은새목적함수를기존모델에계산한값은0.2700849013이고,0초기화후보는0.2714126737로더높았다. 이수치차이가초기값만기존동일fold모델로바꾸는후속가설의근거다. 전체fold에서cold가더나쁜목적값이라는주장은하지않는다.
+
+## 변경 파일·검사
+
+- `tools/experiments/surface-ranking-regression-cause-20261028/worker.py`: 같은147행/91앞면/4fold/11cohort를재생하고center가산분해·peak/counterfactual·same-photo margin/gradient를검산한다. optimizer/fit호출없음.
+- 같은폴더 `plan.json`: 읽기전용가설·오차허용값·원래4오류·소스/사진SHA·11cohort를동결했다.
+- `tests/test_ranking_regression_cause.py`: 가산식/peak이동,center좌표변화시총logit불변,분석식-autograd/공통bias상쇄 검산.
+- `docs/collaboration/tasks/surface-ranking-regression-cause-20261028.md`, 이MD/동명HTML: 고정범위·실제근거·한계·롤백.
+
+격리관련7검사OK(3.803초),main동일7검사OK(0.970초),sourceworker5/test3함수. 분석경로의프로젝트호출최대1전이. source aa116ff, 실제명령 `./experiment --plan tools/experiments/surface-ranking-regression-cause-20261028/plan.json -- .venv/bin/python artifacts/surface-ranking-regression-cause-20261028/worker.py`.
+
+최대가산오차 1.73e-15, 최대분석/autograd오차 1.56e-17. 이들은수식/재생검증값이며모델품질수치가아니다. 실제사진과4오류/5복구·분모/%p: `artifacts/experiments/20261027T211902-7ae1cc41/index.html`.
+
+## 리스크·롤백
+
+가산분해는정확한수치설명이나특정사진속성이진짜손상과혼동되는의미상원인을증명하지않는다. 국소 기울기와 중심을 맞춘 좌표의 가상 비교는 해석 범위가 제한된다. 사람정답/geometry/threshold는고치지않았다.
+
+제거는 `./develop -- git revert aa116ff` 후관련검사/일반push. 모델/정답복구불필요,기존/새진단기록은보존한다.
+
+## 에튜 포인트
+
+절편과계수의분해는좌표원점에영향받는다. 입력에서center를빼면같은예측을유지하려고절편에center·coef를더해야한다. 이번에는같은학습center로맞춰, 단순rawbias변화만보고원인을잘못지목하지않았다.
+
+## 고정 기준·보존·호출·원격
+
+진척은 PROGRESS_CRITERIA.md와 development-progress.json의 usable-card-analysis-v1.0 **30/100(+0%p)** 유지다. 같은 개발 자료의 분해/수렴/수치 보호가 전 범위 품질·독립 검증·실사용 완료를 뜻하지 않는다. C의 정답·분모·threshold.5와 기존11cohort의 정답/기준을 그대로 보존했다.
+
+Claude 데이터 보완 checkout·새 사진/정답/manifest·기존 cache/head/실험 기록·card_condition 운영source·PokeCollector·Gemini fallback을 수정하지 않았다. 기존 source/사진/사람응답과 각record.files의 SHA를 최종 대조했다. 모든 source편집은 ./develop, 실제진단/학습은 canonical ./experiment로 직렬 실행했다. 외부 Gemini/Codex 호출0·새 backbone forward0·새라벨0·운영채택0이다.
+
+development-review policy의 session_id가 현재 세션과 달라 자동 handoff/next_steps/token_report는 생성되지 않았다. artifacts/development-cycle/latest.json은 이전 세션 기록이며 이번 결과를 대체하지 않는다.
+
+검증한 코드 main/origin aedfd16ad944fd516df4c98e3560f30d4e732e38 일치를 확인했고 이 결과 문서는 후속 커밋으로 일반 push한다. force push와이력재작성 없음.
+
+통합·push 뒤 이전 Codex ranking·원인진단 checkout은 고유커밋의main대응·clean·Git작업없음·비차단개발잠금·고유lock증거SHA보존 후 일반 worktree remove로 정리했다. 브랜치/이력과실험은보존하고최신warm-start checkout만롤백용으로유지했다. Claude 데이터/작성중/미통합/부분통합 및 다른 Codex checkout은 건드리지 않았다. 감사: artifacts/surface-ranking-warm-start-20261028/worktree-cleanup/audit.json.
+
+## 다음 실제 성능 개선의 의존
+
+현재 같은사진 대조 감독의 유일한 원본은3쌍/2실물이고, 기존모델이 이미 그순위요구를모두충족했다. 같은 계수·margin·온도·초기값을 더 탐색하거나 평가 정답을 고치는 방식으로 진행하지 않는다. 새오류4개 사례를 학습에 집어넣지도 않았다.
+
+다음 근거있는 학습에는 다른 실물에서 명시적으로 확인한 실제점–같은사진정상 대조와 올바른종류의 실제점 검증 자료가 필요하다. 이는 Claude 데이터 보완의 인계 의존이며 이 턴에서 대신 수집/라벨링하거나 완료 라벨을 재요청하지 않았다. 촬영/그림/진짜손상 혼동의 의미상 원인과 특정 training쌍의 인과기여는 아직 미확정이다. 근거 없이 원인을 사용자 라벨 오류로 돌리지 않는다.
