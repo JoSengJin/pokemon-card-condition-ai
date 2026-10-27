@@ -7,14 +7,20 @@ export const PAID_ENV_KEYS = [
   'MASTRA_CLOUD_ACCESS_TOKEN', 'MASTRA_API_KEY',
 ];
 
+/** 과금 상태를 뜻하는 billing 구절: "billing is required/not enabled", "billing error/issue/limit", "enable/update/add billing" 등. */
+export const BILLING_STATE = /\b(billing (is |has been |was )?(not )?(enabled|set up|required|failed|disabled|error|issue|problem|limit)|(enable|update|add|set up|fix) (your |a )?billing|billing (details|information) (are |is )?(required|missing))\b/i;
+
 /** API 과금이 실제로 시작됐거나 곧 시작될 때 나오는 문구. 서비스를 즉시 종료한다. */
 export const PAID_LOG_HARD = [
   /credit balance/i, /insufficient[_ ]quota/i, /payment (required|method)/i, /\$\d+(\.\d+)? (charged|per)/i,
   /api usage (charges|billing)/i, /pay[- ]as[- ]you[- ]go/i, /usage[- ]based (pricing|billing)/i,
+  // Claude Code 오류 문서: 사용 크레딧(구독 초과분 과금)이 쓰이고 있거나 필요하다는 뜻이다.
+  /hit your monthly spend limit/i, /usage credits required/i,
 ];
 /** 구독 한도 안내문에도 섞여 나올 수 있는 권유성 문구. 한도 도달 문구와 함께 나오면 정지로만 처리한다. */
 export const PAID_LOG_SOFT = [
-  /\bbilling\b/i, /extra usage/i, /purchase (more )?credits/i, /upgrade (to|your) (pro|plus|max|team|plan)/i,
+  // "billing" 단독 단어는 코드·지침 문서 예시(billing/close_day.py 등)에도 나와 오탐이 난다. 과금 상태를 뜻하는 구절만 잡는다.
+  BILLING_STATE, /extra usage/i, /purchase (more )?credits/i, /add credits to continue/i, /upgrade (to|your) (pro|plus|max|team|plan)/i,
 ];
 export const PAID_LOG_PATTERNS = [...PAID_LOG_HARD, ...PAID_LOG_SOFT];
 

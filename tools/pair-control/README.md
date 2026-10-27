@@ -196,7 +196,7 @@ npm start -- --demo           # http://127.0.0.1:4111/pair , Studio http://127.0
 유료 전환 신호가 보이면 서비스(이 실행기의 `mastra dev` 프로세스 그룹과 그 자식 실행)를 종료하고 macOS 알림 + 콘솔 + `.state/alerts/paid-risk.json`으로 알린다. 알림을 `npm run guard:ack`로 확인하기 전에는 다시 시작하지 않는다.
 
 - 시작 시 환경변수 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `CODEX_API_KEY`, `GEMINI_API_KEY`, `MASTRA_CLOUD_ACCESS_TOKEN` 등(`src/executor/paidSignals.mjs`)이 있으면 시작 거부. 값은 기록하지 않는다.
-- 실행 로그에서 확실한 과금 문구(`credit balance`, `insufficient_quota`, `payment required` 등) 또는 권유성 문구(`billing`, `extra usage`, `upgrade to …`)를 감지하면 모든 실행을 중단하고 서버를 종료한다. 단 구독 한도 도달 문구와 함께 나온 권유성 문구는 정지로만 처리한다(위 "실제 CLI 무과금 조건").
+- 실행 로그에서 확실한 과금 문구(`credit balance`, `insufficient_quota`, `payment required` 등) 또는 권유성 문구(`billing is required`·`billing error` 같은 과금 상태 구절, `extra usage`, `upgrade to …`; `billing` 단독 단어는 코드·지침 예시에도 나와 제외, 공식 오류 문서의 `monthly spend limit`·`usage credits required`는 확실한 과금 문구)를 감지하면 모든 실행을 중단하고 서버를 종료한다. 단 구독 한도 도달 문구와 함께 나온 권유성 문구는 정지로만 처리한다(위 "실제 CLI 무과금 조건").
 - 자식 프로세스 환경은 허용 목록(PATH/HOME 등)만 전달하고 위 키를 항상 제거. `MASTRA_TELEMETRY_DISABLED=1`.
 - real 모드는 `allowRealModelCalls=true`, `confirmedSubscriptionAuth=true`와 위 무과금 검사를 모두 통과해야 시작.
 - `mastra deploy`/`server`/`auth`/`connect` 등 클라우드 명령은 호출하지 않는다.
