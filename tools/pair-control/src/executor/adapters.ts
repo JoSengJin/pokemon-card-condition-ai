@@ -77,7 +77,7 @@ export function mockPlan(task: TaskInputT, cfg: PairConfig): LaunchPlan {
 export const CLAUDE_ALLOWED_TOOLS = ['Read', 'Edit', 'Write', 'Bash(git status *)', 'Bash(git diff *)', 'Bash(git log *)', 'Bash(git add *)', 'Bash(git commit *)',
   // 읽기 전용 탐색과 단위 테스트. 복합 명령(; | &&)은 조각마다 허용돼야 하므로 head/grep 등도 포함한다.
   'Bash(ls *)', 'Bash(cat *)', 'Bash(head *)', 'Bash(tail *)', 'Bash(grep *)', 'Bash(wc *)',
-  'Bash(.venv/bin/python -m pytest *)', 'Bash(.venv/bin/python --version)'];
+  'Bash(.venv/bin/python -m unittest *)', 'Bash(.venv/bin/python -m pytest *)', 'Bash(.venv/bin/python --version)'];
 
 export function agentPrompt(task: Pick<TaskInputT, 'taskId' | 'goal'>) {
   // 긴 지시는 커밋된 계약 파일에 있다. CLI 인자에는 계약 경로만 넘겨 인자 길이 제한을 피한다.
