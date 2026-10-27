@@ -4,17 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pair-control 관제</title>
+<script>try { var t = localStorage.getItem('pairTheme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) { /* 저장이 막힌 환경 */ }</script>
 <style>
 :root {
   --bg: #f6f6f3; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #dddcd6; --chip: #efeee9; --code: #f1f0ec;
   --ok: #1f7a4d; --warn: #a15c00; --bad: #b3261e; --info: #2457a6; --on: #ffffff;
   --ok-bg: #e6f3ec; --warn-bg: #fbf0dc; --bad-bg: #fbe7e5; --info-bg: #e7eefa;
 }
+/* 어두운 색: 시스템이 다크이고 사용자가 "밝게"를 고르지 않았을 때, 또는 사용자가 "어둡게"를 골랐을 때 */
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #151514; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f99; --line: #3a3935; --chip: #2a2a27; --code: #262623;
+  :root:not([data-theme="light"]) { --bg: #151514; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f99; --line: #3a3935; --chip: #2a2a27; --code: #262623;
     --ok: #5cc28d; --warn: #e5ab45; --bad: #f07a70; --info: #7aa7f0; --on: #151514;
     --ok-bg: #1d3328; --warn-bg: #3a2c14; --bad-bg: #3d1f1c; --info-bg: #1c2840; }
 }
+:root[data-theme="dark"] { --bg: #151514; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f99; --line: #3a3935; --chip: #2a2a27; --code: #262623;
+  --ok: #5cc28d; --warn: #e5ab45; --bad: #f07a70; --info: #7aa7f0; --on: #151514;
+  --ok-bg: #1d3328; --warn-bg: #3a2c14; --bad-bg: #3d1f1c; --info-bg: #1c2840; }
+:root[data-theme="light"] { color-scheme: light; } :root[data-theme="dark"] { color-scheme: dark; }
+.themeSeg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.themeSeg button { border: 0; border-radius: 0; padding: 2px 10px; font-size: 12px; background: var(--panel); }
+.themeSeg button + button { border-left: 1px solid var(--line); }
+.themeSeg button[aria-pressed="true"] { background: var(--info); color: var(--on); font-weight: 600; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif; }
@@ -155,6 +165,9 @@ details > summary { cursor: pointer; }
   <span id="connKind" class="chip">…</span>
   <span id="guard" class="chip" title="과금 신호(API 키 환경변수·과금 문구)를 감지하지 못했다는 뜻입니다. 무료 사용이나 인증 성공을 보장하지 않습니다.">…</span>
   <a href="/" target="_blank" rel="noopener" class="muted small">Mastra Studio ↗</a>
+  <span class="themeSeg" role="group" aria-label="화면 색" style="margin-left:auto">
+    <button type="button" data-theme-set="system" aria-pressed="true" title="컴퓨터의 라이트/다크 설정을 따릅니다">시스템</button><button type="button" data-theme-set="light" aria-pressed="false">밝게</button><button type="button" data-theme-set="dark" aria-pressed="false">어둡게</button>
+  </span>
 </header>
 <div id="connBar" class="connBar"></div>
 <details id="mainBox" class="mainBox">
