@@ -78,7 +78,7 @@ export function renderLog(g, ui) {
     '<input class="logfind" data-keep="logFind" value="' + esc(ui.keep.logFind || '') + '" placeholder="찾기(일치하는 줄만)" aria-label="로그 찾기"' + (off ? ' disabled' : '') + '>' +
     B('logfollow', follow ? '따라가기 켜짐' : '따라가기 꺼짐', !off, '', ' id="logFollowBtn"') + B('logpause', paused ? '이어서 보기' : '일시정지', !off) +
     B('copy', '복사', !off, '', ' data-target="log" data-what="로그"') + '</div>' +
-    '<pre id="log" tabindex="0">' + (rows.length ? paintLines(rows) : esc(note)) + '</pre>' +
+    '<pre id="log" tabindex="0"' + (rows.some((r) => r.t) ? '' : ' class="nots"') + '>' + (rows.length ? paintLines(rows) : esc(note)) + '</pre>' +
     '<div class="logfoot small muted"><span id="logFoot">' + footText(g, ui) + '</span><span>비밀값은 기록 전에 가려집니다 (sk-…, Bearer …)</span></div></div>';
 }
 
@@ -90,5 +90,6 @@ export function paintLog(g, ui) {
   if (!pre) return;
   const rows = logRows(ui, g.id);
   if (rows.length) pre.innerHTML = paintLines(rows); // 색 입힌 줄(복사는 textContent라 글자만 복사됨)
+  pre.classList.toggle('nots', !rows.some((r) => r.t)); // 받은 시각이 한 줄도 없으면(지난 기록) 시각 칸을 없앤다
   if (ui.keep.logFollow !== false) pre.scrollTop = pre.scrollHeight;
 }
