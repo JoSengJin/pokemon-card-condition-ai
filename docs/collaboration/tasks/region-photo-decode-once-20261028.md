@@ -2,7 +2,7 @@
 
 - task_id: region-photo-decode-once-20261028
 - owner: Codex
-- status: implementing
+- status: integrated
 - base_sha: 1a0c3c1c85a01a5f15c989a888ee0856532a8d53
 - branch: codex/region-photo-decode-once-20261028
 - worktree: 로컬 전용
@@ -63,3 +63,8 @@ edge_views 함수6→7, RegionAnalyzer 메서드2→3, listing_model3→3, listi
 실행225304-e0ad355a의 context는 median11.38%감소/점수차0, tiles는1.89%감소/점수차0이다. 두 모델 모두5%를 요구한 전체가설은실패다. 원래 plan/record/속도문장/분모를수정하거나 타일실패를통과로바꾸지않는다.
 
 최종 소스는 per-model5%를 충족한 context 경로만 공유디코딩을 유지한다. edge_views(True/tiles/tiles-max)는 기존 features_for 호출 경로로돌려구역별디코딩을보존한다. 동일타일자료를재측정하거나 새조건으로통과시키지않는다. 이최종분기는원본반환형·모델입력/forwardshape·원래점수와같음을 기존 회귀에서 재검증한다. context의 원래 측정 경로는 그대로이며, 최종routing의 별도CPU/MPS속도측정은미실행으로명시한다. 새성능조건을만들지않으며 원래실험전체는failed timing hypothesis로보고한다.
+
+
+## 최종 인계
+
+실측record20261027T225304-e0ad355a statuscompleted/timing false/품질false,context11.38%/tiles1.89%/점수차0. 최종source71a4f9b(context공유·타일복원),격리6064dcf. 최종관련30검사 양쪽OK. source함수7/3/3/1·최대4전이. 정확도불변·진척30유지·Claude자료변경0. 보고 MD/HTML은동명reports,사진은실험index.html. HTML열기응답과렌더미확인은최종보고서참조. 코드main/origin동기화후이전Codexcheckout정리·최신6064dcf유지감사확인. 롤백은최신분기71a4f9b와구현fda342c를함께revert,실험기록보존.
