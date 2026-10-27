@@ -80,13 +80,19 @@ def batched_patch_features(backbone, row, device, edge_views=False, image_size=2
 
 
 def region_features(backbone, rows, device, edge_views=False, image_size=224, batch_views=False):
-    """Decode one face once; preserve each region's forward shape and view order."""
+    """Share context decoding; other policies retain their original per-region input path."""
     if not rows:
         return
     if not torch.is_inference_mode_enabled() or any(module.training for module in backbone.modules()):
         raise ValueError('Shared photo views require inference mode and an eval backbone')
     if len({(r['image'],tuple(r['card_box'])) for r in rows})!=1:
         raise ValueError('Shared photo views require one image and card box')
+    # Tile/view timing did not meet the frozen gate; retain its original decode path.
+    if edge_views:
+        features_for=batched_patch_features if batch_views else patch_features
+        for row in rows:
+            yield features_for(backbone,row,device,edge_views,image_size)
+        return
     boxes=[[r['box'], *(fixed_tile_boxes(r) if edge_views in ('tiles','tiles-max')
              else edge_view_boxes(r) if edge_views else [])] for r in rows]
     stream=view_tensors(rows[0]['image'],[box for group in boxes for box in group],image_size)

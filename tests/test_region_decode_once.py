@@ -11,7 +11,7 @@ from card_condition.regions import GLARE_AREAS,REGION_LABELS
 
 
 class RegionDecodeOnceTests(unittest.TestCase):
-    def test_same_outputs_and_one_decode_for_all_existing_policies(self):
+    def test_same_outputs_and_only_context_shares_decode(self):
         torch.set_num_threads(1)
         with tempfile.TemporaryDirectory() as folder:
             image=Path(folder)/'photo.png';Image.effect_noise((137,213),31).convert('RGB').save(image)
@@ -29,7 +29,7 @@ class RegionDecodeOnceTests(unittest.TestCase):
                                 self.assertEqual(9,opened.call_count)
                             with patch('PIL.Image.open',wraps=Image.open) as opened:
                                 new=analyzer.analyze_regions(str(image),[.03,.07,.98,.99],list(GLARE_AREAS),batch_views=batch)
-                                self.assertEqual(1,opened.call_count)
+                                self.assertEqual(9 if policy else 1,opened.call_count)
                             for a,b in zip(old,new):
                                 a.pop('elapsed_seconds');b.pop('elapsed_seconds');self.assertEqual(a,b)
 
