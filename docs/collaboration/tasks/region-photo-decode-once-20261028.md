@@ -23,6 +23,7 @@ ListingAnalyzer.analyze와 infer_listings는 같은 면의 각 구역마다 patc
 - tests/test_region_decode_once.py
 - tests/test_listing_model.py
 - tests/test_listing_coverage.py
+- tests/test_listing_inference.py
 - tools/experiments/region-photo-decode-once-20261028/worker.py
 - tools/experiments/region-photo-decode-once-20261028/plan.json
 - docs/collaboration/tasks/region-photo-decode-once-20261028.md
@@ -51,3 +52,5 @@ edge_views 함수6→7, RegionAnalyzer 메서드2→3, listing_model3→3, listi
 
 입력사진은 면당 1장의 디코딩RGB를 해당 스트림 동안 보유한다. 구역view는 기존 한 구역 분량만 보유한다. 메모리/CPU/MPS별속도/처리량 일반화는 실측없으면 미확인으로 둔다. 운영fallback/라벨/정답은 불변이다.
 롤백: 통합 소스커밋을 ./develop -- git revert 후 관련검사/일반push, 실험기록은 보존. 통합·push뒤 기존 Codex 완료checkout만 잠금/고유증거SHA 확인 후 정리, 최근1개 유지. Claude/미통합 checkout보존.
+
+계약 보충: infer_listings의 실제 feature 호출 위치가 edge_views.region_features로 옮겨져, 기존 OOM/입력변경 fault-injection 검사의 patch 대상을 실제 호출 위치로 옮긴다. 테스트 수/조건은 늘리지 않는다.
