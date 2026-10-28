@@ -11,6 +11,9 @@
 ## 소유 파일
 
 allowed_files:
+- tools/experiments/surface-preserved-heads-20261028/audit.py
+- tools/experiments/surface-preserved-heads-20261028/worker-audit.py
+- tools/experiments/surface-preserved-heads-20261028/plan-audit.json
 - tools/experiments/surface-preserved-heads-20261028/features.py
 - tools/experiments/surface-preserved-heads-20261028/nonlinear.py
 - tools/experiments/surface-preserved-heads-20261028/worker.py
@@ -45,7 +48,7 @@ pointhead: 기존정확점양성bag+명시적정상bag만학습,좌표없는양�
 
 ## 구조·검사·실행
 
-features1함수,nonlinear최대4(closure포함),worker최대4,새test최대5. fit_fold→fitter→closure→detail_bag_loss→point_bag_loss최대4전이. 단위검사는원형임베딩logit동치·패딩/변환지역성,역할별선정/라벨보존과logit평균식,MLP초기출력/gradient·학습/평가forward재생을검산한다. 실제실험은기본checkout ./experiment에서3개를직렬1회씩실행하며소스수정/통합은 ./develop 안에서만한다.
+features1함수,nonlinear최대4(closure포함),worker최대4,새test최대7. fit_fold→fitter→closure→detail_bag_loss→point_bag_loss최대4전이. 단위검사는원형임베딩logit동치·패딩/변환지역성,역할별선정/라벨보존과logit평균식,MLP초기출력/gradient·학습/평가forward재생을검산한다. 실제실험은기본checkout ./experiment에서3개를직렬1회씩실행하며소스수정/통합은 ./develop 안에서만한다.
 
 진척은PROGRESS_CRITERIA.md/development-progress.json의30/100 유지,완료조건을실제충족한증거만가산한다. 사진위사람정답/모델출력·같은분모FN/FP/%p·실제점51·record상태/전체수용·미검증/리스크·sourceSHA·열기요청/렌더확인을동명MD/HTML에적는다. 기록기준통과와독립일반화는구분한다.
 
@@ -57,3 +60,12 @@ features1함수,nonlinear최대4(closure포함),worker최대4,새test최대5. fi
 최초비선형실행101414-6b20743e는첫fold학습결과를float32map에넣을때float64확률로RuntimeError가발생해failed다. 관찰결과/품질수치는생성되지않았고가설성능미평가다. dtype오류라는구체구현근거를수정하며폭/seed/L2/손실/수렴기준/임계값을바꾸지않는다.
 
 fit_fold의반환확률을모든후보에서기존base map의float32에맞춘다. rawMLP학습/저장head는float64그대로다. float64feature->float32map대입회귀1개를추가하고기존4검사도유지한다. 실패snapshot을baseline으로등록한plan-nonlinear-storage-fix.json의고유ID surface-nonlinear-head-storage-fix-20261028로검증후한번실행한다. 이전실패plan/record/worker mirror는덮어쓰지않고수정본은ignored storage-fix/하위별도mirror에둔다. 자동재시도나모델가설튜닝이아니라판정이없었던실행오류의수정이며실패기록도함께보고한다.
+
+
+## 완료 후보의 training/held 원인 분리 진단
+
+H1의4fold학습목적은0.215~0.226으로원래0.265~0.271보다낮지만held오탐/실제점누락이늘었다. H2는오탐9/53으로줄었으나누락28/94로늘었다. MLP수정실행은3번째fold에서gradient1.1174e-5로수렴미달(2fold만완료)이므로전체성능미측정/재시도0이다.
+
+추가학습대신audit.py(최대5함수)/worker-audit.py(최대2)/plan-audit.json으로한번진단한다. 원래4fold별같은training rows와heldrows에서원래head/H1/H2고정head의구역최대·기존실제점응답을계산한다. H2 point/presence 개별경로도보되후보선택/혼합비율튜닝에사용하지않는다. training행은fold사이반복되므로합산정확도·독립표본으로세지않는다.
+
+H1은같은확장입력에서[w_original,0] 임베딩목적값을실제계산해원래기록과2e-5내재생,새head목적과비교한다. 저장heldmap재생<=2e-5·모든그룹/raw/decoded분리·원래147/11cohort실제checkpoint재생·inputSHA보존이진단성공기준이다. 학습과held간차이가확인돼도데이터부족/과적합을원인으로단정하지않고,표현/정규화/감독구조가함께변한한계도명시한다. 이진단은new fit0이고기존모델품질통과/score상승아님. 결과보고서에원래MLP실패2건을모두보존한다.
