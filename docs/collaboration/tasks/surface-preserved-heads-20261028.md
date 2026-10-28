@@ -17,6 +17,7 @@ allowed_files:
 - tools/experiments/surface-preserved-heads-20261028/plan-preserved.json
 - tools/experiments/surface-preserved-heads-20261028/plan-separated.json
 - tools/experiments/surface-preserved-heads-20261028/plan-nonlinear.json
+- tools/experiments/surface-preserved-heads-20261028/plan-nonlinear-storage-fix.json
 - tests/test_surface_preserved_heads.py
 - docs/collaboration/tasks/surface-preserved-heads-20261028.md
 - docs/collaboration/reports/surface-preserved-heads-20261028.md
@@ -44,8 +45,15 @@ pointhead: 기존정확점양성bag+명시적정상bag만학습,좌표없는양�
 
 ## 구조·검사·실행
 
-features1함수,nonlinear최대4(closure포함),worker최대4,새test최대4. fit_fold→fitter→closure→detail_bag_loss→point_bag_loss최대4전이. 단위검사는원형임베딩logit동치·패딩/변환지역성,역할별선정/라벨보존과logit평균식,MLP초기출력/gradient·학습/평가forward재생을검산한다. 실제실험은기본checkout ./experiment에서3개를직렬1회씩실행하며소스수정/통합은 ./develop 안에서만한다.
+features1함수,nonlinear최대4(closure포함),worker최대4,새test최대5. fit_fold→fitter→closure→detail_bag_loss→point_bag_loss최대4전이. 단위검사는원형임베딩logit동치·패딩/변환지역성,역할별선정/라벨보존과logit평균식,MLP초기출력/gradient·학습/평가forward재생을검산한다. 실제실험은기본checkout ./experiment에서3개를직렬1회씩실행하며소스수정/통합은 ./develop 안에서만한다.
 
 진척은PROGRESS_CRITERIA.md/development-progress.json의30/100 유지,완료조건을실제충족한증거만가산한다. 사진위사람정답/모델출력·같은분모FN/FP/%p·실제점51·record상태/전체수용·미검증/리스크·sourceSHA·열기요청/렌더확인을동명MD/HTML에적는다. 기록기준통과와독립일반화는구분한다.
 
 롤백은통합source/plan커밋을 ./develop -- git revert 후검사/일반push,기존모델/정답복구불필요. 실험head/기록은보존한다. 원격동기화후최근완료checkout1개만유지하며이전Codex완료checkout은lock·고유증거SHA확인후정리,Claude/미통합/사용중checkout은보존한다.
+
+
+## 비선형 실행 오류 보완 계약
+
+최초비선형실행101414-6b20743e는첫fold학습결과를float32map에넣을때float64확률로RuntimeError가발생해failed다. 관찰결과/품질수치는생성되지않았고가설성능미평가다. dtype오류라는구체구현근거를수정하며폭/seed/L2/손실/수렴기준/임계값을바꾸지않는다.
+
+fit_fold의반환확률을모든후보에서기존base map의float32에맞춘다. rawMLP학습/저장head는float64그대로다. float64feature->float32map대입회귀1개를추가하고기존4검사도유지한다. 실패snapshot을baseline으로등록한plan-nonlinear-storage-fix.json의고유ID surface-nonlinear-head-storage-fix-20261028로검증후한번실행한다. 이전실패plan/record/worker mirror는덮어쓰지않고수정본은ignored storage-fix/하위별도mirror에둔다. 자동재시도나모델가설튜닝이아니라판정이없었던실행오류의수정이며실패기록도함께보고한다.
