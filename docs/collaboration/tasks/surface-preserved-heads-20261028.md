@@ -11,6 +11,9 @@
 ## 소유 파일
 
 allowed_files:
+- tools/experiments/surface-preserved-heads-20261028/worker-layer8.py
+- tools/experiments/surface-preserved-heads-20261028/plan-layer8.json
+- tests/test_surface_layer8.py
 - tools/experiments/surface-preserved-heads-20261028/audit.py
 - tools/experiments/surface-preserved-heads-20261028/worker-audit.py
 - tools/experiments/surface-preserved-heads-20261028/plan-audit.json
@@ -69,3 +72,14 @@ H1의4fold학습목적은0.215~0.226으로원래0.265~0.271보다낮지만held�
 추가학습대신audit.py(최대5함수)/worker-audit.py(최대2)/plan-audit.json으로한번진단한다. 원래4fold별같은training rows와heldrows에서원래head/H1/H2고정head의구역최대·기존실제점응답을계산한다. H2 point/presence 개별경로도보되후보선택/혼합비율튜닝에사용하지않는다. training행은fold사이반복되므로합산정확도·독립표본으로세지않는다.
 
 H1은같은확장입력에서[w_original,0] 임베딩목적값을실제계산해원래기록과2e-5내재생,새head목적과비교한다. 저장heldmap재생<=2e-5·모든그룹/raw/decoded분리·원래147/11cohort실제checkpoint재생·inputSHA보존이진단성공기준이다. 학습과held간차이가확인돼도데이터부족/과적합을원인으로단정하지않고,표현/정규화/감독구조가함께변한한계도명시한다. 이진단은new fit0이고기존모델품질통과/score상승아님. 결과보고서에원래MLP실패2건을모두보존한다.
+
+
+## 다음 표현 가설: 앞면 표면·224의 고정 block8 (사용자 지속 개발 승인 범위)
+
+진단102607은원래head가training구역을거의맞추고H1이네fold모두더낮은학습목적을얻어도held실제점/오탐은악화함을확인했다. 같은분류기를반복학습/확대하는대신표현층변경하나를시험한다. 과거143432/170601 block8은다른뒷면edge74bags·448입력에서실패했다. 그실패는보존하고이번앞면surface97bags·224를독립가설로등록한다. 효과는미확인이고이후다른층/혼합계수탐색은하지않는다.
+
+worker-layer8.py(최대2함수)는이미설치된pinnedDINOv2 VITS14의같은weights를CPU2threads/eval/frozen으로읽고각앞면crop에서n=[7,11],norm=True로block8/최종층을한번에뽑는다. 새CNN학습/다운로드/외부AI0,실제backbone forward97회는이후가설의명시적예외이며원래세후보는forward0그대로다.
+
+동일RGB/224/EXIF/padding/정규화·모든원래사진/box/mask/실제점보존. 먼저최종층CPU대기존cache feature최대차<=1e-3,고정원래head와11cohort의score재생<=2e-5/판정동일을모든앞면에서확인한다. 이control이실패하면candidate학습전failed로종료하고비교를추정하지않는다. 통과하면앞면특징만block8로교체해원래point/weak/max_bound·L2=1·zero init·LBFGS100·gradient1e-5·4fold·뒷면map불변을보존해1회비교한다. H1/H2변경을동시에쓰지않는다.
+
+성공/실패품질기준은기존147/51/11cohort그대로,노출된개발평가이며독립일반화아니다. layer_pair API선택/순서·shape오류를synthetic2개검사(test_surface_layer8.py)로검산한다. code_changes에새worker baseline=null과pinnedweight/vendorSHA를명시하고,각crop의두층cache와control오차를새record폴더에보존한다. CPU2만사용하며Claude자료확보/검토파일·정답/박스/운영코드변경0.
