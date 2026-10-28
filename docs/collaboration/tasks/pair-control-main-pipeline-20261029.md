@@ -2,7 +2,7 @@
 
 - task_id: `pair-control-main-pipeline-20261029`
 - owner: Claude (구현)
-- status: implementing
+- status: ready_for_review
 - base_sha: `01f36e0667aecaf98d5cba3bec1f09059a9deb09` (선행 `pair-control-main-safety-20261029` 인계 SHA — 검증·커밋 완료 확인, 이 worktree 미커밋 변경 없음)
 - branch: `claude/pair-control` (기존 worktree 재사용)
 - 통합·push·실제 모델 호출: 하지 않음. 합성 push는 임시 bare 원격에만 한다. main 통합과 실제 push는 현재 메인의 최종 검토에 남긴다.
@@ -47,3 +47,11 @@ mainActions 6→≤7, mainApprovals 5→≤7, mainOutcome 1, mainEnd 1, mainGuar
 ## HTML
 
 `docs/collaboration/reports/main-pipeline-20261029.html` — 생성·내용 대조·열기(요청 성공과 렌더 확인 구분)를 handoff에 기록한다.
+
+## 인계 결과
+
+- 적용 순서: `cc7d8b75d32c6b66f33124ce3cdd9d3a9bd81c61`(계약) → `371bc315684ea3f02b41cdddfe79d4455d406a04`(코드·테스트·README) → 보고서 커밋(최종 SHA는 최종 보고에 기재)
+- 검사: typecheck 통과, `npm test` 154/154(선행 138 + 신규 16, fake CLI·합성 bare 원격). 실제 CLI·모델 호출 0.
+- 구조: 신규 파일 이름 있는 함수 ≤7. 기존 체크포인트/Executor/push/교대로 이어지는 경로는 4회 초과 → 채택 보류(보고서 참고).
+- 계약 대비 차이: 구현 에이전트=메인 자기 확인을 `requires.selfReview`(confirm_handoff 단독 승인)로 명시 허용하는 구조화 조건을 추가(기본은 거부). `executor.ts`에 stop 가드·감독 spawn 오류 기록 추가(테스트 정리 중 uncaught 오류 수정).
+- 보고서: `docs/collaboration/reports/main-pipeline-20261029.html`

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>교대 후 연속 페어코딩 연결 보고</title>
+<style>
+:root{--bg:#fff;--fg:#1c2330;--mut:#5b6678;--line:#d9dee7;--ok:#127a43;--bad:#b3261e;--warn:#9a6700;--card:#f5f7fa}
+@media (prefers-color-scheme:dark){:root{--bg:#12161d;--fg:#e6eaf0;--mut:#9aa6b8;--line:#2b3442;--ok:#4cc38a;--bad:#ff7b72;--warn:#e3b341;--card:#1a202a}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,"Apple SD Gothic Neo",sans-serif}
+main{max-width:940px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 6px}h2{font-size:17px;margin:28px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.top{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.top b{display:inline-block;min-width:92px;color:var(--mut);font-weight:600}
+table{border-collapse:collapse;width:100%;font-size:13.5px}th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:var(--card)}
+code{font:12.5px ui-monospace,Menlo,monospace;background:var(--card);padding:1px 4px;border-radius:3px}
+.ok{color:var(--ok);font-weight:600}.bad{color:var(--bad);font-weight:600}.warn{color:var(--warn);font-weight:600}.mut{color:var(--mut)}
+</style></head><body><main>
+<h1>교대 후 연속 페어코딩 연결 (검토 P1-6)</h1>
+<div class="top">
+<div><b>작업</b> pair-control-main-pipeline-20261029</div>
+<div><b>검증 코드 SHA</b> <code>371bc315684ea3f02b41cdddfe79d4455d406a04</code> (계약 <code>cc7d8b75d32c6b66f33124ce3cdd9d3a9bd81c61</code>, 시작 <code>01f36e0667aecaf98d5cba3bec1f09059a9deb09</code>). 이 HTML 문서 커밋은 별도.</div>
+<div><b>전체 개발 진척</b> 35/100 (usable-card-analysis-v1.0, 기본 checkout <code>development-progress.json</code> 읽기 전용 확인). 이번 변경 +0 — 카드 분석 고정 배점 항목을 완료하지 않은 협업 도구 작업이다.</div>
+<div><b>이번 성과</b> 새 메인이 인수 후 끝나지 않고, 도착한 구현 결과를 검사→확인→승인→통합→합성 원격 push까지 승인 범위 안에서 이어 처리한다(합성 검증).</div>
+<div class="mut">가짜 CLI·합성 bare 원격만 사용한 계약/회귀 검사이다. 실제 Codex/Claude/Gemini CLI 검증이 아니며 모델 학습·추론·성능 평가는 하지 않았다(정확도·FN/FP 변화 평가 미실시).</div>
+</div>
+
+<h2>사용자가 복사·재승인 없이 이어가는 흐름</h2>
+<ol>
+<li>승인 장부에 행동(<code>assign_task</code>, <code>confirm_handoff</code>, <code>approve_task</code>, <code>integrate_task</code>, <code>push_main</code>)을 기록 → 메인 교대.</li>
+<li>인수 확인 뒤 기존 감시 루프가 상태를 읽어 승인에 덮인 작업만 지정 검사 → 인계 문서를 도구가 한 번씩 수행(모델 호출 없음).</li>
+<li>새 이벤트(<code>result_ready</code>/<code>approved</code>/<code>integrated</code>)마다 현재 메인에게 읽기 전용 턴 1회. 응답은 제안이며 실행 직전 승인 범위·세션·세대·현재 상태를 다시 검사.</li>
+<li>한도·재시작·지연 응답은 상태를 남기고 재시도하지 않는다. 사람이 필요한 멈춤은 <code>blocked</code> 이벤트로 남는다.</li>
+</ol>
+
+<h2>시나리오별 근거 (<code>test/pipeline.test.ts</code> 16개, 전부 통과)</h2>
+<table><tr><th>시나리오</th><th>상태·실행·Git 근거</th></tr>
+<tr><td>Codex→Claude, Claude→Codex</td><td>교대 때 구현 에이전트 실행 중(중단 안 됨) → 도착 결과를 새 메인이 턴 2회(result_ready: 확인·승인·통합 3/3, integrated: push 1/1)로 처리, 합성 원격 HEAD = 통합 checkout HEAD, force 없음, push 1건, 완료 뒤 추가 모델 호출 0.</td></tr>
+<tr><td>준비→구현 시작→수집→검사·검토→통합→통합 후 검사→push</td><td>교대 직후 <code>assign_task</code> 하나로 시작(상태가 assigned에 머물지 않음), 통합 후 검사 passed 뒤에만 push.</td></tr>
+<tr><td>승인 밖·세션 묶인 승인</td><td>덮이지 않은 작업은 검사·인계·턴 모두 0. 새 승인을 기록하면 같은 경로로 진행. 이전 세션에 묶인 승인은 승계 안 됨.</td></tr>
+<tr><td>조건 미충족·검사 실패·통합 후 검사 실패</td><td>문장 조건→확인 실패, 같은 작업 뒤 행동 "수행하지 않음". 작업 테스트 failed→인계·턴 없음. 통합 후 검사 실패→integrated_check_failed, push 턴 없음, 원격 불변.</td></tr>
+<tr><td>의미 검토 증거·자기 확인</td><td>diff 해시 틀림→확인 거부. 구현 에이전트=메인이면 <code>selfReview</code> 명시 승인 없이는 거부, 명시하면 진행(메모에 "독립 확인 아님" 자동 표기). push 승인이 장부에 없으면 push만 거부.</td></tr>
+<tr><td>재교대·지연·중복</td><td>턴 진행 중 한도 교대 → 옛 턴 응답 stale(행동 미수행), 새 세대 1회 재판단. 겹친 틱 3개·중복 이벤트 → 턴 1회, 검사 SHA당 1회.</td></tr>
+<tr><td>한쪽·양쪽 한도</td><td>한쪽: 한도 기록 → 기존 한도 교대 → 새 세대에서 완료(모델 턴 총 3). 양쪽: 이벤트 보류(<code>한도…</code>), both-limited 체크포인트, 자동 재시도 0, 한도 해제 확인 뒤 1회 이어 완료.</td></tr>
+<tr><td>서버 재시작·결과 불명</td><td>살아 있는 턴은 이어 받아 통합·push 각 1회. 프로세스가 사라진 턴은 unknown, 재실행 0. 적용 중이던 턴(이전 수명)→unknown. push_unverified 기록이 있으면 push 행동 거부.</td></tr></table>
+
+<h2>실제 검사 결과</h2>
+<table><tr><th>검사</th><th>결과</th></tr>
+<tr><td><code>npm run typecheck</code></td><td class="ok">오류 없음</td></tr>
+<tr><td><code>npm test</code> 전체 (SHA 371bc31)</td><td class="ok">154/154 통과, 실패 0 (선행 138 + 신규 16), 약 320초. 선행 안전성 회귀(main-safety 12건) 포함.</td></tr>
+<tr><td>실제 CLI 호출·학습·추론·운영 push·main 통합</td><td>0 (하지 않음)</td></tr></table>
+<p class="mut">개발 중 발견·수정: 연속 처리가 켜지면서 기존 테스트가 정리 도중 비동기 시작을 해 uncaught <code>spawn ENOENT</code>가 났다 → <code>stop()</code> 뒤 시작 금지 + 감독 프로세스 spawn 오류 기록 처리(<code>executor.ts</code>).</p>
+
+<h2>구조 확인 (<code>scripts/structure-trace.mjs</code>, 정적)</h2>
+<table><tr><th>파일</th><th>이름 있는 함수 / 콜백 포함</th></tr>
+<tr><td>pipelineState / Events / Steps / turnBundle / Turn / Tick / View</td><td class="ok">3/3, 4/6, 3/5, 4/4, 6/10, 2/5, 2/9 (이름 있는 함수 ≤7)</td></tr>
+<tr><td>mainDispatch / mainActions / mainApprovals / mainGuard</td><td class="ok">3/3, 6/9, 6/18, 4/6</td></tr></table>
+<p><b>호출 전이:</b> <code>launchTurn → eventRow → revParse → git → run</code> 4회(신규 파일 범위 기준 충족). 반면 <code>launchTurn → saveCheckpoint → buildCheckpoint → liveHead → …</code>, <code>applyActions → runOne → dispatch → ops.approve/Executor</code>, <code>dispatch → pushNow → preflight(push.ts)</code>, <code>handleLimit → handoverMain → …</code> 는 기존 코드(체크포인트·Executor·push·교대) 내부로 이어져 4회를 넘는다. 도구가 이름 일치(<code>.push</code> 배열 메서드 vs push 연결부 등)로 만든 거짓 간선이 섞여 정확한 수치를 확정하지 않는다. 임의 예외 승인 없음 — <b class="warn">해당 경로의 구조 기준 채택은 보류</b>, 기준 해석(콜백 포함 여부)과 기존 경로 재설계는 현재 메인 결정 필요.</p>
+
+<h2>변경 파일</h2>
+<p>신규 <code>src/executor/</code> pipelineState·pipelineEvents·pipelineSteps·turnBundle·pipelineTurn·pipelineTick·pipelineView·mainDispatch, <code>test/pipeline.test.ts</code>. 수정: mainTypes·mainGuard·mainApprovals(새 행동·<code>covers</code>·<code>selfReview</code>)·mainActions(디스패치 위임·의존 행동 차단)·mainOutcome·mainEnd(턴 분기)·mainTakeover(요청문)·executor(틱 호출 1줄·stop 가드·spawn 오류 기록)·runtime(assign+start, confirm/push 연결, 화면 요약)·fake-cli/takeover.mjs·README. <code>mastra/index.ts</code>는 계약대로 수정하지 않음(승인 API는 <code>requires</code>를 그대로 전달하므로 <code>selfReview</code>도 통과).</p>
+
+<h2>미검증·리스크·남은 확인(실제 CLI 최초 시험 전)</h2>
+<ul>
+<li><b>실제 CLI 미검증</b>: codex <code>exec --sandbox read-only</code>/claude <code>--print --permission-mode plan</code>이 입력 폴더의 파일을 읽고 <code>shasum -a 256</code>(diff 해시)을 직접 계산할 수 있는지, 마지막 줄 JSON 출력 규약을 지키는지 확인 필요. 못 하면 확인이 계속 거부되어 파이프라인이 멈춘다(안전 쪽 실패).</li>
+<li><b>의미 검토는 증명되지 않음</b>: diff 해시·변경 파일·메모는 "그 내용에 묶인 증거"일 뿐 모델이 이해했음을 증명하지 못한다. 별도 독립 리뷰(모델) 호출은 연결하지 않았다.</li>
+<li><b>새 행동은 장부 기록 필요</b>: <code>confirm_handoff</code>·<code>push_main</code>(대상=브랜치 이름)을 사용자가 장부에 기록하지 않으면 수행되지 않는다. 기존 AGENTS의 일반 push 상시 승인을 장부로 자동 변환하지 않았다.</li>
+<li>연속 처리는 첫 인수 이후에만 켜진다(교대 전 사용자 직접 흐름은 그대로). 직렬화·중복 방지는 프로세스 내부 보장이며 전역 잠금이 아니다. 기존 테스트도 이제 승인된 작업에 자동 단계가 돈다.</li>
+<li>구현 에이전트 한도 등 전체 한도(<code>ex.limit</code>) 상황과 실제 한도 문구 형식은 가짜 문구로만 확인.</li>
+<li>롤백: 통합 전이라 제품 영향 없음. 통합 후 <code>git revert 371bc31</code>(코드)과 문서 커밋.</li>
+</ul>
+</main></body></html>
