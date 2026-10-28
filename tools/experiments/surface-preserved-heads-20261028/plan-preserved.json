@@ -1,0 +1,205 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "surface-preserved-head-20261028",
+  "hypothesis": "Preserving original descriptors while adding per-crop residuals may retain damage signal lost by mean-only subtraction and offer a separate local contrast direction.",
+  "change": "Only front representation [x,x-mean(valid)] (384->768). Same original fitter,loss,zero initialization,L2=1,100iterations,weights and thresholds. Additional dimensions change capacity/regularization geometry; no claim of isolated semantic lighting removal.",
+  "success_criterion": "Same147 FN<=16/94,FP<=18/53,no new errors,at least1recovery,typed51no new misses,all11original cohorts accepted. Same4fold/group/raw/decoded isolation,allfitsgradient<=1e-5,input hashes/geometry/labels/backmaps/.5 preserved. Trials independent against baseline,never combine candidates or select per-fold winners.",
+  "failure_criterion": "Any convergence/identity/source/shape/nonfinite/leakage error is failed execution with no estimated performance. Any quality guard failure or unchanged result rejects candidate. No threshold/L2/width/seed/optimizerbudget search,automatic retries or val/frozen-test training.",
+  "reference_result": "artifacts/experiments/20261025T122011-647b0e9c/result.json",
+  "acceptance": {
+    "max_fn": 16,
+    "max_fp": 18,
+    "no_new_errors": true,
+    "require_actual_point_guard": false
+  },
+  "required_cohorts": [
+    {
+      "id": "surface-original-regression",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-frozen-original-baseline",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-original-fixed-for-local",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface51-human-click-guard",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "surface51-existing-kind-corrected",
+      "reference_result": "artifacts/experiments/20261024T063834-3536c642/typed-point-reference.json",
+      "acceptance": {
+        "max_fn": 18,
+        "max_fp": 0,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    }
+  ],
+  "code_changes": [
+    {
+      "path": "artifacts/surface-preserved-heads-20261028/worker.py",
+      "baseline": null
+    },
+    {
+      "path": "artifacts/surface-preserved-heads-20261028/features.py",
+      "baseline": null
+    },
+    {
+      "path": "artifacts/surface-preserved-heads-20261028/nonlinear.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "new_evidence": "Previous mean-only input increased FN16->20/94 and typed21->22/51; original signal must not be deleted. Gradient diagnostics and recurrentFPs justify independent bounded representation/supervision/capacity tests,not causal certainty. New Claude validation data remain unused.",
+  "human_truth": "artifacts/misdreavus-same-photo-normal-20261024/human-response.json",
+  "cache_source": "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt",
+  "tracked_source": "tools/experiments/surface-preserved-heads-20261028/worker.py",
+  "contract": "docs/collaboration/tasks/surface-preserved-heads-20261028.md",
+  "input_sha256": {
+    "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt": "8061e7ed4814a038930d5ba8611d85f3194ffdfe5f4e9082062272ed820eb84f",
+    "artifacts/experiments/20261024T060419-45e72d0a/training-tokens.pt": "2cc268945d5d909040ff3e7492d83a42862d4daeb4c466db91a0228af7e63e2f",
+    "artifacts/experiments/20261024T093945-04a7e5e8/local-heads.pt": "cdf8eeb7f576ae475d607beafce592fcb9c71a66601062b1d8d3131e04d5d872",
+    "card_condition/detail_bag.py": "21ec78db0570f8ca3a0b8181de801a48ce715d5aa51bb065224caa974e0e53b3",
+    "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+    "artifacts/experiments/20261025T122011-647b0e9c/fold-heads.pt": "4e31b43433d8c6d06115387dea97d0d401a2e0655a1df34c6258ebb716715fa0",
+    "artifacts/experiments/20261025T122011-647b0e9c/result.json": "eb73931a73eb7bfd7c2dd9ed104caeea76a91f9990fa337fcc09e30521bd977e",
+    "artifacts/experiments/20261025T122011-647b0e9c/observations.json": "f7e317a2aa7e8ec6c4aa85fcd1135554b95933d89660c40b2aed4c519c306419",
+    "artifacts/experiments/20261025T122011-647b0e9c/reference.json": "c7e6c1e163191744c168a661f0ba848aa5d79a6dd6e294f7dcc60daf1f116ca9",
+    "artifacts/experiments/20261025T122011-647b0e9c/plan.json": "18f5fa1169f773c3ec6a7be1002af6df8bcdb9ce6a025e76aa8ea624af6fd4a1",
+    "artifacts/experiments/20261025T122011-647b0e9c/diagnostics.json": "744254cdedca586f3c757f7cc880bdc1baa003d450042a1ace45a70411eabb4d",
+    "tools/experiments/surface-normal-coexclusion-20261025/worker.py": "5c2f573f110042b8695170755d95e52af26367f363ed013e6591e68ec47c6a59",
+    "tools/experiments/surface-front-joint-holdout-baseline-20261025/worker.py": "5db79c3d20743fa7cae0c355f81f80be592dcf92a3d674187fe8e07a5b94094b",
+    "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17",
+    "artifacts/experiments/20261027T132418-8a5aa6ae/diagnostics.json": "072a514fb541ad56d56959c3d6f0d6bd6d8bf8222ab90d0fee3182df5b855a82",
+    "artifacts/experiments/20261024T062258-2932de20/diagnostics.json": "314eccc6f99fe2cf72665d8aa011580149f37e7bb06df7f57459191ee6558e5f",
+    "artifacts/experiments/20261024T062428-8e82e9ed/result.json": "4d98114ec6478a19d525893bedafb4f71e914a716f232d5a511d9c8823b2bef9",
+    "artifacts/experiments/20261027T133213-807fae2a/record.json": "a95bf15019e59e075c146915dc25219dde1fae1a2c094a7f6062380908877d5b",
+    "artifacts/experiments/20261024T061542-a90ac171/diagnostics.json": "3d462d178c995d59f7a2669e26c593af70f96b088e36562c05dbee63512b4fbb",
+    "artifacts/misdreavus-same-photo-normal-20261024/human-response.json": "c733369c8efdc7f52321580d6964bfb28dd0674c427d90072fd0febeb2e32c6d",
+    "artifacts/experiments/20261027T144107-8f7674cd/record.json": "24933bdfbe6e1196fe63e01aabf7466ad48b0310abf5779efa234da2aa74d3e0",
+    "artifacts/experiments/20261027T144107-8f7674cd/failure-diagnostics.json": "b220d874c4250dfa6bd1c897aef355cca469ae11771273614b1cdae470a3213c",
+    "artifacts/experiments/20261027T211902-7ae1cc41/record.json": "3f79ad8e2b6e0e9e117eb94d50e1d9620bf0c385c916fcf03bb7968d38952d18",
+    "artifacts/experiments/20261027T211902-7ae1cc41/diagnostics.json": "7b9bf0fe97c496aae490a7e0b03ff4b43e5791387f53d6b0da9fe7046f81035f",
+    "artifacts/experiments/20261027T145641-21c22382/diagnostics.json": "1304964d4f747e5aee87bfdf1452c4c6c538fa4c3f352205e6b3b0b7be8d03c2",
+    "tools/experiments/surface-preserved-heads-20261028/features.py": "156ac9bd3ea047b730c2162ae164d503248bdf7328bfa6c263fedb3fc20f818f",
+    "tools/experiments/surface-preserved-heads-20261028/nonlinear.py": "9318b50ad2980bf6601a2343ab4d71f42c6fc539a5936ecb61a842d3930fec8f",
+    "tools/experiments/surface-preserved-heads-20261028/worker.py": "5e50897268f78ac7bcd9d0345e30836c451a6f13fcc028133f16ba54549ae1a0",
+    "artifacts/experiments/20261028T070550-da6d6dad/diagnostics.json": "9fe79109ab7ef209ce67dfc13eb8e9975f90a4b9739d11962943641bdeca61fd",
+    "artifacts/experiments/20261028T070837-27da5a1b/record.json": "741833297290679afa306d062b70c645d05f573779e93f2727f9d20dfc0db6eb",
+    "artifacts/experiments/20261028T070837-27da5a1b/result.json": "6fec5e8b319a872290613ac2aa87b0b4332ec2c6ece9aab7478cfbeb46a8505e"
+  },
+  "training_only_ids": [
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-1",
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-2",
+    "ebay-pair-ff69b8955593fc/photo3-first-attack-surface-confirmed-normal",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-1",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-2",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-3"
+  ],
+  "proposal": "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json",
+  "proposal_sha256": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17",
+  "phase": "preserved",
+  "head_protocol": {
+    "hidden_units": 8,
+    "hidden_seed": 0,
+    "activation": "tanh",
+    "split_logit_weight": 0.5,
+    "max_iter": 100,
+    "max_gradient": 1e-05,
+    "penalty": 1.0,
+    "backbone_forwards": 0
+  }
+}
