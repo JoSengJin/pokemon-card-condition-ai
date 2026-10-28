@@ -56,3 +56,8 @@ threshold0.5, 기존147구역(결함94·정상53), 올바른 종류 실제점51�
 
 
 실자료종합·뒷면·정규화3개HTML열기요청은모두queued,실제렌더미확인이다. git diff --check 및허용파일대조통과. 독립시험·운영채택없음.
+
+
+## 원격·checkout·열기 확인
+
+검증코드/보고서 main과origin/main 92af098 일치를 확인했다. 최신Codex 작업checkout53500cf를롤백용으로유지하고이전preserved-heads checkout d81e484만main대응·clean·Git작업없음·비차단flock·고유lock SHA1개보존후일반remove했다. Claude/미통합/사용중checkout과브랜치/이력은보존했다. 감사: artifacts/surface-token-norm-20261028/worktree-cleanup/audit.json. 공개HTML까지4개열기요청queued이며실제렌더미확인이다. 후속문서도일반push한다.

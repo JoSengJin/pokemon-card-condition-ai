@@ -2,7 +2,7 @@
 
 - task_id: surface-token-norm-20261028
 - owner: Codex
-- status: implementing
+- status: integrated
 - base_sha: 5857f9e177227d361129908b2cd774395e85e1f1
 - branch: codex/surface-token-norm-20261028
 - worktree: 로컬 전용
@@ -60,3 +60,6 @@ worker-back은load/render/finish최대3함수. fit_all_point_head→closure→al
 ## 실행 인계
 
 130920정규화completed/전체false,131334뒷면completed/primarytrue·전체false.후보결합0.typed51 21→19,새누락0·구역FN16/FP18불변,복구2점은같은1실물.검증source1fd6dc6,main13/12검사OK,postcheck25head재생·입력/recordSHA·기존보호통과.진척30/100,운영미채택.상세MD/HTML·위험·롤백은동명reports,사진은각실험index.원격/열기/정리는후속확인.
+
+
+통합인계: source1fd6dc6/보고서92af098 원격일치후이전Codex d81e484 checkout만safe remove, 최신53500cf 보존. 공개/사진HTML4개queued/렌더미확인. 실제typed51점2개(동일1실물)복구,전체수용미달·운영미채택·진척30/100. 실행record/검사/사진/위험/롤백은동명reports/ignoredpostcheck·audit참조. Claude자료/정답/평가/운영코드불변.
