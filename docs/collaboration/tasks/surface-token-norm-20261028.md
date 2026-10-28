@@ -55,3 +55,8 @@ source수정은별도checkout ./develop 안에서,실제학습/추론은기본ch
 성공판정은원래전체수용으로유지하고,전체미달이어도국소진척여부를별도로보고한다. 국소전진은같은147 FN<=16 FP<=18,새오답0,typed51기존검출누락0,뒷면typedFN<11을모두만족한경우만표시한다. 전체수용미달이면운영미채택이며학습조건/평가분모는결과후변경하지않는다. failed는완전성능미측정/재시도0이다.
 
 worker-back은load/render/finish최대3함수. fit_all_point_head→closure→all_point_loss→detail_bag_loss→point_bag_loss 최대4전이. 기존allpoint검사를재사용하고기존21train_ids대조·held그룹/rawdecoded완전제외·frontmap불변·원래head재생을실행전검사한다. 렌더는뒷면56구역과typed원래점좌표/모델peak를구분해표시한다. 직접추론/새라벨없고공통실행기단일실행. 모든Claude자료·진척/기준·운영코드금지는유지한다.
+
+
+## 실행 인계
+
+130920정규화completed/전체false,131334뒷면completed/primarytrue·전체false.후보결합0.typed51 21→19,새누락0·구역FN16/FP18불변,복구2점은같은1실물.검증source1fd6dc6,main13/12검사OK,postcheck25head재생·입력/recordSHA·기존보호통과.진척30/100,운영미채택.상세MD/HTML·위험·롤백은동명reports,사진은각실험index.원격/열기/정리는후속확인.
