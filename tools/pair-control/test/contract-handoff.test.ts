@@ -115,3 +115,23 @@ test('시작 프롬프트: 읽을 문서를 자동 실행·수동 모두에 넣�
     await assert.rejects(env.ex.startPrompt('task-b'), /시작 HEAD에 없는 문서/);
   } finally { env.cleanup(); }
 });
+
+test('시작 프롬프트 구조: 메인이 쓰던 8절 형식(식별·확인·목표·소유권·제한·검증·진행·인계)과 조건부 항목', async () => {
+  const env = setup();
+  try {
+    await env.ex.assign(task(env, 'task-a', { mode: 'manual', doneCriteria: ['결과 파일 추가'] }));
+    const p = (await env.ex.startPrompt('task-a', { unattended: true })).text;
+    const heads = [...p.matchAll(/^## (\d)\. (.+)$/gm)].map((m) => m[1] + m[2]);
+    assert.deepEqual(heads, ['1작업 식별', '2먼저 확인할 것', '3목표와 완료 조건', '4파일 소유권', '5구현·실행 제한', '6검증', '7진행 방식', '8산출물·커밋·최종 인계']);
+    assert.match(p, /구현 담당 Claude다\. 메인 담당 Codex가 정한 아래 작업 계약 범위에서만/);
+    assert.match(p, /- task_id: task-a\n- task 문서\(계약\): docs\/collaboration\/tasks\/task-a\.md/);
+    assert.match(p, /문서와 실제 상태가 다르면 추정해서 진행하지 말고 차이를 보고하세요/);
+    assert.match(p, /파일당 함수 정의 최대 7개, 주요 호출 전이 최대 4회/);
+    assert.match(p, /합성 테스트 통과를 실제 모델 성능 개선으로 보고하지 마세요/);
+    assert.match(p, /task_id \/ branch \/ base_sha, 최종 전체 커밋 SHA와 적용 순서/);
+    assert.ok(!p.includes('HTML_REPORTING'), '허용 파일에 docs/collaboration이 없으면 HTML 안내를 넣지 않음');
+    assert.ok(!p.includes('./develop'));
+    await env.ex.assign(task(env, 'task-b', { mode: 'manual', allowedFiles: ['docs/collaboration/'] }));
+    assert.match((await env.ex.startPrompt('task-b')).text, /HTML_REPORTING\.md가 요구하면 HTML 경로와 열기·렌더 확인 결과를 구분해 적으세요/);
+  } finally { env.cleanup(); }
+});
