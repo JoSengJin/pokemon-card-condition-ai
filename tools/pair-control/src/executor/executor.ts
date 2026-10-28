@@ -18,6 +18,8 @@ import { commitContract, contractHashAt, contractPath } from './contractFile.ts'
 import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
 import type { CheckSpecT } from './contract.ts';
 import { buildStartPrompt, type PromptOptions } from './startPrompt.ts';
+import type { Agent, MainOps, MainRuntime } from './mainTypes.ts';
+import { onMainEnd, onMainLimit } from './mainHandover.ts';
 
 export type TaskStatus =
   | 'assigned' | 'blocked' | 'starting' | 'running' | 'collecting' | 'cancelling' | 'cancelled' | 'failed'
@@ -105,7 +107,7 @@ export interface Task extends TaskInputT {
 }
 
 export type ExecStatus = 'running' | 'cancelling' | 'exited' | 'cancelled' | 'unknown' | 'abandoned';
-export type ExecKind = 'agent' | 'check' | 'review';
+export type ExecKind = 'agent' | 'check' | 'review' | 'main';
 export interface Execution {
   /** agent=에이전트 CLI, check=작업 테스트(runId=검사 실행 ID), review=별도 리뷰 CLI(runId=리뷰 ID). 옛 기록은 agent. */
   kind?: ExecKind; checkId?: string; sha?: string;
@@ -117,11 +119,15 @@ export interface Execution {
 }
 
 /** 구독 사용 한도 도달 상태. 과금이 아니라 정지 신호이며, 사용자가 풀렸음을 확인하기 전에는 실제 실행을 시작하지 않는다. */
-export interface LimitState { at: string; detail: string; source: string }
+export interface LimitState { at: string; detail: string; source: string; agent?: string }
 /** 메인 역할(통합·푸시·실험 단일 담당)의 현재 담당. 표시·기록용이며 권한을 강제하지 않는다. */
-export interface MainRole { agent: 'codex' | 'claude'; since: string; reason?: string; history?: { agent: 'codex' | 'claude'; until: string }[]; memoFile?: string }
+export interface MainRole { agent: 'codex' | 'claude'; since: string; reason?: string; history?: { agent: 'codex' | 'claude'; until: string }[]; memoFile?: string;
+  /** 인수 확인이 끝난 메인 세션의 세대. 없으면 교대 기능 도입 전 기록이다. */
+  generation?: number }
 interface State {
   tasks: Record<string, Task>; executions: Record<string, Execution>; limit?: LimitState | null; main?: MainRole | null;
+  /** 메인 교대 실행 상태(세대·세션·승인 장부·한도·처리한 행동). */
+  mainRuntime?: MainRuntime | null;
   /** 푸시·되돌림 기록과 마지막 점검(push.ts). */
   pushes?: Record<string, import('./push.ts').PushRecord>; pushPlan?: import('./push.ts').PushPlan | null;
   /** 사용자가 오탐으로 확인한 비밀 패턴 항목(fingerprint = 커밋·파일·줄·패턴). */
@@ -152,6 +158,9 @@ export class Executor {
       this.cancelAll('무료 가드 발동');
       opts.onTrip?.(a);
     }, (a) => {
+      // 메인 세션 프로세스가 낸 한도는 그 에이전트만 막는다. 진행 중인 구현 에이전트를 모두 멈추지 않는다(인수해야 하므로).
+      const src = this.state.executions[a.source.replace(/^exec:/, '')];
+      if (src?.kind === 'main') { onMainLimit(this, src.agent as Agent, a.detail); return; }
       if (this.state.limit) return;
       this.state.limit = { at: a.at, detail: a.detail, source: a.source };
       this.event('limit_hit', { detail: a.detail, source: a.source });
@@ -169,6 +178,20 @@ export class Executor {
   /** 감사 기록(events.jsonl). push.ts 등 별도 모듈에서 쓴다. */
   audit(type: string, data: Record<string, unknown>) { this.event(type, data); }
   get limit() { return this.state.limit ?? null; }
+  /** 이 에이전트를 막는 한도: 전체 한도(구현 에이전트 한도) 또는 메인 세션이 낸 그 에이전트의 한도. */
+  limitFor(agent: Agent): { at: string; detail: string } | null {
+    return this.state.limit ?? this.runtime.limited[agent] ?? null;
+  }
+  /** 메인 교대 실행 상태. 처음 쓸 때 만든다. 세대는 인수 확인이 끝날 때만 올라간다. */
+  get runtime(): MainRuntime {
+    return (this.state.mainRuntime ??= { generation: this.state.main?.generation ?? 0, frozen: false, session: null, history: [], approvals: [], processed: {}, limited: {}, failures: [] });
+  }
+  mainOps: MainOps = {};
+  setMainOps(ops: MainOps) { this.mainOps = ops; }
+  /** 메인 교대 중에는 메인이 하는 상태 변경(배정·승인·통합 등)을 받지 않는다. */
+  assertMainActive(op: string) {
+    if (this.runtime.frozen) throw new UserError(`메인 교대 중 — ${op}을(를) 지금 할 수 없음(인수 확인 후 새 메인만 진행)`);
+  }
   get mainAgent(): 'codex' | 'claude' { return this.state.main?.agent ?? 'codex'; }
   /** 사용자가 한도가 풀렸음을 확인했을 때만 호출한다. 재시도·크레딧 구매는 하지 않는다. */
   clearLimit() {
@@ -195,6 +218,7 @@ export class Executor {
 
   // ---------- 배정 ----------
   async assign(raw: unknown): Promise<Task> {
+    this.assertMainActive('작업 배정');
     const parsed = TaskInput.safeParse(raw);
     if (!parsed.success) throw new UserError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(' / '));
     const input = parsed.data;
@@ -254,7 +278,8 @@ export class Executor {
       for (const r of risks) add(`무과금: ${r.code}`, false, `${r.message} → ${r.fix}`);
       if (!risks.length) add('무과금 검사', true, '환경변수·설정에서 API 과금 경로 없음(로그인 방식은 확인 불가 — 사용자 확인 표시에 의존)');
       add('구독 확인 표시', this.cfg.confirmedSubscriptionAuth, this.cfg.confirmedSubscriptionAuth ? '사용자가 구독 로그인·추가 크레딧 꺼짐을 확인함' : 'config.confirmedSubscriptionAuth=false');
-      add('구독 한도', !this.state.limit, this.state.limit ? this.state.limit.detail : '한도 도달 없음');
+      const lim = this.limitFor(t.agent);
+      add('구독 한도', !lim, lim ? lim.detail : '한도 도달 없음');
     }
     return c;
   }
@@ -355,7 +380,7 @@ export class Executor {
   }
 
   /** 감독 프로세스(새 프로세스 그룹)로 명령 하나를 실행한다. 에이전트·작업 테스트·리뷰가 같은 경로를 쓴다. */
-  private spawnSupervised(t: Task, o: { kind: ExecKind; execId?: string; runId: string; cwd: string; command: string; args: string[]; display: string[]; checkId?: string; sha?: string }) {
+  private spawnSupervised(t: Pick<Task, 'taskId' | 'agent' | 'mode'>, o: { kind: ExecKind; execId?: string; runId: string; cwd: string; command: string; args: string[]; display: string[]; checkId?: string; sha?: string }) {
     const execId = o.execId ?? crypto.randomUUID();
     const dir = path.join(this.cfg.stateDir, 'runs', execId);
     fs.mkdirSync(dir, { recursive: true });
@@ -379,6 +404,23 @@ export class Executor {
     this.save();
     this.ensureWatcher();
     return ex;
+  }
+
+  /**
+   * 새 메인 세션 프로세스를 실행한다. 리뷰와 같은 방식(읽기 전용·입력 묶음 폴더만 받음)이며 구독 로그인 가드와 한도 차단을 그대로 거친다.
+   * 옵션 이름은 --help로 확인한 것만 쓰고, 세션 재개·도구 동작은 가정하지 않는다(별도 프로세스는 이전 대화 기억을 승계하지 않는다).
+   */
+  async launchMainProcess(o: { agent: Agent; bundleDir: string; prompt: string; sessionId: string }): Promise<string> {
+    if (this.tripped) throw new UserError('과금 신호 감지 상태 — 새 메인을 실행하지 않음');
+    this.probes[o.agent] = await probe(o.agent, this.cfg);
+    const rr = realReadiness(o.agent, this.probes[o.agent], this.cfg, { limit: this.limitFor(o.agent) });
+    if (!rr.available) throw new UserError(`실제 ${o.agent} 메인 실행 차단: ${rr.blockers.map((b) => b.message).join(', ')}`);
+    const args = o.agent === 'codex' ? ['exec', '--cd', o.bundleDir, '--sandbox', 'read-only', o.prompt] : ['--print', '--permission-mode', 'plan', o.prompt];
+    const argRisks = scanArgs(args);
+    if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
+    const shown = args.map((a) => (a === o.bundleDir ? '<입력 묶음>' : a === o.prompt ? '<prompt>' : a));
+    const ex = this.spawnSupervised({ taskId: '(main)', agent: o.agent, mode: 'real' }, { kind: 'main', runId: o.sessionId, cwd: o.bundleDir, command: this.probes[o.agent]!.binary!, args, display: [o.agent, ...shown] });
+    return ex.execId;
   }
 
   // ---------- 감시 ----------
@@ -611,6 +653,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
 
   /** 구현이 끝났음을 메인에게 넘긴다. 도구가 Git으로 교차 확인하며(커밋 없음·미커밋 변경·SHA 변경은 거절) 인계 문서는 상태 폴더에만 저장한다. */
   async handoffToMain(taskId: string, o: { auto?: boolean } = {}) {
+    this.assertMainActive('메인 인계');
     const t = this.task(taskId);
     if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 인계(${t.status})`);
     const r = t.result;
@@ -788,6 +831,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
    * 내부 호출(테스트 등)은 기본 false로 기존 동작을 유지한다.
    */
   async approve(taskId: string, sha: string, o: { requireHandoff?: boolean } = {}): Promise<Approval> {
+    this.assertMainActive('승인');
     const t = this.task(taskId);
     if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태가 아님(${t.status})`);
     if (o.requireHandoff) {
@@ -816,6 +860,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
   }
 
   reject(taskId: string, reason: string) {
+    this.assertMainActive('거절');
     const t = this.task(taskId);
     if (!['review_pending', 'approved', 'integration_refused', 'integration_blocked'].includes(t.status)) throw new UserError(`거절할 수 없는 상태(${t.status})`);
     t.approval = null;
@@ -824,6 +869,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
 
   // ---------- 통합 ----------
   async integrate(taskId: string): Promise<{ outcome: string; detail: string }> {
+    this.assertMainActive('통합');
     const t = this.task(taskId);
     if (t.status !== 'approved' || !t.approval) throw new UserError(`승인된 상태가 아님(${t.status})`);
     if (this.tripped) throw new UserError('무료 가드 발동 상태');
@@ -959,6 +1005,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
 
   /** 작업 테스트·리뷰 프로세스 종료 처리. 재시작 후 관찰된 종료는 기록만 하고 다음 단계를 자동으로 잇지 않는다. */
   private async onAuxEnd(ex: Execution, r: { code: number | null; cancelled: boolean; unknown: boolean }): Promise<void> {
+    if (ex.kind === 'main') return onMainEnd(this, ex, r);
     const t = this.state.tasks[ex.taskId];
     if (ex.kind === 'review') return this.onReviewEnd(t, ex, r);
     const v = t.verification;
@@ -1006,6 +1053,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
    * 리뷰 CLI는 묶음 폴더에서만 실행되고 구현 worktree 경로를 받지 않는다. 현재 대화창에 메시지를 보내는 것이 아니다.
    */
   async startReviewJob(taskId: string, o: { reviewer?: 'codex' | 'claude'; mode?: 'mock' | 'real'; mockScenario?: (typeof REVIEW_MOCK_SCENARIOS)[number]; forHandoff?: boolean } = {}) {
+    this.assertMainActive('리뷰 시작');
     const t = this.task(taskId);
     if (this.tripped) throw new UserError('과금 신호 감지 상태 — 실행하지 않음');
     if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 리뷰를 등록(${t.status})`);
@@ -1049,7 +1097,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
         display = ['node', 'mock/fake-reviewer.mjs', '--scenario', o.mockScenario ?? 'approve', '--bundle', '<리뷰 묶음>'];
       } else {
         this.probes[reviewer] = await probe(reviewer, this.cfg);
-        const rr = realReadiness(reviewer, this.probes[reviewer], this.cfg, { limit: this.state.limit });
+        const rr = realReadiness(reviewer, this.probes[reviewer], this.cfg, { limit: this.limitFor(reviewer) });
         if (!rr.available) throw new UserError(`실제 ${reviewer} 리뷰 차단: ${rr.blockers.map((b) => b.message).join(', ')}`);
         const prompt = 'REVIEW_REQUEST.md를 읽고 판정 JSON을 마지막 줄에 출력하세요. 파일을 수정하지 마세요.';
         // 옵션 이름은 --help로 확인하지만 값(read-only, plan)은 실제 CLI에서 별도 확인 필요.
