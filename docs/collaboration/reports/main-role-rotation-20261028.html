@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>메인 역할 교대 실행 — 성과·진척 보고</title>
+<style>
+  :root { --bg:#f6f6f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6b66; --line:#dcdcd4; --ok:#2e7d4f; --warn:#9a6700; --bad:#b3261e; --accent:#2b5db8; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161616; --card:#202020; --ink:#ececea; --muted:#9a9a94; --line:#3a3a36; --ok:#6fcf97; --warn:#e3b341; --bad:#ff8a80; --accent:#8ab4f8; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 20px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 17px; margin: 28px 0 8px; }
+  .muted { color: var(--muted); } .mono { font-family: ui-monospace,Menlo,monospace; font-size: 12.5px; word-break: break-all; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+  .big { font-size: 26px; font-weight: 700; } .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  table { width:100%; border-collapse: collapse; font-size: 14px; } th,td { text-align:left; border-bottom:1px solid var(--line); padding:6px 8px; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; } .tag { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:0 8px; font-size:12px; }
+  .banner { border-left:4px solid var(--warn); background:var(--card); padding:10px 14px; border-radius:6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>메인 역할 교대 실행 (pair-control)</h1>
+  <div class="muted">작업 main-role-rotation-20261028 · 브랜치 claude/pair-control · 2026-10-28</div>
+
+  <div class="banner" style="margin-top:14px">
+    <b>합성 계약/회귀 검사 보고입니다.</b> 모델 학습·사진 추론·모델 비교는 수행하지 않았고, 실제 Codex/Claude/Gemini 호출도 없습니다(가짜 CLI만 사용).
+    <b>실제 모델 성능 개선은 평가하지 않았습니다.</b> 아래 수치는 개발 도구의 동작 검사 결과입니다.
+  </div>
+
+  <h2>첫 화면 요약</h2>
+  <div class="grid">
+    <div class="card"><div class="muted">검증 코드 SHA</div><div class="mono">5909a4101bc81f9679ea19f9334ac4a7d9a276e0</div></div>
+    <div class="card"><div class="muted">개발 진척률 (usable-card-analysis-v1.0)</div><div class="big">30 / 100</div><div class="muted">이번 작업으로 고정 기준 항목은 바꾸지 않음(+0). 기준: PROGRESS_CRITERIA.md · development-progress.json</div></div>
+    <div class="card"><div class="muted">이번 성과</div><div class="big ok">교대 실행 흐름 구현</div><div class="muted">새 메인 프로세스 실행 → 인수 확인 → 승인 범위 안의 행동</div></div>
+    <div class="card"><div class="muted">검사 결과(실제 실행)</div><div class="big ok">125 / 125 통과</div><div class="muted">타입 검사 통과 · 새 시나리오 테스트 6개 포함</div></div>
+  </div>
+
+  <h2>구현된 사용자 흐름</h2>
+  <div class="card">
+    <ol>
+      <li>메인 패널에서 <b>새 메인 실행하며 교대</b>(또는 한도 소진 시 <b>한도 소진으로 교대(복구)</b>)를 누른다.</li>
+      <li>이전 메인의 새 배정·승인·통합·리뷰 시작이 정지된다(교대 중). 진행 중인 구현 에이전트는 중단하지 않는다.</li>
+      <li>도구 상태와 <b>실제 Git 헤드</b>로 체크포인트(<span class="mono">.state/main-checkpoints/</span>)를 저장한다. 마지막 인계문이 없어도 만들 수 있다.</li>
+      <li>새 메인 프로세스(<span class="mono">codex exec --sandbox read-only</span> / <span class="mono">claude --print --permission-mode plan</span>)를 입력 묶음 폴더에서 실행한다. 구독 로그인·과금 가드와 한도 차단을 그대로 거친다.</li>
+      <li>새 메인이 체크포인트 해시·세션 토큰·관찰한 Git 헤드를 돌려주면 <b>도구가 실제 Git과 다시 대조</b>하고, 모두 일치할 때만 메인과 세대(generation)가 바뀐다.</li>
+      <li>승인 장부 범위 안의 행동(승인·통합·배정)만 기존 기능으로 수행한다. 수행 근거가 있으면 <b class="ok">교대 완료</b>, 행동이 없으면 <b class="warn">인수됨(완료 아님)</b>으로 표시한다.</li>
+    </ol>
+  </div>
+
+  <h2>mock 검증 시나리오 (fake CLI)</h2>
+  <div class="card"><table>
+    <tr><th>요구 시나리오</th><th>확인한 내용</th><th>결과</th></tr>
+    <tr><td>Codex→Claude, Claude→Codex 양방향</td><td>인수 확인 전에는 메인이 바뀌지 않고, 교대 중 배정·중복 교대 명령 차단, 세대 0→1→2, 양방향 모두 완료</td><td class="ok">통과</td></tr>
+    <tr><td>인수 후 다음 승인 작업 처리</td><td>새 메인이 낸 승인 행동으로 task-a·task-b가 실제 <span class="mono">approved</span></td><td class="ok">통과</td></tr>
+    <tr><td>승인 승계와 범위 밖 차단</td><td>재승인 없이 승계. 범위 밖 작업·실험·force push·세션 묶음 승인·미승인 배정 거부</td><td class="ok">통과</td></tr>
+    <tr><td>이전 메인의 지연 응답·중복 명령</td><td>같은 행동 ID 2번째 거부, 이전 세대 세션의 행동·종료 알림은 상태를 바꾸지 못함</td><td class="ok">통과</td></tr>
+    <tr><td>한도 오류 직후 체크포인트 복구</td><td>인계 메모 없이 <span class="mono">limit-recovery</span> 체크포인트로 교대, 행동 없으면 완료가 아닌 idle</td><td class="ok">통과</td></tr>
+    <tr><td>진행 중 구현 작업 결과 인수</td><td>구현 에이전트 실행을 취소하지 않고 체크포인트에 인수 대상으로 기록, 이후 정상 종료·결과 도착</td><td class="ok">통과</td></tr>
+    <tr><td>결과 불명 실행·push 중복 방지</td><td>unknown 작업·push_unverified 대상 행동 거부, 다음 행동 후보에서 제외</td><td class="ok">통과</td></tr>
+    <tr><td>대상 메인 실패·양쪽 한도</td><td>실행 불가·헤드 불일치·결과 없음·종료코드·한도 각각 메인 불변·체크포인트 보존·자동 재시도 없음, 양쪽 한도는 새 프로세스 없이 차단</td><td class="ok">통과</td></tr>
+  </table></div>
+
+  <h2>권한 승계와 중복 메인 방지</h2>
+  <div class="card">
+    <ul>
+      <li><b>승인 장부</b>: 근거·허용 행동·저장소·브랜치·대상 작업·조건으로 기록. 에이전트 이름이 아니라 장부가 기준이라 메인이 바뀌어도 그대로 승계된다. 도구는 승인을 만들지 않고 기록·조회·검사만 한다.</li>
+      <li>승계 안 됨: force push·이력 재작성·승인 범위 확대(어떤 장부 항목이 있어도 거부), 특정 세션에 묶인 승인, 철회된 승인. 실험 행동은 장부에 그 실험이 있어야 하고, 이 도구는 실험을 직접 실행하지 않는다.</li>
+      <li><b>중복 메인 방지</b>: 교대 중 정지, 세대(generation)·세션 ID·세션 토큰 해시, 행동 ID 장부. 인수 확인이 끝나기 전에는 이전 메인만, 후에는 새 메인만 상태를 바꾼다.</li>
+      <li>실행기가 <span class="mono">./develop</span>으로 에이전트를 감싼 경우 에이전트에게 중첩 실행을 요구하지 않도록 한 앞선 변경은 그대로다(이번 작업은 건드리지 않음).</li>
+    </ul>
+  </div>
+
+  <h2>변경 파일 (이 작업의 커밋 3개, 21개 파일, +891 −17)</h2>
+  <div class="card"><table>
+    <tr><th>구분</th><th>파일</th></tr>
+    <tr><td>신규 엔진(파일당 함수 7개 이하)</td><td class="mono">src/executor/mainTypes.ts · mainApprovals.ts · mainCheckpoint.ts · mainTakeover.ts · mainActions.ts · mainHandover.ts</td></tr>
+    <tr><td>기존 수정</td><td class="mono">executor.ts(+60: 상태·정지 가드·한도 분리·새 메인 실행) · mainRole.ts · runtime.ts · mastra/index.ts</td></tr>
+    <tr><td>화면</td><td class="mono">ui/page.html · ui/js/view-list.js · ui/js/actions.js</td></tr>
+    <tr><td>테스트</td><td class="mono">test/main-rotation.test.ts · test/fake-cli/takeover.mjs · fake-cli/claude · fake-cli/codex</td></tr>
+    <tr><td>문서·지침</td><td class="mono">AGENTS.md · PAIR_CODING.md(§7 신설, 고정 문구를 현재 메인 중심으로) · tools/pair-control/README.md · tasks/main-role-rotation-20261028.md</td></tr>
+  </table></div>
+
+  <h2>검사 명령과 실제 결과</h2>
+  <div class="card"><table>
+    <tr><th>명령</th><th>결과</th></tr>
+    <tr><td class="mono">npm run typecheck</td><td class="ok">오류 0</td></tr>
+    <tr><td class="mono">node --import tsx --test --test-concurrency=1 test/*.test.ts</td><td class="ok">125개 중 125개 통과, 실패 0 (이번 추가 6개)</td></tr>
+    <tr><td>화면 확인(Playwright, 격리 데모 서버 4112, fake CLI)</td><td class="ok">"새 메인 실행하며 교대": 세대 0→1, codex→claude "인수됨(완료 아님)" / "한도 소진으로 교대": 세대 2, 한도 표시·승인 장부 기록 확인</td></tr>
+  </table></div>
+
+  <h2>구조 기준 확인 결과</h2>
+  <div class="card">
+    <table>
+      <tr><th>신규 파일</th><th>함수 수(정적 집계)</th><th>기준</th></tr>
+      <tr><td class="mono">mainTypes.ts</td><td>0</td><td>자료형만</td></tr>
+      <tr><td class="mono">mainApprovals.ts</td><td>4</td><td>7 이하</td></tr>
+      <tr><td class="mono">mainCheckpoint.ts</td><td>7</td><td>7 이하(경계)</td></tr>
+      <tr><td class="mono">mainTakeover.ts</td><td>5</td><td>7 이하</td></tr>
+      <tr><td class="mono">mainActions.ts</td><td>5</td><td>7 이하</td></tr>
+      <tr><td class="mono">mainHandover.ts</td><td>7</td><td>7 이하(경계)</td></tr>
+    </table>
+    <div class="muted" style="margin-top:6px">호출 전이: 가장 긴 경로는 onMainEnd → ackSession → applyActions → runOne → uncertain/authorize 4회로 읽어서 확인했다(도구로 실측하지 않음). authorize 안의 승계 승인 필터는 깊이를 늘리지 않으려고 직접 인라인했다. 기존 executor.ts 등 큰 파일은 이 기준을 이미 넘으며 이번에 줄 수 증가를 +60으로 제한했다.</div>
+  </div>
+
+  <h2>미검증·남은 제약</h2>
+  <div class="card">
+    <ul>
+      <li class="warn"><b>실제 CLI에서 미확인</b>: 설치된 codex/claude 버전의 세션 재개·도구·권한 동작, 실제 한도 오류 문구 전체, 한도 잔량 정보 제공 여부. 잔량·사전 자동 교대는 추정하지 않아 구현하지 않았다.</li>
+      <li class="warn">실제 새 메인이 출력 규약(마지막 줄 JSON)을 지킬지는 첫 실제 실행에서 확인해야 한다. 지키지 못하면 "결과 JSON을 읽지 못함"으로 인수하지 않고 실패를 기록한다.</li>
+      <li>새 메인 프로세스는 읽기 전용이라 파일을 직접 고치지 않고, 행동은 도구가 기존 기능으로 수행한다. push는 이 도구의 새 메인 행동에 연결하지 않았다(범위 밖).</li>
+      <li>서버가 재시작되면 진행 중이던 새 메인 실행은 결과 불명으로 처리하고 같은 요청을 다시 보내지 않는다.</li>
+      <li>교대 중에는 이전 메인의 <b>화면·API 상태 변경</b>을 정지한다. 도구는 누가 클릭하는지 모르므로 사용자 본인의 직접 조작까지 막는 보안 장치는 아니다.</li>
+      <li>이 브랜치의 AGENTS.md·PAIR_CODING.md는 main의 최신본보다 오래됐을 수 있다. 통합 시 충돌은 현재 메인이 확인한다.</li>
+    </ul>
+  </div>
+
+  <h2>리스크·롤백</h2>
+  <div class="card">
+    <ul>
+      <li>리스크: 새 메인 판단은 별도 프로세스의 응답이다. 도구가 형식·SHA·승인 범위만 검사하고 의미 판단은 하지 않는다. 승인 장부에 넓은 승인을 적으면 그 범위 안에서 행동이 수행된다.</li>
+      <li>롤백: 커밋 <span class="mono">93b13f5</span>(엔진)와 <span class="mono">5909a41</span>(API·화면·문서)를 <span class="mono">git revert</span>. 장부가 비어 있으면(기본) 새 메인은 어떤 행동도 수행하지 못한다.</li>
+    </ul>
+  </div>
+
+  <h2>커밋 순서 (전체 SHA)</h2>
+  <div class="card mono">
+    1. 8ae3e5028c74e945054283dd17ce1364f7da48b2 — 작업 계약 고정<br>
+    2. 93b13f5f6ba17f56b77b7273bf54873ef32a9efb — 교대 실행 엔진·시나리오 테스트<br>
+    3. 5909a4101bc81f9679ea19f9334ac4a7d9a276e0 — API·화면·승계 규칙 문서
+  </div>
+  <p class="muted">main 통합·실제 push는 수행하지 않았다. 근거 파일: tools/pair-control/test/main-rotation.test.ts, docs/collaboration/tasks/main-role-rotation-20261028.md</p>
+</main>
+</body>
+</html>
