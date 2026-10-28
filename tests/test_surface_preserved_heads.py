@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 import torch
 root=Path(__file__).resolve().parents[1];modules={}
-for name in ('features','nonlinear','worker'):
+for name in ('features','nonlinear','worker','audit'):
     spec=importlib.util.spec_from_file_location(name,root/'tools/experiments/surface-preserved-heads-20261028'/f'{name}.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);modules[name]=m
 
 class SurfacePreservedHeadsTests(unittest.TestCase):
@@ -40,3 +40,14 @@ class SurfacePreservedHeadsTests(unittest.TestCase):
             values,head,diag=f.fit_fold(ctx,[0,1],[2],'nonlinear',None,n)
         self.assertEqual(torch.float32,values.dtype);maps=torch.zeros(3,2,dtype=torch.float32);maps[[2]]=values
         torch.testing.assert_close(maps[2],torch.tensor([.1,.2],dtype=torch.float64).sigmoid().float());self.assertEqual(torch.float32,maps.dtype)
+
+
+    def test_audit_counts_keep_point_and_weak_denominators_distinct(self):
+        rows=[dict(target=1),dict(target=1),dict(target=0)];first=torch.tensor([0,-1,-1]);maps=torch.tensor([[.2,.8],[.4,.3],[.7,.1]]);mask=torch.ones((3,2),dtype=torch.bool)
+        value=modules['audit'].counts(rows,first,maps,mask)
+        self.assertEqual(dict(fn=1,positives=2,fp=1,negatives=1,point_fn=1,points=1,weak_fn=1,weak_positives=1),value)
+
+    def test_original_objective_is_preserved_by_zero_residual_weights(self):
+        x=torch.tensor([[[2.,1.],[1.,0.]],[[-1.,0.],[0.,-1.]]]);mask=torch.ones((2,2),dtype=torch.bool);first=torch.tensor([0,-1]);rows=[dict(target=1),dict(target=0)];mass=torch.ones(2);w=torch.tensor([.2,-.4]);f=modules['features'].preserved_features(x,mask)
+        a=modules['audit'].objective(x,mask,first,rows,mass,w,.1);b=modules['audit'].objective(f,mask,first,rows,mass,torch.cat((w,torch.zeros_like(w))),.1)
+        self.assertAlmostEqual(a,b,places=10)
