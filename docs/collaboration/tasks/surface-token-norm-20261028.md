@@ -42,3 +42,16 @@ source수정은별도checkout ./develop 안에서,실제학습/추론은기본ch
 전체진척PROGRESS_CRITERIA.md/development-progress.json의30/100유지. 실자료사진91구역·147/51분모·이전대비%p·관찰제한미평가·record.json실제상태/판정·검사/리스크/롤백·검증sourceSHA를동명MD/HTML에보고하고연다. 열기응답과렌더미확인은구분한다.
 
 원격은검증후일반push로main동기화. 최신완료Codex checkout1개유지·이전완료checkout만main대응/clean/flock/고유증거SHA보존후일반remove. Claude/미통합checkout은보존한다. 롤백은실행중작업없을때통합source/plan SHA를 ./develop -- git revert 후관련검사/일반push. 기존운영모델/정답복구불필요,실험기록보존.
+
+
+## 정규화 실측 뒤 후속 범위 — 뒷면의 기존 모든 실제점
+
+130920-50860931은수렴/completed이나FN17/94,FP19/53,typed23/51로미채택이다. 결과의필수cohort를면별집계하니원래legacy51보호maxFN5에대해고정뒷면만12/33누락이다. 앞면만개선해도이전체기준을통과할수없다. 기존typed51뒷면은11/33누락이며구역뒷면FN2/43과차이가크다. 기준완화없이뒷면위치반응을다음개선대상으로삼는다. 앞면도기준미달이므로뒷면하나의개선만으로운영품질을통과한다고하지않는다.
+
+추가allowed_files: tools/experiments/surface-token-norm-20261028/worker-back.py, 같은폴더plan-back.json. 기존objective.py(surface-all-human-points-20261028)는읽기전용재사용. 앞면모든점실험은실패했으나이번은고정뒷면21실물제외head의33bag/46고유점토큰으로다른범위의별도가설이다. 같은자료반복front실험이나앞뒤후보혼합아니다.
+
+고유ID surface-back-all-existing-points-20261028. 원래53firstpoint/기존typedtraincache/원본고정manifest의surface점만사용하고,변경은뒷면양성bag손실의첫토큰→모든기존고유surface점평균하나다. 정상/weak/L2=1/class-group mass/firstcenter/zero/LBFGS100/gradient<=1e-5/threshold.5/실물rawdecoded분리·21기존train_ids·앞면기준map은불변. 원래147/legacy51/typed51/11cohort정답과기준유지. 정규화후보와결합0.
+
+성공판정은원래전체수용으로유지하고,전체미달이어도국소진척여부를별도로보고한다. 국소전진은같은147 FN<=16 FP<=18,새오답0,typed51기존검출누락0,뒷면typedFN<11을모두만족한경우만표시한다. 전체수용미달이면운영미채택이며학습조건/평가분모는결과후변경하지않는다. failed는완전성능미측정/재시도0이다.
+
+worker-back은load/render/finish최대3함수. fit_all_point_head→closure→all_point_loss→detail_bag_loss→point_bag_loss 최대4전이. 기존allpoint검사를재사용하고기존21train_ids대조·held그룹/rawdecoded완전제외·frontmap불변·원래head재생을실행전검사한다. 렌더는뒷면56구역과typed원래점좌표/모델peak를구분해표시한다. 직접추론/새라벨없고공통실행기단일실행. 모든Claude자료·진척/기준·운영코드금지는유지한다.
