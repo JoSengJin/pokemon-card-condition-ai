@@ -2,7 +2,7 @@
 
 - task_id: `pair-control-main-safety-20261029`
 - owner: Claude (구현)
-- status: implementing
+- status: ready_for_review
 - base_sha: `0f8849271685437365796edee38b7fbd4e3586fd`
 - branch: `claude/pair-control` (기존 worktree, 미커밋 변경 없음 확인)
 - 통합·push·실제 모델 호출: 하지 않음(현재 메인이 검토 후 처리)
@@ -42,3 +42,11 @@ runtime.ts 26/30(기존 초과), mainActions.ts 5/7, mainApprovals.ts 4/10, main
 ## handoff
 
 전체 커밋 SHA와 적용 순서, 변경 파일, 문제별 재현 테스트와 결과, 미검증, 리스크, 롤백을 최종 보고에 기록한다.
+
+## 인계 결과
+
+- 적용 순서: `e097138cbfb8f1867ddf2dd681ef56b07f45995a`(계약) → `6c271362b4d6844d3af4edd3f0e40b8e74aa3b7f`(코드·테스트·README) → 보고서 커밋(최종 SHA는 최종 보고에 기재)
+- 검사: typecheck 통과, `npm test` 138/138(기존 126 + 신규 12, fake CLI·스텁). 수정 전 코드에서 신규 회귀 10건 실패 확인.
+- 구조(변경 후 이름 있는 함수 수): mainActions 6, mainApprovals 5, mainHandover 7, mainCheckpoint 7, mainEnd 1, mainGuard 4, mainOutcome 1, mainSerial 1. `onMainEnd` 최장 호출 전이 7회(기존 Executor 내부로 이어짐) → 해당 경로 채택 보류, 예외/재설계는 현재 메인 결정 필요. 익명 콜백 포함 시 7 초과 파일 있음(기준 해석 결정 필요).
+- 미검증: 실제 CLI 교대, 통합 후 검사, 연속 작업 연결(P1-6, 별도 작업).
+- 보고서: `docs/collaboration/reports/main-safety-20261029.html` (열기 요청 성공, 렌더 확인은 미실행)

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>메인 교대 안전성 수정 보고</title>
+<style>
+:root{--bg:#fff;--fg:#1c2330;--mut:#5b6678;--line:#d9dee7;--ok:#127a43;--bad:#b3261e;--warn:#9a6700;--card:#f5f7fa}
+@media (prefers-color-scheme:dark){:root{--bg:#12161d;--fg:#e6eaf0;--mut:#9aa6b8;--line:#2b3442;--ok:#4cc38a;--bad:#ff7b72;--warn:#e3b341;--card:#1a202a}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,"Apple SD Gothic Neo",sans-serif}
+main{max-width:920px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 6px}h2{font-size:17px;margin:28px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.top{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.top b{display:inline-block;min-width:92px;color:var(--mut);font-weight:600}
+table{border-collapse:collapse;width:100%;font-size:13.5px}th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}th{background:var(--card)}
+code{font:12.5px ui-monospace,Menlo,monospace;background:var(--card);padding:1px 4px;border-radius:3px}
+.ok{color:var(--ok);font-weight:600}.bad{color:var(--bad);font-weight:600}.warn{color:var(--warn);font-weight:600}.mut{color:var(--mut)}
+</style></head><body><main>
+<h1>메인 교대 안전성·검증 결함 수정</h1>
+<div class="top">
+<div><b>작업</b> pair-control-main-safety-20261029 (P1 5건 + P2 1건)</div>
+<div><b>검증 코드 SHA</b> <code>6c271362b4d6844d3af4edd3f0e40b8e74aa3b7f</code> (계약 <code>e097138cbfb8f1867ddf2dd681ef56b07f45995a</code>, 시작 <code>0f8849271685437365796edee38b7fbd4e3586fd</code>)</div>
+<div><b>전체 개발 진척</b> 35/100 (usable-card-analysis-v1.0, 2026-10-28 기록) · 이번 변경 +0 — 기본 checkout의 development-progress.json을 읽기 전용으로 확인. 이 작업은 고정 배점 항목을 완료하지 않았다.</div>
+<div><b>이번 성과</b> 검토에서 재현된 안전성 결함 5건을 회귀 테스트로 고정하고 수정, 구조 기준(P2)은 측정 후 <span class="warn">일부 채택 보류</span>.</div>
+<div class="mut">합성(fake CLI·스텁) 계약/회귀 검사이다. 실제 Codex/Claude/Gemini CLI 검증이 아니며, 모델 학습·추론·성능 평가는 하지 않았다(정확도·FN/FP 변화 없음, 평가 미실시).</div>
+</div>
+
+<h2>문제별 변경과 재현 테스트</h2>
+<table><tr><th>#</th><th>수정</th><th>회귀 테스트(test/main-safety.test.ts)</th><th>수정 전 테스트</th><th></th></tr>
+<tr><td>1</td><td>assign_task는 실제 task ID를 먼저 확정(<code>plan</code>)해 승인 검사·실행에 같은 ID 사용. 바깥 taskId≠input.taskId 거부. 자동 생성 ID는 승인 대상일 때만 허용.</td><td>승인된 ID만 생성 / 불일치·미승인 시 작업 0건 / 전체 승인 시 실제 ID 기록</td><td class="bad">실패 2건</td><td></td></tr>
+<tr><td>2</td><td>자유 문장 <code>conditions</code>가 있으면 자동 수행 보류(기존 장부 포함). 구조화 <code>requires.handoffConfirmed</code>(현재 결과 SHA와 일치하는 메인 확인 인계)만 실제 검사.</td><td>문장 조건 보류 / 기존 항목 비변환 / 확인 전·SHA 불일치 거부</td><td class="bad">실패 1건</td><td></td></tr>
+<tr><td>3</td><td>수행 뒤 작업의 실제 상태 확인(<code>mainOutcome</code>): 승인=approved, 통합=integrated+통합 HEAD+필수 통합 후 검사 통과.</td><td>blocked/refused/conflict/check_failed/상태 불변/HEAD 없음/검사 실패 모두 ok:false, 실제 workflow 차단 재현 후 해소 시 성공</td><td class="bad">실패 2건</td><td></td></tr>
+<tr><td>4</td><td>인수 전 응답 전체·행동 항목 검증(<code>mainGuard</code>), 처리 중 예외는 세션 실패로 기록(<code>mainEnd</code>). 행동 수행 예외는 해당 행동만 실패.</td><td>11개 잘못된 응답 유형(actions:{} 등)에서 메인·세대 불변, 체크포인트 보존, 예외 비유출 / 감사 기록 예외</td><td class="bad">실패 2건</td><td></td></tr>
+<tr><td>5</td><td>행동마다 세션·세대·정지 상태 재확인, 행동·교대 직렬화(<code>mainSerial</code>), 행동 ID를 실행 전에 영속 표시(수행 중 표시만 남으면 재실행 안 함).</td><td>세대 변경 후 남은 행동 미수행 / 실행 중 교대 대기 후 남은 행동 거부 / 동일 ID 동시·결과 불명 재실행 차단</td><td class="bad">실패 3건</td><td></td></tr>
+<tr><td>6</td><td><code>stable</code> 재귀 제거(JSON.stringify 정렬 replacer), 구조 점검 스크립트 추가.</td><td>해시 키순서 무관 / 파일별 이름 있는 함수 ≤7</td><td class="ok">통과 유지</td><td></td></tr></table>
+<p class="mut">수정 전 코드(계약 커밋 시점)에 같은 테스트를 돌려 10건 실패·1건(해시) 통과를 확인했다. 구조 테스트는 이후 추가했다.</p>
+
+<h2>실제 검사 결과</h2>
+<table><tr><th>검사</th><th>결과</th></tr>
+<tr><td><code>npm run typecheck</code> (tools/pair-control)</td><td class="ok">오류 없음</td></tr>
+<tr><td><code>npm test</code> 전체 (커밋 6c27136 상태)</td><td class="ok">138/138 통과, 실패 0 (기존 126 + 신규 12), 약 258초. fake CLI·스텁만 사용.</td></tr>
+<tr><td>실제 Codex/Claude/Gemini 호출·학습·사진 추론·라벨 수정·push·main 통합</td><td>0 (하지 않음)</td></tr></table>
+
+<h2>P2 구조 기준 측정 (<code>scripts/structure-trace.mjs</code>, 정적 분석)</h2>
+<table><tr><th>파일</th><th>이름 있는 함수 변경 전→후</th><th>비고</th></tr>
+<tr><td>mainActions.ts</td><td>5→6</td><td class="ok">≤7</td></tr><tr><td>mainApprovals.ts</td><td>4→5</td><td class="ok">≤7</td></tr>
+<tr><td>mainHandover.ts</td><td>7→7</td><td class="ok">≤7 (onMainEnd를 mainEnd.ts로 이동)</td></tr><tr><td>mainCheckpoint.ts</td><td>7→7</td><td class="ok">≤7, 재귀 제거</td></tr>
+<tr><td>신규 mainEnd/mainGuard/mainOutcome/mainSerial</td><td>1/4/1/1</td><td class="ok">≤7</td></tr>
+<tr><td>runtime.ts / executor.ts / prepare.ts</td><td>26 / 77 / 9 (변경 전과 동일, prepare는 export만)</td><td class="bad">기존 초과 — 예외 처리하지 않음</td></tr></table>
+<p><b>익명 콜백 포함 총 함수 노드</b>는 mainApprovals 14, mainHandover 12, mainCheckpoint 16 등 7을 넘는다. 기준이 이름 있는 함수만 세는지 콜백까지 세는지 이 문서만으로 확정할 수 없어, 기준 해석은 현재 메인이 결정해야 한다.</p>
+<p><b>호출 전이:</b> 시작 함수 <code>onMainEnd</code>의 최장 경로는 <code>onMainEnd → ackSession → applyActions → runOne → (runtime) approve → (executor) approve → setStatus → event</code>로 <b class="bad">7회</b>(변경 전과 같음). 내 코드 구간 <code>onMainEnd→…→runOne→mainOps</code>는 4회지만, 기존 Executor의 승인·상태 변경 내부가 이어져 4회를 넘는다. 이 초과는 executor.ts 내부 구조에 있어 이번 작업 범위(요청하지 않은 리팩터링 금지)로 해소할 수 없다. 필요한 결정: 해당 경로 예외 승인 또는 Executor 승인/상태 변경 경로 재설계. <b class="warn">이 경로의 구조 기준 채택은 보류</b>한다. 동적 호출(<code>ops.approve</code>, <code>ex.approve</code>)은 이름 일치로 추정한 값이라 정적 확정이 아니며, 도구가 낸 재귀 표시(save→save, approve→approve)는 같은 이름의 서로 다른 함수를 잘못 연결한 것으로 직접 확인했다. 실제 재귀는 <code>stable</code>뿐이었고 제거했다.</p>
+
+<h2>변경 파일</h2>
+<p><code>tools/pair-control/src/executor/</code> mainActions·mainApprovals·mainHandover·mainTypes·mainCheckpoint·executor(import 1줄)·prepare(export 1단어), 신규 mainEnd·mainGuard·mainOutcome·mainSerial, <code>src/runtime.ts</code>·<code>src/mastra/index.ts</code>(requires 표시·전달), 신규 <code>test/main-safety.test.ts</code>·<code>scripts/structure-trace.mjs</code>, <code>test/main-rotation.test.ts</code>(import 경로), README, 작업 계약, 이 보고서.</p>
+
+<h2>미검증·리스크·롤백</h2>
+<ul>
+<li>실제 codex/claude CLI에서의 교대·세션 재개·도구 동작은 검증하지 않았다(fake CLI 합성 검사).</li>
+<li>직렬화는 프로세스 내 순서 보장이며 전역 잠금이 아니다. 프로세스가 죽으면 "수행 중" 표시가 남아 해당 행동 ID는 재실행되지 않는다(의도된 보수적 동작; 사람이 확인해야 함).</li>
+<li>문장 조건이 있는 기존 승인은 이제 자동 수행되지 않는다. 필요하면 <code>requires.handoffConfirmed</code>로 다시 기록해야 한다. 이 변경은 의도된 동작 변화이다.</li>
+<li>"교대 후 연속 작업 연결"(검토 P1-6)은 이번 범위가 아니며 미해결이다. 이 작업만으로 연속 페어코딩이 완성되었다고 볼 수 없다.</li>
+<li>롤백: 통합 전이므로 제품 영향 없음. 통합 후에는 <code>git revert 6c27136</code>(코드), 문서는 별도 커밋.</li>
+</ul>
+</main></body></html>
