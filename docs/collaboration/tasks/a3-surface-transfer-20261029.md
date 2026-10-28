@@ -2,7 +2,7 @@
 
 - task_id: a3-surface-transfer-20261029
 - owner: Codex
-- status: assigned
+- status: ready_for_review
 - base_sha: a956f6b6822b7fe8415a7e7719f4aa8045936d0b
 - branch: codex/a3-surface-transfer-20261029
 - goal: 동결 A3 val의 확인된 영역에서 기존 두 후보를 같은 ensemble·분모로 비교하고 미지원 geometry를 공개한다. 기존147구역/legacy51/typed51/11cohort를 저장계수로 재생한다. 새학습·정답수정·외부AI0.
@@ -36,3 +36,7 @@ C 표면758구역/648점 원래분모를 유지한다. box_reviewed 아닌39구�
 신규파일당 최대7함수. module guard→독립 단계 호출; data projection→region_box, point mapping→point_input_pixel, render→side_image→prepared_image 등 신규 프로젝트 함수전이 최대4. torch/PIL callback은 기존 라이브러리 연산이며 사용자정의 callback 추가없음. 합성검사: truth/geometry 분리, 경계점·EXIF·padding 좌표, head평균과max순서, 유한값/shape, 학습ID·group·raw/decoded분리, 실제계수 replay와 원래cohort보호.
 
 code_changes는 실제 실행 byte동일 mirror를 모두 등록한다. HTML은 artifacts 새실험/index.html 사진/구역·점/분모/%p와 docs 동명보고서. 내용대조·열기·렌더 확인상태를 기록한다. file: 보안차단 우회없음. 롤백은 통합SHA git revert·관련검사·일반push, 원본자료/모델과 실패결과는 보존한다. 최신 완료 checkout1개 유지 규칙 적용.
+
+## 구현 검증
+
+새 data/readout/report/worker 함수4/4/2/3, 테스트6함수. source와합성/기존회귀71개OK(6.017초). 최초합성검사의float정확일치·macOS실제경로기대만교정했고모델/수치기준변경0. AST·diff공백검사통과. 주요깊이 features→side_tensor→side_image→prepared_image 3전이, replay_maps→mean_maps 1전이, point_tokens→point_input_pixel/physical_pixel_mask 1전이, render→side_image→prepared_image 2전이. coverage_report는moduleguard에서직접호출해기존4전이유지. 182입력SHA와실제실행mirror4개를공통plan에고정. 실제추론은통합후canonical에서만실행한다.
