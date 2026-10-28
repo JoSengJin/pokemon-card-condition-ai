@@ -35,3 +35,8 @@ HTML: 동명reports HTML, artifacts/a3-evaluation-preparation-20261028/REPORT.ht
 ## 2026-10-29 재개 체크포인트
 
 원래 작업 날짜/검사결과는 보존했다. HTML 파일보기 요청은 queued(전달됨), 실제 브라우저 렌더 확인은 아니다. 새 점수를 보기 전 사용할 후보/백본/학습캐시 SHA와 표면분모·수치기준을 Git제외 NEXT_EVALUATION.json에 기록했다. 이는 실행된실험/구현완료가아니다. 새사진 readout은 동일정책의head별token확률평균후physical-token최대라는 제안이며 worker/합성검사/공통plan 구현 전이다. 이전147/51과새val은다른분모이므로새val에서두후보끼리만비교해야한다. 추가사람라벨은현재준비작업의의존이아니다.
+
+
+## 원격 반영과 checkout 정리
+
+main/원격 a956f6b6822b7fe8415a7e7719f4aa8045936d0b 일치를 이전 push 후 확인했고 2026-10-29 fetch로 재확인했다. 이전 완료 branch codex/surface-token-norm-20261028(3626363fe4b5b3cee3e8ac6b44e1b53f379fa5f1)의 6커밋 대응·깨끗한 상태·flock 획득·고유 증거 SHA 보존 후 일반 worktree remove를 완료했다. 최신 완료 codex/a3-evaluation-preparation-20261028(12aca57)은 유지했다. 다른 checkout은 보존했다. 감사: artifacts/a3-evaluation-preparation-20261028/worktree-cleanup/audit.json. 보존 lock SHA 65798373c447a82f6c4eeb488169a43de4355ca55a7625be7911c9f75111a3c5. 복원: git worktree add <새경로> codex/surface-token-norm-20261028 후 환경 재설치·필요 증거 복원.
