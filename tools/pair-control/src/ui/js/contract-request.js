@@ -128,11 +128,16 @@ function bullets(text) {
   return text.split('\n').map((l) => l.trim()).filter((l) => /^([-*]|\d+[.)])\s+/.test(l)).map((l) => l.replace(/^([-*]|\d+[.)])\s+/, '').trim()).filter(Boolean);
 }
 
-/** 항목에서 경로만 꺼낸다: `a/b.py` 설명 → a/b.py. 경로처럼 보이지 않으면 null. */
+/**
+ * 항목에서 경로만 꺼낸다. `a/b.py` 설명 → a/b.py(백틱 경로는 뒤에 설명이 있어도 됨).
+ * 백틱이 없으면 항목 전체가 경로 하나(뒤에 괄호 주석만 허용)이고 '/' 또는 '.'을 포함해야 한다.
+ * 그렇지 않으면 "side-evidence 계약 초안과 …" 같은 설명 문장의 첫 단어를 경로로 잘못 읽는다. 경로가 아니면 null.
+ */
 function pathOf(item) {
-  const m = item.match(/^`([^`]+)`/) || item.match(/^([A-Za-z0-9_.\/-]+)(\s|$)/);
+  const m = item.match(/^`([^`]+)`/) || item.match(/^([A-Za-z0-9_.\/-]+)(?:\s*\([^)]*\))?$/);
   const p = m && m[1].trim();
-  return p && !p.includes(' ') && /^[A-Za-z0-9_.][A-Za-z0-9_.\/-]*$/.test(p) ? p : null;
+  if (!p || p.includes(' ') || !/^[A-Za-z0-9_.][A-Za-z0-9_.\/-]*$/.test(p)) return null;
+  return m[0].startsWith('`') || /[\/.]/.test(p) ? p : null;
 }
 
 /** 메인의 답을 폼 칸으로 나눈다. 찾지 못한 절은 missing에, 경로로 읽지 못한 항목은 rejected에 알린다. */

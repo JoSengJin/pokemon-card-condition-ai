@@ -59,6 +59,10 @@ test('답 나누기: 절별로 칸을 나누고 경로가 아닌 항목은 제�
   assert.deepEqual(tpl.allowedFiles, ['a/b.py']);
   assert.deepEqual(tpl.readDocs, ['AGENTS.md']);
   assert.ok(tpl.rejected.includes('[정확한 기존 파일 경로]'));
+  // 설명 문장의 첫 단어는 경로가 아니다(예: "side-evidence 계약 초안과 직접 관련 보고서"). 백틱 경로·괄호 주석은 그대로 허용한다.
+  const desc = parseContractReply('## 읽을 문서\n- `AGENTS.md`\n- PAIR_CODING.md\n- docs/a.md (신규)\n- side-evidence 계약 초안과 직접 관련 보고서\n- 허용 파일의 호출 코드와 테스트\n- develop\n- `card_condition/x.py` 설명');
+  assert.deepEqual(desc.readDocs, ['AGENTS.md', 'PAIR_CODING.md', 'docs/a.md', 'card_condition/x.py']);
+  assert.deepEqual(desc.rejected, ['side-evidence 계약 초안과 직접 관련 보고서', '허용 파일의 호출 코드와 테스트', 'develop']);
   assert.match(tpl.prompt, /- 구현[\s\S]*허용 파일 절의 부가 지시:\n금지: 데이터·라벨\n무시 산출물: artifacts\/x\//);
 });
 
