@@ -39,6 +39,15 @@ function identitySections({ t, head, extra, main, impl }: Ctx): string[] {
   ];
 }
 
+/**
+ * ./develop 안내. 수동 세션은 AGENTS.md대로 `./develop -- <수정 명령>` 안에서 직접 수정한다.
+ * 관제 실행부가 시작하는 에이전트(real·mock)는 이미 실행기가 worktree의 ./develop 잠금으로 감싼 상태이므로 중첩 실행을 요구하지 않는다.
+ */
+function developLine(t: Task): string {
+  if (t.mode === 'manual') return '- card_condition/·tools/experiments/ 파일 수정은 `./develop -- <수정 명령>` 안에서 수행하세요(AGENTS.md). 이 worktree의 자체 `.venv/bin/python`이 필요합니다.';
+  return '- 이 실행은 관제 도구가 worktree의 `./develop` 잠금을 획득한 상태로 시작했습니다. `./develop`을 직접 실행하지 말고, 계약의 허용 파일만 Edit/Write로 수정하세요. 잠금 밖에서 별도 프로세스를 만들어 편집하지 마세요.';
+}
+
 /** 3~5절: 목표·완료 조건, 파일 소유권, 구현·실행 제한. */
 function scopeSections({ t, main }: Ctx): string[] {
   return [
@@ -50,7 +59,7 @@ function scopeSections({ t, main }: Ctx): string[] {
     '임의 기능 추가, 관련 없는 리팩터링, 새 의존성 추가를 하지 마세요.', '',
     '## 5. 구현·실행 제한',
     '- 배정된 worktree에서만 구현합니다.',
-    ...(t.usesDevelopLock ? ['- card_condition/·tools/experiments/ 파일 수정은 `./develop -- <수정 명령>` 안에서 수행하세요(AGENTS.md). 이 worktree의 자체 `.venv/bin/python`이 필요합니다.'] : []),
+    ...(t.usesDevelopLock ? [developLine(t)] : []),
     '- PAIR_CODING의 구조 기준을 지키세요: 파일당 함수 정의 최대 7개, 주요 호출 전이 최대 4회.',
     '- 합성 fixture·mock으로 가능한 검증을 수행합니다. 사람 라벨·평가 기준·진척 배점은 바꾸지 않습니다.',
     `- 금지: 실제 학습·모델 비교·사진 추론·라벨 수정·외부 AI 호출·자동 교차 검토, 의존성 설치·모델 다운로드, push. main 수정·통합·push는 ${main}가 담당합니다.`, '',

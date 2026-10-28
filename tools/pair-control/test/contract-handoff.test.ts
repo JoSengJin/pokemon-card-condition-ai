@@ -135,3 +135,17 @@ test('시작 프롬프트 구조: 메인이 쓰던 8절 형식(식별·확인·�
     assert.match((await env.ex.startPrompt('task-b')).text, /HTML_REPORTING\.md가 요구하면 HTML 경로와 열기·렌더 확인 결과를 구분해 적으세요/);
   } finally { env.cleanup(); }
 });
+
+test('./develop 안내: 관제 실행부가 감싸 시작하는 에이전트에게는 중첩 실행을 요구하지 않고, 수동 세션은 기존 안내를 유지한다', async () => {
+  const env = setup();
+  try {
+    const dev = { allowedFiles: ['card_condition/x.py'] };
+    await env.ex.assign(task(env, 'task-a', { ...dev, mode: 'manual' }));
+    const manual = (await env.ex.startPrompt('task-a')).text;
+    assert.match(manual, /`\.\/develop -- <수정 명령>` 안에서 수행하세요/);
+    await env.ex.assign(task(env, 'task-b', { ...dev, mode: 'real' }));
+    const run = (await env.ex.startPrompt('task-b')).text;
+    assert.match(run, /관제 도구가 worktree의 `\.\/develop` 잠금을 획득한 상태로 시작했습니다\. `\.\/develop`을 직접 실행하지 말고/);
+    assert.ok(!run.includes('안에서 수행하세요(AGENTS.md)'), '중첩 실행 요구 문구 없음');
+  } finally { env.cleanup(); }
+});

@@ -55,6 +55,7 @@ test('양방향 교대: 인수 확인 뒤에만 메인이 바뀌고, 승인은 �
   const env = setup(real);
   await withFlag(env, async () => {
     const shaA = await ready(env, 'task-a', 'src_a'), shaB = await ready(env, 'task-b', 'src_b');
+    const contractA = { sha: env.ex.task('task-a').contractSha, hash: env.ex.task('task-a').contractHash };
     wire(env);
     grantApproval(env.ex, { basis: '사용자 승인: 개발·통합 승인 범위(2026-10-28 테스트)', actions: ['approve_task'], targets: ['task-a', 'task-b'] });
     script({ actions: [{ id: 'a1', type: 'approve_task', taskId: 'task-a', sha: shaA }] });
@@ -72,6 +73,8 @@ test('양방향 교대: 인수 확인 뒤에만 메인이 바뀌고, 승인은 �
     assert.equal(env.ex.state.main!.generation, 1);
     assert.equal(env.ex.runtime.frozen, false);
     assert.equal(env.ex.task('task-a').status, 'approved', '새 메인이 다음 승인 작업을 실제로 처리');
+    assert.equal(env.ex.task('task-a').contractSha, contractA.sha, '교대했다는 이유로 확정된 계약을 다시 만들거나 바꾸지 않음');
+    assert.equal(env.ex.task('task-a').contractHash, contractA.hash);
     assert.ok(s1.ackedAt && s1.completedAt);
 
     script({ actions: [{ id: 'b1', type: 'approve_task', taskId: 'task-b', sha: shaB }] });
