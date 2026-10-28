@@ -2,7 +2,7 @@
 
 - task_id: surface-feature-conflict-relative-20261028
 - owner: Codex
-- status: implementing
+- status: integrated
 - base_sha: 9a4f63821a31bcadb8099dab78df55c37358b59a
 - branch: codex/surface-feature-conflict-relative-20261028
 - worktree: 로컬 전용
@@ -24,7 +24,7 @@ ignored: artifacts/surface-feature-conflict-relative-20261028/ 의고정mirror/�
 
 ## 1. 특징 혼동 진단 (학습0)
 
-기존153cache의384차원 DINO token, 원래4foldhead와 다중점 후보22515-head를 고정한다. 앞면91구역 전체의 logit을 crop평균+peak잔차로 분해하고 기존→다중점 변화의 가산성을1e-8내검산한다. 오탐9/21과 복구4개에서 query peak의 최근접 특징을 해당fold training의 올바른종류 실제점·명시적정상 token에서 찾는다. raw와 crop-relative cosine·pool 크기·실물/구역/토큰을 기록한다. 정상pool이 더 크므로 최근접 유사도를 분류정확도나 특정사진의 인과효과로 해석하지 않는다. held사진/그룹은 neighbor pool에서 제외한다.
+기존153cache의384차원 DINO token, 원래4foldhead와 다중점 후보222515-head를 고정한다. 앞면91구역 전체의 logit을 crop평균+peak잔차로 분해하고 기존→다중점 변화의 가산성을1e-8내검산한다. 오탐9/21과 복구4개에서 query peak의 최근접 특징을 해당fold training의 올바른종류 실제점·명시적정상 token에서 찾는다. raw와 crop-relative cosine·pool 크기·실물/구역/토큰을 기록한다. 정상pool이 더 크므로 최근접 유사도를 분류정확도나 특정사진의 인과효과로 해석하지 않는다. held사진/그룹은 neighbor pool에서 제외한다.
 
 ## 3. 손실 충돌 진단 (학습0)
 
@@ -45,3 +45,8 @@ analysis.py 최대7함수, transform1, worker최대4, 검사최대4. 주요진�
 수식가산성·gradient합/국소기울기·최근접held분리·상대입력valid평균0/상수shift불변/패딩불변·출처보존을소수검사로검산한다. MD와HTML에sourceSHA·30/100·같은분모FN/FP/%p·실제record상태/판정·사진 위 사람정답/모델출력·열기도구응답/렌더검증한계를기록한다. 사진/원문응답/홈경로는Git제외HTML에만둔다.
 
 롤백: 통합구현SHA를 ./develop -- git revert 후검사/일반push. 연구전용후보는미채택이면운영변경0, 기존데이터/모델복구불필요. 기록은보존하고최신완료checkout1개만유지한다. 이전checkout의unique snapshot/lock증거는main artifacts로SHA검산보존후일반remove,Claude·미통합checkout은보존한다.
+
+
+## 실제 결과 인계
+
+진단070550-da6d6dad completed/학습0,수학검산통과/공통성분gate true. 상대070837-27da5a1b completed/4fit수렴이나FN20/94·FP17/53·typed22/51로미채택. 고정30/100유지. sourcec3d6e7b/계획747d968,관련10검사양쪽OK,함수4/1/3/4·최대4전이. 변경파일/세부수치/HTML/위험/롤백은동명reports. 실제사진은실험 overview/index.html. 열기요청·렌더미확인은최종보고참조. main/origin동기화확인후고유snapshot/lock5증거보존·이전Codexcheckout정리·최신042713a유지·Claude미통합보존. 기존정답/기준/운영모델변경0.
