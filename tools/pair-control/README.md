@@ -227,3 +227,10 @@ Mastra Studio의 workflow 실행(`/api/workflows/...`)도 같은 결정적 단�
 ## 롤백
 
 도구는 `tools/pair-control/` 아래에 독립되어 있다. `git revert <커밋>`으로 도구와 루트 README 링크를 함께 되돌린다. 로컬 산출물은 `tools/pair-control/{node_modules,.state,.mastra,.demo,config.local.json}`을 지우면 된다. 다른 Python 코드·데이터·잠금 파일은 변경하지 않는다.
+
+## 메인 교대 승인 조건과 행동 결과 (2026-10-29)
+
+- 승인의 `conditions`(자유 문장)는 기계가 검사할 수 없으므로, 문장 조건이 있는 승인은 자동 수행을 **보류**한다(무조건 승인으로 취급하지 않음). 검사하는 조건은 구조화 `requires.handoffConfirmed`(approve_task 단독 승인 전용: 현재 결과 SHA와 일치하는 메인 확인된 인계)뿐이다.
+- 새 메인의 행동은 실행 후 작업의 실제 상태로 확인한다. 승인은 `approved`, 통합은 `integrated`+통합 HEAD+필수 통합 후 검사 통과일 때만 성공이며, 차단·거절·충돌·검사 실패는 실패로 기록되어 교대 `completed` 근거가 되지 않는다.
+- 응답 구조가 틀리면(예: `actions`가 배열이 아님) 메인·세대를 바꾸지 않고 교대를 실패로 기록한다. 행동은 실행 직전마다 세션·세대·정지 상태를 확인하고 교대와 직렬화되며, 행동 ID는 실행 전에 남겨 중복·결과 불명 재실행을 막는다.
+- `node scripts/structure-trace.mjs <시작함수> <파일...>`은 파일별 함수 수와 최장 호출 전이를 정적으로 센다(동적 호출은 이름 일치 후보로 표시).

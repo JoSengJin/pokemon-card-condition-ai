@@ -19,7 +19,8 @@ import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
 import type { CheckSpecT } from './contract.ts';
 import { buildStartPrompt, type PromptOptions } from './startPrompt.ts';
 import type { Agent, MainOps, MainRuntime } from './mainTypes.ts';
-import { onMainEnd, onMainLimit } from './mainHandover.ts';
+import { onMainEnd } from './mainEnd.ts';
+import { onMainLimit } from './mainHandover.ts';
 
 export type TaskStatus =
   | 'assigned' | 'blocked' | 'starting' | 'running' | 'collecting' | 'cancelling' | 'cancelled' | 'failed'

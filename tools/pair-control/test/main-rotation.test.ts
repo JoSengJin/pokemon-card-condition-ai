@@ -7,7 +7,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { applyActions } from '../src/executor/mainActions.ts';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
-import { handoverMain, onMainEnd } from '../src/executor/mainHandover.ts';
+import { onMainEnd } from '../src/executor/mainEnd.ts';
+import { handoverMain } from '../src/executor/mainHandover.ts';
 import { resumeStep, startTask } from '../src/runtime.ts';
 import { fakeCli, setup, task, verify, waitFor, type Env } from './helpers.ts';
 

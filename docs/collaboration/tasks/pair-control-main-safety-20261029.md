@@ -24,8 +24,8 @@
 
 ## 허용 파일
 
-- 수정: `tools/pair-control/src/executor/mainActions.ts`, `mainApprovals.ts`, `mainHandover.ts`, `mainTypes.ts`, `mainTakeover.ts`, `prepare.ts`(suggestTaskId export만), `tools/pair-control/src/runtime.ts`(integrate/approve 연결의 실제 결과 반환만), `tools/pair-control/src/mastra/index.ts`(승인 API가 `requires`를 전달만), `tools/pair-control/test/main-rotation.test.ts`(기존 기대 갱신이 필요할 때만)
-- 신규: `tools/pair-control/src/executor/mainGuard.ts`(응답 검증), `mainSerial.ts`(직렬화), `mainOutcome.ts`(실제 결과 확인), `tools/pair-control/test/main-safety.test.ts`, `tools/pair-control/scripts/structure-trace.mjs`
+- 수정: `tools/pair-control/src/executor/mainActions.ts`, `mainApprovals.ts`, `mainHandover.ts`, `mainTypes.ts`, `mainCheckpoint.ts`(stable 재귀 제거만), `executor.ts`(onMainEnd import 경로만), `prepare.ts`(suggestTaskId export만), `tools/pair-control/src/runtime.ts`(화면 요약에 requires 표시만), `tools/pair-control/src/mastra/index.ts`(승인 API가 `requires`를 전달만), `tools/pair-control/test/main-rotation.test.ts`(기존 기대 갱신이 필요할 때만)
+- 신규: `tools/pair-control/src/executor/mainEnd.ts`(onMainEnd 이동·예외 차단), `mainGuard.ts`(응답 검증), `mainSerial.ts`(직렬화), `mainOutcome.ts`(실제 결과 확인), `tools/pair-control/test/main-safety.test.ts`, `tools/pair-control/scripts/structure-trace.mjs`
 - 문서: 이 계약, `docs/collaboration/reports/main-safety-20261029.html`, `tools/pair-control/README.md`(조건 의미 한 단락)
 - 금지: `AGENTS.md`/`PAIR_CODING.md`(이 브랜치 사본은 main보다 오래됨 — 통째 복사·수정 금지), 데이터·라벨·모델·운영 코드, 기본 checkout, 운영 `.state`·승인 장부, 실제 Codex/Claude/Gemini 호출.
 

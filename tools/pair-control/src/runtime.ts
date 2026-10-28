@@ -40,7 +40,7 @@ export function mainRuntimeView(ex: Executor) {
     generation: rt.generation, frozen: rt.frozen, limited: rt.limited, lastCheckpoint: rt.lastCheckpoint ?? null,
     session: s && { id: s.id, agent: s.agent, from: s.from, generation: s.generation, status: s.status, limitRecovery: s.limitRecovery, ackedAt: s.ackedAt ?? null, completedAt: s.completedAt ?? null, actionResults: s.actionResults },
     failures: rt.failures.slice(-3),
-    approvals: rt.approvals.map((a) => ({ id: a.id, basis: a.basis, actions: a.actions, targets: a.targets, conditions: a.conditions, boundSessionId: a.boundSessionId ?? null, revokedAt: a.revokedAt ?? null })),
+    approvals: rt.approvals.map((a) => ({ id: a.id, basis: a.basis, actions: a.actions, targets: a.targets, conditions: a.conditions, requires: a.requires ?? null, boundSessionId: a.boundSessionId ?? null, revokedAt: a.revokedAt ?? null })),
   };
 }
 

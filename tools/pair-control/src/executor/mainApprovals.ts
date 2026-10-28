@@ -7,15 +7,18 @@ import { HARD_DENIED, type Approval } from './mainTypes.ts';
 const KNOWN_ACTIONS = ['assign_task', 'approve_task', 'integrate_task', 'run_experiment', ...HARD_DENIED];
 
 /** 사용자가 이미 한 승인을 장부에 옮겨 적는다. 근거가 비어 있으면 승계 대상이 될 수 없으므로 거부한다. */
-export function grantApproval(ex: Executor, input: { basis: string; actions: string[]; targets?: string[] | '*'; conditions?: string; boundSessionId?: string }): Approval {
+export function grantApproval(ex: Executor, input: { basis: string; actions: string[]; targets?: string[] | '*'; conditions?: string; requires?: { handoffConfirmed?: boolean }; boundSessionId?: string }): Approval {
   const basis = String(input.basis ?? '').trim();
   if (!basis) throw new UserError('승인 근거(원래 승인한 문서·발언)를 적어야 함');
   const actions = [...new Set((input.actions ?? []).map(String))];
   const bad = actions.filter((a) => !KNOWN_ACTIONS.includes(a));
   if (!actions.length || bad.length) throw new UserError(`허용 행동이 올바르지 않음: ${bad.join(', ') || '(없음)'}`);
+  const req = input.requires ?? {};
+  if (Object.keys(req).some((k) => k !== 'handoffConfirmed') || (req.handoffConfirmed !== undefined && typeof req.handoffConfirmed !== 'boolean')) throw new UserError('지원하는 구조화 조건은 handoffConfirmed(boolean)뿐');
+  if (req.handoffConfirmed && (actions.length !== 1 || actions[0] !== 'approve_task')) throw new UserError('handoffConfirmed 조건은 approve_task 단독 승인에만 사용할 수 있음');
   const a: Approval = {
     id: crypto.randomUUID(), basis: basis.slice(0, 400), actions, repo: ex.cfg.repo, branch: ex.cfg.integration.branch,
-    targets: input.targets ?? '*', conditions: String(input.conditions ?? '').slice(0, 400), grantedAt: new Date().toISOString(),
+    targets: input.targets ?? '*', conditions: String(input.conditions ?? '').slice(0, 400), grantedAt: new Date().toISOString(), ...(req.handoffConfirmed ? { requires: { handoffConfirmed: true } } : {}),
     ...(input.boundSessionId ? { boundSessionId: input.boundSessionId } : {}),
   };
   ex.runtime.approvals.push(a);
@@ -38,12 +41,24 @@ export function inheritable(ex: Executor, sessionId: string | undefined): Approv
   return ex.runtime.approvals.filter((a) => !a.revokedAt && (!a.boundSessionId || a.boundSessionId === sessionId));
 }
 
-/** 행동 하나가 승계된 승인 범위 안인지 검사한다. 안이면 근거 승인을, 밖이면 이유를 담은 UserError를 던진다. */
-export function authorize(ex: Executor, sessionId: string | undefined, action: string, target: string): Approval {
+/** 승인의 조건을 기계로 확인한다. 통과하면 null, 아니면 이유. 자유 문장 조건은 검사할 수 없으므로 항상 보류한다(조건 없는 승인으로 취급하지 않음). */
+function unmet(ex: Executor, a: Approval, target: string, sha?: string): string | null {
+  if (a.conditions.trim()) return `검증할 수 없는 조건이 있어 자동 수행 보류(조건: ${a.conditions.trim().slice(0, 80)}) — 사람이 직접 처리하거나 구조화 조건으로 다시 기록하세요`;
+  if (!a.requires?.handoffConfirmed) return null;
+  const t = ex.state.tasks[target], h = t?.handoff;
+  const ok = !!h && !h.cancelledAt && !!h.confirmedAt && h.headSha === t.result?.headSha && (!sha || sha === h.headSha);
+  return ok ? null : `조건 미충족: 현재 결과 SHA와 일치하는 메인 확인된 인계가 필요함(${target})`;
+}
+
+/** 행동 하나가 승계된 승인 범위 안인지 검사한다. 안이면 근거 승인을, 밖이면 이유를 담은 UserError를 던진다. 조건이 있는 승인은 조건까지 통과해야 한다. */
+export function authorize(ex: Executor, sessionId: string | undefined, action: string, target: string, sha?: string): Approval {
   if ((HARD_DENIED as readonly string[]).includes(action)) throw new UserError(`${action}은(는) 어떤 승인으로도 자동 승계·수행하지 않음(사용자가 직접 지시해야 함)`);
   // 승계 가능한 승인(철회 안 됨, 세션 묶음은 현재 세션만)을 호출 깊이를 늘리지 않으려고 여기서 직접 거른다.
-  const hit = ex.runtime.approvals.filter((a) => !a.revokedAt && (!a.boundSessionId || a.boundSessionId === sessionId)).find((a) => a.actions.includes(action) && a.repo === ex.cfg.repo && a.branch === ex.cfg.integration.branch && (a.targets === '*' || a.targets.includes(target)));
-  if (hit) return hit;
+  const hits = ex.runtime.approvals.filter((a) => !a.revokedAt && (!a.boundSessionId || a.boundSessionId === sessionId)).filter((a) => a.actions.includes(action) && a.repo === ex.cfg.repo && a.branch === ex.cfg.integration.branch && (a.targets === '*' || a.targets.includes(target)));
+  const reasons = hits.map((a) => unmet(ex, a, target, sha));
+  const i = reasons.findIndex((r) => r === null);
+  if (i >= 0) return hits[i];
+  if (hits.length) throw new UserError(`승인 조건 불충족: ${action} → ${target} — ${reasons[0]}`);
   const bound = ex.runtime.approvals.some((a) => !a.revokedAt && a.boundSessionId && a.boundSessionId !== sessionId && a.actions.includes(action));
   throw new UserError(`승인 범위 밖: ${action} → ${target}${bound ? ' (다른 세션에 묶인 승인은 승계하지 않음)' : ''} — 기존 승인 절차를 따르세요`);
 }

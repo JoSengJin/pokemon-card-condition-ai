@@ -54,7 +54,7 @@ async function branchExists(repo: string, branch: string) {
   return (await G.git(repo, 'show-ref', '--verify', '--quiet', `refs/heads/${branch}`)).code === 0;
 }
 
-async function suggestTaskId(ex: Executor, agent: string) {
+export async function suggestTaskId(ex: Executor, agent: string) {
   const d = new Date();
   const stamp = `${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   for (let n = 1; n < 1000; n++) {

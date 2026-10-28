@@ -6,12 +6,8 @@ import path from 'node:path';
 import * as G from './git.ts';
 import { OCCUPYING, type Executor, type Task } from './executor.ts';
 
-/** 키 순서와 무관한 JSON 문자열(같은 내용은 같은 해시). */
-export function stable(v: unknown): string {
-  if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
-  if (v && typeof v === 'object') return '{' + Object.keys(v as object).sort().map((k) => JSON.stringify(k) + ':' + stable((v as any)[k])).join(',') + '}';
-  return JSON.stringify(v) ?? 'null';
-}
+/** 키 순서와 무관한 JSON 문자열(같은 내용은 같은 해시). 직접 재귀하지 않고 JSON.stringify의 순회에 키 정렬만 얹는다. */
+export const stable = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, x[k]])) : x)) ?? 'null';
 export const hashOf = (v: unknown) => crypto.createHash('sha256').update(stable(v)).digest('hex');
 
 /** 완료 여부를 모르는 상태. 확인 전에는 같은 행동을 다시 하지 않는다(재실행 금지 표시). */

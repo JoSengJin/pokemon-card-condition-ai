@@ -15,6 +15,8 @@ export interface Approval {
   /** 대상 작업 ID 목록 또는 '*'. run_experiment는 실험 ID를 여기에 적는다. */
   targets: string[] | '*';
   conditions: string;
+  /** 기계로 검사하는 구조화 조건. 자유 문장(conditions)은 검사할 수 없으므로 있으면 자동 수행을 보류한다. */
+  requires?: { handoffConfirmed?: boolean };
   grantedAt: string;
   /** 특정 메인 세션에만 묶인 승인. 새 메인 세션은 이를 승계하지 않는다(이름만 바꿔 우회 금지). */
   boundSessionId?: string;
@@ -71,3 +73,6 @@ export interface MainOps {
 export interface MainAction { id: string; type: string; taskId?: string; sha?: string; target?: string; input?: Record<string, unknown> }
 
 export const HARD_DENIED = ['force_push', 'rewrite_history', 'expand_scope'] as const;
+
+/** 새 메인 응답에서 허용하는 행동 종류(구조 검증용). 허용 여부는 승인 장부가 따로 판단한다. */
+export const ACTION_TYPES = ['assign_task', 'approve_task', 'integrate_task', 'run_experiment', 'note', ...HARD_DENIED] as const;
