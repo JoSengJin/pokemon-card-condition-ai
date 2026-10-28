@@ -1,0 +1,38 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>A3 평가 입력 준비</title><style>body{font:16px/1.65 system-ui;max-width:1000px;margin:32px auto;padding:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>개발 진척35/100 · A3 평가 입력 준비</h1><p>검증 source cb5abe3 · usable-card-analysis-v1.0</p><pre># A3 개발 평가 입력 준비 — 2026-10-28
+
+**진척35/100 유지. 동결 val100행(제외1·활성99실물), 정답 없는 추론요청99개, C 10셀과 E2 알려진 관찰가능1596셀을 준비했다.** 모델 학습/추론/외부AI0. 성능·비보류율은 미측정이다.
+
+현재 소비 TODO의 A3 pending/30점은 과거 현황이며 정본은 development-progress.json의35점이다. 기존 source 정합성 검토와 매물 지원범위 검증의 다음 단계로 입력 준비를 수행했다. 소비 운영코드는 변경하지 않았다.
+
+## 코드와 검증
+
+source main cb5abe3 (격리12aca57), 계약8230569. `tools/prepare_a3_evaluation.py` 신규: 명시manifest/coverage SHA 및 전체 재투영 대조, val만 경로정규화 export, 사람이 확인한 geometry/관찰제한만 넣은 정답 없는 요청, C/E2 분모 분리, 사진 raw/decoded SHA·입력불변 확인, 새출력 전용 완료marker. `tests/test_prepare_a3_evaluation.py` 신규6검사. 함수수2/7, 주요 경로4전이. task·이보고서·HTML 추가.
+
+격리에서 신규/기존19+37=56검사OK, main에서도 동일56검사OK(4.752초). SHA변경/분할누수/잘못된좌표/unknown/제외행/상대경로/덮어쓰기/중간입력변경을 검사했다. `git diff --check` 통과. 기존freeze 도구의 unclosed open ResourceWarning은 그대로 기록한다.
+
+실제 명령은 기본checkout의 ./develop 안에서 `python tools/prepare_a3_evaluation.py --manifest artifacts/development-manifest-20261028a/combined-reviewed.jsonl --manifest-sha256 7bec9d7e6dbf1e513e87bd81e2893e7c95fc51d4aff698771e6127dbecc15ab3 --coverage artifacts/development-manifest-20261028a/coverage.json --coverage-sha256 COVERAGE_SHA --output artifacts/a3-evaluation-preparation-20261028/prepared`. COVERAGE_SHA 실제값은 report.json의source_coverage_sha256에 고정했다. 이번은 데이터 준비라 모델 실험기록 대신 report.json 완료marker를 사용했다.
+
+## 실제 산출과 다음 평가
+
+- 전체원본156행에서 val100행만 추출, 제외1행은 제외상태 유지. 학습56행과 test는 평가입력에 넣지 않았다. 활성99행/99실물, 요청99개.
+- C 질문별 10셀의 양성/정상/미확인·실제점 분모는 동결coverage와 같다. 표면 앞103양성/326정상·230실제점, 뒤144양성/185정상·418실제점. 이전147구역/51점과 분모가 달라 직접개선비교 금지.
+- E2의전체4554필수셀 중 알려진관찰가능1596셀. 제외: geometry미확인506, 정답미확인1417, 원본사진누락46, 사람관찰제한989. 준비분모이며 실제비보류coverage는 null이다.
+- 모든 산출SHA/99요청을 재검산했다. 원본manifest/coverage/사진 불변.
+- 최근 앞면4/뒷면21head train_ids를 고정153학습row의명시group·photo SHA와 대조했다. A3 val과 알려진학습중복0, 미해결ID0. audit초기시도는6개보충row에card_id가없어KeyError로중단했고, 실제존재하는group/photo필드만사용해수정했다. 두시도모두추론0. 이는실물source분류/그룹의진실성을추가인증하는것은아니다.
+- 다음은 동일한고정ensemble정책으로 기존/뒷면점활용후보를새val에서평가하는것이다. 후보의기존147/51/필수cohort 보호를유지하고같은새분모끼리비교한다. 새사진결과를보기전모델SHA/전처리/ensemble/성공기준을별도공통실험계획으로고정해야한다.
+
+## 한계·롤백·HTML
+
+진척/품질기준 변경없음. 입력준비나train중복0은모델정확도/D1/E2완료근거가아니다. 새출력의부분실패는report.json완료marker가없고다른새폴더에서원인을확인한뒤처리해야한다. 요청은미확인box/관찰정보를누락으로유지하므로추론시보류가남는다.
+
+롤백: `./develop -- git revert cb5abe3` 후56개관련검사/일반push. 원본A3/모델/라벨복구불필요. Git제외산출물은보존한다. 미추적 DATA_INVENTORY 변경/커밋0.
+
+HTML: 동명reports HTML, artifacts/a3-evaluation-preparation-20261028/REPORT.html. 내용/수치 대조완료. file: URL브라우저보안차단이이미확인돼우회하지않았다. 실제렌더미확인, 파일보기열기요청결과는후속기록에남긴다.
+
+에튜 포인트: C는모델이틀렸는지를, E2는판정을얼마나제공했는지를측정한다. 같은사진이라도관찰제한이있는구역은E2의관찰가능분모에서제외되지만C의이미확정된정답분모는유지된다. 따라서1596셀준비를coverage100%라고표시하지않고점수와비보류율을null로둔다.
+
+
+## 2026-10-29 재개 체크포인트
+
+원래 작업 날짜/검사결과는 보존했다. HTML 파일보기 요청은 queued(전달됨), 실제 브라우저 렌더 확인은 아니다. 새 점수를 보기 전 사용할 후보/백본/학습캐시 SHA와 표면분모·수치기준을 Git제외 NEXT_EVALUATION.json에 기록했다. 이는 실행된실험/구현완료가아니다. 새사진 readout은 동일정책의head별token확률평균후physical-token최대라는 제안이며 worker/합성검사/공통plan 구현 전이다. 이전147/51과새val은다른분모이므로새val에서두후보끼리만비교해야한다. 추가사람라벨은현재준비작업의의존이아니다.
+</pre></html>
