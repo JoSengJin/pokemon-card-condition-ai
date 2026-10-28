@@ -2,7 +2,7 @@
 
 - task_id: surface-preserved-heads-20261028
 - owner: Codex
-- status: implementing
+- status: integrated
 - base_sha: b4874c38de2625386b9eb80091306eec21d9d424
 - branch: codex/surface-preserved-heads-20261028
 - worktree: 로컬 전용
@@ -88,3 +88,6 @@ worker-layer8.py(최대2함수)는이미설치된pinnedDINOv2 VITS14의같은wei
 ## 실행 인계 — 2026-10-28
 
 상태: 구현·canonical실험·회귀검사 완료, 모델미채택. 검증main source2a4a7a0, 격리sourcefeafb69. H1/H2 completed이나전체수용false, MLP원실행/저장dtype보완/중간층 모두failed로완전성능미측정. 고정head진단completed이나품질pass아님. main/격리관련17검사각OK, 6record SHA/기존입력/뒷면map/147score/11cohort 대조통과. 변경소스함수1/3/4/5/1/2개, 주요프로젝트손실경로4전이, 운영소스변경0. 상세상태/분모/%p/리스크/롤백은동명reports MD/HTML 및 ignored 요약index.html. 실자료HTML3개열기요청queued/렌더미확인. 원격/정리는후속확인. Claude수집·정답·평가·봉인·운영fallback변경0.
+
+
+최종통합확인: main/origin aff8869일치후 이전042713a Codex checkout만safe remove, 최신435eed1 Codex checkout 보존. 감사SHA/열기queued·file URL차단/렌더미확인은동명reports최종항목. 모델수용0,진척30/100불변.
