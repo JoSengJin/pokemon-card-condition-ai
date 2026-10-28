@@ -32,3 +32,11 @@ class SurfacePreservedHeadsTests(unittest.TestCase):
         state,diag=m.fit_nonlinear(x,mask,torch.tensor([0,1]),torch.tensor([-1,0]),torch.ones(2))
         self.assertEqual(0.,diag['initial_logit_max']);self.assertEqual(8,diag['hidden_units']);self.assertLessEqual(diag['max_gradient'],1e-5)
         logits=m.nonlinear_logits(x,state);copy={k:v.clone() for k,v in state.items()};self.assertTrue(torch.equal(logits,m.nonlinear_logits(x,copy)));self.assertTrue(torch.isfinite(logits).all());self.assertTrue(all(not v.requires_grad for v in state.values()))
+
+
+    def test_nonlinear_float64_prediction_is_stored_in_float32_map(self):
+        f=modules['worker'];n=modules['nonlinear'];ctx=dict(all_rows=[dict(id=str(i),group=str(i),target=v) for i,v in enumerate([0,1,1])],x=torch.ones(3,2,1),masks=torch.ones((3,2),dtype=torch.bool),tokens=torch.tensor([-1,0,0]))
+        with patch.object(n,'fit_nonlinear',return_value=({},dict(converged=True,max_gradient=0.))),patch.object(n,'nonlinear_logits',return_value=torch.tensor([[.1,.2]],dtype=torch.float64)):
+            values,head,diag=f.fit_fold(ctx,[0,1],[2],'nonlinear',None,n)
+        self.assertEqual(torch.float32,values.dtype);maps=torch.zeros(3,2,dtype=torch.float32);maps[[2]]=values
+        torch.testing.assert_close(maps[2],torch.tensor([.1,.2],dtype=torch.float64).sigmoid().float());self.assertEqual(torch.float32,maps.dtype)

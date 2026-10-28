@@ -34,7 +34,7 @@ def fit_fold(ctx,train,held,phase,features,nonlinear):
     elif phase=='nonlinear':
         state,diag=nonlinear.fit_nonlinear(x[train],mask[train],y,first,mass);logits=nonlinear.nonlinear_logits(x[held],state);head=dict(state=state)
     else:raise ValueError('Unknown frozen candidate')
-    return logits.sigmoid(),head,diag
+    return logits.sigmoid().float(),head,diag
 
 
 def finish(ctx, maps, fits, heads, front):
@@ -78,7 +78,10 @@ def finish(ctx, maps, fits, heads, front):
 if __name__=='__main__':
     assert Path(__file__).resolve().is_relative_to(ROOT/'artifacts');torch.set_num_threads(2)
     out=Path(os.environ['CARD_CONDITION_EXPERIMENT_DIR']).resolve();plan=json.loads((out/'plan.json').read_text());ref=json.loads(Path(os.environ['CARD_CONDITION_EXPERIMENT_REFERENCE']).read_text())
-    phase=plan['phase'];assert phase in ('preserved','separated','nonlinear') and plan['hypothesis_id']=='surface-'+phase+'-head-20261028'
+    phase=plan['phase'];assert phase in ('preserved','separated','nonlinear')
+    allowed={'surface-'+phase+'-head-20261028'}
+    if phase=='nonlinear':allowed.add('surface-nonlinear-head-storage-fix-20261028')
+    assert plan['hypothesis_id'] in allowed
     assert plan['gemini_calls_allowed']==0 and plan['independent'] is False
     assert plan['head_protocol']==dict(hidden_units=8,hidden_seed=0,activation='tanh',split_logit_weight=.5,max_iter=100,max_gradient=1e-5,penalty=1.,backbone_forwards=0)
     for c in plan['code_changes']:
