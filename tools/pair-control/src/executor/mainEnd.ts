@@ -4,11 +4,14 @@ import fs from 'node:fs';
 import { badResponse } from './mainGuard.ts';
 import { ackSession, failSession } from './mainHandover.ts';
 import { parseResult, verifyAck } from './mainTakeover.ts';
+import { pipe } from './pipelineState.ts';
+import { onTurnEnd } from './pipelineTurn.ts';
 import type { Execution, Executor } from './executor.ts';
 
 /** 새 메인 프로세스가 끝났을 때(감시 루프가 호출). 이전 세대의 늦은 결과는 아무것도 바꾸지 못한다. */
 export async function onMainEnd(ex: Executor, exec: Execution, r: { code: number | null; cancelled: boolean; unknown: boolean }): Promise<void> {
-  const rt = ex.runtime, s = rt.session;
+  const rt = ex.runtime, s = rt.session, turn = pipe(ex).turns[exec.runId];
+  if (turn) { try { await onTurnEnd(ex, turn, exec, r); } catch (e) { ex.audit('pipeline_turn_error', { turn: turn.id, error: (e as Error).message }); } return; }
   if (!s || s.execId !== exec.execId || s.status !== 'launching') { ex.audit('main_stale_result_rejected', { execId: exec.execId, session: exec.runId }); ex.store.save(); return; }
   if (rt.limited[s.agent] && rt.limited[s.agent]!.at >= s.startedAt) { failSession(ex, s, `새 메인(${s.agent}) 한도 소진 — 상태·체크포인트 보존, 재시도하지 않음`); return; }
   if (r.unknown || r.cancelled || r.code !== 0) { failSession(ex, s, r.unknown ? '새 메인 프로세스가 종료 기록 없이 사라짐(결과 불명) — 같은 요청을 다시 보내지 않음' : r.cancelled ? '새 메인 실행이 중단됨' : `새 메인 종료코드 ${r.code}`); return; }

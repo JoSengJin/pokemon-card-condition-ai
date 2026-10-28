@@ -21,6 +21,8 @@ function requestText(s: MainSession, token: string, approvedActions: string[]): 
 3. nextActionCandidates와 승인 장부(approvals) 범위 안에서 다음 행동을 고릅니다. 승인된 행동 종류: ${approvedActions.join(', ') || '(없음)'}.
    범위 밖 행동, force push, 이력 재작성, 승인 범위 확대는 제안하지 않습니다.
 
+4. 이 요청은 인수 확인입니다. 인수가 끝난 뒤 구현 결과 도착 같은 상태 변화가 생기면 도구가 별도 "메인 턴"으로 다시 부릅니다(그때의 근거는 그 턴의 입력 폴더입니다). 승인 장부에 없는 행동(\`confirm_handoff\`, \`push_main\` 포함)은 수행되지 않으며, 승인 범위는 이 교대로 넓어지지 않습니다.
+
 ## 출력 규약 (마지막 줄에 JSON 한 개만)
 {"session_id":"${s.id}","generation":${s.generation},"token":"${token}","checkpoint_hash":"${s.checkpointHash}","observed":{"heads":{"<taskId>":"<관찰한 전체 SHA>"}},"actions":[{"id":"<고유 행동 ID>","type":"approve_task|integrate_task|assign_task|note","taskId":"<작업>","sha":"<승인할 전체 SHA>"}]}
 

@@ -16,7 +16,7 @@ export interface Approval {
   targets: string[] | '*';
   conditions: string;
   /** 기계로 검사하는 구조화 조건. 자유 문장(conditions)은 검사할 수 없으므로 있으면 자동 수행을 보류한다. */
-  requires?: { handoffConfirmed?: boolean };
+  requires?: { handoffConfirmed?: boolean; selfReview?: boolean };
   grantedAt: string;
   /** 특정 메인 세션에만 묶인 승인. 새 메인 세션은 이를 승계하지 않는다(이름만 바꿔 우회 금지). */
   boundSessionId?: string;
@@ -60,6 +60,24 @@ export interface MainRuntime {
   limited: Partial<Record<Agent, { at: string; detail: string }>>;
   failures: { at: string; reason: string; checkpointFile?: string }[];
   lastCheckpoint?: string;
+  /** 교대 뒤 연속 처리: 이벤트·턴·도구 단계 장부. 서버가 재시작되어도 이 장부로 중복 없이 이어간다. */
+  pipeline?: PipelineState;
+}
+
+export type EventKind = 'result_ready' | 'approved' | 'integrated' | 'blocked';
+export type EventState = 'pending' | 'launched' | 'applied' | 'held' | 'unknown';
+/** 상태 변화 하나. key(종류+작업+SHA)가 같으면 한 번만 등록된다. blocked는 사람이 봐야 하는 멈춤이며 모델 턴을 일으키지 않는다. */
+export interface PipelineEvent { key: string; kind: EventKind; taskId: string; sha: string; at: string; state: EventState; tried: number[]; turnId?: string; reason?: string }
+export type TurnStatus = 'launching' | 'launched' | 'applying' | 'applied' | 'limited' | 'stale' | 'failed' | 'unknown';
+/** 현재 메인에게 준 모델 턴 한 번. 같은 세션·세대의 승인 범위 안에서만 행동을 낸다. */
+export interface MainTurn {
+  id: string; sessionId: string; generation: number; agent: Agent; status: TurnStatus; eventKeys: string[]; startedAt: string; lifetime: string;
+  execId?: string; tokenHash: string; checkpointFile: string; checkpointHash: string; actionResults: ActionResult[]; failure?: string;
+}
+export interface PipelineState {
+  events: Record<string, PipelineEvent>; turns: Record<string, MainTurn>;
+  /** 도구가 모델 없이 한 번만 수행하는 단계(검사·인계 생성)의 시도 기록. 같은 키는 다시 하지 않는다. */
+  steps: Record<string, { at: string; ok: boolean; detail: string }>;
 }
 
 /** 메인 행동이 실제로 수행될 때 쓰는 연결부. 호출하는 쪽(서버·테스트)이 기존 기능을 그대로 넘긴다. */
@@ -67,12 +85,14 @@ export interface MainOps {
   assign?: (input: Record<string, unknown>) => Promise<unknown>;
   approve?: (taskId: string, sha: string) => Promise<unknown>;
   integrate?: (taskId: string) => Promise<unknown>;
+  confirm?: (taskId: string, note: string) => Promise<unknown>;
+  push?: (sha: string) => Promise<{ status: string; detail: string }>;
 }
 
 /** 새 메인이 낼 수 있는 행동. 이 목록 밖 type은 지원하지 않는 행동으로 거부한다. */
-export interface MainAction { id: string; type: string; taskId?: string; sha?: string; target?: string; input?: Record<string, unknown> }
+export interface MainAction { id: string; type: string; taskId?: string; sha?: string; target?: string; input?: Record<string, unknown>; reviewedFiles?: string[]; diffHash?: string; note?: string }
 
 export const HARD_DENIED = ['force_push', 'rewrite_history', 'expand_scope'] as const;
 
 /** 새 메인 응답에서 허용하는 행동 종류(구조 검증용). 허용 여부는 승인 장부가 따로 판단한다. */
-export const ACTION_TYPES = ['assign_task', 'approve_task', 'integrate_task', 'run_experiment', 'note', ...HARD_DENIED] as const;
+export const ACTION_TYPES = ['assign_task', 'approve_task', 'integrate_task', 'confirm_handoff', 'push_main', 'run_experiment', 'note', ...HARD_DENIED] as const;

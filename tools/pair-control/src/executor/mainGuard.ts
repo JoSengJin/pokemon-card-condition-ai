@@ -11,6 +11,8 @@ function badAction(a: unknown, i: number): string | null {
   if (typeof a.type !== 'string' || !(ACTION_TYPES as readonly string[]).includes(a.type)) return `행동[${i}].type을 지원하지 않음: ${String(a.type)}`;
   if (!optStr(a.taskId) || !optStr(a.sha) || !optStr(a.target)) return `행동[${i}]의 taskId·sha·target은 문자열이어야 함`;
   if (a.input !== undefined && !isObj(a.input)) return `행동[${i}].input이 객체가 아님`;
+  if (!optStr(a.diffHash) || !optStr(a.note)) return `행동[${i}]의 diffHash·note는 문자열이어야 함`;
+  if (a.reviewedFiles !== undefined && (!Array.isArray(a.reviewedFiles) || a.reviewedFiles.some((f) => typeof f !== 'string'))) return `행동[${i}].reviewedFiles가 문자열 배열이 아님`;
   return null;
 }
 

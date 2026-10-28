@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Executor, UserError, type Task } from './executor/executor.ts';
 import { realReadiness } from './executor/adapters.ts';
-import { pushState } from './executor/push.ts';
+import { pushState, runPush } from './executor/push.ts';
+import { pipelineView } from './executor/pipelineView.ts';
 
 let executor: Executor | null = null;
 let mastra: Mastra | null = null;
@@ -29,7 +30,10 @@ export function bindRuntime(ex: Executor, m: Mastra) {
       if (t.status !== 'approved') throw new Error(`승인된 상태가 아님(${t.status})`);
       await resumeStep(t.runId!, 'integrate-gate', { action: 'integrate' });
     },
-    assign: async (input) => { await prepareTask(input); },
+    // 배정은 준비 + 구현 시작까지(input.start:false면 준비만). 시작은 화면 버튼과 같은 startTask 경로다.
+    assign: async (input) => { const r = await prepareTask(input); if (input.start !== false) await startTask(r.taskId!); },
+    confirm: async (taskId, note) => { ex.confirmHandoff(taskId, note); },
+    push: async (sha) => { const r = await runPush(ex, sha); return { status: r.status, detail: r.detail }; },
   });
 }
 
@@ -39,7 +43,7 @@ export function mainRuntimeView(ex: Executor) {
   return {
     generation: rt.generation, frozen: rt.frozen, limited: rt.limited, lastCheckpoint: rt.lastCheckpoint ?? null,
     session: s && { id: s.id, agent: s.agent, from: s.from, generation: s.generation, status: s.status, limitRecovery: s.limitRecovery, ackedAt: s.ackedAt ?? null, completedAt: s.completedAt ?? null, actionResults: s.actionResults },
-    failures: rt.failures.slice(-3),
+    failures: rt.failures.slice(-3), pipeline: pipelineView(ex),
     approvals: rt.approvals.map((a) => ({ id: a.id, basis: a.basis, actions: a.actions, targets: a.targets, conditions: a.conditions, requires: a.requires ?? null, boundSessionId: a.boundSessionId ?? null, revokedAt: a.revokedAt ?? null })),
   };
 }

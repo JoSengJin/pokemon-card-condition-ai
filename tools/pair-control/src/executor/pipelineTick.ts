@@ -1,0 +1,39 @@
+// 감시 틱(기존 300ms 감시 루프)이 부르는 연속 처리 진입점. 상태를 읽을 뿐이며, 새 이벤트가 있을 때만 현재 메인에게 턴 한 번을 준다.
+// 폴링으로 모델을 부르지 않는다: 같은 이벤트·같은 세대에는 턴이 한 번뿐이고, 진행 중 턴·교대 중·한도 중에는 아무것도 하지 않는다.
+import { autoSteps } from './pipelineSteps.ts';
+import { scanEvents } from './pipelineEvents.ts';
+import { mark, pipe } from './pipelineState.ts';
+import { handleLimit, launchTurn } from './pipelineTurn.ts';
+import type { Executor } from './executor.ts';
+
+const IN_FLIGHT = ['launching', 'launched', 'applying'];
+const busy = new WeakSet<object>(); // 겹쳐 호출돼도 한 번에 하나만(턴 이중 시작 방지)
+
+/** 이전 서버 수명에서 끝맺지 못한 턴은 결과 불명으로 남긴다(다시 실행하지 않음). 아직 도는 프로세스가 있는 턴은 감시 루프가 이어받는다. */
+function recoverTurns(ex: Executor) {
+  for (const t of Object.values(pipe(ex).turns)) {
+    if (!IN_FLIGHT.includes(t.status) || t.lifetime === ex.lifetime) continue;
+    const running = t.status === 'launched' && t.execId && ['running', 'cancelling'].includes(ex.state.executions[t.execId]?.status ?? '');
+    if (running) continue;
+    t.status = 'unknown'; t.failure = '서버 재시작 전 진행 중이던 턴 — 결과 불명, 재시도하지 않음';
+    mark(ex, t.eventKeys, 'unknown', { reason: t.failure });
+  }
+}
+
+export async function pipelineTick(ex: Executor): Promise<void> {
+  if (busy.has(ex) || ex.stopped) return;
+  busy.add(ex);
+  try {
+    const rt = ex.runtime, s = rt.session;
+    if (!s || rt.frozen || !['completed', 'idle'].includes(s.status)) return;
+    recoverTurns(ex);
+    if (Object.values(pipe(ex).turns).some((t) => IN_FLIGHT.includes(t.status))) return;
+    await autoSteps(ex, s.id);
+    if (ex.stopped) return;
+    scanEvents(ex);
+    const due = Object.values(pipe(ex).events).filter((e) => e.state === 'pending' && e.kind !== 'blocked' && !e.tried.includes(s.generation));
+    if (!due.length) return;
+    if (ex.limitFor(s.agent)) return await handleLimit(ex, s.agent, due.map((e) => e.key));
+    await launchTurn(ex, s, due);
+  } catch (e) { ex.audit('pipeline_tick_error', { error: (e as Error).message }); } finally { busy.delete(ex); }
+}

@@ -4,21 +4,22 @@ import crypto from 'node:crypto';
 import { UserError, type Executor } from './executor.ts';
 import { HARD_DENIED, type Approval } from './mainTypes.ts';
 
-const KNOWN_ACTIONS = ['assign_task', 'approve_task', 'integrate_task', 'run_experiment', ...HARD_DENIED];
+const KNOWN_ACTIONS = ['assign_task', 'approve_task', 'integrate_task', 'confirm_handoff', 'push_main', 'run_experiment', ...HARD_DENIED];
 
 /** 사용자가 이미 한 승인을 장부에 옮겨 적는다. 근거가 비어 있으면 승계 대상이 될 수 없으므로 거부한다. */
-export function grantApproval(ex: Executor, input: { basis: string; actions: string[]; targets?: string[] | '*'; conditions?: string; requires?: { handoffConfirmed?: boolean }; boundSessionId?: string }): Approval {
+export function grantApproval(ex: Executor, input: { basis: string; actions: string[]; targets?: string[] | '*'; conditions?: string; requires?: { handoffConfirmed?: boolean; selfReview?: boolean }; boundSessionId?: string }): Approval {
   const basis = String(input.basis ?? '').trim();
   if (!basis) throw new UserError('승인 근거(원래 승인한 문서·발언)를 적어야 함');
   const actions = [...new Set((input.actions ?? []).map(String))];
   const bad = actions.filter((a) => !KNOWN_ACTIONS.includes(a));
   if (!actions.length || bad.length) throw new UserError(`허용 행동이 올바르지 않음: ${bad.join(', ') || '(없음)'}`);
   const req = input.requires ?? {};
-  if (Object.keys(req).some((k) => k !== 'handoffConfirmed') || (req.handoffConfirmed !== undefined && typeof req.handoffConfirmed !== 'boolean')) throw new UserError('지원하는 구조화 조건은 handoffConfirmed(boolean)뿐');
+  if (Object.keys(req).some((k) => !['handoffConfirmed', 'selfReview'].includes(k)) || Object.values(req).some((v) => typeof v !== 'boolean')) throw new UserError('지원하는 구조화 조건은 handoffConfirmed·selfReview(boolean)뿐');
+  if (req.selfReview && (actions.length !== 1 || actions[0] !== 'confirm_handoff')) throw new UserError('selfReview 조건은 confirm_handoff 단독 승인에만 사용할 수 있음(구현 에이전트=메인의 자기 확인을 사용자가 명시적으로 허용할 때만)');
   if (req.handoffConfirmed && (actions.length !== 1 || actions[0] !== 'approve_task')) throw new UserError('handoffConfirmed 조건은 approve_task 단독 승인에만 사용할 수 있음');
   const a: Approval = {
     id: crypto.randomUUID(), basis: basis.slice(0, 400), actions, repo: ex.cfg.repo, branch: ex.cfg.integration.branch,
-    targets: input.targets ?? '*', conditions: String(input.conditions ?? '').slice(0, 400), grantedAt: new Date().toISOString(), ...(req.handoffConfirmed ? { requires: { handoffConfirmed: true } } : {}),
+    targets: input.targets ?? '*', conditions: String(input.conditions ?? '').slice(0, 400), grantedAt: new Date().toISOString(), ...(req.handoffConfirmed || req.selfReview ? { requires: { ...(req.handoffConfirmed ? { handoffConfirmed: true } : {}), ...(req.selfReview ? { selfReview: true } : {}) } } : {}),
     ...(input.boundSessionId ? { boundSessionId: input.boundSessionId } : {}),
   };
   ex.runtime.approvals.push(a);
@@ -61,4 +62,10 @@ export function authorize(ex: Executor, sessionId: string | undefined, action: s
   if (hits.length) throw new UserError(`승인 조건 불충족: ${action} → ${target} — ${reasons[0]}`);
   const bound = ex.runtime.approvals.some((a) => !a.revokedAt && a.boundSessionId && a.boundSessionId !== sessionId && a.actions.includes(action));
   throw new UserError(`승인 범위 밖: ${action} → ${target}${bound ? ' (다른 세션에 묶인 승인은 승계하지 않음)' : ''} — 기존 승인 절차를 따르세요`);
+}
+
+/** 이 작업을 덮는 승계 가능한 승인이 하나라도 있는지(도구가 모델 없이 하는 검사·인계 생성의 전제). 조건 충족까지는 보지 않는다. */
+export function covers(ex: Executor, sessionId: string | undefined, taskId: string): boolean {
+  const own = ['assign_task', 'approve_task', 'integrate_task', 'confirm_handoff'];
+  return inheritable(ex, sessionId).some((a) => a.repo === ex.cfg.repo && a.branch === ex.cfg.integration.branch && a.actions.some((x) => own.includes(x)) && (a.targets === '*' || a.targets.includes(taskId)));
 }

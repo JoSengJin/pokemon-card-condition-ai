@@ -20,6 +20,7 @@ import type { CheckSpecT } from './contract.ts';
 import { buildStartPrompt, type PromptOptions } from './startPrompt.ts';
 import type { Agent, MainOps, MainRuntime } from './mainTypes.ts';
 import { onMainEnd } from './mainEnd.ts';
+import { pipelineTick } from './pipelineTick.ts';
 import { onMainLimit } from './mainHandover.ts';
 
 export type TaskStatus =
@@ -391,6 +392,7 @@ export class Executor {
     writeJsonAtomic(specPath, spec);
     fs.writeFileSync(spec.logPath, '');
     const sup = spawn(process.execPath, [this.supervisorPath, specPath], { cwd: o.cwd, detached: true, stdio: 'ignore', env: sanitizedChildEnv() });
+    sup.on('error', (e) => this.event('supervisor_spawn_error', { execId: o.execId, error: e.message })); // 정리 도중 등 시작 실패가 프로세스 전체 예외로 번지지 않게 기록만 한다
     sup.unref();
     if (!sup.pid) throw new Error('감독 프로세스 시작 실패');
     const ex: Execution = {
@@ -428,7 +430,9 @@ export class Executor {
   ensureWatcher() {
     if (!this.timer) { this.timer = setInterval(() => void this.tick(), 300); this.timer.unref?.(); }
   }
-  stop() { if (this.timer) clearInterval(this.timer); this.timer = null; }
+  /** stop() 뒤에는 연속 처리가 새 검사·턴을 시작하지 않는다(정리 도중 비동기 시작 방지). */
+  stopped = false;
+  stop() { this.stopped = true; if (this.timer) clearInterval(this.timer); this.timer = null; }
 
   private alive(pid: number) { try { process.kill(pid, 0); return true; } catch (e: any) { return e.code === 'EPERM'; } }
   groupAlive(pgid: number) { try { process.kill(-pgid, 0); return true; } catch (e: any) { return e.code === 'EPERM'; } }
@@ -492,6 +496,7 @@ export class Executor {
         }
       }
     }
+    await pipelineTick(this); // 교대 뒤 연속 처리: 상태를 읽고 새 이벤트가 있을 때만 현재 메인에게 턴을 준다
   }
 
   private async finalize(ex: Execution) {
