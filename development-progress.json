@@ -5,7 +5,7 @@
   "timezone": "Asia/Seoul",
   "scope": "사람이 카드영역을 확인할 수 있는 앞뒤사진 보조분석: 센터링/모서리/엣지/표면 손상 및 관찰제한. 카드식별/가격/위조감지/공식등급보증은 제외.",
   "score_method": "milestone binary: verified earns full fixed weight; pending earns zero; unknown is pending; no subjective partial credit",
-  "score": 30,
+  "score": 35,
   "max_score": 100,
   "previous_same_version_score": 30,
   "production_ready": false,
@@ -48,14 +48,17 @@
           "id": "A3",
           "title": "전 범위 평가 자료 준비",
           "weight": 5,
-          "status": "pending",
-          "earned": 0,
+          "status": "verified",
+          "earned": 5,
           "completion_criterion": "센터링·모서리·엣지·표면·관찰제한의 앞뒤별 개발 평가에 양성/정상 각각20판정단위·각5실물이상 확보, 좌표평가 대상은 올바른 종류의 기존점·정상대조 출처 감사, 분모·지원범위·결측표를 버전동결한다.",
           "evidence": [
-            "artifacts/experiments/20261024T093945-04a7e5e8/REPORT.md",
-            "artifacts/data-coverage-20261024/REPORT.md"
+            "tools/freeze_dev_manifest.py",
+            "tests/test_freeze_dev_manifest.py",
+            "artifacts/development-manifest-20261028a/FROZEN_TABLE.md",
+            "artifacts/development-manifest-20261028a/audit.json",
+            "artifacts/development-manifest-20261028a/ADOPTION.json"
           ],
-          "assessment": "70실물 개발 snapshot과 live 분리 부족표 동결. train 10개 종류/면 셀 중 수량2개만 충족, val은0개. 과거국소자료 면/출처·정정이력 자동합산 보류, 전범위 A3 미충족. 휴먼인루프 사용자 요청으로 일시 중지."
+          "assessment": "156행 개발 manifest(SHA 7bec9d7e…) 동결. val 센터링·모서리·엣지·표면·관찰제한 앞뒤 10셀 모두 양성/정상 각20단위·5실물 충족(영역 미확인 단위를 빼도 충족, 최소 관찰제한 앞 양성20). val 좌표 감사 오류0(종류·구역·면라벨·정상구역 충돌), train 기존점 1건 오류는 공개만. 미확인 단위표 포함. 개발평가용이며 독립시험(D1)·정확도 근거 아님. 센터링은 면 단위 판정이며 비율 측정 아님."
         }
       ]
     },
@@ -319,6 +322,18 @@
       "changed_milestones": [],
       "reason": "종류·앞뒤 데이터 부족표/출처감사와 CLI37테스트 완료. A3 미충족·기준/배점 불변, 사용자 요청으로 휴먼인루프 일시 중지.",
       "evidence_report": "artifacts/data-coverage-20261024/REPORT.md"
+    },
+    {
+      "date": "2026-10-28",
+      "criterion_version": "usable-card-analysis-v1.0",
+      "score": 35,
+      "previous_score": 30,
+      "change_pp": 5,
+      "changed_milestones": [
+        "A3"
+      ],
+      "reason": "eBay val 5수집(a~e, 86행) 사람 검토 결과를 기존 채택본(ad021468…)에 합쳐 동결. val 10셀 수량 충족·val 좌표 감사 오류0·분모/결측표 버전 고정. 모델 학습·추론·외부 AI 호출0, 정확도 변화 없음.",
+      "evidence_report": "artifacts/development-manifest-20261028a/FROZEN_TABLE.md"
     }
   ],
   "rubric_sha256": "c08a18ed972b55e7a23a282e87f849c45151ebccb8294a9804e3e916afb0bad7"
