@@ -83,3 +83,8 @@ worker-layer8.py(최대2함수)는이미설치된pinnedDINOv2 VITS14의같은wei
 동일RGB/224/EXIF/padding/정규화·모든원래사진/box/mask/실제점보존. 먼저최종층CPU대기존cache feature최대차<=1e-3,고정원래head와11cohort의score재생<=2e-5/판정동일을모든앞면에서확인한다. 이control이실패하면candidate학습전failed로종료하고비교를추정하지않는다. 통과하면앞면특징만block8로교체해원래point/weak/max_bound·L2=1·zero init·LBFGS100·gradient1e-5·4fold·뒷면map불변을보존해1회비교한다. H1/H2변경을동시에쓰지않는다.
 
 성공/실패품질기준은기존147/51/11cohort그대로,노출된개발평가이며독립일반화아니다. layer_pair API선택/순서·shape오류를synthetic2개검사(test_surface_layer8.py)로검산한다. code_changes에새worker baseline=null과pinnedweight/vendorSHA를명시하고,각crop의두층cache와control오차를새record폴더에보존한다. CPU2만사용하며Claude자료확보/검토파일·정답/박스/운영코드변경0.
+
+
+## 실행 인계 — 2026-10-28
+
+상태: 구현·canonical실험·회귀검사 완료, 모델미채택. 검증main source2a4a7a0, 격리sourcefeafb69. H1/H2 completed이나전체수용false, MLP원실행/저장dtype보완/중간층 모두failed로완전성능미측정. 고정head진단completed이나품질pass아님. main/격리관련17검사각OK, 6record SHA/기존입력/뒷면map/147score/11cohort 대조통과. 변경소스함수1/3/4/5/1/2개, 주요프로젝트손실경로4전이, 운영소스변경0. 상세상태/분모/%p/리스크/롤백은동명reports MD/HTML 및 ignored 요약index.html. 실자료HTML3개열기요청queued/렌더미확인. 원격/정리는후속확인. Claude수집·정답·평가·봉인·운영fallback변경0.
