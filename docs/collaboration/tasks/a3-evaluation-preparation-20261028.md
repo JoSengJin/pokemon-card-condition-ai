@@ -2,7 +2,7 @@
 
 - task_id: a3-evaluation-preparation-20261028
 - owner: Codex
-- status: assigned
+- status: ready_for_review
 - base_sha: 2a2ff1ebaf17ba52b2c72547a44599b1b7f11750
 - branch: codex/a3-evaluation-preparation-20261028
 - goal: 동결 A3 manifest/coverage SHA를 재대조해 val-only 평가 입력·정답 없는 ListingAnalyzer 요청·C 질문별 분모와 E2 관찰가능 분모를 출력하고, 현재 연구head와의 학습 중복/지원범위를 점검한다.
@@ -38,3 +38,7 @@ allowed_files:
 HTML: docs/collaboration/reports/a3-evaluation-preparation-20261028.html 및 artifacts/a3-evaluation-preparation-20261028/REPORT.html. 수치/근거 정적대조와 열기/렌더 상태를 기록한다. 이전 file: 보안 차단을 우회하지 않는다.
 
 롤백: 통합 source 커밋 git revert 후 관련 검사·일반 push. 원래 A3 채택본과 모델은 보존한다. 격리 checkout은 검증·push 후 최근1개 보존 규칙을 따른다.
+
+## 구현 검증
+
+신규도구2함수, 테스트7함수(6검사+fixture1). 합성/회귀19+37=56개 OK. 각경로 최대4전이. 원래 freeze 도구의 미종료 open ResourceWarning은 알려진 기존한계이며 이 task에서 수정하지 않았다. 소스만 격리checkout에서 구현했으며 실제 사진/모델 검산은 기본checkout에서만 수행한다. 검증된 후보head의 train IDs는 A3 val group/photo와 중복0, 미해결ID0이지만 아직 새사진 추론/점수는 없다.
