@@ -18,6 +18,30 @@ export function getExecutor(): Executor {
 export function bindRuntime(ex: Executor, m: Mastra) {
   executor = ex; mastra = m;
   ex.setResumer(async (runId, step, data) => { await resumeStep(runId, step, data); });
+  // 새 메인의 행동은 화면 버튼과 같은 기존 기능으로만 수행한다(새 권한 없음). 승인 장부 검사는 mainActions가 먼저 한다.
+  ex.setMainOps({
+    approve: async (taskId, sha) => {
+      const a = await ex.approve(taskId, sha, { requireHandoff: true });
+      await resumeStep(ex.task(taskId).runId!, 'review-gate', { decision: 'approve', sha: a.sha });
+    },
+    integrate: async (taskId) => {
+      const t = ex.task(taskId);
+      if (t.status !== 'approved') throw new Error(`승인된 상태가 아님(${t.status})`);
+      await resumeStep(t.runId!, 'integrate-gate', { action: 'integrate' });
+    },
+    assign: async (input) => { await prepareTask(input); },
+  });
+}
+
+/** 화면용 메인 교대 상태 요약(토큰·해시 원문은 넣지 않는다). */
+export function mainRuntimeView(ex: Executor) {
+  const rt = ex.runtime, s = rt.session;
+  return {
+    generation: rt.generation, frozen: rt.frozen, limited: rt.limited, lastCheckpoint: rt.lastCheckpoint ?? null,
+    session: s && { id: s.id, agent: s.agent, from: s.from, generation: s.generation, status: s.status, limitRecovery: s.limitRecovery, ackedAt: s.ackedAt ?? null, completedAt: s.completedAt ?? null, actionResults: s.actionResults },
+    failures: rt.failures.slice(-3),
+    approvals: rt.approvals.map((a) => ({ id: a.id, basis: a.basis, actions: a.actions, targets: a.targets, conditions: a.conditions, boundSessionId: a.boundSessionId ?? null, revokedAt: a.revokedAt ?? null })),
+  };
 }
 
 function wf() {
@@ -114,7 +138,7 @@ export async function snapshot() {
   tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     now: new Date().toISOString(), lifetime: ex.lifetime, mode: ex.cfg.allowRealModelCalls ? 'real-allowed' : 'mock-only',
-    guard: ex.guardAlert, limit: ex.limit, main: ex.state.main ?? { agent: 'codex', since: null, reason: '기본값' }, push: pushState(ex), probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
+    guard: ex.guardAlert, limit: ex.limit, mainRuntime: mainRuntimeView(ex), main: ex.state.main ?? { agent: 'codex', since: null, reason: '기본값' }, push: pushState(ex), probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
   };
 }
 

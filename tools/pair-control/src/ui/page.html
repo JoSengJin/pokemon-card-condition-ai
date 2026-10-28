@@ -174,6 +174,16 @@ details > summary { cursor: pointer; }
   <summary id="mainSummary">메인 역할</summary>
   <div class="small muted">메인 = 통합·푸시·실험 단일 담당. 이 화면은 <b>표시와 기록만</b> 하고 권한을 강제하지 못합니다. PAIR_CODING.md/AGENTS.md는 main 통합을 Codex로 정해 두었으므로, 이양은 사용자가 그 규칙을 바꾸거나 한시적으로 허용했을 때만 의미가 있습니다. 새 메인에게는 사용자가 한 줄로 알려야 합니다.</div>
   <div id="mainBlockers" class="small"></div>
+  <div id="mainRt" class="small"></div>
+  <div class="actions">
+    <button type="button" data-act="mainhandover" title="이양 사유를 적고 누르면 체크포인트를 저장하고 새 메인 프로세스를 실제로 실행합니다">새 메인 실행하며 교대</button>
+    <button type="button" class="danger" data-act="mainlimit" title="지금 메인이 한도로 더 못 일할 때. 마지막 인계문 없이 저장된 상태로 복구하며 진행 중인 구현 에이전트는 중단하지 않습니다">한도 소진으로 교대(복구)</button>
+  </div>
+  <details class="scopeHelp">
+    <summary class="small muted">승인 장부 — 메인이 바뀌어도 승계되는 승인 범위(이 도구는 승인을 만들지 않고 기록·검사만 합니다)</summary>
+    <div id="apprList" class="small"></div>
+    <div class="row"><input id="apprBasis" placeholder="원래 승인 근거(문서·발언)"><input id="apprActions" placeholder="허용 행동(쉼표): approve_task, integrate_task, assign_task"><input id="apprTargets" placeholder="대상 작업 ID(쉼표, 비우면 전체)"><button type="button" data-act="apprgrant">승인 기록 추가</button></div>
+  </details>
   <div class="row"><input id="mainReason" placeholder="이양 사유(예: Codex 토큰 부족)"><button type="button" id="bMainSwap" class="danger" data-act="mainswap">이양</button><button type="button" data-act="maincheck">안전 확인만</button></div>
   <textarea id="mainMemo" readonly rows="6" placeholder="이양하면 인계 메모가 여기에 나타납니다"></textarea>
   <div class="actions"><button type="button" data-act="maincopy">메모 복사</button></div>

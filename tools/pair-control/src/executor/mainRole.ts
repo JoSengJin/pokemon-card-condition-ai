@@ -70,6 +70,7 @@ ${pushes.map((p) => `- ${p.kind} ${p.status} ${p.preRemoteHead.slice(0, 12)} →
 }
 
 export async function setMain(ex: Executor, agent: string, reason = '') {
+  ex.assertMainActive('메인 표시 변경');
   if (!MAIN_CHOICES.includes(agent as 'codex')) throw new UserError('메인은 codex 또는 claude 중 하나');
   const to = agent as 'codex' | 'claude';
   const from = ex.mainAgent;

@@ -12,6 +12,8 @@ const ACTIONS = {
   approve: { p: 'approve', n: '승인' }, reject: { p: 'reject', n: '거절' }, integrate: { p: 'integrate', n: '통합' }, rereview: { p: 'rereview', n: '재검토' },
   venv: { p: 'create-venv', n: '환경 만들기' }, unapprove: { p: 'unapprove', n: '승인 취소' }, archive: { p: 'archive', n: '보관' }, unarchive: { p: 'archive', n: '보관 해제' },
   discard: { p: 'discard', n: '폐기' }, archivefin: { g: 'archive-finished', n: '끝난 작업 보관' },
+  mainhandover: { g: 'main/handover', n: '메인 교대 실행' }, mainlimit: { g: 'main/handover', n: '한도 소진 교대' }, mainclear: { g: 'main/limit-clear', n: '한도 풀림 확인' },
+  apprgrant: { g: 'main/approvals', n: '승인 기록' }, apprrevoke: { g: 'main/approvals/revoke', n: '승인 철회' },
   pushcheck: { g: 'push/preflight', n: '푸시 점검' }, pushack: { g: 'push/ack', n: '오탐 확인' }, push: { g: 'push/run', n: '푸시' },
   verify: { g: 'push/verify', n: '원격 확인' }, revert: { g: 'push/revert-prepare', n: '되돌림 준비' },
   maincheck: { g: 'main/blockers', get: true, n: '이양 안전 확인' }, mainswap: { g: 'main/swap', n: '메인 이양' },
@@ -19,7 +21,7 @@ const ACTIONS = {
 };
 
 // 보기만 하거나 선택을 바꾸는 동작은 보던 단계에 머문다. 나머지 작업 동작은 성공하면 지금 단계로 화면이 따라간다.
-const STAY = new Set(['prompt', 'hshow', 'diff', 'archive', 'unarchive', 'discard', 'archivefin']);
+const STAY = new Set(['mainhandover', 'mainlimit', 'mainclear', 'apprgrant', 'apprrevoke', 'prompt', 'hshow', 'diff', 'archive', 'unarchive', 'discard', 'archivefin']);
 
 export function onClick(ev) {
   const el = ev.target.closest('[data-act]');
@@ -45,6 +47,8 @@ function askText(act, t, el) {
     case 'ack': return '결과 불명을 확정합니다. 완료로 보지 않고 잠금만 해제합니다.';
     case 'checks': return '작업 폴더에서 아래 명령을 셸 없이 차례로 실행합니다(SHA ' + t.result.headSha.slice(0, 12) + '):\n' + t.checks.map((c) => '  ' + [c.executable].concat(c.args).join(' ')).join('\n') + '\n\n계속할까요?';
     case 'handoffauto': return '인계한 뒤 메인(' + ((ui.state.main && ui.state.main.agent) || 'codex') + ')을 별도 CLI 프로세스로 실행해 확인시킵니다(read-only, 구독 로그인 가드 통과 시에만). 대화 중인 메인 세션이 아니며 승인을 대신하지 않습니다. 구독 사용량이 소모됩니다.';
+    case 'mainhandover': return '새 메인(' + (ui.state.main.agent === 'codex' ? 'claude' : 'codex') + ')을 별도 CLI 프로세스로 실제 실행해 교대합니다(구독 사용량 소모, 구독 로그인 가드 통과 시에만).\n실행 전 체크포인트를 저장하고, 새 메인이 체크포인트와 실제 Git을 대조해 인수 확인을 할 때까지 새 배정·승인·통합이 정지됩니다. 승인 장부 범위 밖 행동은 수행되지 않습니다.';
+    case 'mainlimit': return '지금 메인이 한도로 더 일하지 못한다고 보고합니다. 마지막 인계문 없이 저장된 상태로 새 메인(' + (ui.state.main.agent === 'codex' ? 'claude' : 'codex') + ')을 실행해 복구합니다. 진행 중인 구현 에이전트는 중단하지 않습니다.';
     case 'hconfirm': return '메인 에이전트가 확인을 끝냈습니까? 이 표시는 승인 기록에 남지만 승인을 대신하지 않습니다.';
     case 'approve': return '승인 SHA ' + t.result.headSha + '\n코드·계약·기준 브랜치·관련 파일이 바뀌면 승인은 무효화됩니다.';
     case 'integrate': return '승인 SHA를 재검증한 뒤 통합 checkout에서 ./develop -- git cherry-pick -x 를 실행합니다. push는 하지 않습니다.' + (t.postChecks.length ? '\n이어서 통합 후 검사:\n' + t.postChecks.map((c) => '  ' + [c.executable].concat(c.args).join(' ')).join('\n') : '\n통합 후 검사 없음(미실행으로 표시)');
@@ -67,6 +71,13 @@ function bodyOf(act, t, el) {
     case 'prompt': return { unattended: !!ui.keep.pUnattended, extraDocs: String(ui.keep.pDocs || '').split(',').map((x) => x.trim()).filter(Boolean) };
     case 'review': return { mode: 'mock', mockScenario: ui.keep.revScenario || 'approve' };
     case 'approve': return { sha: t.result.headSha };
+    case 'mainhandover': case 'mainlimit': return { agent: ui.state.main.agent === 'codex' ? 'claude' : 'codex', reason: document.getElementById('mainReason').value, limit: act === 'mainlimit' };
+    case 'mainclear': return { agent: el.dataset.agent };
+    case 'apprrevoke': return { id: el.dataset.id };
+    case 'apprgrant': {
+      const v = (id) => document.getElementById(id).value.split(',').map((x) => x.trim()).filter(Boolean);
+      return { basis: document.getElementById('apprBasis').value, actions: v('apprActions'), targets: v('apprTargets').length ? v('apprTargets') : '*' };
+    }
     case 'discard': { const reason = prompt('폐기 사유(다른 사람이 볼 수 있게 기록됩니다)'); return reason === null ? null : { reason }; }
     case 'reject': { const reason = prompt('거절 사유'); return reason === null ? null : { reason }; }
     case 'push': return { confirm: String(ui.keep.pushConfirm || '').trim() };
@@ -122,6 +133,10 @@ function keepResult(act, t, d) {
     case 'unapprove': return ['승인을 취소했습니다 — 검토 단계로 돌아왔습니다(에이전트 재실행 없음)', 'ok'];
     case 'discard': ui.selected = null; return [id + ' 폐기됨 — 아래 "보관된 작업"에 사유와 함께 남습니다(브랜치·작업 폴더는 지우지 않음)', 'ok'];
     case 'archivefin': return [d.archived.length ? '끝난 작업 ' + d.archived.length + '개를 보관했습니다: ' + d.archived.join(', ') : '보관할 끝난 작업이 없습니다', d.archived.length ? 'ok' : 'muted'];
+    case 'mainhandover': case 'mainlimit': return d.ok ? ['새 메인 실행 시작 — 인수 확인 결과는 위 메인 패널에서 확인하세요(완료 표시는 다음 행동 수행 뒤에만 나옵니다)', 'ok'] : ['교대하지 못함: ' + (d.detail || d.status) + ' — 상태·복구 지점은 보존됨, 자동 재시도 없음', 'warn'];
+    case 'mainclear': return ['한도 풀림을 기록했습니다(재시도·크레딧 구매는 하지 않음)', 'ok'];
+    case 'apprgrant': return ['승인 장부에 기록했습니다(기록일 뿐 승인을 새로 만들지 않음)', 'ok'];
+    case 'apprrevoke': return ['승인을 철회했습니다', 'ok'];
     case 'archive': ui.selected = null; return [id + ' 보관됨 — 아래 "보관된 작업"에서 해제할 수 있습니다', 'ok'];
     case 'unarchive': ui.selected = id; return [id + ' 보관 해제됨', 'ok'];
     case 'maincheck': ui.mainBlockers = { list: d.blockers }; return ['', ''];
