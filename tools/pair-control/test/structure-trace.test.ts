@@ -75,3 +75,46 @@ test('실제 저장소: 검토에서 확인된 경로가 재현된다(pushNow 7�
   assert.equal(depthOf(out, 'onMainEnd'), 12);
   assert.ok(Array.isArray(out.unresolved) && out.manualEdges >= 7, '수동 간선과 미확인 목록이 출력됨');
 });
+
+test('같은 이름의 프로젝트 정의가 없어도 표준 목록에 없으면 외부로 단정하지 않고 미확인으로 보고한다(별칭·프로퍼티·계산 멤버)', () => {
+  const src = {
+    'src/svc.ts': `export function leaf() { return 1; }\n`,
+    'src/use.ts': `import { leaf } from './svc.ts';
+export function viaProp() { const api = { go: leaf }; return api.go(); }
+export function viaAlias(ex: any) { const f = ex.approve; return f(); }
+export function viaComputed(api: any, k: string) { return api[k](); }
+export function viaFactory(make: any) { return make()(); }
+`,
+  };
+  const { out } = measure(src);
+  const reasons = Object.fromEntries(out.unresolved.map((u: any) => [u.caller, u.reason]));
+  assert.match(reasons.viaProp, /표준 목록에 없는 메서드 go — 외부 여부 미확인/);
+  assert.match(reasons.viaAlias, /지역 변수/);
+  assert.match(reasons.viaComputed, /계산된 멤버/);
+  assert.ok(reasons.viaFactory, '호출 결과를 다시 호출하는 복합 callee도 미확인');
+  assert.equal(Object.keys(out.external).length, 0, '이 호출들은 외부로 분류되지 않음');
+});
+
+test('외부로 분류한 호출은 이유가 기록되고, 표준 이름이라도 같은 이름의 프로젝트 정의가 있으면 외부로 단정하지 않는다', () => {
+  const src = {
+    'src/ops.ts': `export class Ops { push(x: string) { return x; } }\n`,
+    'src/use.ts': `import { Ops } from './ops.ts';
+export function arr() { const out: string[] = []; out.push('a'); return out.length; }
+export function unknownBase(o) { return o.push('a'); }
+export function fsCall(fs: any) { return JSON.stringify({}); }
+`,
+  };
+  const { out } = measure(src);
+  assert.ok(Object.keys(out.external).some((k) => /표준 컨테이너 지역 변수 out/.test(k)), '지역 변수 초기화 근거가 이유로 남음');
+  assert.ok(Object.keys(out.external).some((k) => /전역 객체 JSON/.test(k)));
+  assert.ok(out.unresolved.some((u: any) => u.caller === 'unknownBase' && /같은 이름 프로젝트 정의 1개/.test(u.reason)), '타입을 모르는 o.push는 프로젝트 Ops.push일 수 있어 미확인');
+});
+
+test('수동 간선: 존재하지 않는 호출자·대상이나 호출자 본문에 없는 근거 문구는 거부하고, resolves로 해소한 미확인은 목록에서 빠진다', () => {
+  const src = { 'src/a.ts': `export function a(ops) { return ops.go(); }\n`, 'src/b.ts': `export function go() { return 1; }\nexport function other() { return 2; }\n` };
+  const bad = (edge: object) => measure(src, [], { edges: [edge] }).code;
+  assert.notEqual(bad({ from: 'a.ts:nope', to: 'b.ts:go', evidence: 'x' }), 0);
+  assert.notEqual(bad({ from: 'a.ts:a', to: 'b.ts:go', evidence: 'x', via: 'ops.missing' }), 0);
+  const ok = measure(src, [], { edges: [{ from: 'a.ts:a', to: 'b.ts:go', evidence: '합성: ops=b의 모듈', via: 'ops.go', resolves: ['ops.go'] }] });
+  assert.equal(ok.code, 0); assert.equal(ok.out.unresolved.length, 0);
+});
