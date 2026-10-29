@@ -359,6 +359,6 @@ test('재시작: 적용 중(applying)이던 턴은 다시 적용하지 않고 �
 test('F. 이번 재설계 파일은 익명 콜백 포함 함수 정의 7개 이하(전체 저장소 점검은 structure-trace 보고서·구조 준수 작업이 관리)', () => {
   const root = path.resolve(import.meta.dirname, '..');
   const out = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/structure-trace.mjs')], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString()).perFile as Record<string, number>;
-  const files = ['limitScope', 'approvalGate', 'approvalScope', 'actionPlan', 'pipelineEnd', 'pushOwnership', 'mainAck', 'checkpointBuild', 'mainApprovals', 'mainActions', 'mainCheckpoint', 'mainHandover', 'mainDispatch', 'mainEnd', 'mainSerial', 'pipelineEvents', 'pipelineSteps', 'pipelineTick', 'pipelineTurn', 'pipelineView', 'turnBundle', 'mainTakeover', 'mainGuard', 'mainOutcome'].map((f) => `src/executor/${f}.ts`).concat(['src/ui/js/view-pipeline.js']);
+  const files = ['limitScope', 'approvalGate', 'approvalScope', 'actionPlan', 'pipelineEnd', 'pushOwnership', 'mainAck', 'checkpointBuild', 'mainApprovals', 'mainActions', 'mainCheckpoint', 'mainHandover', 'mainDispatch', 'mainEnd', 'mainSerial', 'pipelineEvents', 'pipelineSteps', 'pipelineTick', 'pipelineTurn', 'pipelineView', 'pipelineApply', 'turnBundle', 'mainTakeover', 'mainGuard', 'mainOutcome'].map((f) => `src/executor/${f}.ts`).concat(['src/ui/js/view-pipeline.js']);
   assert.deepEqual(files.filter((f) => !(out[f] <= 7)).map((f) => `${f}:${out[f]}`), []);
 });

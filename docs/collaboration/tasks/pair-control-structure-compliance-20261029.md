@@ -116,4 +116,14 @@ tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충�
 - 롤백: 단계별 커밋을 `git revert`(시작 SHA `6857715`로 복귀 가능).
 
 ## handoff
-(단계 진행 상황과 최종 SHA·측정 전/후는 완료 시 보고서에 기록)
+(최종 SHA·측정 전/후는 완료 시 보고서에 기록. 아래는 세션 체크포인트.)
+
+### 체크포인트 (세션 한도 전 기록, 2026-10-29)
+- 기준선(2228ede): typecheck 통과, `npm test` 180개 중 179 통과·0 실패·1 건너뜀(403초).
+- `6f6af6b`: runPush→verifyPushScope 직접 간선 회귀(도구 `--start` 출력에 `callees` 추가), structure-edges.json evidence를 gate 직접 호출 구조로 정정. 자동 push의 gate 누락 경로는 기존 `review-fixes` B(승인 철회·미등록 커밋·점검 뒤 HEAD 변경)가 applyActions→dispatch→runtime.push→runPush 실경로로 검증한다.
+- 단계 1b 일부(턴 경로 상태 기계): `onTurnEnd`는 검증 통과 응답을 `verified` + `pendingActions`로 저장하고 끝낸다. 적용은 `pipelineApply.applyVerified`(연속 처리 진입점)가 저장 상태를 읽어 `applying` 저장 → `applyActions`로 한다. 적용 직전 세션·세대·frozen 재확인, 정지 시 미적용, 재시작 뒤 이전 수명의 `verified`는 최초 1회 적용·`applying`은 결과 불명 보존. 회귀 `test/pipeline-apply.test.ts` 4개.
+- **측정 결과: 구조 준수 아님.** 초과 파일 31개 불변, 초과 시작점 57→59(applyVerified·applyTurn 사슬 11~12가 새로 생김, onTurnEnd는 handleLimit 사슬 8). 이유: 행동 수행 사슬 `applyActions→runOne→dispatch→pushNow→runtime.push→runPush→preflight→done→save→writeJsonAtomic`(최소 9)이 그대로여서, 관찰/적용 분리만으로는 깊이가 줄지 않는다. 호출을 옮긴 것을 통과로 보고하지 않는다.
+
+### 다음 실행 설계 (미착수)
+깊이 ≤4가 성립하려면 진입점(L0)에서 IO 원시(L4)까지 프레임이 4개다: tick(L0)→pipelineTick(L1)→단계 함수(L2)→서비스(L3)→IO(L4). 따라서 (1) `MainOps` 간접층과 `pushNow`·`dispatch` 중첩을 없애고 행동별 단계 함수가 서비스를 직접 호출, (2) 행동을 `accepted→authorized→dispatching→done` 영속 단계로 나눠 각 단계 진입점이 저장 상태만 읽음, (3) push를 `plan→scope→lock→exec` 영속 단계로 분리(`preflight`는 git 사실 수집·스캔·판정으로 쪼갬), (4) `Store.save`가 원자적 쓰기를 직접 수행(현재 save→writeJsonAtomic 2프레임), (5) 세션 인수 경로(`ackSession`)에도 같은 verified/pendingActions 분리. 이후 단계 2~7은 계약 순서대로.
+- 재개 명령: `cd tools/pair-control && npm run typecheck && node scripts/structure-trace.mjs --check`(현재 실패 예상), 전체 회귀 `caffeinate -dimsu npm test`.

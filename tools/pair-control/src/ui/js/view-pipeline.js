@@ -2,8 +2,8 @@
 // 세 가지 완료를 섞지 않는다: 메인 인수 완료(세션) / 개별 행동 성공(턴 결과) / 작업 파이프라인 완료(원격 push 검증된 작업만).
 import { esc, lbl } from './core.js';
 
-const TURN = { launching: '시작 중', launched: '모델 응답 대기', applying: '행동 적용 중', applied: '적용 끝', limited: '한도로 종료', stale: '이전 세대 응답(무시)', failed: '실패', unknown: '결과 불명' };
-const TURN_CLS = { applied: 'ok', launching: 'info', launched: 'info', applying: 'info', failed: 'bad', unknown: 'bad', limited: 'warn', stale: 'muted' };
+const TURN = { launching: '시작 중', launched: '모델 응답 대기', verified: '응답 검증됨(적용 대기)', applying: '행동 적용 중', applied: '적용 끝', limited: '한도로 종료', stale: '이전 세대 응답(무시)', failed: '실패', unknown: '결과 불명' };
+const TURN_CLS = { applied: 'ok', launching: 'info', launched: 'info', verified: 'info', applying: 'info', failed: 'bad', unknown: 'bad', limited: 'warn', stale: 'muted' };
 
 const actionHtml = (a) => '<div class="' + (a.ok ? 'ok' : 'bad') + '">' + (a.ok ? '✓ ' : '✗ ') + esc(a.type + ': ' + a.detail) + '</div>';
 

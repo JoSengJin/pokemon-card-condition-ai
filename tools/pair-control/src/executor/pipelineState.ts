@@ -1,6 +1,6 @@
 // 교대 뒤 연속 처리의 저장 장부 접근. 이벤트는 키(종류+작업+SHA)가 같으면 한 번만 등록되며, 상태 전이는 여기서만 한다.
 import type { Executor } from './executor.ts';
-import type { EventKind, EventState, PipelineEvent, PipelineState } from './mainTypes.ts';
+import type { EventKind, EventState, MainTurn, PipelineEvent, PipelineState } from './mainTypes.ts';
 
 export const pipe = (ex: Executor): PipelineState => (ex.runtime.pipeline ??= { events: {}, turns: {}, steps: {} });
 
@@ -18,4 +18,10 @@ export function mark(ex: Executor, keys: string[], state: EventState, extra: Par
   const ev = pipe(ex).events;
   for (const k of keys) if (ev[k]) { Object.assign(ev[k], extra, { state }); ex.audit('pipeline_event_state', { key: k, state, reason: extra.reason }); }
   ex.store.save();
+}
+
+/** 턴을 끝내고 이벤트 상태를 맞춘다. */
+export function endTurn(ex: Executor, t: MainTurn, status: MainTurn['status'], ev: 'pending' | 'held' | 'unknown', why: string) {
+  t.status = status; t.failure = why;
+  mark(ex, t.eventKeys, ev, { reason: why });
 }

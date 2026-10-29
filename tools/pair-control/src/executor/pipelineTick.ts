@@ -1,12 +1,14 @@
 // 감시 틱(기존 300ms 감시 루프)이 부르는 연속 처리 진입점. 상태를 읽을 뿐이며, 새 이벤트가 있을 때만 현재 메인에게 턴 한 번을 준다.
 // 폴링으로 모델을 부르지 않는다: 같은 이벤트·같은 세대에는 턴이 한 번뿐이고, 진행 중 턴·교대 중·한도 중에는 아무것도 하지 않는다.
+import { applyVerified } from './pipelineApply.ts';
 import { autoSteps } from './pipelineSteps.ts';
 import { scanEvents } from './pipelineEvents.ts';
 import { mark, pipe } from './pipelineState.ts';
 import { handleLimit, launchTurn } from './pipelineTurn.ts';
+import { TURN_IN_FLIGHT } from './mainTypes.ts';
 import type { Executor } from './executor.ts';
 
-const IN_FLIGHT = ['launching', 'launched', 'applying'];
+const RESTART_UNKNOWN = ['launching', 'launched', 'applying']; // 재시작 때 결과 불명으로 남기는 상태(verified는 검증된 저장 응답이라 최초 1회 적용 대상)
 const busy = new WeakSet<object>(); // 겹쳐 호출돼도 한 번에 하나만(턴 이중 시작 방지)
 
 /**
@@ -18,7 +20,7 @@ const busy = new WeakSet<object>(); // 겹쳐 호출돼도 한 번에 하나만(
  */
 function recoverTurns(ex: Executor) {
   for (const t of Object.values(pipe(ex).turns)) {
-    if (!IN_FLIGHT.includes(t.status) || t.lifetime === ex.lifetime) continue;
+    if (!RESTART_UNKNOWN.includes(t.status) || t.lifetime === ex.lifetime) continue;
     const running = t.status === 'launched' && t.execId && ['running', 'cancelling'].includes(ex.state.executions[t.execId]?.status ?? '');
     if (running) continue;
     t.status = 'unknown'; t.failure = '서버 재시작 전 진행 중이던 턴 — 결과 불명, 재시도하지 않음';
@@ -33,7 +35,8 @@ export async function pipelineTick(ex: Executor): Promise<void> {
     const rt = ex.runtime, s = rt.session;
     if (!s || rt.frozen || !['completed', 'idle'].includes(s.status)) return;
     recoverTurns(ex);
-    if (Object.values(pipe(ex).turns).some((t) => IN_FLIGHT.includes(t.status))) return;
+    await applyVerified(ex);
+    if (Object.values(pipe(ex).turns).some((t) => TURN_IN_FLIGHT.includes(t.status))) return;
     await autoSteps(ex, s.id);
     if (ex.stopped) return;
     scanEvents(ex);

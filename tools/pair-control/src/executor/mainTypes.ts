@@ -68,12 +68,16 @@ export type EventKind = 'result_ready' | 'approved' | 'integrated' | 'blocked';
 export type EventState = 'pending' | 'launched' | 'applied' | 'held' | 'unknown';
 /** 상태 변화 하나. key(종류+작업+SHA)가 같으면 한 번만 등록된다. blocked는 사람이 봐야 하는 멈춤이며 모델 턴을 일으키지 않는다. */
 export interface PipelineEvent { key: string; kind: EventKind; taskId: string; sha: string; at: string; state: EventState; tried: number[]; turnId?: string; reason?: string }
-export type TurnStatus = 'launching' | 'launched' | 'applying' | 'applied' | 'limited' | 'stale' | 'failed' | 'unknown';
+export type TurnStatus = 'launching' | 'launched' | 'verified' | 'applying' | 'applied' | 'limited' | 'stale' | 'failed' | 'unknown';
 /** 현재 메인에게 준 모델 턴 한 번. 같은 세션·세대의 승인 범위 안에서만 행동을 낸다. */
 export interface MainTurn {
   id: string; sessionId: string; generation: number; agent: Agent; status: TurnStatus; eventKeys: string[]; startedAt: string; lifetime: string;
   execId?: string; tokenHash: string; checkpointFile: string; checkpointHash: string; actionResults: ActionResult[]; failure?: string;
+  /** 검증을 통과해 저장된 응답의 행동(적용 전). 종료 관찰이 여기까지 기록하고, 적용은 연속 처리 진입점이 이 저장 상태를 읽어 따로 한다. */
+  pendingActions?: MainAction[];
 }
+/** 새 턴을 막는 진행 중 상태. verified(검증 끝, 적용 전)도 포함한다. */
+export const TURN_IN_FLIGHT: TurnStatus[] = ['launching', 'launched', 'verified', 'applying'];
 export interface PipelineState {
   events: Record<string, PipelineEvent>; turns: Record<string, MainTurn>;
   /** 도구가 모델 없이 한 번만 수행하는 단계(검사·인계 생성)의 시도 기록. 같은 키는 다시 하지 않는다. */

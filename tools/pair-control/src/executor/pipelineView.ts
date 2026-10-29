@@ -3,16 +3,14 @@
 import { prepHolds } from './approvalScope.ts';
 import { pipe } from './pipelineState.ts';
 import type { Executor } from './executor.ts';
-import type { ActionResult, EventState, MainTurn } from './mainTypes.ts';
-
-const IN_FLIGHT = ['launching', 'launched', 'applying'];
+import { TURN_IN_FLIGHT, type ActionResult, type EventState, type MainTurn } from './mainTypes.ts';
 
 const actionRow = (r: ActionResult) => ({ id: r.id, type: r.type, ok: r.ok, detail: r.detail });
 
 function turnRow(t: MainTurn) {
   let ok = 0;
   for (const r of t.actionResults) if (r.ok) ok++;
-  return { id: t.id, agent: t.agent, generation: t.generation, status: t.status, inFlight: IN_FLIGHT.includes(t.status), startedAt: t.startedAt, failure: t.failure ?? null, events: t.eventKeys.length, actionsOk: ok, actionsTotal: t.actionResults.length, actions: t.actionResults.map(actionRow) };
+  return { id: t.id, agent: t.agent, generation: t.generation, status: t.status, inFlight: TURN_IN_FLIGHT.includes(t.status), startedAt: t.startedAt, failure: t.failure ?? null, events: t.eventKeys.length, actionsOk: ok, actionsTotal: t.actionResults.length, actions: t.actionResults.map(actionRow) };
 }
 
 /** 사람이 봐야 하는 사유: 보류·결과 불명 이벤트 + 승인이 열리지 않아 시작하지 못한 자동 준비. */
