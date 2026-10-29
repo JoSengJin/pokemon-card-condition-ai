@@ -1,7 +1,7 @@
 # 작업 계약: pair-control 구조 기준 준수 (한정 예외·동결 없음)
 
 - task_id: `pair-control-structure-compliance-20261029`
-- owner: Claude (구현)
+- owner: Codex (Claude의 `93c1e2b81d4c682fcbaf530b5daf7771593264cd` 체크포인트에서 구현 인수)
 - status: implementing (단계별 진행 — 아래 단계 완료 조건 참조)
 - base_sha: `6857715afd87c0922d3e0e0510efce0435e156b6` (전달받은 최신 문서 커밋과 실제 HEAD 일치, 작업 트리 변경 없음. 검토 대상 코드 커밋 `0b3341cd8b7a5d3722af94790f79c2f8d0e000f7`)
 - branch: `claude/pair-control` (기존 worktree). 통합·운영 push는 Codex. 실제 모델 호출·학습·사진 추론·운영 push 없음(fake CLI·스텁·임시 bare 원격만).
@@ -127,3 +127,10 @@ tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충�
 ### 다음 실행 설계 (미착수)
 깊이 ≤4가 성립하려면 진입점(L0)에서 IO 원시(L4)까지 프레임이 4개다: tick(L0)→pipelineTick(L1)→단계 함수(L2)→서비스(L3)→IO(L4). 따라서 (1) `MainOps` 간접층과 `pushNow`·`dispatch` 중첩을 없애고 행동별 단계 함수가 서비스를 직접 호출, (2) 행동을 `accepted→authorized→dispatching→done` 영속 단계로 나눠 각 단계 진입점이 저장 상태만 읽음, (3) push를 `plan→scope→lock→exec` 영속 단계로 분리(`preflight`는 git 사실 수집·스캔·판정으로 쪼갬), (4) `Store.save`가 원자적 쓰기를 직접 수행(현재 save→writeJsonAtomic 2프레임), (5) 세션 인수 경로(`ackSession`)에도 같은 verified/pendingActions 분리. 이후 단계 2~7은 계약 순서대로.
 - 재개 명령: `cd tools/pair-control && npm run typecheck && node scripts/structure-trace.mjs --check`(현재 실패 예상), 전체 회귀 `caffeinate -dimsu npm test`.
+
+### Codex 인수 체크포인트 (2026-10-29)
+- 작업 브랜치/worktree: `codex/pair-control-structure-continuation-20261029`, Claude checkout은 변경하지 않고 보존했다.
+- `1f781dc`: `Store.save`가 tmp 작성과 rename을 직접 수행한다. `store.ts` 정의 수 5→5, `save→writeJsonAtomic` 1회→`save` 0회. typecheck와 main-safety/pipeline-apply 16개 통과.
+- `7e0e79e`: 공용 `dispatch→pushNow` 라우터를 없애고 `runOne`이 일반 행동 서비스와 `confirmAction`/`pushAction`을 직접 선택한다. 승인 판정은 `approvalGate.authorize` 단일 구현을 유지한다. `mainDispatch.ts` 정의 수 3→2, `runOne` 최장 8→7, `onMainEnd` 최장 11→10. typecheck와 structure-trace/main-safety/review-fixes 36개 통과.
+- 현재 판정: **구조 준수 아님**. 초과 파일 31개, 미확인 81개이며 1b의 영속 행동 단계·push 단계·ackSession 분리와 단계 2~7은 남아 있다. 전체 테스트·최종 `--check`는 아직 실행하지 않았다. HTML 열기 요청은 queued였고 Mac 잠금·로컬 브라우저 비활성으로 실제 렌더 확인은 차단됐다.
+- 다음 정확한 작업: 행동 `accepted→authorized→dispatching→done`을 저장 상태로 만들고 각 틱이 한 단계만 읽어 처리한다. 그 뒤 push `plan→scope→lock→exec`와 `ackSession`을 같은 방식으로 분리한다.
