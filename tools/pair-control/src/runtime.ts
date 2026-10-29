@@ -33,7 +33,7 @@ export function bindRuntime(ex: Executor, m: Mastra) {
     // 배정은 준비 + 구현 시작까지(input.start:false면 준비만). 시작은 화면 버튼과 같은 startTask 경로다.
     assign: async (input) => { const r = await prepareTask(input); if (input.start !== false) await startTask(r.taskId!); },
     confirm: async (taskId, note) => { ex.confirmHandoff(taskId, note); },
-    push: async (sha) => { const r = await runPush(ex, sha); return { status: r.status, detail: r.detail }; },
+    push: async (sha, verify) => { const r = await runPush(ex, sha, verify); return { status: r.status, detail: r.detail }; },
   });
 }
 
@@ -154,7 +154,7 @@ export function connection(ex: Executor) {
   const kind = !repo ? 'unconfigured' : real(repo).startsWith(real(demoRoot) + path.sep) ? 'demo' : 'real';
   return {
     kind, repo, integrationBranch: ex.cfg.integration.branch, integrationCheckout: ex.cfg.integration.checkout,
-    realRun: { codex: realReadiness('codex', ex.probes.codex, ex.cfg, { limit: ex.limit }), claude: realReadiness('claude', ex.probes.claude, ex.cfg, { limit: ex.limit }) },
+    realRun: { codex: realReadiness('codex', ex.probes.codex, ex.cfg, { limit: ex.limitFor('codex') }), claude: realReadiness('claude', ex.probes.claude, ex.cfg, { limit: ex.limitFor('claude') }) },
     mockRun: { available: true, note: '모델 요청 없는 mock 프로세스. 실제 코드 품질을 검증하지 않음.' },
   };
 }

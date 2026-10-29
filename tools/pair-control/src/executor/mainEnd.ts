@@ -2,10 +2,11 @@
 // 어떤 실패도 감시 루프로 예외를 내보내지 않고 세션 실패(체크포인트 보존)로 기록한다.
 import fs from 'node:fs';
 import { badResponse } from './mainGuard.ts';
-import { ackSession, failSession } from './mainHandover.ts';
+import { ackSession } from './mainAck.ts';
+import { failSession } from './mainHandover.ts';
 import { parseResult, verifyAck } from './mainTakeover.ts';
 import { pipe } from './pipelineState.ts';
-import { onTurnEnd } from './pipelineTurn.ts';
+import { onTurnEnd } from './pipelineEnd.ts';
 import type { Execution, Executor } from './executor.ts';
 
 /** 새 메인 프로세스가 끝났을 때(감시 루프가 호출). 이전 세대의 늦은 결과는 아무것도 바꾸지 못한다. */

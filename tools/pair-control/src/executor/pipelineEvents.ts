@@ -1,6 +1,6 @@
 // 작업 상태를 읽어 의미 있는 변화만 이벤트로 등록한다(모델 호출 없음, 상태 읽기뿐).
-// 승인 범위에 덮이지 않은 작업·멈춘 작업은 턴을 일으키지 않고 보류로 남긴다. 범위/한도가 풀리면 보류가 풀린다.
-import { covers } from './mainApprovals.ts';
+// 다음 행동의 승인이 열려 있지 않거나(범위 밖·검증할 수 없는 조건) 멈춘 작업은 턴을 일으키지 않고 보류로 남긴다. 승인이 열리거나 한도가 풀리면 보류가 풀린다.
+import { turnHold } from './approvalScope.ts';
 import { pipe, register } from './pipelineState.ts';
 import type { Executor, Task } from './executor.ts';
 
@@ -21,12 +21,17 @@ function wanted(ex: Executor, t: Task): { kind: 'result_ready' | 'approved' | 'i
   return null;
 }
 
-/** 보류 사유가 해소됐는지 보고 풀 수 있는 이벤트는 대기로 되돌린다(범위가 덮이게 됨, 한도가 풀림). */
+/** 보류 사유가 해소됐는지 보고 풀 수 있는 이벤트는 대기로 되돌린다(승인이 열림, 한도가 풀림). */
 function revive(ex: Executor, sid: string | undefined) {
   for (const e of Object.values(pipe(ex).events)) {
-    const scope = e.reason?.startsWith('승인 범위') && covers(ex, sid, e.taskId);
+    if (e.state !== 'held' || e.kind === 'blocked') continue;
+    const t = ex.state.tasks[e.taskId];
+    const scope = e.reason?.startsWith('승인') && !!t && !turnHold(ex, sid, t, e.kind);
     const limit = e.reason?.startsWith('한도') && !ex.limitFor(ex.mainAgent);
-    if (e.state === 'held' && (scope || limit)) { e.state = 'pending'; delete e.reason; if (limit) e.tried = e.tried.filter((g) => g !== ex.runtime.generation); ex.audit('pipeline_event_revived', { key: e.key }); }
+    if (!scope && !limit) continue;
+    e.state = 'pending'; delete e.reason;
+    if (limit) e.tried = e.tried.filter((g) => g !== ex.runtime.generation);
+    ex.audit('pipeline_event_revived', { key: e.key });
   }
 }
 
@@ -36,8 +41,7 @@ export function scanEvents(ex: Executor) {
   for (const t of Object.values(ex.state.tasks)) {
     const w = wanted(ex, t);
     if (!w) continue;
-    const out = w.kind !== 'blocked' && !covers(ex, sid, t.taskId) ? '승인 범위 밖: 이 작업을 덮는 승인이 없어 자동 처리하지 않음' : undefined;
-    register(ex, w.kind, t.taskId, w.sha, w.hold ?? out);
+    register(ex, w.kind, t.taskId, w.sha, w.hold ?? (w.kind === 'blocked' ? undefined : turnHold(ex, sid, t, w.kind) ?? undefined));
   }
   ex.store.save();
 }

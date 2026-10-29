@@ -1,6 +1,8 @@
 // 메인 역할 교대 실행의 자료형. 함수는 없다(자료 구조만).
 // 메인 역할은 에이전트 이름(codex/claude)과 분리된 "세대(generation)"를 가진 세션으로 다룬다.
 
+import type { PushPlan } from './push.ts';
+
 export type Agent = 'codex' | 'claude';
 
 /** 승인 장부 한 줄. 에이전트 이름이 아니라 근거·허용 행동·대상으로 기록하므로 메인이 바뀌어도 그대로 승계된다. */
@@ -86,7 +88,8 @@ export interface MainOps {
   approve?: (taskId: string, sha: string) => Promise<unknown>;
   integrate?: (taskId: string) => Promise<unknown>;
   confirm?: (taskId: string, note: string) => Promise<unknown>;
-  push?: (sha: string) => Promise<{ status: string; detail: string }>;
+  /** verify는 push 직전(점검·잠금·원격 재확인 뒤)에 같은 계획으로 호출되며, 던지면 push하지 않는다. */
+  push?: (sha: string, verify?: (plan: PushPlan) => Promise<void>) => Promise<{ status: string; detail: string }>;
 }
 
 /** 새 메인이 낼 수 있는 행동. 이 목록 밖 type은 지원하지 않는 행동으로 거부한다. */

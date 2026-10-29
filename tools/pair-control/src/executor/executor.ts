@@ -21,7 +21,7 @@ import { buildStartPrompt, type PromptOptions } from './startPrompt.ts';
 import type { Agent, MainOps, MainRuntime } from './mainTypes.ts';
 import { onMainEnd } from './mainEnd.ts';
 import { pipelineTick } from './pipelineTick.ts';
-import { onMainLimit } from './mainHandover.ts';
+import { onLimitHit } from './limitScope.ts';
 
 export type TaskStatus =
   | 'assigned' | 'blocked' | 'starting' | 'running' | 'collecting' | 'cancelling' | 'cancelled' | 'failed'
@@ -159,16 +159,7 @@ export class Executor {
       this.event('free_guard_trip', { ...a });
       this.cancelAll('무료 가드 발동');
       opts.onTrip?.(a);
-    }, (a) => {
-      // 메인 세션 프로세스가 낸 한도는 그 에이전트만 막는다. 진행 중인 구현 에이전트를 모두 멈추지 않는다(인수해야 하므로).
-      const src = this.state.executions[a.source.replace(/^exec:/, '')];
-      if (src?.kind === 'main') { onMainLimit(this, src.agent as Agent, a.detail); return; }
-      if (this.state.limit) return;
-      this.state.limit = { at: a.at, detail: a.detail, source: a.source };
-      this.event('limit_hit', { detail: a.detail, source: a.source });
-      this.save();
-      this.cancelAll('구독 한도 도달');
-    });
+    }, (a) => onLimitHit(this, a)); // 한도 출처의 공급자별 처리(limitScope.ts)
     this.tripped = this.guard.pending();
     this.recover();
   }
@@ -178,7 +169,7 @@ export class Executor {
   get supervisorPath() { return path.join(this.cfg.toolRoot, 'src', 'executor', 'supervisor.mjs'); }
   get guardAlert() { return this.tripped; }
   /** 감사 기록(events.jsonl). push.ts 등 별도 모듈에서 쓴다. */
-  audit(type: string, data: Record<string, unknown>) { this.event(type, data); }
+  audit(type: string, data: Record<string, unknown>) { appendEvent(this.cfg.stateDir, { type, lifetime: this.lifetime, ...data }); }
   get limit() { return this.state.limit ?? null; }
   /** 이 에이전트를 막는 한도: 전체 한도(구현 에이전트 한도) 또는 메인 세션이 낸 그 에이전트의 한도. */
   limitFor(agent: Agent): { at: string; detail: string } | null {
@@ -392,7 +383,7 @@ export class Executor {
     writeJsonAtomic(specPath, spec);
     fs.writeFileSync(spec.logPath, '');
     const sup = spawn(process.execPath, [this.supervisorPath, specPath], { cwd: o.cwd, detached: true, stdio: 'ignore', env: sanitizedChildEnv() });
-    sup.on('error', (e) => this.event('supervisor_spawn_error', { execId: o.execId, error: e.message })); // 정리 도중 등 시작 실패가 프로세스 전체 예외로 번지지 않게 기록만 한다
+    sup.on('error', (e) => this.event('supervisor_spawn_error', { execId, error: e.message })); // 정리 도중 등 시작 실패가 프로세스 전체 예외로 번지지 않게 기록만 한다
     sup.unref();
     if (!sup.pid) throw new Error('감독 프로세스 시작 실패');
     const ex: Execution = {
@@ -576,8 +567,9 @@ export class Executor {
     return { ok: true, reason: `${ex.kind ?? 'agent'} 프로세스 그룹 ${ex.pgid}에 SIGTERM (3초 후 남으면 SIGKILL)` };
   }
 
-  cancelAll(reason: string) {
-    const busy = new Set(Object.values(this.state.executions).filter((e) => ['running', 'cancelling'].includes(e.status)).map((e) => e.taskId));
+  /** 실행 중인 작업을 모두 중단한다. agent를 주면 그 공급자의 실행만 중단한다(다른 공급자의 진행 중 작업은 보존). */
+  cancelAll(reason: string, agent?: string) {
+    const busy = new Set(Object.values(this.state.executions).filter((e) => ['running', 'cancelling'].includes(e.status) && (!agent || e.agent === agent)).map((e) => e.taskId));
     for (const t of Object.values(this.state.tasks)) {
       if (busy.has(t.taskId)) void this.cancel(t.taskId).then((r) => this.event("cancel_all", { taskId: t.taskId, trigger: reason, result: r.reason, ok: r.ok }));
     }

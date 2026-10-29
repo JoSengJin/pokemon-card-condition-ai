@@ -3,7 +3,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { liveHead } from './mainCheckpoint.ts';
+import * as G from './git.ts';
 import type { Executor } from './executor.ts';
 import type { MainAction, MainSession } from './mainTypes.ts';
 
@@ -62,7 +62,7 @@ export async function verifyAck(ex: Executor, s: MainSession, r: TakeoverResult,
   const seen = r.observed?.heads ?? {};
   for (const { taskId } of tasks) {
     const t = ex.state.tasks[taskId];
-    const actual = t ? await liveHead(t) : null;
+    const actual = t ? await G.revParse(t.worktree, `refs/heads/${t.branch}`) : null;
     if (!seen[taskId]) bad.push(`${taskId}: 관찰한 헤드 없음`);
     else if (seen[taskId] !== actual) bad.push(`${taskId}: 관찰한 헤드가 실제 Git과 다름`);
   }

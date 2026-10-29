@@ -156,17 +156,17 @@ test('특정 세션에 묶인 승인은 새 메인이 승계하지 않는다: �
   assert.equal(Object.keys(env.ex.state.pushes ?? {}).length, 0);
 }));
 
-test('조건 미충족·구조화되지 않은 조건: 확인 단계에서 막히고 같은 작업의 승인·통합은 수행되지 않는다', { timeout: 120_000 }, async () => withEnv(async (env) => {
+test('자유 문장 조건뿐인 승인: 검사·인계·모델 턴을 모두 시작하지 않고 사람 판단을 기다린다(조건을 풀거나 지우지 않음)', { timeout: 120_000 }, async () => withEnv(async (env) => {
   as(env, 'codex');
   await manualResult(env, 'task-b', 'src_b');
-  grant(env, ['confirm_handoff', 'approve_task', 'integrate_task', 'push_main'], { conditions: '사용자 구두 확인 필요' });
+  grant(env, ['prepare_checks', 'confirm_handoff', 'approve_task', 'integrate_task', 'push_main'], { conditions: '사용자 구두 확인 필요' });
   script();
   await handoverMain(env.ex, 'claude'); await taken(env);
-  const t = await waitFor(() => Object.values(pipe(env.ex).turns).find((x) => x.status === 'applied'), '턴 적용', T);
-  assert.deepEqual(t.actionResults.map((r) => r.ok), [false, false, false]);
-  assert.match(t.actionResults[0].detail, /검증할 수 없는 조건/);
-  assert.match(t.actionResults[1].detail, /이전 행동이 실패해 수행하지 않음/);
+  await sleep(2500);
+  assert.equal(turns().length, 0, '모델 턴 0회'); assert.equal(Object.keys(pipe(env.ex).steps).length, 0, '자동 검사·인계 0회');
+  assert.equal(env.ex.task('task-b').verification ?? null, null); assert.equal(env.ex.task('task-b').handoff ?? null, null);
   assert.equal(env.ex.task('task-b').status, 'review_pending');
+  assert.ok(pipelineView(env.ex).heldReasons.some((h) => /승인 조건 미확정/.test(h.reason)), '보류 사유가 화면 요약에 남음');
   assert.equal(originHead(env), env.fixture.baseSha); assert.equal(Object.keys(env.ex.state.pushes ?? {}).length, 0);
 }));
 
@@ -228,9 +228,9 @@ test('push 승인이 장부에 없거나 diff 해시가 틀리면 해당 단계�
     grant(env, ['confirm_handoff', 'approve_task', 'integrate_task']); // push_main 없음
     script();
     await handoverMain(env.ex, 'codex'); await taken(env);
-    await waitFor(() => Object.values(pipe(env.ex).turns).filter((x) => x.status === 'applied').length >= 2, '두 턴', T);
-    const push = Object.values(pipe(env.ex).turns).flatMap((t) => t.actionResults).find((r) => r.type === 'push_main')!;
-    assert.equal(push.ok, false); assert.match(push.detail, /승인 범위 밖: push_main/);
+    const held = await waitFor(() => Object.values(pipe(env.ex).events).find((e) => e.kind === 'integrated' && e.state === 'held'), 'push 승인 없는 통합 이벤트 보류', T);
+    assert.match(held.reason!, /승인 범위 밖: push_main/);
+    assert.equal(turns().length, 1, 'push_main 승인이 없으면 push 턴을 시작하지 않음(결과 도착 턴 1회뿐)');
     assert.equal(originHead(env), env.fixture.baseSha); assert.equal(env.ex.task('task-a').status, 'integrated');
     assert.equal(pipelineView(env.ex).tasks[0].pipelineDone, false, '통합만으로 파이프라인 완료 표시 안 함');
   });

@@ -162,8 +162,8 @@ export async function preflight(ex: Executor): Promise<PushPlan> {
   return done();
 }
 
-/** 푸시. 방금 다시 점검해 막힘이 없고, 사용자가 입력한 값이 대상 SHA의 앞 12자 이상과 일치할 때만 실행한다. */
-export async function runPush(ex: Executor, confirm: string): Promise<PushRecord> {
+/** 푸시. 방금 다시 점검해 막힘이 없고, 사용자가 입력한 값이 대상 SHA의 앞 12자 이상과 일치할 때만 실행한다. verify가 있으면 push 직전에 같은 계획으로 호출되고, 던지면 push하지 않는다. */
+export async function runPush(ex: Executor, confirm: string, verify?: (plan: PushPlan) => Promise<void>): Promise<PushRecord> {
   const cwd = checkout(ex);
   const typed = String(confirm ?? '').trim().toLowerCase();
   const plan = await preflight(ex);
@@ -175,6 +175,7 @@ export async function runPush(ex: Executor, confirm: string): Promise<PushRecord
     const now = await lsRemote(cwd, plan.remote, plan.branch);
     if (!now.ok) throw new UserError(`원격 확인 실패: ${now.detail}`);
     if (now.sha !== plan.remoteHead) throw new UserError('점검 이후 원격이 바뀜 — 다시 점검');
+    await verify?.(plan); // 자동 push의 승인 범위 재검사: 실제로 올릴 이 계획에 대해, 기록을 남기고 push하기 직전에 한다
     const command = ['git', 'push', '--porcelain', plan.remote, `${plan.localHead}:refs/heads/${plan.branch}`];
     const rec: PushRecord = {
       id: crypto.randomUUID(), at: new Date().toISOString(), kind: plan.revertOf ? 'revert' : 'push', remote: plan.remote, remoteUrl: plan.remoteUrl, branch: plan.branch,

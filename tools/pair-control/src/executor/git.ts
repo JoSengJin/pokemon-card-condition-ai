@@ -18,22 +18,22 @@ export const git = (cwd: string, ...args: string[]) => run('git', args, cwd);
 export const FULL_SHA = /^[0-9a-f]{40}$/;
 
 export async function revParse(cwd: string, ref: string): Promise<string | null> {
-  const r = await git(cwd, 'rev-parse', '--verify', '--quiet', `${ref}^{commit}`);
+  const r = await run('git', ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd); // git 래퍼를 거치지 않고 직접 실행(호출 전이 1회 감소)
   const sha = r.stdout.trim();
   return r.code === 0 && FULL_SHA.test(sha) ? sha : null;
 }
 
 export async function currentBranch(cwd: string): Promise<string | null> {
-  const r = await git(cwd, 'symbolic-ref', '--quiet', '--short', 'HEAD');
+  const r = await run('git', ['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd);
   return r.code === 0 ? r.stdout.trim() : null;
 }
 
 export async function isAncestor(cwd: string, a: string, b: string) {
-  return (await git(cwd, 'merge-base', '--is-ancestor', a, b)).code === 0;
+  return (await run('git', ['merge-base', '--is-ancestor', a, b], cwd)).code === 0;
 }
 
 export async function worktrees(repo: string): Promise<{ path: string; branch: string | null; head: string | null }[]> {
-  const r = await git(repo, 'worktree', 'list', '--porcelain');
+  const r = await run('git', ['worktree', 'list', '--porcelain'], repo);
   if (r.code !== 0) return [];
   const out: { path: string; branch: string | null; head: string | null }[] = [];
   for (const block of r.stdout.split('\n\n')) {
@@ -53,28 +53,28 @@ export async function worktrees(repo: string): Promise<{ path: string; branch: s
 
 /** 추적 파일 변경(staged/unstaged)과 untracked 파일. ignored 산출물은 제외한다. */
 export async function dirtyFiles(cwd: string): Promise<string[]> {
-  const r = await git(cwd, 'status', '--porcelain=v1', '-z', '--untracked-files=all');
+  const r = await run('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], cwd);
   if (r.code !== 0) return ['<git status 실패>'];
   return r.stdout.split('\0').filter(Boolean).map((l) => l.slice(3));
 }
 
 export async function changedFiles(cwd: string, base: string, head: string): Promise<string[]> {
-  const r = await git(cwd, 'diff', '--name-only', '-z', `${base}..${head}`);
+  const r = await run('git', ['diff', '--name-only', '-z', `${base}..${head}`], cwd);
   return r.stdout.split('\0').filter(Boolean);
 }
 
 export async function commitsBetween(cwd: string, base: string, head: string): Promise<string[]> {
-  const r = await git(cwd, 'rev-list', '--reverse', `${base}..${head}`);
+  const r = await run('git', ['rev-list', '--reverse', `${base}..${head}`], cwd);
   return r.stdout.split('\n').map((s) => s.trim()).filter((s) => FULL_SHA.test(s));
 }
 
 export async function diffText(cwd: string, base: string, head: string, limit = 200_000) {
-  const r = await git(cwd, 'diff', '--stat', '--patch', '--no-color', `${base}..${head}`);
+  const r = await run('git', ['diff', '--stat', '--patch', '--no-color', `${base}..${head}`], cwd);
   return r.stdout.length > limit ? r.stdout.slice(0, limit) + '\n… (잘림)' : r.stdout;
 }
 
 export async function operationInProgress(cwd: string): Promise<string | null> {
-  const gitDir = (await git(cwd, 'rev-parse', '--git-dir')).stdout.trim();
+  const gitDir = (await run('git', ['rev-parse', '--git-dir'], cwd)).stdout.trim();
   const abs = path.resolve(cwd, gitDir);
   for (const f of ['CHERRY_PICK_HEAD', 'MERGE_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply']) {
     if (fs.existsSync(path.join(abs, f))) return f;

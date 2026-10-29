@@ -1,6 +1,7 @@
 // 화면 위쪽(연결·과금 가드·한도·메인 역할·CLI 확인)과 왼쪽 작업 목록(카드 + 작은 파이프라인).
 import { esc, lbl } from './core.js';
 import { currentKey, stagesOf } from './stages.js';
+import { renderPipeline } from './view-pipeline.js';
 
 export const STATUS = {
   assigned: ['배정됨', 'muted'], blocked: ['시작 차단', 'warn'], starting: ['시작 중', 'info'],
@@ -105,6 +106,7 @@ function renderMainRuntime(state) {
     (s ? '<div>' + esc(s.from) + ' → <b>' + esc(s.agent) + '</b> (세대 ' + s.generation + ') · ' + lbl(esc(SESSION[s.status] || s.status), s.status === 'completed' ? 'ok' : s.status === 'failed' ? 'bad' : 'info') +
       (s.limitRecovery ? ' <span class="muted">한도 복구</span>' : '') + (s.actionResults.length ? '<div class="muted">' + s.actionResults.map((a) => (a.ok ? '✓ ' : '✗ ') + esc(a.type + ': ' + a.detail)).join('<br>') + '</div>' : '') + '</div>' : '') +
     r.failures.map((f) => '<div class="warn">교대 실패 기록: ' + esc(f.reason) + (f.checkpointFile ? ' <span class="muted mono">복구 지점 ' + esc(f.checkpointFile.split('/').pop()) + '</span>' : '') + '</div>').join('');
+  renderPipeline(r.pipeline); // 연속 처리(메인 인수·현재 턴·행동 결과·보류 사유·원격 push 완료)
   document.getElementById('apprList').innerHTML = r.approvals.length ? r.approvals.map((a) => '<div>' + (a.revokedAt ? '<s>' : '') + '· ' + esc(a.actions.join(', ')) + ' → ' + esc(a.targets === '*' ? '전체' : a.targets.join(', ')) +
     ' <span class="muted">근거: ' + esc(a.basis) + (a.boundSessionId ? ' · 세션 묶임(승계 안 됨)' : '') + '</span>' + (a.revokedAt ? '</s> 철회됨' : ' <button type="button" class="small" data-act="apprrevoke" data-id="' + esc(a.id) + '">철회</button>') + '</div>').join('') : '<span class="muted">기록된 승인 없음 — 교대한 새 메인은 어떤 행동도 수행하지 못합니다</span>';
 }

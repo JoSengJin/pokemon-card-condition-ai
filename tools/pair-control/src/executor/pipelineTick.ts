@@ -9,7 +9,13 @@ import type { Executor } from './executor.ts';
 const IN_FLIGHT = ['launching', 'launched', 'applying'];
 const busy = new WeakSet<object>(); // 겹쳐 호출돼도 한 번에 하나만(턴 이중 시작 방지)
 
-/** 이전 서버 수명에서 끝맺지 못한 턴은 결과 불명으로 남긴다(다시 실행하지 않음). 아직 도는 프로세스가 있는 턴은 감시 루프가 이어받는다. */
+/**
+ * 재시작 복구 정책(두 경우를 구분한다):
+ *  ① 결과 불명 보존 — 이전 서버 수명에서 끝맺지 못한 턴(launching·applying, 프로세스가 사라진 launched)은 결과 불명으로 남기고 다시 실행·적용하지 않는다.
+ *  ② 검증 가능한 저장 응답의 최초 적용 — 재시작 사이에 프로세스가 끝나 종료 기록과 응답이 저장돼 있고 아직 적용 전(launched)인 턴은,
+ *     감시 루프(recover)가 종료를 관찰해 onTurnEnd로 넘기며 같은 검증(세션·세대·토큰·체크포인트·실제 Git·승인)을 통과할 때만 최초 1회 적용한다.
+ * 아직 도는 프로세스가 있는 턴은 감시 루프가 이어받는다. 적용이 시작된(applying) 턴은 어떤 경우에도 다시 적용하지 않는다.
+ */
 function recoverTurns(ex: Executor) {
   for (const t of Object.values(pipe(ex).turns)) {
     if (!IN_FLIGHT.includes(t.status) || t.lifetime === ex.lifetime) continue;
