@@ -2,17 +2,17 @@
   "note": "정적 분석이 확정하지 못하는 실제 연결을 근거와 함께 적는다. 근거 없는 간선은 도구가 거부한다. 간선은 호출자 코드와 대조해 확인한 것만 둔다.",
   "edges": [
     {
-      "from": "mainDispatch.ts:dispatch",
+      "from": "mainActions.ts:runOne",
       "to": "runtime.ts:approve",
       "weight": 1,
-      "evidence": "dispatch의 `ops = ex.mainOps` 호출(ops.approve). mainOps는 runtime.ts bindRuntime이 ex.setMainOps({approve,...})로 넣은 객체",
+      "evidence": "runOne의 `ops = ex.mainOps` 직접 호출(ops.approve). mainOps는 runtime.ts bindRuntime이 ex.setMainOps({approve,...})로 넣은 객체",
       "via": "ops.approve",
       "resolves": [
         "ops.approve"
       ]
     },
     {
-      "from": "mainDispatch.ts:dispatch",
+      "from": "mainActions.ts:runOne",
       "to": "runtime.ts:integrate",
       "weight": 1,
       "evidence": "ops.integrate — 위와 같은 MainOps 연결",
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "from": "mainDispatch.ts:dispatch",
+      "from": "mainActions.ts:runOne",
       "to": "runtime.ts:assign",
       "weight": 1,
       "evidence": "ops.assign — 위와 같은 MainOps 연결",
@@ -32,21 +32,24 @@
       ]
     },
     {
-      "from": "mainDispatch.ts:dispatch",
+      "from": "mainDispatch.ts:confirmAction",
       "to": "runtime.ts:confirm",
       "weight": 1,
-      "evidence": "ops.confirm — 위와 같은 MainOps 연결",
-      "via": "ops.confirm",
+      "evidence": "confirmAction이 ex.mainOps.confirm을 지역 변수 confirm으로 받아 직접 호출 — 위와 같은 MainOps 연결",
+      "via": "await confirm(taskId,",
       "resolves": [
-        "ops.confirm"
+        "confirm"
       ]
     },
     {
-      "from": "mainDispatch.ts:pushNow",
+      "from": "mainDispatch.ts:pushAction",
       "to": "runtime.ts:push",
       "weight": 1,
-      "evidence": "dispatch가 ops.push를 pushNow의 매개변수 push로 넘김(`pushNow(ex, sessionId, a, ops.push)`); pushNow가 push(sha, { sessionId })를 호출(gate 인자)",
-      "via": "push(sha, { sessionId })"
+      "evidence": "pushAction이 ex.mainOps.push를 지역 변수 push로 받아 push(sha, { sessionId })를 직접 호출(gate 인자)",
+      "via": "await push(sha, { sessionId })",
+      "resolves": [
+        "push"
+      ]
     },
     {
       "from": "runtime.ts:push",

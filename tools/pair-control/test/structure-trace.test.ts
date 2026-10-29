@@ -68,12 +68,12 @@ test('수동 간선은 근거가 있어야 하며 가중치로 깊이에 반영�
   assert.notEqual(noEvidence.code, 0);
 });
 
-test('실제 저장소: 구조 수정 단계별 측정값(수정 전 6857715 기준 pushNow 7·onMainEnd 12·runPush 5 → 단계 1a 이후 갱신)', () => {
+test('실제 저장소: 구조 수정 단계별 측정값(수정 전 6857715 기준 pushNow 7·onMainEnd 12·runPush 5 → 단계 1b 라우팅 평탄화 이후 갱신)', () => {
   const out = JSON.parse(execFileSync(process.execPath, [tool, `--root=${repoRoot}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
   assert.equal(depthOf(out, 'runPush'), 0, 'runPush는 gate 인자로 push 범위를 직접 검증해 4회 이하(초과 목록에 없음)');
-  assert.equal(depthOf(out, 'pushNow'), 6, 'pushNow→runtime.push→runPush→verifyPushScope→pushScope→commitsBetween→run');
+  assert.equal(depthOf(out, 'pushAction'), 6, 'pushAction→runtime.push→runPush→preflight→git→netEnv→sanitizedChildEnv');
   const direct = JSON.parse(execFileSync(process.execPath, [tool, `--root=${repoRoot}`, '--start=runPush'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).starts[0].callees as string[];
   assert.ok(direct.includes('pushOwnership.ts:verifyPushScope'), 'runPush가 verifyPushScope를 직접 호출하는 간선이 정적 그래프에 있음(수동 간선 없이)');
-  assert.equal(depthOf(out, 'onMainEnd'), 11, 'onMainEnd 사슬은 아직 4회를 넘는다(후속 단계에서 해소)');
+  assert.equal(depthOf(out, 'onMainEnd'), 10, 'dispatch 중첩 제거로 1회 줄었지만 아직 4회를 넘는다(후속 상태 단계에서 해소)');
   assert.ok(Array.isArray(out.unresolved) && out.manualEdges >= 6, '수동 간선과 미확인 목록이 출력됨');
 });

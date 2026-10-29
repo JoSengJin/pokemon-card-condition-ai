@@ -1,12 +1,12 @@
 // 새 메인이 낸 행동을 수행한다. 수행 직전마다 세션·세대·정지 상태, 중복 ID, 결과 불명 대상, 승인 범위(조건 포함)를 통과해야 한다.
-// 실제 수행은 기존 기능(배정·승인·통합)을 호출하는 쪽이 넘겨 준 MainOps로만 한다. 새 권한을 만들지 않는다.
+// 승인 뒤 행동별 기존 서비스에 직접 연결하며, 연결부 MainOps가 새 권한을 만들지는 않는다.
 // 행동 수행과 교대는 lock으로 한 줄에 세워, 교대 도중 이전 메인의 남은 행동이 끼어들지 못하게 한다.
 import { authorize } from './approvalGate.ts';
 import { note, PENDING, plan, uncertain } from './actionPlan.ts';
-import { dispatch } from './mainDispatch.ts';
+import { confirmAction, pushAction } from './mainDispatch.ts';
 import { outcomeProblem } from './mainOutcome.ts';
 import { lock } from './mainSerial.ts';
-import type { Executor } from './executor.ts';
+import { UserError, type Executor } from './executor.ts';
 import type { ActionResult, Approval, MainAction, MainSession } from './mainTypes.ts';
 
 /**
@@ -31,7 +31,15 @@ async function runOne(ex: Executor, s: MainSession, a: MainAction, skip: boolean
     if ('error' in p) return fin(false, p.error);
     let ap: Approval;
     try { ap = authorize(ex, s.id, a.type, p.target, a.sha); } catch (e) { return fin(false, (e as Error).message); }
-    try { await dispatch(ex, s.id, a, p, ap); } catch (e) { return fin(false, `수행 실패: ${(e as Error).message}`); }
+    try {
+      const ops = ex.mainOps;
+      if (a.type === 'approve_task' && ops.approve) await ops.approve(p.target, String(a.sha ?? ''));
+      else if (a.type === 'integrate_task' && ops.integrate) await ops.integrate(p.target);
+      else if (a.type === 'assign_task' && ops.assign) await ops.assign(p.input ?? {});
+      else if (a.type === 'confirm_handoff') await confirmAction(ex, a, p.target, !!ap.requires?.selfReview);
+      else if (a.type === 'push_main') await pushAction(ex, s.id, a);
+      else throw new UserError(`지원하지 않거나 연결되지 않은 행동(${a.type}) — 수행하지 않음`);
+    } catch (e) { return fin(false, `수행 실패: ${(e as Error).message}`); }
     const bad = outcomeProblem(ex, a, p.target);
     const self = a.type === 'confirm_handoff' && ex.state.tasks[p.target]?.agent === ex.mainAgent ? ' — 자기 확인(독립 검토 아님)' : '';
     return bad ? fin(false, `수행했으나 결과가 성공이 아님 — ${bad}`) : fin(true, `${p.target} ${a.type} 처리 확인${self}`);
