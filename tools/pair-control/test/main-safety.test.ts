@@ -263,8 +263,8 @@ test('체크포인트 해시는 키 순서와 무관하고 재귀 없이 계산�
   assert.notEqual(hashOf({ a: 1 }), hashOf({ a: 2 }));
 });
 
-test('구조: 이 작업이 만들거나 고친 메인 교대 파일은 이름 있는 함수가 7개 이하다(호출 전이 4회 초과 경로는 보고서로 별도 관리)', () => {
+test('구조: 메인 교대 파일은 익명 콜백 포함 함수 정의가 7개 이하다(전체 구조 점검은 structure-trace.test.ts·review-fixes.test.ts)', () => {
   const files = ['mainActions', 'mainApprovals', 'mainCheckpoint', 'mainEnd', 'mainGuard', 'mainHandover', 'mainOutcome', 'mainSerial'].map((n) => `src/executor/${n}.ts`);
-  const out = JSON.parse(execFileSync('node', ['scripts/structure-trace.mjs', 'onMainEnd', ...files], { cwd: path.resolve(import.meta.dirname, '..'), stdio: ['ignore', 'pipe', 'ignore'] }).toString());
-  for (const f of files) assert.ok(out.perFile[f].named <= 7, `${f}: ${out.perFile[f].named}개`);
+  const out = JSON.parse(execFileSync('node', ['scripts/structure-trace.mjs'], { cwd: path.resolve(import.meta.dirname, '..'), stdio: ['ignore', 'pipe', 'ignore'] }).toString());
+  for (const f of files) assert.ok(out.perFile[f] <= 7, `${f}: ${out.perFile[f]}개`);
 });
