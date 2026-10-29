@@ -45,14 +45,14 @@
       "from": "mainDispatch.ts:pushNow",
       "to": "runtime.ts:push",
       "weight": 1,
-      "evidence": "dispatch가 ops.push를 pushNow의 매개변수 push로 넘김(`pushNow(ex, sessionId, a, ops.push)`); pushNow가 push(sha, verify)를 호출",
+      "evidence": "dispatch가 ops.push를 pushNow의 매개변수 push로 넘김(`pushNow(ex, sessionId, a, ops.push)`); pushNow가 push(sha, { sessionId })를 호출(gate 인자)",
       "via": "push(sha, { sessionId })"
     },
     {
       "from": "runtime.ts:push",
       "to": "push.ts:runPush",
       "weight": 1,
-      "evidence": "runtime.ts push 연결부가 runPush(ex, sha, verify)를 호출(소스 확인)",
+      "evidence": "runtime.ts push 연결부가 runPush(ex, sha, gate)를 호출(소스 확인; gate는 push 직전 범위 검사를 켠다)",
       "via": "runPush("
     }
   ]

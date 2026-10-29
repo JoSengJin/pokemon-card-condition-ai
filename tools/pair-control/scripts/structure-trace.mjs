@@ -285,7 +285,7 @@ function summarizeExternal() { // 외부로 분류한 호출은 이유별 개수
 }
 const only = opt('start');
 const starts = fns.filter((f) => (f.name || passedAsArg.has(f.node)) && (!only || f.name === only));
-const rows = starts.map((s) => { const b = trace(s); return { start: label(s), transitions: b.depth, path: b.path.map(label).join(' → '), hows: b.hows }; });
+const rows = starts.map((s) => { const b = trace(s); return { start: label(s), transitions: b.depth, path: b.path.map(label).join(' → '), hows: b.hows, ...(only ? { callees: [...new Set(neighbors(s).map((n) => label(n.to)))] } : {}) }; });
 const overStarts = rows.filter((r) => r.transitions > LIMIT_DEPTH).sort((a, b) => b.transitions - a.transitions);
 const result = only ? { perFile: counts, starts: rows, unresolvedCount: unresolved.length } : { limits: { defs: LIMIT_DEFS, depth: LIMIT_DEPTH }, perFile: counts, overFiles, overStarts, unresolved, external: summarizeExternal(), manualEdges: manual.length };
 console.log(JSON.stringify(result, null, 2));
