@@ -2,7 +2,7 @@
 
 - task_id: a3-surface-transfer-20261029
 - owner: Codex
-- status: ready_for_review
+- status: integrated
 - base_sha: a956f6b6822b7fe8415a7e7719f4aa8045936d0b
 - branch: codex/a3-surface-transfer-20261029
 - goal: 동결 A3 val의 확인된 영역에서 기존 두 후보를 같은 ensemble·분모로 비교하고 미지원 geometry를 공개한다. 기존147구역/legacy51/typed51/11cohort를 저장계수로 재생한다. 새학습·정답수정·외부AI0.
@@ -40,3 +40,5 @@ code_changes는 실제 실행 byte동일 mirror를 모두 등록한다. HTML은 
 ## 구현 검증
 
 새 data/readout/report/worker 함수4/4/2/3, 테스트6함수. source와합성/기존회귀71개OK(6.017초). 최초합성검사의float정확일치·macOS실제경로기대만교정했고모델/수치기준변경0. AST·diff공백검사통과. 주요깊이 features→side_tensor→side_image→prepared_image 3전이, replay_maps→mean_maps 1전이, point_tokens→point_input_pixel/physical_pixel_mask 1전이, render→side_image→prepared_image 2전이. coverage_report는moduleguard에서직접호출해기존4전이유지. 182입력SHA와실제실행mirror4개를공통plan에고정. 실제추론은통합후canonical에서만실행한다.
+
+main dcd39d1 통합·71검사OK·공통실험20261028T203138-7d30f998 completed/acceptancefalse·일반push완료. 실제새val결과/HTML/한계/롤백은동명reports. 사용자7면geometry확인은다음새task로분리하고기존실험보존.
