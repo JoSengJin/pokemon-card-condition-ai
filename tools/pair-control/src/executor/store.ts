@@ -18,7 +18,12 @@ export class Store<T extends object> {
   constructor(private file: string, initial: T) {
     this.data = readJson(file, initial);
   }
-  save() { writeJsonAtomic(this.file, this.data); }
+  save() {
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    const tmp = `${this.file}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2));
+    fs.renameSync(tmp, this.file);
+  }
 }
 
 export function appendEvent(dir: string, event: Record<string, unknown>) {
