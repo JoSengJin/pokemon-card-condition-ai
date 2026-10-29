@@ -37,7 +37,7 @@ main source0b0e9129fde365fe311b0f44cfe3e118541bc817(격리fa6effb8de073c4c01efa0
 
 원격source0b0e912일반push완료. 이전완료codex/a3-surface-transfer-20261029의7be376e대응/clean/ignored없음/flock을확인하고일반remove했다. 최신codex/a3-geometry-confirmation-20261030의fa6effb checkout1개유지. 감사 artifacts/a3-geometry-confirmation-20261030/worktree-cleanup/audit.json. 다른worktree/브랜치보존. DATA_INVENTORY 작성자미확인·변경/커밋0.
 
-롤백: ./develop -- git revert 0b0e9129fde365fe311b0f44cfe3e118541bc817 후관련73검사·일반push. 데이터사용기준은기존20261028a로돌릴수있으며새응답·새동결·실험증거는삭제하지않는다. 연구평가worker이며운영모델변경이없어운영복구는필요없다.
+롤백: ./develop -- git revert 0b0e9129fde365fe311b0f44cfe3e118541bc817 후남아있는관련회귀71개검사·일반push. 데이터사용기준은기존20261028a로돌릴수있으며새응답·새동결·실험증거는삭제하지않는다. 연구평가worker이며운영모델변경이없어운영복구는필요없다.
 
 ## 다음 체크포인트
 

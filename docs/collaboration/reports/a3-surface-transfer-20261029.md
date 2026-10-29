@@ -35,7 +35,7 @@
 
 실자료 HTML: artifacts/experiments/20261028T203138-7d30f998/index.html. 719패널/719PNG/643점수문구와평가JSON대조완료. 생성crop2개이미지확인. 파일보기요청queued, 전체브라우저렌더미확인. 기존file:보안차단우회0. 신규geometry전용검토화면도queued. C3/E2/D1완료·정확도일반화개선은주장하지않는다. 새ensemble readout은이번개발평가정책이며과거held-fold정책과구분한다.
 
-롤백: ./develop -- git revert dcd39d16fe9b32aeb9d5c30eb6979dfd33171946 후관련71검사·일반push. 라벨/운영모델/소비코드변경0,실험증거보존. DATA_INVENTORY는Git이력/작성자근거를확인할수없고내용도과거A3pending이어서변경·커밋하지않았다.
+롤백: ./develop -- git revert dcd39d16fe9b32aeb9d5c30eb6979dfd33171946 후남아있는관련회귀검사·일반push. 라벨/운영모델/소비코드변경0,실험증거보존. DATA_INVENTORY는Git이력/작성자근거를확인할수없고내용도과거A3pending이어서변경·커밋하지않았다.
 
 재개시이전두임시checkout의경로가이미없고Git등록만남아있었다(삭제원인미확인). 통합cherry-pick대응을확인하고일반worktree remove로등록을정리한뒤최신codex/a3-surface-transfer-20261029(7be376e)를동일경로에정상복원했다. 브랜치/커밋·기본checkout산출물은보존했다. 다른작업checkout은건드리지않았다.
 
