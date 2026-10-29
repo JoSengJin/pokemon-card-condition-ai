@@ -1,7 +1,7 @@
 # A3 카드 영역 확인 반영과 전체 표면 검증
 
 - owner: Codex
-- status: ready_for_review
+- status: integrated
 - base_sha: dcd39d16fe9b32aeb9d5c30eb6979dfd33171946
 - branch: codex/a3-geometry-confirmation-20261030
 - approval: 2026-10-30 현재채팅의7면파란카드영역확인질문에사용자“정상”응답. 기존정상/손상라벨변경승인이아니다. 승인된개발검증계속.
@@ -16,3 +16,5 @@ allowed_files: tools/experiments/a3-geometry-confirmation-20261030/worker.py, pl
 구조: 신규worker최대7함수,새cache매핑/재사용검증과실행단계분리,함수전이최대4. 기존실행함수호출시경로대조. 합성검사: 동일id다른box/photo/정답이면재사용거절,새row만추론,동일patch/point점수재생,필수평가누락거절. main관련회귀후 ./experiment로1회실행.모델사진HTML·JSON/SHA대조·열기/렌더상태보고. 롤백source통합SHA revert·새manifest미사용으로원본복귀(데이터삭제없음).
 
 구현worker5함수/테스트2함수,합성·회귀73개OK. 확인반영후표면분모758/648불변·미지원0,기존719특징재사용/39개신규. E2준비분모1678(coverage실측아님). 기존11+새4필수guard계획에고정. 7면flag외원본dict불변검증.
+
+main0b0e912·73검사OK·새동결b69df7816e4c646bcf0314518cd655e8d4ad08799fbfe44ff7231512ec5cb426·공통20261029T203620-18f694cb completed/acceptancefalse·15guard유지. source일반push완료/최신checkout1개보존. 실제결과·HTML·미검증·롤백은동명reports.

@@ -1,0 +1,47 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>A3 전체 표면 평가</title><style>body{font:16px/1.65 system-ui;max-width:1100px;margin:24px auto;padding:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>개발 진척35/100 · 전체 표면 평가 · 후보 미채택</h1><p>검증 source0b0e912 · usable-card-analysis-v1.0</p><pre># A3 카드 영역 확인·전체 표면 평가 — 2026-10-30
+
+**진척35/100 유지. 사용자 확인7면을 새동결본에 반영하고, 표면758구역·648실제점 전체를 평가했다. 후보는 새오탐5건과 품질기준 미달로 미채택이다.**
+
+## 확인 반영과 코드
+
+사용자응답원문은 “정상”. 질문대상은 d앞뒤/i뒤/w앞/ㄱ앞뒤/ebay-2731907577fb29뒤의파란카드영역7면이다. 이7면의box_reviewed만true로바꾸고,해당flag를원복한dict가원본156행과완전히같음을검증했다. box좌표·종류별점·정상/손상라벨·관찰제한·split/group·제외상태변경0. 기존동결본20261028a는그대로보존했다.
+
+새manifest: artifacts/development-manifest-20261030a/combined-reviewed.jsonl, SHA b69df7816e4c646bcf0314518cd655e8d4ad08799fbfe44ff7231512ec5cb426. 156행/val100행/활성99실물,10셀수량충족/val좌표감사오류0. 기존train오류1건유지·경고107→100. 표면분모103양성/326정상·230점(앞),144양성/185정상·418점(뒤)은불변이다. 미지원표면39구역/5점만지원범위로들어왔다. 다른질문의전체geometry까지확인된것은아니다.
+
+정답없는요청99개와E2준비분모도재생성했다. 알려진관찰가능1678셀(이전1596); 전체4554중geometry미확인345/정답미확인1496/사진누락46/관찰제한989. 실제비보류coverage는미측정이고E2점수상승근거가아니다.
+
+main source0b0e9129fde365fe311b0f44cfe3e118541bc817(격리fa6effb8de073c4c01efa0d75271251c630cbe4d). 신규파일 tools/experiments/a3-geometry-confirmation-20261030/worker.py·plan.json, tests/test_a3_geometry_confirmation.py, task·이보고서·HTML. 기존검증된data/readout/report를재사용하고cache행의사진SHA/group/box/정답/split을대조해기존719특징을그대로사용했다. 기존구역token maps도torch.equal로완전일치했다. 신규39구역과CPUcache대조2건만backbone추론했다. 학습/외부AI/운영연결0.
+
+## 실행 검증
+
+격리73검사OK(5.785초), main동일73검사OK(4.719초). 명령: PYTHONPATH=tests .venv/bin/python -m unittest test_a3_geometry_confirmation test_a3_surface_transfer test_prepare_a3_evaluation test_data_coverage test_data_coverage_provenance test_local_wear_cnn test_surface_all_human_points test_surface_preserved_heads test_experiment_record. 신규worker5함수·테스트2함수,주요호출전이최대4;diff공백검사통과.
+
+./experiment --plan tools/experiments/a3-geometry-confirmation-20261030/plan.json -- .venv/bin/python artifacts/a3-geometry-confirmation-20261030/worker.py
+
+공통기록 artifacts/experiments/20261029T203620-18f694cb/record.json: completed/acceptance_passed=false. 원래147/51/11평가군과새A3 4묶음,합계15필수평가군을같은후보로재생했고모두수치기준미달이다. 46head학습ID미해결·실물/사진중복0,기존model maps와앞/뒤backbone특징대조오차0. 원래기준·threshold.5·실제점보호유지. 기준완화/모델채택없음.
+
+## 같은 전체 분모의 비교
+
+|면|구역 누락(FN)|정상 오탐(FP)|실제점 누락|
+|---|---|---|---|
+|앞|42/103→42/103 (40.78%,0.00%p)|148/326→148/326 (45.40%,0.00%p)|189/230→189/230 (82.17%,0.00%p)|
+|뒤|5/144→5/144 (3.47%,0.00%p)|139/185→144/185 (75.14%→77.84%,+2.70%p)|195/418→183/418 (46.65%→43.78%,-2.87%p)|
+
+뒤실제점12개복구·새점누락0이지만새정상오탐5건으로no_new_errors위반. 앞은같은4head로불변이다. C3품질기준FN&lt;=5%/FP&lt;=10%/점FN&lt;=5%미달. 관찰제한탐지성능·E2실측coverage·독립D1/D2성능은미평가. 이전719/643결과와이번758/648결과를분모가같은개선처럼비교하지않는다.
+
+## HTML·무결성·리스크
+
+실자료사진HTML: artifacts/experiments/20261029T203620-18f694cb/index.html. 758패널/758PNG/648점수표기·JSON대조완료. 파일보기요청queued,전체브라우저렌더미확인. 기존file:보안차단우회없음. 보고/동결HTML을함께갱신했다. 입력사진·model·소스SHA재검산과별도POSTCHECK.json에새산출해시보존. 원래record/result는고정구역·회귀판정을, evaluation.json은전체새val표면수치를담는다.
+
+현재session은자동검토승인session과다르므로새development_handoff/next_steps/token_report는생성되지않았다. development-cycle/latest.json의20261024 ai_calls_forbidden 기록을현재실험으로간주하거나덮어쓰지않았다. 자동모델호출0.
+
+원격source0b0e912일반push완료. 이전완료codex/a3-surface-transfer-20261029의7be376e대응/clean/ignored없음/flock을확인하고일반remove했다. 최신codex/a3-geometry-confirmation-20261030의fa6effb checkout1개유지. 감사 artifacts/a3-geometry-confirmation-20261030/worktree-cleanup/audit.json. 다른worktree/브랜치보존. DATA_INVENTORY 작성자미확인·변경/커밋0.
+
+롤백: ./develop -- git revert 0b0e9129fde365fe311b0f44cfe3e118541bc817 후관련73검사·일반push. 데이터사용기준은기존20261028a로돌릴수있으며새응답·새동결·실험증거는삭제하지않는다. 연구평가worker이며운영모델변경이없어운영복구는필요없다.
+
+## 다음 체크포인트
+
+7면확인은완료했으므로재요청하지않는다. C3/E2/D1/F1/F2는pending유지. 현재후보를채택하거나val을학습으로옮길수없다. 다음모델개선은이번오류근거와기존실패가설을대조해하나의새가설·수치기준을사전확정하는작업부터필요하다. 그새모델수정·학습·외부검토는아직실행하지않았다. 반복동일학습·임의threshold변경은하지않는다.
+
+에튜 포인트: cache는ID만같다고재사용하지않는다. 사진SHA·실물·crop좌표·정답·split이같아야동일입력이다. 이번에는719개를그대로재사용하고새지원39개만계산해비교기준과계산량을함께보존했다.
+</pre></html>
