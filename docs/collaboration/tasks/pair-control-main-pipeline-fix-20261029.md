@@ -2,7 +2,7 @@
 
 - task_id: `pair-control-main-pipeline-fix-20261029`
 - owner: Claude (구현)
-- status: implementing
+- status: ready_for_review
 - base_sha: `be4ce92a0fbb09817e33c322db80ce5bf72abfd3` (전달받은 시작 SHA와 실제 HEAD가 같음을 확인. 이 worktree 미커밋 변경 없음, 진행 중 실행 없음)
 - branch: `claude/pair-control` (기존 worktree 재사용)
 - 통합·운영 push·실제 모델 호출: 하지 않음. push 검증은 임시 bare 원격만 쓴다. main 통합과 운영 push는 현재 메인이 한다.
@@ -49,7 +49,7 @@
 - 신규(UI): `tools/pair-control/src/ui/js/view-pipeline.js`
 - 수정(`tools/pair-control/src/executor/`): `executor.ts`(한도 위임·`cancelAll` 공급자 필터·`audit` 직접 기록·import, 함수 정의 수 증가 없음), `mainApprovals.ts`, `mainActions.ts`, `mainCheckpoint.ts`, `mainHandover.ts`, `mainDispatch.ts`, `mainEnd.ts`, `mainSerial.ts`, `mainTypes.ts`, `mainTakeover.ts`(요청문 승인 행동 목록·hash import 경로만), `pipelineEvents.ts`, `pipelineSteps.ts`, `pipelineTick.ts`, `pipelineTurn.ts`, `pipelineView.ts`, `turnBundle.ts`, `push.ts`(`runPush` 검증 훅 1개), `git.ts`(`revParse` 직접 `run`)
 - 수정(기타): `tools/pair-control/src/runtime.ts`(공급자 한도 readiness·`push` 훅 전달·화면 요약), `tools/pair-control/src/ui/js/view-list.js`(패널 호출 1줄), `tools/pair-control/src/ui/page.html`(컨테이너 1개), `tools/pair-control/scripts/structure-trace.mjs`(측정 정확도·`--all`), `tools/pair-control/README.md`(정책 단락)
-- 테스트: 신규 `test/review-fixes.test.ts`, `test/ui-pipeline.test.ts`; 기존 `test/pipeline.test.ts`·`test/nocharge.test.ts`·`test/main-safety.test.ts`·`test/main-rotation.test.ts`는 계약 변경으로 기대가 틀린 부분만 수정
+- 테스트: 신규 `test/review-fixes.test.ts`, `test/ui-pipeline.test.ts`, `test/ui-seed.ts`(화면 검증용 합성 상태, 테스트·수동 화면 확인 공용); 기존 `test/pipeline.test.ts`·`test/nocharge.test.ts`·`test/main-safety.test.ts`·`test/main-rotation.test.ts`는 계약 변경으로 기대가 틀린 부분만 수정
 - 문서: 이 계약, `docs/collaboration/reports/main-pipeline-fix-20261029.html`
 - 범위 확대가 필요하면 이 계약을 먼저 갱신하고 커밋 메시지에 기록한다.
 - 금지: `AGENTS.md`/`PAIR_CODING.md`/`HTML_REPORTING.md`, 데이터·라벨·모델·운영 코드, 기본 checkout, 운영 `.state`·승인 장부, 실제 Codex/Claude/Gemini 호출, 학습·사진 추론, 진척 배점.
@@ -71,4 +71,4 @@ executor.ts 125/77(기존 초과), runtime.ts 32/28(기존 초과), push.ts 24/1
 
 ## handoff
 
-(작업 완료 시 채움: 전체 커밋 SHA와 적용 순서, 변경 파일, 구조 전/후, 검사 결과, 미검증, 리스크, 롤백)
+전체 SHA·적용 순서·구조 전/후·검사 결과·미검증·롤백은 `docs/collaboration/reports/main-pipeline-fix-20261029.html`과 최종 보고에 기록. 구조: 재설계 파일 모두 ≤7, 기존 Executor 내부로 이어지는 호출 경로는 4회 초과 → 해당 경로 채택 보류(설계 대안·사용자 결정 보고).
