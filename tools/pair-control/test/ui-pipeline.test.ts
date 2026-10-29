@@ -6,6 +6,7 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { test } from 'node:test';
+import { pipelineView } from '../src/executor/pipelineView.ts';
 import { mainRuntimeView, snapshot } from '../src/runtime.ts';
 import { setup, toolRoot } from './helpers.ts';
 import { seed } from './ui-seed.ts';
@@ -14,7 +15,7 @@ test('E. 서버 요약: 메인 인수·현재 턴·개별 행동·보류/결과 
   const e = setup();
   try {
     await seed(e);
-    const v = mainRuntimeView(e.ex).pipeline;
+    const v = mainRuntimeView(e.ex, pipelineView(e.ex)).pipeline;
     assert.equal(v.takeover?.acked, true); assert.equal(v.takeover?.agent, 'claude');
     assert.equal(v.currentTurn?.id, 't2', '진행 중인 턴이 현재 턴'); assert.equal(v.currentTurn?.inFlight, true);
     const done = v.turns.find((t) => t.id === 't1')!;

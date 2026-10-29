@@ -2,7 +2,6 @@
 // 확인(confirm_handoff)은 모델이 diff를 실제로 본 증거(현재 SHA·변경 파일 전체·도구가 계산한 diff 해시·메모)가 맞을 때만 받는다. 그래도 의미 검토 자체를 증명하지는 못한다.
 import crypto from 'node:crypto';
 import * as G from './git.ts';
-import { verifyPushScope } from './pushOwnership.ts';
 import { UserError, type Executor } from './executor.ts';
 import type { Approval, MainAction, MainOps } from './mainTypes.ts';
 
@@ -20,13 +19,13 @@ async function confirmGate(ex: Executor, a: MainAction, taskId: string, selfRevi
 }
 
 /**
- * push: 점검·잠금·원격 재확인을 마친 같은 계획에 대해 실제 push 직전에 범위를 검사한다(verifyPushScope).
+ * push: gate(세션)를 넘기면 runPush가 점검·잠금·원격 재확인을 마친 같은 계획에 대해 실제 push 직전에 범위를 검사한다(verifyPushScope).
  * 범위의 모든 커밋이 통합 승인된 작업의 이력에 대응하지 않으면 자동 push를 하지 않는다. 일반 push(force 없음)만 한다.
  */
 async function pushNow(ex: Executor, sessionId: string, a: MainAction, push: NonNullable<MainOps['push']>) {
   const sha = String(a.sha ?? '').toLowerCase();
   if (sha.length < 12) throw new UserError('push 확인 SHA는 앞 12자 이상이어야 함');
-  const r = await push(sha, (plan) => verifyPushScope(ex, sessionId, plan));
+  const r = await push(sha, { sessionId });
   if (r.status !== 'pushed_verified') throw new UserError(`push가 검증되지 않음(${r.status}): ${r.detail}`);
 }
 

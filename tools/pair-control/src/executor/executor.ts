@@ -191,16 +191,15 @@ export class Executor {
     if (!this.state.limit) throw new UserError('한도 도달 상태가 아님');
     this.event('limit_cleared', { was: this.state.limit.at });
     this.state.limit = null;
-    this.save();
+    this.store.save();
     return null;
   }
 
   private event(type: string, data: Record<string, unknown>) { appendEvent(this.cfg.stateDir, { type, lifetime: this.lifetime, ...data }); }
-  private save() { this.store.save(); }
   private setStatus(t: Task, s: TaskStatus, reason?: string) {
     t.status = s; t.statusReason = reason; t.updatedAt = new Date().toISOString();
     this.event('task_status', { taskId: t.taskId, status: s, reason });
-    this.save();
+    this.store.save();
   }
 
   task(id: string) {
@@ -232,7 +231,7 @@ export class Executor {
     t.preflight = await this.preflightChecks(t);
     this.state.tasks[t.taskId] = t;
     this.event('task_assigned', { taskId: t.taskId, agent: t.agent, mode: t.mode, branch: t.branch, baseSha: t.baseSha });
-    this.save();
+    this.store.save();
     return t;
   }
 
@@ -314,7 +313,7 @@ export class Executor {
       const reason = r.conflicts?.length ? `${r.reason}: ${r.conflicts.map((c) => `${c.otherTask}(${c.kind} ${c.detail})`).join(', ')} — 점유 작업 ${occupants}. 필요 없으면 그 작업을 열어 "폐기"하세요` : r.reason;
       this.event('start_refused', { taskId, reason });
       // 실행 중 작업의 중복 시작이면 상태를 건드리지 않고, 시작 가능한 작업이면 거절 사유만 남긴다.
-      if (STARTABLE.includes(t.status)) { t.statusReason = `시작 거절: ${reason}`; t.updatedAt = new Date().toISOString(); this.save(); }
+      if (STARTABLE.includes(t.status)) { t.statusReason = `시작 거절: ${reason}`; t.updatedAt = new Date().toISOString(); this.store.save(); }
       return { ...r, reason };
     }
     try {
@@ -395,7 +394,7 @@ export class Executor {
     };
     this.state.executions[execId] = ex;
     this.event('exec_started', { taskId: t.taskId, kind: o.kind, execId, runId: o.runId, pid: ex.pid, display: ex.display });
-    this.save();
+    this.store.save();
     this.ensureWatcher();
     return ex;
   }
@@ -521,7 +520,7 @@ export class Executor {
   private async resume(t: Task, ex: Execution, data: Record<string, unknown>) {
     if (!this.resumer || !ex.runId) return;
     try { await this.resumer(ex.runId, 'await-exit', data); }
-    catch (err) { this.event('resume_error', { taskId: t.taskId, error: (err as Error).message }); t.statusReason = `workflow 재개 실패: ${(err as Error).message}`; this.save(); }
+    catch (err) { this.event('resume_error', { taskId: t.taskId, error: (err as Error).message }); t.statusReason = `workflow 재개 실패: ${(err as Error).message}`; this.store.save(); }
   }
 
   /** 서버 재시작 후 상태 복구. 살아 있는 프로세스·결과 불명 작업을 완료로 표시하거나 재실행하지 않는다. */
@@ -545,7 +544,7 @@ export class Executor {
       if (t.status === 'starting') this.setStatus(t, 'unknown', '시작 도중 서버 종료(결과 불명)');
       if (t.status === 'integrating') this.setStatus(t, 'unknown', '통합 도중 서버 종료(통합 checkout을 직접 확인)');
     }
-    this.save();
+    this.store.save();
     this.ensureWatcher();
   }
 
@@ -561,7 +560,7 @@ export class Executor {
     if (leader === null && !this.groupAlive(ex.pgid)) return { ok: false, reason: '프로세스 그룹이 이미 없음' };
     ex.cancelRequested = true; ex.status = 'cancelling';
     if ((ex.kind ?? 'agent') === 'agent') this.setStatus(t, 'cancelling', `SIGTERM → 프로세스 그룹 ${ex.pgid}`);
-    else { this.event('aux_cancel', { taskId, kind: ex.kind, execId: ex.execId }); this.save(); }
+    else { this.event('aux_cancel', { taskId, kind: ex.kind, execId: ex.execId }); this.store.save(); }
     try { process.kill(-ex.pgid, 'SIGTERM'); } catch { /* gone */ }
     setTimeout(() => { if (this.groupAlive(ex.pgid)) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } } }, 3000).unref?.();
     return { ok: true, reason: `${ex.kind ?? 'agent'} 프로세스 그룹 ${ex.pgid}에 SIGTERM (3초 후 남으면 SIGKILL)` };
@@ -668,7 +667,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     fs.writeFileSync(file, text);
     t.handoff = { at: new Date().toISOString(), to: this.mainAgent, headSha: head, file };
     this.event('handoff', { taskId, to: t.handoff.to, headSha: head });
-    this.save();
+    this.store.save();
     let autoNote: string | undefined;
     if (o.auto) {
       // 자동 확인은 구독 로그인 가드를 통과한 실제 CLI로만 한다. 막히면 인계는 유지하고 사람이 붙여 넣는 기존 방식으로 남긴다.
@@ -697,7 +696,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     if (h.headSha !== t.result?.headSha) throw new UserError('인계 이후 코드가 바뀜 — 다시 인계');
     h.confirmedAt = new Date().toISOString(); h.note = note.slice(0, 500);
     this.event('handoff_confirmed', { taskId, headSha: h.headSha });
-    this.save();
+    this.store.save();
     return h;
   }
 
@@ -709,7 +708,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     if (t.status === 'approved' || t.approval) throw new UserError('승인 후에는 인계를 취소할 수 없음(거절 후 다시 진행)');
     h.cancelledAt = new Date().toISOString();
     this.event('handoff_cancelled', { taskId });
-    this.save();
+    this.store.save();
     return h;
   }
 
@@ -757,7 +756,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
   async recheckEnv(taskId: string) {
     const t = this.task(taskId);
     t.preflight = await this.preflightChecks(t);
-    this.save();
+    this.store.save();
     return t.envReadiness;
   }
 
@@ -969,7 +968,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     }
     t.verification = { runId, sha: head, contractHash: t.contractHash, status: 'running', items, startedAt: new Date().toISOString() };
     this.event('checks_started', { taskId, runId, sha: head });
-    this.save();
+    this.store.save();
     await this.startNextCheck(t);
     return t.verification;
   }
@@ -983,7 +982,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     try {
       const ex = this.spawnSupervised(t, { kind: 'check', runId: v.runId, cwd: r.cwd, command: r.command, args: r.args, display: r.display, checkId: item.id, sha: v.sha });
       item.status = 'running'; item.execId = ex.execId; item.logPath = ex.logPath; item.startedAt = ex.startedAt;
-      this.save();
+      this.store.save();
     } catch (err) {
       item.status = 'failed'; item.endedAt = new Date().toISOString(); v.note = `시작 실패: ${(err as Error).message}`;
       return this.startNextCheck(t);
@@ -998,7 +997,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     v.endedAt = new Date().toISOString();
     for (const n of [`task:${t.taskId}`, `worktree:${t.worktree}`]) this.locks.release(n, 'execId', v.runId);
     this.event('checks_finished', { taskId: t.taskId, runId: v.runId, status: v.status, sha: v.sha });
-    this.save();
+    this.store.save();
   }
 
   /** 작업 테스트·리뷰 프로세스 종료 처리. 재시작 후 관찰된 종료는 기록만 하고 다음 단계를 자동으로 잇지 않는다. */
@@ -1007,7 +1006,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     const t = this.state.tasks[ex.taskId];
     if (ex.kind === 'review') return this.onReviewEnd(t, ex, r);
     const v = t.verification;
-    if (!v || v.runId !== ex.runId) { this.save(); return; }
+    if (!v || v.runId !== ex.runId) { this.store.save(); return; }
     const item = v.items.find((i) => i.execId === ex.execId);
     if (item) {
       item.status = r.unknown ? 'unknown' : r.cancelled ? 'cancelled' : r.code === 0 ? 'passed' : 'failed';
@@ -1016,7 +1015,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     if (r.unknown) return this.finishVerification(t, 'unknown', '검사 프로세스가 종료 기록 없이 사라짐(결과 불명) — 다시 실행 필요');
     if (r.cancelled) return this.finishVerification(t, 'cancelled', '사용자 중단');
     if (ex.observedAfterRestart) return this.finishVerification(t, 'interrupted', '서버 재시작으로 검사 순서가 끊김 — 남은 검사는 실행하지 않음. 다시 실행 필요');
-    this.save();
+    this.store.save();
     await this.startNextCheck(t);
   }
 
@@ -1030,7 +1029,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
       // 화면이 실행 중에도 로그를 이어받도록: 실행 중 항목을 먼저 통합 기록에 남기고, 출력은 줄 단위로 가려 바로 파일에 쓴다.
       item.logPath = path.join(this.cfg.stateDir, 'runs', `post-${crypto.randomUUID()}.log`);
       t.integration = { ...(t.integration ?? { at: item.startedAt!, outcome: 'integrating', detail: '통합 후 검사 실행 중' }), postStatus: 'running', postChecks: [...items, item] };
-      this.save();
+      this.store.save();
       const res = await runLogged(develop, ['--', r.command, ...r.args], checkout, 600_000, sanitizedChildEnv(), item.logPath, redact);
       item.status = res.code === 0 ? 'passed' : 'failed'; item.exitCode = res.code; item.endedAt = new Date().toISOString();
       items.push(item);
@@ -1108,7 +1107,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
       const ex = this.spawnSupervised(t, { kind: 'review', runId: reviewId, cwd: bundleDir, command, args, display, sha });
       t.review.execId = ex.execId;
       this.event('review_started', { taskId, reviewId, reviewer, mode, sha });
-      this.save();
+      this.store.save();
       return t.review;
     } catch (err) {
       this.locks.release(`review:${taskId}`, 'execId', reviewId);
@@ -1120,12 +1119,12 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
   private async onReviewEnd(t: Task, ex: Execution, r: { code: number | null; cancelled: boolean; unknown: boolean }): Promise<void> {
     const rv = t.review;
     this.locks.release(`review:${t.taskId}`, 'execId', ex.runId);
-    if (!rv || rv.reviewId !== ex.runId) { this.save(); return; }
+    if (!rv || rv.reviewId !== ex.runId) { this.store.save(); return; }
     rv.endedAt = new Date().toISOString();
     const done = (status: ReviewRecord['status'], note?: string, verdict: ReviewVerdict | null = null, summary?: string) => {
       rv.status = status; rv.note = note; rv.verdict = verdict; rv.summary = summary;
       this.event('review_finished', { taskId: t.taskId, reviewId: rv.reviewId, status, verdict });
-      this.save();
+      this.store.save();
       this.settleHandoffReview(t, rv);
     };
     if (r.unknown) return done('unknown', '리뷰 프로세스가 종료 기록 없이 사라짐(결과 불명)');
@@ -1160,7 +1159,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
       h.autoResult = { at, status: rv.status, verdict: rv.verdict ?? null, summary: (rv.summary ?? rv.note ?? '').slice(0, 600) };
       this.event('handoff_auto_result', { taskId: t.taskId, headSha: h.headSha, status: rv.status, verdict: rv.verdict ?? null });
     }
-    this.save();
+    this.store.save();
   }
 
   // ---------- 화면용 ----------

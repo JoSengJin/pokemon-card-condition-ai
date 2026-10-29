@@ -33,17 +33,18 @@ export function bindRuntime(ex: Executor, m: Mastra) {
     // 배정은 준비 + 구현 시작까지(input.start:false면 준비만). 시작은 화면 버튼과 같은 startTask 경로다.
     assign: async (input) => { const r = await prepareTask(input); if (input.start !== false) await startTask(r.taskId!); },
     confirm: async (taskId, note) => { ex.confirmHandoff(taskId, note); },
-    push: async (sha, verify) => { const r = await runPush(ex, sha, verify); return { status: r.status, detail: r.detail }; },
+    push: async (sha, gate) => { const r = await runPush(ex, sha, gate); return { status: r.status, detail: r.detail }; },
   });
 }
 
 /** 화면용 메인 교대 상태 요약(토큰·해시 원문은 넣지 않는다). */
-export function mainRuntimeView(ex: Executor) {
+/** 화면용 메인 교대 상태 요약. 연속 처리 요약(pipelineView)은 호출자가 넘긴다(호출 전이를 늘리지 않으려고 이 함수가 부르지 않는다). */
+export function mainRuntimeView(ex: Executor, pipeline: ReturnType<typeof pipelineView>) {
   const rt = ex.runtime, s = rt.session;
   return {
     generation: rt.generation, frozen: rt.frozen, limited: rt.limited, lastCheckpoint: rt.lastCheckpoint ?? null,
     session: s && { id: s.id, agent: s.agent, from: s.from, generation: s.generation, status: s.status, limitRecovery: s.limitRecovery, ackedAt: s.ackedAt ?? null, completedAt: s.completedAt ?? null, actionResults: s.actionResults },
-    failures: rt.failures.slice(-3), pipeline: pipelineView(ex),
+    failures: rt.failures.slice(-3), pipeline,
     approvals: rt.approvals.map((a) => ({ id: a.id, basis: a.basis, actions: a.actions, targets: a.targets, conditions: a.conditions, requires: a.requires ?? null, boundSessionId: a.boundSessionId ?? null, revokedAt: a.revokedAt ?? null })),
   };
 }
@@ -142,7 +143,7 @@ export async function snapshot() {
   tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     now: new Date().toISOString(), lifetime: ex.lifetime, mode: ex.cfg.allowRealModelCalls ? 'real-allowed' : 'mock-only',
-    guard: ex.guardAlert, limit: ex.limit, mainRuntime: mainRuntimeView(ex), main: ex.state.main ?? { agent: 'codex', since: null, reason: '기본값' }, push: pushState(ex), probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
+    guard: ex.guardAlert, limit: ex.limit, mainRuntime: mainRuntimeView(ex, pipelineView(ex)), main: ex.state.main ?? { agent: 'codex', since: null, reason: '기본값' }, push: pushState(ex), probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
   };
 }
 

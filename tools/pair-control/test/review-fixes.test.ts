@@ -12,7 +12,6 @@ import { handoverMain } from '../src/executor/mainHandover.ts';
 import { pipelineTick } from '../src/executor/pipelineTick.ts';
 import { pipe } from '../src/executor/pipelineState.ts';
 import { runPush } from '../src/executor/push.ts';
-import { UserError } from '../src/executor/executor.ts';
 import { resumeStep, startTask } from '../src/runtime.ts';
 import { setup, task, verify, waitFor, type Env } from './helpers.ts';
 
@@ -163,14 +162,21 @@ test('B. 승인 작업 뒤에 미등록 커밋이 섞이면 자동 push를 보�
   } finally { e.cleanup(); }
 });
 
-test('B. 점검 뒤 push 직전 재검사: 검증 훅이 막으면 push하지 않고, 점검 뒤 HEAD가 바뀌어도 점검한 SHA만 올라간다', { timeout: 90_000 }, async () => {
+test('B. 점검 뒤 push 직전 재검사: gate가 승인 철회를 잡으면 push하지 않고, 점검 뒤 HEAD가 바뀌어도 점검한 SHA만 올라간다', { timeout: 90_000 }, async () => {
   const e = setup();
   try {
-    owner(e); const head = await integratedTaskA(e); const before = originHead(e);
-    await assert.rejects(runPush(e.ex, head, async () => { throw new UserError('승인 철회됨(합성)'); }), /승인 철회됨/);
-    assert.equal(originHead(e), before);
+    const s = owner(e); const head = await integratedTaskA(e); const before = originHead(e);
+    const grants = pushGrants(e);
+    // 점검(preflight)과 잠금 사이에 승인이 철회되는 경우: 잠금 획득 시점에 철회를 끼워 넣는다.
+    const acquire = e.ex.locks.acquire.bind(e.ex.locks);
+    e.ex.locks.acquire = ((...a: Parameters<typeof acquire>) => { revokeApproval(e.ex, grants.id); return acquire(...a); }) as typeof acquire;
+    await assert.rejects(runPush(e.ex, head, { sessionId: s.id }), /승인 범위 밖|승인 조건/);
+    assert.equal(originHead(e), before, '철회 후 push하지 않음');
+    e.ex.locks.acquire = acquire;
+    pushGrants(e);
     const later = { sha: '' };
-    const rec = await runPush(e.ex, head, async () => { later.sha = extraCommit(e); });
+    e.ex.locks.acquire = ((...a: Parameters<typeof acquire>) => { later.sha = extraCommit(e); return acquire(...a); }) as typeof acquire; // 점검 뒤 HEAD 변경
+    const rec = await runPush(e.ex, head, { sessionId: s.id });
     assert.equal(rec.status, 'pushed_verified');
     assert.equal(originHead(e), head, '점검한 계획의 SHA만 push');
     assert.notEqual(originHead(e), later.sha);

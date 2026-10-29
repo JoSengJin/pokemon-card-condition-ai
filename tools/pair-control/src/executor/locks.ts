@@ -32,7 +32,9 @@ export class LockDir {
 
   /** 소유자가 일치할 때만 해제한다. */
   release(name: string, ownerKey: string, ownerValue: string) {
-    const h = this.holder(name);
-    if (h && h[ownerKey] === ownerValue) fs.rmSync(this.file(name), { force: true });
+    const file = this.file(name);
+    let h: Record<string, unknown> | null = null;
+    try { h = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* 잠금 없음 */ }
+    if (h && h[ownerKey] === ownerValue) fs.rmSync(file, { force: true });
   }
 }

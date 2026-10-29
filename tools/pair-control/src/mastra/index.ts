@@ -13,6 +13,7 @@ import { progressDraft, progressItems } from '../executor/progress.ts';
 import { setMain, swapBlockers } from '../executor/mainRole.ts';
 import { grantApproval, revokeApproval } from '../executor/mainApprovals.ts';
 import { clearAgentLimit, handoverBlockers, handoverMain } from '../executor/mainHandover.ts';
+import { pipelineView } from '../executor/pipelineView.ts';
 import { bindRuntime, getExecutor, mainRuntimeView, prepareTask, snapshot, startReview, startTask, resumeStep } from '../runtime.ts';
 import { activityOf, archiveFinished, createVenv, discardTask, setArchived, tailPostLog, withdrawApproval } from '../executor/taskControl.ts';
 import { extractScope } from '../executor/scope.ts';
@@ -158,11 +159,11 @@ function buildRoutes() {
     registerApiRoute('/pair/api/main/blockers', { method: 'GET', handler: act(async () => ({ blockers: await swapBlockers(ex()) })) }),
     registerApiRoute('/pair/api/main/swap', { method: 'POST', handler: act(async (c) => { const b = await body(c); return setMain(ex(), String(b.agent ?? ''), String(b.reason ?? '')); }) }),
     registerApiRoute('/pair/api/main/handover-blockers', { method: 'GET', handler: act(async () => ({ blockers: await handoverBlockers(ex()) })) }),
-    registerApiRoute('/pair/api/main/runtime', { method: 'GET', handler: act(async () => mainRuntimeView(ex())) }),
+    registerApiRoute('/pair/api/main/runtime', { method: 'GET', handler: act(async () => mainRuntimeView(ex(), pipelineView(ex()))) }),
     registerApiRoute('/pair/api/main/handover', { method: 'POST', handler: act(async (c) => { const b = await body(c); return handoverMain(ex(), String(b.agent ?? ''), { reason: String(b.reason ?? ''), limit: b.limit === true }); }) }),
     registerApiRoute('/pair/api/main/approvals', { method: 'POST', handler: act(async (c) => { const b = await body(c); return grantApproval(ex(), { basis: String(b.basis ?? ''), actions: Array.isArray(b.actions) ? b.actions.map(String) : [], targets: b.targets === '*' ? '*' : Array.isArray(b.targets) ? b.targets.map(String) : '*', conditions: String(b.conditions ?? ''), requires: b.requires as { handoffConfirmed?: boolean } | undefined }); }) }),
     registerApiRoute('/pair/api/main/approvals/revoke', { method: 'POST', handler: act(async (c) => revokeApproval(ex(), String((await body(c)).id ?? ''))) }),
-    registerApiRoute('/pair/api/main/limit-clear', { method: 'POST', handler: act(async (c) => { clearAgentLimit(ex(), String((await body(c)).agent ?? '') as 'codex'); return mainRuntimeView(ex()); }) }),
+    registerApiRoute('/pair/api/main/limit-clear', { method: 'POST', handler: act(async (c) => { clearAgentLimit(ex(), String((await body(c)).agent ?? '') as 'codex'); return mainRuntimeView(ex(), pipelineView(ex())); }) }),
     registerApiRoute('/pair/api/push/preflight', { method: 'POST', handler: act(async () => preflight(ex())) }),
     registerApiRoute('/pair/api/push/ack', { method: 'POST', handler: act(async (c) => { const b = await body(c); return acknowledgeFindings(ex(), Array.isArray(b.fingerprints) ? b.fingerprints.map(String) : []); }) }),
     registerApiRoute('/pair/api/push/run', { method: 'POST', handler: act(async (c) => runPush(ex(), String((await body(c)).confirm ?? ''))) }),

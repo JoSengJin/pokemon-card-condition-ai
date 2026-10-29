@@ -46,7 +46,7 @@
       "to": "runtime.ts:push",
       "weight": 1,
       "evidence": "dispatch가 ops.push를 pushNow의 매개변수 push로 넘김(`pushNow(ex, sessionId, a, ops.push)`); pushNow가 push(sha, verify)를 호출",
-      "via": "push(sha"
+      "via": "push(sha, { sessionId })"
     },
     {
       "from": "runtime.ts:push",
@@ -54,13 +54,6 @@
       "weight": 1,
       "evidence": "runtime.ts push 연결부가 runPush(ex, sha, verify)를 호출(소스 확인)",
       "via": "runPush("
-    },
-    {
-      "from": "push.ts:runPush",
-      "to": "pushOwnership.ts:verifyPushScope",
-      "weight": 2,
-      "evidence": "runPush가 `await verify?.(plan)` 호출 → pushNow가 넘긴 화살표 (plan) => verifyPushScope(...) → verifyPushScope: 콜백 1 + 함수 1",
-      "via": "verify?.(plan)"
     }
   ]
 }
