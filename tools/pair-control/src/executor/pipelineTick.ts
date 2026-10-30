@@ -35,6 +35,11 @@ export async function pipelineTick(ex: Executor): Promise<void> {
   try {
     const rt = ex.runtime, s = rt.session;
     if (!s || rt.frozen) return;
+    const limited = Object.values(pipe(ex).turns).find((t) => t.status === 'limited' && !t.limitHandledAt);
+    if (limited) {
+      limited.limitHandledAt = new Date().toISOString(); ex.store.save();
+      await handleLimit(ex, limited.agent, limited.eventKeys); return;
+    }
     await applyTakenOver(ex, s);
     if (!['completed', 'idle'].includes(s.status)) return;
     recoverTurns(ex);

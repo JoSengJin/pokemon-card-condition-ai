@@ -293,6 +293,7 @@ test('한쪽 한도: 턴이 한도로 끝나면 그 에이전트를 기록하고
   await expectPushed(env, 'task-c');
   const ts = Object.values(pipe(env.ex).turns);
   assert.equal(ts[0].status, 'limited');
+  assert.ok(ts[0].limitHandledAt, '종료 관찰과 분리된 다음 틱이 한도 교대를 한 번만 시작한 기록');
   assert.ok(ts.slice(1).every((t) => t.generation === 2 && t.agent === 'claude'));
   assert.equal(turns().length, 3, '한도 턴 1 + 새 세대 턴 2(result_ready·integrated)');
 }));

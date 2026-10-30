@@ -4,7 +4,6 @@
 import fs from 'node:fs';
 import { badResponse } from './mainGuard.ts';
 import { parseResult, verifyAck } from './mainTakeover.ts';
-import { handleLimit } from './pipelineTurn.ts';
 import { endTurn } from './pipelineState.ts';
 import type { Execution, Executor } from './executor.ts';
 import type { MainSession, MainTurn } from './mainTypes.ts';
@@ -25,7 +24,7 @@ export async function onTurnEnd(ex: Executor, t: MainTurn, exec: Execution, r: {
   const rt = ex.runtime;
   if (t.status !== 'launched' || t.execId !== exec.execId) { ex.audit('main_stale_result_rejected', { execId: exec.execId, turn: t.id }); return; }
   if (rt.session?.id !== t.sessionId || rt.generation !== t.generation || rt.frozen) return endTurn(ex, t, 'stale', 'pending', '이전 세대/세션의 늦은 응답 — 상태를 바꾸지 않음(새 메인이 다시 판단)');
-  if (rt.limited[t.agent] && rt.limited[t.agent]!.at >= t.startedAt) { endTurn(ex, t, 'limited', 'pending', `메인(${t.agent}) 한도`); return handleLimit(ex, t.agent, t.eventKeys); }
+  if (rt.limited[t.agent] && rt.limited[t.agent]!.at >= t.startedAt) return endTurn(ex, t, 'limited', 'pending', `메인(${t.agent}) 한도`);
   if (r.unknown) return endTurn(ex, t, 'unknown', 'unknown', '턴 프로세스가 종료 기록 없이 사라짐(결과 불명) — 재시도하지 않음');
   if (r.cancelled || r.code !== 0) return endTurn(ex, t, 'failed', 'held', r.cancelled ? '턴이 중단됨' : `턴 종료코드 ${r.code}`);
   let res: Awaited<ReturnType<typeof verifyResponse>>;
