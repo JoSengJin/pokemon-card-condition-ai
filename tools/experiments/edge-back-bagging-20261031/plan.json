@@ -1,0 +1,57 @@
+{
+ "schema_version": 1,
+ "hypothesis_id": "edge-back-bagging-20261031",
+ "hypothesis": "3차 head(AUC 0.804)는 학습 자료를 40~56단위만 바꿔도 AUC가 0.36~0.50으로 뒤집혔다(performance-top3-consensus §6~§8). 학습 130단위가 작아 한 번의 적합이 자료 구성에 민감하다면, 학습 그룹을 복원추출한 여러 head의 평균(bagging)이 그 분산을 줄여 검증 순위를 올린다.",
+ "change": "바꾸는 것 하나: 점수 방식 단일 head → 같은 학습 130단위의 그룹 복원추출 20회로 적합한 head 20개의 평균 확률. 자료·manifest 20261030c·특징(DINOv2 448)·구역·head 구조/L2=1/출처 가중·검증 275구역·threshold 0.5는 3차와 같다. 복원추출 시드(20261031+n)와 20회는 결과 전에 고정, 각 복사본은 별도 그룹 id로 질량 유지. 외부 AI 호출 0.",
+ "success_criterion": "검증 275구역(양성117·정상158)에서 앙상블 AUC >= 0.854 (3차 0.804 + 0.05)이고 누락 <= 18, 오탐 <= 59 (threshold 0.5, 3차와 같은 분모). 러너 대응: acceptance max_fn=18, max_fp=59.",
+ "failure_criterion": "하나라도 미충족이면 채택하지 않는다. 횟수·시드·기준은 결과를 본 뒤 바꾸지 않는다. 보조 보고(판정 안 함): 단일 head 20개의 AUC 평균·표준편차·범위, 같은 사진 AUC(3차 0.798).",
+ "reference_result": "artifacts/edge-back-bagging-20261031/reference/result.json",
+ "reference_note": "3차 head(20261030T113857-2deb9558)의 검증 점수.",
+ "acceptance": {
+  "max_fn": 18,
+  "max_fp": 59,
+  "no_new_errors": false,
+  "require_actual_point_guard": false
+ },
+ "code_changes": [
+  {
+   "path": "artifacts/edge-back-bagging-20261031/worker.py",
+   "baseline": null
+  }
+ ],
+ "input_sha256": {
+  "artifacts/development-manifest-20261030c/combined-reviewed.jsonl": "46322196552132a022043006e2857ad0be1964539891046b18899de156d0abd7",
+  "artifacts/development-manifest-20261030c/coverage.json": "9095364b7b473ad3cad47173e9420e43e99d909838d35f0947023cf3400102df",
+  "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+  "artifacts/inner-whitening-confounder-20261021/confounder_head.py": "c54864f7e0b51c5e05af9db44ef236f8976995ed68b48d749a3ce165bd919cef",
+  "card_condition/regions.py": "4d441c24f5ce11617a11f32fc03353241741d66c218bc98fe607583feb02c911",
+  "card_condition/local_wear_cnn.py": "91f0c875812baa947b7e4d5ae9d40de53427d1d94dc92d77e849d3f3c556005f",
+  "card_condition/side_experiment.py": "06162757d756525d70b4727a91bf435a16f768b2a9678eb57cd499bd37fbe87d",
+  "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+  "artifacts/train-geometry-review-20261030/answers-1.txt": "322c006788c7779ac211394e788a0ebcc79b8f678f94de0a31cc785e87289d6a",
+  "artifacts/train-geometry-review-20261030/answers-2-4.txt": "594ebc994c3c21fb2ad6b69140d233b0e3d4d0fce034c3e009b22b261b5ee7f8",
+  "artifacts/train-geometry-review-20261030/human-response-2-4.json": "0b87c34092315ac2620ad78d1ef6c3c8fcf60ab628a05abe8a4c9d0c2b24d216",
+  "tools/experiments/edge-back-source-weight-20261030/worker.py": "b51abd8e4664fe5124f2b29528c59fe8bf1bf7ce0fad168ae31084146aadd017",
+  "artifacts/experiments/20261030T113857-2deb9558/observations.json": "530cf9004b939298e606f150eda5f3fa47a505b32285ef6c561bae16d4935ff6",
+  "artifacts/experiments/20261030T113857-2deb9558/evaluation.json": "5b7cc6679922cf3b903bc7e2636f6db0fea7edf80cf4bd6c3e65f53220ac57c2"
+ },
+ "gemini_calls_allowed": 0,
+ "independent": false,
+ "production_adopted": false,
+ "experiment_kind": "model_comparison",
+ "threshold": 0.5,
+ "tracked_directory": "tools/experiments/edge-back-bagging-20261031",
+ "coverage": "artifacts/development-manifest-20261030c/coverage.json",
+ "backbone_directory": "artifacts/torch-cache/hub/facebookresearch_dinov2_7764ea0f912e53c92e82eb78a2a1631e92725fc8",
+ "backbone_weights": "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth",
+ "expected_denominators": {
+  "train_val": [
+   130,
+   275
+  ]
+ },
+ "known_biases": "개발 검증이며 독립 시험이 아니다. 3차 head 자체가 이 검증으로 선택됐다. 성공해도 일반화는 미확인. 앙상블 평균 점수는 보정이 달라 threshold 0.5의 의미가 단일 head와 다를 수 있다.",
+ "expected_limit": "bagging은 분산만 줄이고 편향(디자인·출처 지름길)은 줄이지 못한다. 학습·검증의 반대 방향 사진 통계 교란은 남는다.",
+ "status": "ready_to_run",
+ "plan_revision_note": "2026-10-31 첫 실행(20261030T232209-703de3fe)은 복원추출 head 하나가 LBFGS 미수렴으로 failed(점수 계산 전, 성능 아님). 결과를 보기 전에 worker만 수정: 미수렴·단일 클래스 복원추출은 버리고 다음 시드를 뽑으며 총 재추출 20회 초과 시 중단. 가설·기준·횟수·시드는 그대로. 실패 기록 보존."
+}
