@@ -23,7 +23,7 @@ export function badResponse(r: unknown): string | null {
   if (!isObj(heads) || Object.values(heads).some((h) => typeof h !== 'string')) return 'observed.heads가 {작업: SHA 문자열} 객체가 아님';
   if (r.actions === undefined) return null;
   if (!Array.isArray(r.actions)) return 'actions가 배열이 아님';
-  for (const [i, a] of r.actions.entries()) { // 같은 ID의 중복은 응답 거부가 아니라 두 번째부터 무시한다(applyActions)
+  for (const [i, a] of r.actions.entries()) { // 같은 ID의 중복은 응답 거부가 아니라 행동 상태 장부가 두 번째부터 무시한다
     const why = badAction(a, i);
     if (why) return why;
   }

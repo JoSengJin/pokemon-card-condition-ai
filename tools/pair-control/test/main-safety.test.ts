@@ -5,7 +5,6 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
-import { applyActions } from '../src/executor/mainActions.ts';
 import { authorize, grantApproval } from '../src/executor/mainApprovals.ts';
 import { saveCheckpoint } from '../src/executor/mainCheckpoint.ts';
 import { onMainEnd } from '../src/executor/mainEnd.ts';
@@ -13,7 +12,7 @@ import { handoverMain } from '../src/executor/mainHandover.ts';
 import { hashOf } from '../src/executor/mainCheckpoint.ts';
 import { tokenHash } from '../src/executor/mainTakeover.ts';
 import { resumeStep, startTask } from '../src/runtime.ts';
-import { setup, task, verify, waitFor, type Env } from './helpers.ts';
+import { applyActions, setup, task, verify, waitFor, type Env } from './helpers.ts';
 
 const git = (cwd: string, ...a: string[]) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@l', ...a], { cwd }).toString().trim();
 

@@ -5,14 +5,13 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
-import { applyActions } from '../src/executor/mainActions.ts';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
 import { clearAgentLimit, handoverMain } from '../src/executor/mainHandover.ts';
 import { pipelineTick } from '../src/executor/pipelineTick.ts';
 import { pipe, register } from '../src/executor/pipelineState.ts';
 import { pipelineView } from '../src/executor/pipelineView.ts';
 import { startTask } from '../src/runtime.ts';
-import { fakeCli, setup, task, waitFor, type Env } from './helpers.ts';
+import { applyActions, fakeCli, setup, task, waitFor, type Env } from './helpers.ts';
 
 const real = { allowRealModelCalls: true, confirmedSubscriptionAuth: true, cli: fakeCli };
 const dir = path.dirname(fakeCli.codex);

@@ -5,6 +5,9 @@ import { Mastra } from '@mastra/core/mastra';
 import { LibSQLStore } from '@mastra/libsql';
 import { loadConfig, type PairConfig } from '../src/executor/config.ts';
 import { Executor } from '../src/executor/executor.ts';
+import { advanceActions } from '../src/executor/mainActions.ts';
+import { acceptActions, actionResults } from '../src/executor/actionState.ts';
+import type { MainAction, MainSession } from '../src/executor/mainTypes.ts';
 import type { Alert } from '../src/executor/freeGuard.ts';
 import { bindRuntime } from '../src/runtime.ts';
 import { pairTaskWorkflow, prepareTaskWorkflow } from '../src/workflow.ts';
@@ -17,6 +20,16 @@ export const toolRoot = path.resolve(import.meta.dirname, '..');
 export interface Env {
   dir: string; cfg: PairConfig; ex: Executor; fixture: any; trips: Alert[];
   restart(): Env; cleanup(): void;
+}
+
+/** 직접 행동 회귀용 호환 도우미. 운영 경로는 감시 틱마다 advanceActions를 한 번만 호출한다. */
+export async function applyActions(ex: Executor, s: MainSession, actions: MainAction[]) {
+  const owner: { actionWork?: MainSession['actionWork'] } = {};
+  acceptActions(ex, owner, actions);
+  while (!await advanceActions(ex, s, owner)) { /* 저장 단계를 끝까지 진행 */ }
+  const results = actionResults(owner);
+  s.actionResults.push(...results); ex.store.save();
+  return results;
 }
 
 function boot(dir: string, cfg: PairConfig, fixture: any, trips: Alert[]): Env {

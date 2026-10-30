@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
-import { advanceActions, applyActions } from '../src/executor/mainActions.ts';
+import { advanceActions } from '../src/executor/mainActions.ts';
 import { acceptActions } from '../src/executor/actionState.ts';
 import { authorize, grantApproval, revokeApproval } from '../src/executor/mainApprovals.ts';
 import { handoverMain } from '../src/executor/mainHandover.ts';
@@ -14,7 +14,7 @@ import { pipelineTick } from '../src/executor/pipelineTick.ts';
 import { pipe } from '../src/executor/pipelineState.ts';
 import { runPush } from '../src/executor/push.ts';
 import { resumeStep, startTask } from '../src/runtime.ts';
-import { setup, task, verify, waitFor, type Env } from './helpers.ts';
+import { applyActions, setup, task, verify, waitFor, type Env } from './helpers.ts';
 
 const git = (cwd: string, ...a: string[]) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@l', ...a], { cwd, stdio: 'pipe' }).toString().trim();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
