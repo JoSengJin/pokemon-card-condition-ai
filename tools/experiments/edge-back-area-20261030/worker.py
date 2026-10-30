@@ -79,7 +79,7 @@ if __name__ == '__main__':
     out = Path(os.environ['CARD_CONDITION_EXPERIMENT_DIR'])
     plan = json.loads((out/'plan.json').read_text())
     ref = json.loads(Path(os.environ['CARD_CONDITION_EXPERIMENT_REFERENCE']).read_text())
-    if plan['hypothesis_id'] != 'edge-back-area-presence-head-20261030':
+    if not plan['hypothesis_id'].startswith('edge-back-area-presence-head-'):
         raise ValueError('Wrong hypothesis')
     if Path(__file__).read_bytes() != (ROOT/plan['tracked_directory']/'worker.py').read_bytes():
         raise ValueError('Mirror differs from tracked source')

@@ -1,0 +1,49 @@
+{
+ "schema_version": 1,
+ "hypothesis_id": "edge-back-area-presence-head-20261030b",
+ "hypothesis": "First run (record 20261030T102223-16a27545, 118 train units) failed with FN 38/117 and FP 63/158 while train fit was near perfect, pointing to too few train objects. User blanket-confirmed the remaining 35 train card boxes, giving 130 train units (65 normal/65 positive; 10 normal and 29 positive objects). More confirmed train data may reduce the generalization gap.",
+ "change": "Only the train data changes: manifest 20261030c (35 more train faces box_reviewed=true by user blanket answer). Same worker logic, head, recipe, threshold, val rows and reference as the first run.",
+ "success_criterion": "Val back edge (117 positive, 158 normal): FN<=6 and FP<=15 at threshold .5. Also report change versus first run (FN 38, FP 63) on the same val rows; improvement means both lower. Front and typed points not evaluated.",
+ "failure_criterion": "FN>6 or FP>15 means not adopted; no threshold, scale or crop tuning after seeing scores; separation, hash or convergence failure stops before any val score.",
+ "reference_result": "artifacts/edge-back-area-20261030/reference/result.json",
+ "acceptance": {
+  "max_fn": 6,
+  "max_fp": 15,
+  "no_new_errors": false,
+  "require_actual_point_guard": false
+ },
+ "code_changes": [
+  {
+   "path": "artifacts/edge-back-area-20261030/worker.py",
+   "baseline": "artifacts/edge-back-area-20261030/worker-before.py"
+  }
+ ],
+ "input_sha256": {
+  "artifacts/development-manifest-20261030c/combined-reviewed.jsonl": "46322196552132a022043006e2857ad0be1964539891046b18899de156d0abd7",
+  "artifacts/development-manifest-20261030c/coverage.json": "9095364b7b473ad3cad47173e9420e43e99d909838d35f0947023cf3400102df",
+  "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+  "artifacts/inner-whitening-confounder-20261021/confounder_head.py": "c54864f7e0b51c5e05af9db44ef236f8976995ed68b48d749a3ce165bd919cef",
+  "card_condition/regions.py": "4d441c24f5ce11617a11f32fc03353241741d66c218bc98fe607583feb02c911",
+  "card_condition/local_wear_cnn.py": "91f0c875812baa947b7e4d5ae9d40de53427d1d94dc92d77e849d3f3c556005f",
+  "card_condition/side_experiment.py": "06162757d756525d70b4727a91bf435a16f768b2a9678eb57cd499bd37fbe87d",
+  "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+  "artifacts/train-geometry-review-20261030/answers-1.txt": "322c006788c7779ac211394e788a0ebcc79b8f678f94de0a31cc785e87289d6a",
+  "artifacts/train-geometry-review-20261030/answers-2-4.txt": "594ebc994c3c21fb2ad6b69140d233b0e3d4d0fce034c3e009b22b261b5ee7f8",
+  "artifacts/train-geometry-review-20261030/human-response-2-4.json": "0b87c34092315ac2620ad78d1ef6c3c8fcf60ab628a05abe8a4c9d0c2b24d216"
+ },
+ "gemini_calls_allowed": 0,
+ "independent": false,
+ "production_adopted": false,
+ "experiment_kind": "model_comparison",
+ "threshold": 0.5,
+ "tracked_directory": "tools/experiments/edge-back-area-20261030",
+ "coverage": "artifacts/development-manifest-20261030c/coverage.json",
+ "backbone_directory": "artifacts/torch-cache/hub/facebookresearch_dinov2_7764ea0f912e53c92e82eb78a2a1631e92725fc8",
+ "backbone_weights": "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth",
+ "expected_denominators": {
+  "train_val": [
+   130,
+   275
+  ]
+ }
+}
