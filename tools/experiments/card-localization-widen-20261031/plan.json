@@ -1,0 +1,47 @@
+{
+ "schema_version": 1,
+ "hypothesis_id": "card-localization-widen-20261031",
+ "hypothesis": "card-localization-baseline-20261031에서 autobox.py는 29면 중 16면에서 사람 4점이 상자 밖이었고, 실패 대부분은 상자가 0.01~0.08 안쪽으로 들어온 것이다(큰 실패 2면 제외). 신뢰도로는 실패를 걸러낼 수 없다(실패 11/16이 신뢰도 0.7 이상). 제안기가 카드를 체계적으로 작게 잡는다면, 출력 상자를 일정 비율 넓히는 후처리만으로 포함 실패를 줄일 수 있다.",
+ "change": "측정 대상은 하나: autobox.propose가 낸 상자를 네 변 바깥으로 각 상자 크기의 10%씩 넓힌 뒤 0~1로 자르는 후처리(autobox.py는 수정하지 않는다). 10%는 head 3 상자 민감도 실험의 판정 팔(넓힘 10%, AUC 0.819)과 같은 값이며 이 29면의 실패 크기에 맞춰 고른 값이 아니다. 같은 29면·같은 4점·같은 허용 0.005. 학습·모델·외부 AI 호출 없음.",
+ "success_criterion": "29면에서 \"4점이 모두 상자 안(허용 0.005) 그리고 상자 면적/4점 외접상자 면적 <= 2.0\"을 만족하지 못한 면이 2면 이하(<=10%). 러너 대응: target=1, score=조건 충족 1.0·아니면 0.0, threshold 0.5 → FN=조건 미충족, FP는 정상 행이 없어 0. 기준선도 같은 조건으로 환산하면 29면 중 12면 충족(17면 미충족)이다.",
+ "failure_criterion": "미충족이 3면 이상이면 단순 넓힘 후처리는 카드 찾기 후보로 채택하지 않는다. 넓힘 비율·면적 상한·허용 오차·2면 기준은 결과를 본 뒤 바꾸지 않는다. 비율을 바꿔 다시 시험하려면 새 가설 ID와 새 사전 기준이 필요하다.",
+ "reference_result": "artifacts/card-localization-widen-20261031/reference/result.json",
+ "reference_note": "worker 단계에서 만든다: rows=기준선과 같은 29면(target=1), before_scores=scores=기준선 결과(evaluation.json의 detail)를 같은 조건(포함 그리고 면적비<=2.0)으로 환산한 값. 지금은 계획만 있음.",
+ "acceptance": {
+  "max_fn": 2,
+  "max_fp": 0,
+  "no_new_errors": false,
+  "require_actual_point_guard": false
+ },
+ "code_changes": [
+  {
+   "path": "artifacts/card-localization-widen-20261031/worker.py",
+   "baseline": null
+  }
+ ],
+ "input_sha256": {
+  "artifacts/experiments/20261030T223232-03b8fd5f/evaluation.json": "8621a20441ccb7e79ac241eb32e287c62da116327cc6e5bf839a63dd79d38286",
+  "artifacts/experiments/20261030T223232-03b8fd5f/result.json": "09136f8e5c0b278cde3a831bdb02274d9cca6762f1d0873a5d7c28c5210d96ea",
+  "artifacts/ebay-intake-20261027-e/autobox.py": "6adc0a4f4c06a5c2125744984ad01ee5cb3507ae466cd3ebc0d3db9baeb8ae04",
+  "artifacts/ebay-intake-20261030-f/corner-answers.txt": "63f535d1e3ccf69bc1e100a255de3a7d7b1ece906f7d9f40df55f919cc70941e",
+  "artifacts/ebay-intake-20261030-g/corner-answers.txt": "5d8e46b40c66b061ce8aecbebe1ca75a461ffbb058ee97f48048b2f8e5d98672",
+  "artifacts/ebay-intake-20261030-f/back-faces.json": "4c213f876cdf6a424fe2664e28d8b414447cd5823c6bbe08c3211c7e4e99e03d",
+  "artifacts/ebay-intake-20261030-g/back-faces.json": "6eb0f60784fef358526cbedcfd302c3fc70e953ba0157b35c54a56bf8a89246b",
+  "artifacts/corner-rectify-20261030/worker.py": "3c280fff99ae24cfc5285da84f0f45260ca808b14da73b8c6d4f3f10c7258d38",
+  "tools/experiments/card-localization-baseline-20261031/worker.py": "eab4db0cda99b9080e626dfb252a0c27a36a96988cbb614ae39c9147fe9986b0"
+ },
+ "gemini_calls_allowed": 0,
+ "independent": false,
+ "production_adopted": false,
+ "experiment_kind": "diagnostic_localization_candidate",
+ "threshold": 0.5,
+ "tracked_directory": "tools/experiments/card-localization-widen-20261031",
+ "expected_denominators": {
+  "faces": 29,
+  "f": 11,
+  "g": 18
+ },
+ "known_biases": "기준선과 같은 29면을 다시 쓴다. 후보는 이 면들의 실패 양상을 본 뒤 제안했으므로 이 결과는 독립 평가가 아니다. 통과해도 일반화는 미확인이며, 편향 없는 무작위 표본의 사람 4점(2단계)으로 확인하기 전에는 채택하지 않는다.",
+ "expected_limit": "4점이 상자 밖으로 0.27~0.30 벗어난 큰 실패 2면(3ad434, 6f4f2e)은 10% 넓힘으로 해결되지 않을 수 있다. 면적비 상한은 이미 면적비 2.47인 면(c6a900)을 미충족으로 센다.",
+ "status": "plan_only_not_run"
+}
