@@ -24,7 +24,8 @@
   "artifacts/ebay-intake-20261030-f/corner-answers.txt": "63f535d1e3ccf69bc1e100a255de3a7d7b1ece906f7d9f40df55f919cc70941e",
   "artifacts/ebay-intake-20261030-g/corner-answers.txt": "5d8e46b40c66b061ce8aecbebe1ca75a461ffbb058ee97f48048b2f8e5d98672",
   "artifacts/ebay-intake-20261030-f/back-faces.json": "4c213f876cdf6a424fe2664e28d8b414447cd5823c6bbe08c3211c7e4e99e03d",
-  "artifacts/ebay-intake-20261030-g/back-faces.json": "6eb0f60784fef358526cbedcfd302c3fc70e953ba0157b35c54a56bf8a89246b"
+  "artifacts/ebay-intake-20261030-g/back-faces.json": "6eb0f60784fef358526cbedcfd302c3fc70e953ba0157b35c54a56bf8a89246b",
+  "artifacts/corner-rectify-20261030/worker.py": "3c280fff99ae24cfc5285da84f0f45260ca808b14da73b8c6d4f3f10c7258d38"
  },
  "gemini_calls_allowed": 0,
  "independent": false,
@@ -39,5 +40,6 @@
  },
  "known_biases": "f의 12면 모서리 답은 상자 판정이 잘림이던 면 위주로 고른 것이라 어려운 쪽으로 치우쳤다(corner-ids). g 18면은 g 뒷면 20면 중 거의 전부다. 29면은 비율을 추정할 표본이 아니라 기준선 확인용이다(1면=3.4%).",
  "stage2_not_in_this_plan": "편향 없는 평가는 무작위 표본(예: 40면)에 사람 4점 모서리가 필요하다. 사람 입력이므로 별도 요청.",
- "status": "plan_only_not_run"
+ "status": "ready_to_run",
+ "plan_revision_note": "2026-10-31 실행 전 형식 보완만: 가져다 쓰는 corner-rectify worker의 해시를 입력 고정에 추가. 기준 수치·가설·변경 변수는 그대로."
 }
