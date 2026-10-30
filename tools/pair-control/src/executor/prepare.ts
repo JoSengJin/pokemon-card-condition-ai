@@ -51,7 +51,7 @@ export function worktreeRoot(ex: Executor) {
 }
 
 async function branchExists(repo: string, branch: string) {
-  return (await G.git(repo, 'show-ref', '--verify', '--quiet', `refs/heads/${branch}`)).code === 0;
+  return (await G.run('git', ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], repo)).code === 0;
 }
 
 export async function suggestTaskId(ex: Executor, agent: string) {
