@@ -1,0 +1,43 @@
+{
+ "schema_version": 1,
+ "hypothesis_id": "card-localization-baseline-20261031",
+ "hypothesis": "운영 입력은 배경이 섞인 원본 사진이라 카드 찾기가 필요하다. 지금 저장소에서 쓸 수 있는 유일한 비학습 상자 제안기는 autobox.py(Codex 도구)이고, 사람이 찍은 4점 모서리 기준으로 카드가 상자 안에 들어오는지는 측정된 적이 없다. head 3은 상자가 카드 가장자리를 자르면 크게 나빠진다(box-perturbation-sensitivity-20261031: 이동 5% AUC 0.728, 줄임 3% AUC 0.648).",
+ "change": "측정 대상은 하나: autobox.propose(사진)가 만든 상자. 모델·head·구역·임계값은 사용하지 않는다. 학습 없음, 외부 AI 호출 없음.",
+ "success_criterion": "뒷면 29면(f 11 + g 18, f의 562d461bcf3f22 제외)에서 사람 4점 모서리 중 하나라도 상자 밖(허용 0.005, 정규화 좌표)인 면이 2면 이하(<=10%). 러너 대응: 각 면 target=1(상자가 카드를 모두 포함해야 함), score=포함이면 1.0·아니면 0.0, threshold 0.5 → FN=포함 실패, FP는 정상 행이 없어 0.",
+ "failure_criterion": "포함 실패가 3면 이상이면 autobox.py는 운영 카드 찾기 기준선으로 쓰지 않는다. 허용 0.005·2면 기준은 판단값이며 결과를 본 뒤 바꾸지 않는다. 보조 지표(상자 면적 비율, 신뢰도 0.7 미만 표시로 실패를 걸러내는 비율)는 판정에 쓰지 않는다.",
+ "reference_result": "artifacts/card-localization-baseline-20261031/reference/result.json",
+ "reference_note": "worker 단계에서 만든다: rows=29면(target=1), before_scores=전부 0.0(찾기 없음). 지금은 계획만 있음.",
+ "acceptance": {
+  "max_fn": 2,
+  "max_fp": 0,
+  "no_new_errors": false,
+  "require_actual_point_guard": false
+ },
+ "code_changes": [
+  {
+   "path": "artifacts/card-localization-baseline-20261031/worker.py",
+   "baseline": null
+  }
+ ],
+ "input_sha256": {
+  "artifacts/ebay-intake-20261027-e/autobox.py": "6adc0a4f4c06a5c2125744984ad01ee5cb3507ae466cd3ebc0d3db9baeb8ae04",
+  "artifacts/ebay-intake-20261030-f/corner-answers.txt": "63f535d1e3ccf69bc1e100a255de3a7d7b1ece906f7d9f40df55f919cc70941e",
+  "artifacts/ebay-intake-20261030-g/corner-answers.txt": "5d8e46b40c66b061ce8aecbebe1ca75a461ffbb058ee97f48048b2f8e5d98672",
+  "artifacts/ebay-intake-20261030-f/back-faces.json": "4c213f876cdf6a424fe2664e28d8b414447cd5823c6bbe08c3211c7e4e99e03d",
+  "artifacts/ebay-intake-20261030-g/back-faces.json": "6eb0f60784fef358526cbedcfd302c3fc70e953ba0157b35c54a56bf8a89246b"
+ },
+ "gemini_calls_allowed": 0,
+ "independent": false,
+ "production_adopted": false,
+ "experiment_kind": "diagnostic_localization_baseline",
+ "threshold": 0.5,
+ "tracked_directory": "tools/experiments/card-localization-baseline-20261031",
+ "expected_denominators": {
+  "faces": 29,
+  "f": 11,
+  "g": 18
+ },
+ "known_biases": "f의 12면 모서리 답은 상자 판정이 잘림이던 면 위주로 고른 것이라 어려운 쪽으로 치우쳤다(corner-ids). g 18면은 g 뒷면 20면 중 거의 전부다. 29면은 비율을 추정할 표본이 아니라 기준선 확인용이다(1면=3.4%).",
+ "stage2_not_in_this_plan": "편향 없는 평가는 무작위 표본(예: 40면)에 사람 4점 모서리가 필요하다. 사람 입력이므로 별도 요청.",
+ "status": "plan_only_not_run"
+}
