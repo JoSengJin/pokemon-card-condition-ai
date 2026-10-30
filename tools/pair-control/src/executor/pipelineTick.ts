@@ -5,6 +5,7 @@ import { autoSteps } from './pipelineSteps.ts';
 import { scanEvents } from './pipelineEvents.ts';
 import { mark, pipe } from './pipelineState.ts';
 import { handleLimit, launchTurn } from './pipelineTurn.ts';
+import { applyTakenOver } from './mainSessionApply.ts';
 import { TURN_IN_FLIGHT } from './mainTypes.ts';
 import type { Executor } from './executor.ts';
 
@@ -33,7 +34,9 @@ export async function pipelineTick(ex: Executor): Promise<void> {
   busy.add(ex);
   try {
     const rt = ex.runtime, s = rt.session;
-    if (!s || rt.frozen || !['completed', 'idle'].includes(s.status)) return;
+    if (!s || rt.frozen) return;
+    await applyTakenOver(ex, s);
+    if (!['completed', 'idle'].includes(s.status)) return;
     recoverTurns(ex);
     await applyVerified(ex);
     if (Object.values(pipe(ex).turns).some((t) => TURN_IN_FLIGHT.includes(t.status))) return;

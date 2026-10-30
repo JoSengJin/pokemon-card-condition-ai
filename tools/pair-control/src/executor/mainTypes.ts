@@ -25,7 +25,7 @@ export interface Approval {
 
 export interface ActionResult { id: string; type: string; ok: boolean; detail: string; at: string }
 
-export type SessionStatus = 'launching' | 'taken_over' | 'completed' | 'idle' | 'failed';
+export type SessionStatus = 'launching' | 'taken_over' | 'applying' | 'completed' | 'idle' | 'failed';
 
 export interface MainSession {
   id: string;
@@ -44,6 +44,8 @@ export interface MainSession {
   completedAt?: string;
   failure?: string;
   actionResults: ActionResult[];
+  /** 인수 확인 뒤 저장된 행동. 다음 감시 틱이 적용을 시작하기 전에 지우고 applying을 저장한다. */
+  pendingActions?: MainAction[];
 }
 
 export interface MainRuntime {
