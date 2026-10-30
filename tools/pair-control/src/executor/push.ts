@@ -9,7 +9,8 @@ import * as G from './git.ts';
 import { isForbidden } from './contract.ts';
 import { sanitizedChildEnv } from './freeGuard.ts';
 import { checkVenv } from './envcheck.ts';
-import { verifyPushScope } from './pushOwnership.ts';
+import { authorize } from './approvalGate.ts';
+import { pushScope } from './pushOwnership.ts';
 import { UserError, type Executor } from './executor.ts';
 
 export interface PushCommit { sha: string; parents: string; subject: string }
@@ -39,14 +40,13 @@ const extraForbidden = (f: string) => /(^|\/)\.env(\.|$)/.test(f) || /\.(pem|key
 export const redactUrl = (u: string) => u.replace(/\/\/[^@/\s]+@/, '//***@');
 const redactText = (s: string) => redactUrl(s).replace(/(sk-[A-Za-z0-9_-]{8,}|gh[pousr]_[A-Za-z0-9]{20,}|Bearer\s+[A-Za-z0-9._-]{16,})/g, '[REDACTED]');
 
-/** 프롬프트 없이 실패하게 하는 git 네트워크용 환경. 자격 증명은 git이 기존 helper로 처리한다. */
-function netEnv(): NodeJS.ProcessEnv {
+/** 프롬프트 없이 실패하게 하는 git 네트워크 호출. 자격 증명은 git이 기존 helper로 처리한다. */
+const git = (cwd: string, args: string[], timeout = 60_000) => {
   const env = sanitizedChildEnv();
   env.GIT_TERMINAL_PROMPT = '0';
   if (process.env.SSH_AUTH_SOCK) env.SSH_AUTH_SOCK = process.env.SSH_AUTH_SOCK;
-  return env;
-}
-const git = (cwd: string, args: string[], timeout = 60_000) => G.run('git', args, cwd, timeout, netEnv());
+  return G.run('git', args, cwd, timeout, env);
+};
 
 async function lsRemote(cwd: string, remote: string, branch: string): Promise<{ ok: boolean; sha: string | null; detail: string }> {
   const r = await git(cwd, ['ls-remote', remote, `refs/heads/${branch}`]);
@@ -176,7 +176,13 @@ export async function runPush(ex: Executor, confirm: string, gate?: { sessionId:
     const now = await lsRemote(cwd, plan.remote, plan.branch);
     if (!now.ok) throw new UserError(`원격 확인 실패: ${now.detail}`);
     if (now.sha !== plan.remoteHead) throw new UserError('점검 이후 원격이 바뀜 — 다시 점검');
-    if (gate) await verifyPushScope(ex, gate.sessionId, plan); // 자동 push의 승인 범위 재검사: 실제로 올릴 이 계획에 대해, 기록을 남기고 push하기 직전에 한다
+    if (gate) {
+      const { unowned, tasks } = await pushScope(ex, plan);
+      if (unowned.length) throw new UserError(`승인된 통합 이력에 없는 커밋 ${unowned.length}개(${unowned.slice(0, 3).map((s) => s.slice(0, 8)).join(', ')})가 push 범위에 있음 — 자동 push 보류, 사용자가 직접 확인·push`);
+      if (!tasks.length) throw new UserError('push 대상 커밋이 승인된 작업과 연결되지 않음 — 사용자 판단 필요');
+      for (const id of tasks) authorize(ex, gate.sessionId, 'integrate_task', id);
+      authorize(ex, gate.sessionId, 'push_main', plan.branch);
+    }
     const command = ['git', 'push', '--porcelain', plan.remote, `${plan.localHead}:refs/heads/${plan.branch}`];
     const rec: PushRecord = {
       id: crypto.randomUUID(), at: new Date().toISOString(), kind: plan.revertOf ? 'revert' : 'push', remote: plan.remote, remoteUrl: plan.remoteUrl, branch: plan.branch,
@@ -187,7 +193,7 @@ export async function runPush(ex: Executor, confirm: string, gate?: { sessionId:
     ex.state.pushPlan = null;
     ex.audit('push_started', { id: rec.id, sha: rec.pushedSha, kind: rec.kind });
     ex.store.save();
-    const r = await G.run('git', command.slice(1), cwd, 120_000, netEnv());
+    const r = await git(cwd, command.slice(1), 120_000);
     const out = redactText((r.stdout + (r.stderr ? `\n${r.stderr}` : '')).trim().slice(-600));
     if (r.code !== 0) {
       // 실패해도 원격 상태를 한 번 확인해 기록한다(성공했는데 응답만 실패한 경우 대비). 자동 재시도는 없다.

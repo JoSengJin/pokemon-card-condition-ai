@@ -2,8 +2,7 @@
 // 알려진 작업이 하나 포함됐다는 이유로 전체 범위를 승인하지 않는다. 대응하지 않는 커밋이 있으면 자동 push를 보류하고, 사용자가 기존 수동 push 경로로 직접 확인·push한다.
 // 이 도구는 별도 범위를 스스로 승인하거나 추정하지 않는다.
 import * as G from './git.ts';
-import { authorize } from './approvalGate.ts';
-import { UserError, type Executor } from './executor.ts';
+import type { Executor } from './executor.ts';
 import type { PushPlan } from './push.ts';
 
 /**
@@ -23,13 +22,4 @@ export async function pushScope(ex: Executor, plan: PushPlan): Promise<{ unowned
     if (id) tasks.add(id); else unowned.push(c.sha);
   }
   return { unowned, tasks: [...tasks] };
-}
-
-/** runPush의 push 직전 검증. 범위가 맞지 않거나 승인이 닫혀 있으면 던져 push를 막는다(승인 검사는 마지막에 동기로 해 점검과 실행 사이의 철회를 반영한다). */
-export async function verifyPushScope(ex: Executor, sessionId: string, plan: PushPlan): Promise<void> {
-  const { unowned, tasks } = await pushScope(ex, plan);
-  if (unowned.length) throw new UserError(`승인된 통합 이력에 없는 커밋 ${unowned.length}개(${unowned.slice(0, 3).map((s) => s.slice(0, 8)).join(', ')})가 push 범위에 있음 — 자동 push 보류, 사용자가 직접 확인·push`);
-  if (!tasks.length) throw new UserError('push 대상 커밋이 승인된 작업과 연결되지 않음 — 사용자 판단 필요');
-  for (const id of tasks) authorize(ex, sessionId, 'integrate_task', id);
-  authorize(ex, sessionId, 'push_main', plan.branch);
 }
