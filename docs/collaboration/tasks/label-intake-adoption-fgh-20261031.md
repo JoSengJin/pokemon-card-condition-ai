@@ -1,23 +1,26 @@
-# eBay 수집 f·g·h 라벨의 기존 manifest 절차 편입
+# eBay 수집 g·h 라벨의 기존 검토 UI·manifest 절차 편입
 
 - task_id: label-intake-adoption-fgh-20261031
-- owner: Claude (Codex 토큰 만료 기간 대행; 사용자 지시 2026-10-31 "라벨저장이 다른 방향으로 가는 게 문제가 될까봐")
-- status: assigned (계약 확정 전 구현 없음)
-- base_sha: 819af83 (main)
-- approval: 사용자 요청은 라벨 저장 방식을 기존 방향으로 맞추는 것. 새 정답·분할·모델 학습/추론은 승인되지 않음. 기존 정상/결함 라벨 변경 없음.
+- owner: Claude (Codex 토큰 만료 기간 대행. 사용자 지시 2026-10-31: Codex의 개발 방식대로 진행, 역할 대행이 아니라 절차를 따를 것)
+- status: implementing
+- base_sha: 64ac22b (main)
+- approval: 라벨 저장을 기존 방식으로 맞춤. 새 정답 생성·모델 학습/추론·API 호출 승인 아님. 기존 라벨 변경 없음.
 
-## 현재 상태 (실측)
-- f·g·h 사람 답은 intake 폴더의 원본 텍스트(`pairing-answers.txt`, `back-edge-answers.txt`, `corner-answers.txt`, `region-answers.txt`)에만 있고 개발 manifest(`development-manifest-20261030c`)에는 0건이다.
-- 앞뒤 선택은 f에서 쓰던 `ebay_pair_selection/v0` JSON 형식으로 g·h를 추가 기록했다(`pair-selection.20261030.json`, `pair-selection.20261031.json`; Git 제외 artifacts, 데이터만).
-- 기존 채택 절차: 검토 행(JSONL, `side_annotations`·`region_labels`·`box_reviewed`·`reviewed_by`) → `tools/freeze_dev_manifest.py`(새 val 행만 채택, 기준 manifest SHA 고정, 감사·coverage 재생성). 새 manifest는 새 폴더이며 기존 것은 덮어쓰지 않는다.
+## 근거 (실측, 2026-10-31)
+- Codex a~e 배치 절차: 앞뒤 선택 JSON(`ebay_pair_selection/v0`) → 각 intake 폴더의 `convert_pairs.py` → `val-candidates-*.jsonl`(split=val, labels null, pair_verified, reviewed_by) → `build_inventory.py`+`autobox.py` → `review/labels-review.jsonl` → `card_condition/review.py` 서버와 `review.html`에서 사람이 상자·구역·점·빛 반사·관찰 제한을 저장 → `tools/freeze_dev_manifest.py` 채택.
+- g·h의 선택 JSON은 이미 같은 스키마다. 따라서 위 도구를 그대로 쓴다. 새 변환 도구는 만들지 않는다.
+- 이전에 만든 텍스트 답(`region-answers.txt` 등)은 구역 종류·빛 반사·관찰 제한·점이 없어 학습 라벨과 의미가 달라 변환하지 않는다(`point_dataset.py`·`regions.py::validate_annotations` 대조). 같은 사진을 `review.html`에서 다시 확인받는다.
 
-## 결정이 필요한 것 (구현 전 확정)
-1. 분할: `freeze_dev_manifest.py`는 val 행만 채택한다. h는 val(3차 head 첫 평가에 쓴 사진)이 자연스럽다. f·g는 학습에 쓴 실험이 있어 val/train 어느 쪽에 둘지 정책이 없다.
-2. 모서리 4점(g·f 일부)은 manifest에 대응 필드가 없다. 보류하고 원본 파일로 보존할지, 필드를 새로 만들지(스키마 변경)를 정해야 한다.
-3. 중복: `ebay-pair-270a6a12881028`은 g와 h에 모두 있다(같은 사진 해시). 한 번만 채택한다.
-4. 사진 위치: 기존 행은 `learn/<id>/front·back` 경로를 쓴다. intake 폴더 경로를 그대로 쓸지 learn으로 복사할지 정해야 한다.
+## 결정 (근거 포함)
+1. 분할: a~e와 같게 `val`. 후보 notes에 "학습·D1 사용 금지"가 붙는다. 근거: `ebay-intake-20261027-e/convert_pairs.py`.
+2. 모서리 4점: manifest에 대응 필드가 없다. 스키마를 바꾸지 않고 원본 파일로 보존한다.
+3. 중복 `ebay-pair-270a6a12881028`: g에 두고 h 선택 사본에서는 `exclude`로 한다. 원본 선택 파일은 바꾸지 않는다.
+4. 사진 경로: a~e와 같이 intake 폴더 경로 그대로 쓴다.
 
-## 구현 범위 (확정 후)
-allowed_files(안): `tools/adopt_intake_answers.py`(새), `tests/test_adopt_intake_answers.py`(새), 이 문서. 기존 파일 수정 없음.
-structure(안): 새 파일 함수 7개 이하, 호출 깊이 4 이하. 검사: 합성 fixture로 라벨 불변·해시 일치·중복 거절, 실제 h 변환 후 원본 텍스트와 건수 대조.
-forbidden: 기존 manifest·라벨 파일·Codex 소유 미추적 도구 수정, 학습·추론·API 호출.
+## 범위
+allowed_files: 이 문서. artifacts(Git 제외)의 `ebay-intake-20261030-g/`, `ebay-intake-20261031-h/` 아래 새 파일(복사한 `convert_pairs.py`·`build_inventory.py`·`autobox.py`, `val-candidates-*.jsonl`, `review/`). 코드 파일 수정 없음.
+forbidden: 기존 manifest·`labels-review.jsonl`·Codex 도구 원본 수정, 학습·추론·API 호출, 사람이 입력하지 않은 라벨 생성.
+structure: 새 소스 파일 없음(함수 수 변경 0, 호출 경로 변경 0).
+checks: `convert_pairs.py`가 `load_manifest` 검증과 중복 거절을 통과하는지, 인벤토리가 `validate_annotations`를 통과하는지, 행 수가 선택 JSON의 pair 수와 일치하는지.
+experiment: 없음.
+handoff(작성 예정): 행 수, 해시, 실행 로그 경로, 사람 확인이 필요한 항목(상자·구역·점), 미검증, 롤백(새 파일 삭제).
