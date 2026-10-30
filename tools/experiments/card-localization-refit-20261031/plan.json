@@ -1,0 +1,77 @@
+{
+ "schema_version": 1,
+ "hypothesis_id": "card-localization-refit-20261031",
+ "hypothesis": "autobox.propose는 가운데 30% 창=카드, 바깥 6% 띠=배경이라는 고정 씨앗으로 색 모델을 한 번만 만든다. 실패 양상은 둘이다: 카드를 못 가르는 큰 실패(3ad434, 6f4f2e 등)와 배경이 섞여 상자가 크게 잡히는 면(c6a900, 001811). 씨앗이 틀리면 한 번의 모델이 틀린다는 가설이다. 1차 마스크로 전경·배경 모델을 다시 맞추는(EM식 재적합) 반복을 넣으면 두 실패가 함께 줄 수 있다.",
+ "change": "바꾸는 것 하나: propose의 색 모델 재적합 반복 2회 추가(1차 마스크의 전경 화소로 fg, 나머지로 bg를 다시 적합한 뒤 마스크 재계산). 투영 임계 0.35, margin 0.02, 신뢰도 식, 10% 넓힘 후처리(widen), 허용 0.005, 면적비 상한 2.0은 그대로. autobox.py는 수정하지 않고 새 worker 안에 재적합만 추가. numpy/PIL만 사용(cv2 없음), 학습·외부 AI 호출 없음. 넓힘은 두 비교팔에 똑같이 적용해 분할 방식만 비교한다.",
+ "success_criterion": "개발 39면(stage2 표본에서 사진 밖 잘림 1면 제외, 신규 23 + 기존 16)에서 후보+10% 넓힘의 미충족(4점 포함·면적비<=2.0 불충족)이 4면 이하(<=10%), 그리고 현재 충족하는 31면 중 새로 미충족이 되는 면이 1면 이하. 러너 대응: target=1, score=충족 1.0·아니면 0.0, before_scores=현 넓힘 결과(미충족 8), threshold 0.5.",
+ "failure_criterion": "미충족 5면 이상 또는 새 미충족 2면 이상이면 재적합은 채택하지 않는다. 반복 횟수·임계값·면적비 상한은 결과를 본 뒤 바꾸지 않는다. 바꾸려면 새 가설 ID와 사전 기준.",
+ "holdout": {
+  "rule": "stage2 표본에 뽑히지 않은 f·g·h 뒷면 풀 나머지. 지금 id만 고정하고 사진·상자를 보지 않으며 사람 4점도 아직 없다.",
+  "count": 26,
+  "ids": [
+   "ebay-pair-073e62617eaea4",
+   "ebay-pair-13b8c293c6a900",
+   "ebay-pair-150316ab79566e",
+   "ebay-pair-1eb4c827310f0a",
+   "ebay-pair-1f02ab88e0f052",
+   "ebay-pair-208afaa3234c98",
+   "ebay-pair-230095c7f5cffe",
+   "ebay-pair-28427abcb25919",
+   "ebay-pair-3a1557979e65a0",
+   "ebay-pair-3ff007e85ba84d",
+   "ebay-pair-4bc1fb4a7165b7",
+   "ebay-pair-4fdbe96b328982",
+   "ebay-pair-54e8af7d55e168",
+   "ebay-pair-5b972fd6900dcc",
+   "ebay-pair-6023b3b2ff7e03",
+   "ebay-pair-61ee246bc9ba1d",
+   "ebay-pair-6b189bf2e8e4b3",
+   "ebay-pair-701e054702656a",
+   "ebay-pair-829ad18c0d56e8",
+   "ebay-pair-9ad04666c74753",
+   "ebay-pair-b37164104558fa",
+   "ebay-pair-c29f4cd0872f3d",
+   "ebay-pair-ca31a90eb6ff4f",
+   "ebay-pair-e9695ac3303d6a",
+   "ebay-pair-f9b19a3e790e88",
+   "ebay-pair-fe17b7ad4af026"
+  ],
+  "confirmation_criterion": "개발 기준 통과 시에만: 홀드아웃에 사람 4점을 받아(중립 시작 점, 불가 제외) 후보+넓힘의 미충족이 10% 이하. 정확한 면 수의 정수 상한은 4점 도착 전, 결과를 보기 전에 계획에 고정한다."
+ },
+ "reference_result": "artifacts/card-localization-refit-20261031/reference/result.json",
+ "reference_note": "worker 단계에서 만든다: rows=개발 39면, before_scores=scores=card-localization-stage2 기록(20261030T231004-856c9c5d) detail의 넓힘 passes.",
+ "acceptance": {
+  "max_fn": 4,
+  "max_fp": 0,
+  "no_new_errors": false,
+  "require_actual_point_guard": false
+ },
+ "code_changes": [
+  {
+   "path": "artifacts/card-localization-refit-20261031/worker.py",
+   "baseline": null
+  }
+ ],
+ "input_sha256": {
+  "artifacts/experiments/20261030T231004-856c9c5d/evaluation.json": "ca5037a187d41253d9927c6fde0fa1f9b610dfac9d05270e2ba65c3511f71125",
+  "artifacts/card-localization-stage2-20261031/sample.json": "d9ab5e9d076a0d5bb142a7d5018f940004596c63bc54b4797a9d3acb8524e4bc",
+  "artifacts/card-localization-stage2-20261031/corner-answers.txt": "9e0358d99557921a9bc499444135b0753124811d3d062c785726154c3ea911bc",
+  "artifacts/ebay-intake-20261027-e/autobox.py": "6adc0a4f4c06a5c2125744984ad01ee5cb3507ae466cd3ebc0d3db9baeb8ae04",
+  "tools/experiments/card-localization-widen-20261031/worker.py": "2c3d8a5833c74337d5256d6b0f96d721d8c4adec47f9e0d3b116a9612927fc79",
+  "tools/experiments/card-localization-stage2-20261031/worker.py": "d266bdd7157de38f673ad4ca35d3f95c69d4be3ab07b394344599be89b932431"
+ },
+ "gemini_calls_allowed": 0,
+ "independent": false,
+ "production_adopted": false,
+ "experiment_kind": "diagnostic_localization_candidate",
+ "threshold": 0.5,
+ "tracked_directory": "tools/experiments/card-localization-refit-20261031",
+ "expected_denominators": {
+  "dev_faces": 39,
+  "currently_met": 31,
+  "currently_unmet": 8
+ },
+ "known_biases": "개발 39면의 실패 양상을 이미 보고 만든 후보라 이 판정은 독립 평가가 아니다. 통과해도 홀드아웃 확인 전에는 채택하지 않는다. 모집단은 f·g·h 편의 표본, 한 사람의 폰 입력. 축 정렬 상자만 평가.",
+ "expected_limit": "카드가 사진을 거의 채우면 바깥 띠가 카드라 씨앗이 구조적으로 틀려 재적합으로 못 고친다. 신뢰도 낮은 큰 실패 2면은 남을 수 있다. 재적합이 발산해 마스크가 비면 기존과 같은 기본 상자(신뢰도 0)로 돌아가므로 그 면은 미충족으로 센다.",
+ "status": "plan_only_not_run"
+}
