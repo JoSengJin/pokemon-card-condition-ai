@@ -5,7 +5,7 @@
  "change": "카드 상자 좌표만 바꾼다: 사람 확인 상자를 네 변 바깥으로 각 상자 크기의 10%씩 넓힌다(0~1로 자름). 같은 head 3(head.pt), 같은 val 275구역, 임계값 .5, 구역 정의(region_box)·점수 함수는 동일. 학습 없음.",
  "success_criterion": "주 팔(넓힘10%)에서 val 275구역(결함117·정상158)의 FN<=28 그리고 FP<=69 그리고 AUC>=0.774. 기준값은 head 3(FN18·FP59·AUC0.804)에 각 +10개·-0.03을 허용폭으로 둔 것이며 노이즈 측정에 근거한 값이 아니다(판단값).",
  "failure_criterion": "위 세 조건 중 하나라도 미충족이면 head 3은 사람 상자 정밀도에 의존한다고 기록한다. 보조 팔 결과를 보고 기준·팔을 바꾸지 않는다. 비교 전 점검(상자 변경 없이 같은 코드 경로로 재점수한 값이 고정 점수와 1e-4 이내)이 실패하면 결과 없이 중단한다.",
- "reference_result": "artifacts/experiments/20261030T113857-2deb9558/result.json",
+ "reference_result": "artifacts/box-perturbation-sensitivity-20261031/reference/result.json",
  "acceptance": {
   "max_fn": 28,
   "max_fp": 69,
@@ -14,7 +14,7 @@
  },
  "code_changes": [
   {
-   "path": "tools/experiments/box-perturbation-sensitivity-20261031/worker.py",
+   "path": "artifacts/box-perturbation-sensitivity-20261031/worker.py",
    "baseline": null
   }
  ],
@@ -51,5 +51,6 @@
   "tight_0.03"
  ],
  "notes": "보조 팔은 acceptance에 쓰지 않고 evaluation.json에만 보고한다. 상자는 축 정렬이라 회전·원근 오차와 손·받침대 오검출은 모델링하지 않는다. 개발 val이며 독립 평가가 아니다.",
- "status": "plan_only_not_run"
+ "status": "ready_to_run",
+ "plan_revision_note": "2026-10-31 실행 전 형식 수정만: reference_result를 head 3 원점수(before=unperturbed)로, code_changes 경로를 artifacts/ 아래로. 기준 수치·가설·변경 변수는 그대로."
 }
