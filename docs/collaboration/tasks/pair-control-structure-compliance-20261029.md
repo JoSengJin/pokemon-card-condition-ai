@@ -134,3 +134,11 @@ tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충�
 - `7e0e79e`: 공용 `dispatch→pushNow` 라우터를 없애고 `runOne`이 일반 행동 서비스와 `confirmAction`/`pushAction`을 직접 선택한다. 승인 판정은 `approvalGate.authorize` 단일 구현을 유지한다. `mainDispatch.ts` 정의 수 3→2, `runOne` 최장 8→7, `onMainEnd` 최장 11→10. typecheck와 structure-trace/main-safety/review-fixes 36개 통과.
 - 현재 판정: **구조 준수 아님**. 초과 파일 31개, 미확인 81개이며 1b의 영속 행동 단계·push 단계·ackSession 분리와 단계 2~7은 남아 있다. 전체 테스트·최종 `--check`는 아직 실행하지 않았다. HTML 열기 요청은 queued였고 Mac 잠금·로컬 브라우저 비활성으로 실제 렌더 확인은 차단됐다.
 - 다음 정확한 작업: 행동 `accepted→authorized→dispatching→done`을 저장 상태로 만들고 각 틱이 한 단계만 읽어 처리한다. 그 뒤 push `plan→scope→lock→exec`와 `ackSession`을 같은 방식으로 분리한다.
+
+### Codex 단계 1b 후속 체크포인트 (2026-10-30)
+- `7fb3895`: `ackSession`은 인수 확인 뒤 `taken_over + pendingActions`만 저장한다. 다음 감시 틱의 `applyTakenOver`가 `applying`을 먼저 저장하고 적용하며, 재시작 전 `applying` 세션은 결과 불명으로 보존한다. `ackSession` 호출 깊이 9→기준 이내(≤4).
+- `eaa220e`: 행동을 `accepted→authorized→dispatching→done` 영속 상태로 분리했다. 세션·턴은 감시 틱마다 한 단계만 진행하고, dispatch 직전에 세션·세대·frozen·승인을 다시 검사한다. `dispatching` 재시작은 재실행하지 않는다. 승인 후 철회 반례는 서비스 호출 0회로 검증했다.
+- `551aa7a`, `874afa1`: 자동 행동의 `MainOps.push→pushAction`과 `MainOps.confirm` 간접층을 제거했다. 자동 push는 `dispatchAction`이 `runPush(ex, sha, {sessionId})`를 직접 호출해 기존 push 직전 범위 재검사를 유지한다. 수동 간선은 6→3.
+- 검증: Node 24.21.0에서 typecheck 통과. main/session/pipeline/rotation/safety/review-fixes 관련 42개 통과, push·review-fixes·structure 관련 34개 중 기대치 갱신 전 1건을 수정한 뒤 structure 6개 통과, 최종 confirm 변경 관련 27개 통과. 실제 CLI·모델·운영 push는 호출하지 않았고 합성 원격만 사용했다.
+- 현재 측정: 초과 파일 31개, 초과 시작점 58개, 미확인 82개. **구조 준수 아님.** `dispatchAction` 최장 5(`runPush→preflight→git→netEnv→sanitizedChildEnv`), `advanceActions` 최장 6(`authorizeAction→plan→suggestTaskId→branchExists→git→run`), `pipelineTick` 최장 9. 전체 `npm test`와 최종 `--check`는 아직 실행하지 않았다.
+- 다음 정확한 작업: push를 `plan→scope→lock→exec` 저장 단계로 분리하고 `preflight`의 사실 수집·스캔·판정을 나눈다. 이어 `actionPlan`의 assign 준비 조회 사슬과 한도 처리 `handleLimit→handoverMain→launchSession→launchMainProcess→realReadiness`을 평탄화해 단계 1 완료 조건을 재측정한다.
