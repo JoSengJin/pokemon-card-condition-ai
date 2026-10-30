@@ -16,3 +16,9 @@
 
 ## 롤백
 스크립트·문서 `git revert`, `artifacts/card-localization-stage2-20261031/` 삭제.
+
+## 결과 (2026-10-31, 기록 `artifacts/experiments/20261030T231004-856c9c5d`, 계획 `tools/experiments/card-localization-stage2-20261031/plan.json`)
+- 사람 4점 23면(중립 시작 점, 신규)에서 10% 넓힘 미충족 **4/23**(17.4%, Wilson 7.0~37.1%), 기준 ≤2 **미달**. 원본 autobox 7/23. 신규 미충족 4면 중 상자 밖 3·면적비>2 1.
+- 전체 39면: 넓힘 8/39, 원본 15/39. 기존 16면: 넓힘 4/16. 배치별 신규: f 0/7, g 1/2, h 3/14.
+- 결론: 단순 10% 넓힘은 카드 찾기로 채택하지 않는다. 넓힘은 원본 대비 개선(7→4)이나 기준 미달. 독립 평가 아님·편의 표본·23면은 구간 넓음.
+- 보고서: `artifacts/card-localization-stage2-20261031/report.html`. 불가 0, 사진 밖 잘림 제외 1(`562d461bcf3f22`).
