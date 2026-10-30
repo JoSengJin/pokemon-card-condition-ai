@@ -71,7 +71,7 @@ test('수동 간선은 근거가 있어야 하며 가중치로 깊이에 반영�
 test('실제 저장소: 구조 수정 단계별 측정값(수정 전 6857715 기준 pushNow 7·onMainEnd 12·runPush 5 → 단계 1b 라우팅 평탄화 이후 갱신)', () => {
   const out = JSON.parse(execFileSync(process.execPath, [tool, `--root=${repoRoot}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
   assert.equal(depthOf(out, 'runPush'), 0, 'runPush는 gate 인자로 push 범위를 직접 검증해 4회 이하(초과 목록에 없음)');
-  assert.equal(depthOf(out, 'dispatchAction'), 5, 'push 경로는 4회 이하이고 남은 초과는 MainOps.approve 연결부');
+  assert.equal(depthOf(out, 'dispatchAction'), 0, 'push·승인·상태 기록 평탄화 뒤 dispatchAction은 4회 이하');
   const direct = JSON.parse(execFileSync(process.execPath, [tool, `--root=${repoRoot}`, '--start=runPush'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).starts[0].callees as string[];
   assert.ok(direct.includes('push.ts:preparePush') && direct.includes('push.ts:verifyAutomaticPush') && direct.includes('push.ts:executePush'), '수동 호환 경로도 plan→scope→exec 단계 함수를 직접 호출');
   assert.equal(depthOf(out, 'onMainEnd'), 9, 'ackSession 행동 적용 분리로 1회 줄었지만 한도 처리 사슬은 아직 4회를 넘는다');

@@ -198,7 +198,7 @@ export class Executor {
   private event(type: string, data: Record<string, unknown>) { appendEvent(this.cfg.stateDir, { type, lifetime: this.lifetime, ...data }); }
   private setStatus(t: Task, s: TaskStatus, reason?: string) {
     t.status = s; t.statusReason = reason; t.updatedAt = new Date().toISOString();
-    this.event('task_status', { taskId: t.taskId, status: s, reason });
+    appendEvent(this.cfg.stateDir, { type: 'task_status', lifetime: this.lifetime, taskId: t.taskId, status: s, reason });
     this.store.save();
   }
 
@@ -818,8 +818,10 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
 
   // ---------- 승인 ----------
   private async integrationState(t: Task, sha: string) {
-    const files = (await G.changedFiles(t.worktree, t.baseSha, sha)).sort();
-    const baseHead = await G.revParse(this.cfg.integration.checkout, `refs/heads/${this.cfg.integration.branch}`);
+    const changed = await G.run('git', ['diff', '--name-only', '-z', `${t.baseSha}..${sha}`], t.worktree);
+    const files = changed.stdout.split('\0').filter(Boolean).sort();
+    const base = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${this.cfg.integration.branch}^{commit}`], this.cfg.integration.checkout);
+    const baseHead = G.FULL_SHA.test(base.stdout.trim()) ? base.stdout.trim() : null;
     return { files, filesHash: crypto.createHash('sha256').update(files.join('\0')).digest('hex'), baseHead };
   }
 
