@@ -1,9 +1,10 @@
 // authorized 행동 하나를 재승인한 뒤 dispatching으로 먼저 저장하고 서비스를 호출한다.
 import { authorize } from './approvalGate.ts';
 import { finishAction } from './actionState.ts';
-import { confirmAction, pushAction } from './mainDispatch.ts';
+import { confirmAction } from './mainDispatch.ts';
 import { outcomeProblem } from './mainOutcome.ts';
 import { lock } from './mainSerial.ts';
+import { runPush } from './push.ts';
 import { UserError, type Executor } from './executor.ts';
 import type { ActionWork, MainSession } from './mainTypes.ts';
 
@@ -21,7 +22,12 @@ export async function dispatchAction(ex: Executor, s: MainSession, work: ActionW
       else if (a.type === 'integrate_task' && ops.integrate) await ops.integrate(target);
       else if (a.type === 'assign_task' && ops.assign) await ops.assign(work.input ?? {});
       else if (a.type === 'confirm_handoff') await confirmAction(ex, a, target, !!work.selfReview);
-      else if (a.type === 'push_main') await pushAction(ex, s.id, a);
+      else if (a.type === 'push_main') {
+        const sha = String(a.sha ?? '').toLowerCase();
+        if (sha.length < 12) throw new UserError('push 확인 SHA는 앞 12자 이상이어야 함');
+        const pushed = await runPush(ex, sha, { sessionId: s.id });
+        if (pushed.status !== 'pushed_verified') throw new UserError(`push가 검증되지 않음(${pushed.status}): ${pushed.detail}`);
+      }
       else throw new UserError(`지원하지 않거나 연결되지 않은 행동(${a.type}) — 수행하지 않음`);
     } catch (e) { finishAction(ex, work, false, `수행 실패: ${(e as Error).message}`); return; }
     const bad = outcomeProblem(ex, a, target);

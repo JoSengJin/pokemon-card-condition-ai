@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Executor, UserError, type Task } from './executor/executor.ts';
 import { realReadiness } from './executor/adapters.ts';
-import { pushState, runPush } from './executor/push.ts';
+import { pushState } from './executor/push.ts';
 import { pipelineView } from './executor/pipelineView.ts';
 
 let executor: Executor | null = null;
@@ -33,7 +33,6 @@ export function bindRuntime(ex: Executor, m: Mastra) {
     // 배정은 준비 + 구현 시작까지(input.start:false면 준비만). 시작은 화면 버튼과 같은 startTask 경로다.
     assign: async (input) => { const r = await prepareTask(input); if (input.start !== false) await startTask(r.taskId!); },
     confirm: async (taskId, note) => { ex.confirmHandoff(taskId, note); },
-    push: async (sha, gate) => { const r = await runPush(ex, sha, gate); return { status: r.status, detail: r.detail }; },
   });
 }
 

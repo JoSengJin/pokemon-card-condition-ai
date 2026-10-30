@@ -40,23 +40,6 @@
       "resolves": [
         "confirm"
       ]
-    },
-    {
-      "from": "mainDispatch.ts:pushAction",
-      "to": "runtime.ts:push",
-      "weight": 1,
-      "evidence": "pushAction이 ex.mainOps.push를 지역 변수 push로 받아 push(sha, { sessionId })를 직접 호출(gate 인자)",
-      "via": "await push(sha, { sessionId })",
-      "resolves": [
-        "push"
-      ]
-    },
-    {
-      "from": "runtime.ts:push",
-      "to": "push.ts:runPush",
-      "weight": 1,
-      "evidence": "runtime.ts push 연결부가 runPush(ex, sha, gate)를 호출(소스 확인; gate는 push 직전 범위 검사를 켠다)",
-      "via": "runPush("
     }
   ]
 }

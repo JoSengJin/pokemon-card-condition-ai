@@ -100,8 +100,6 @@ export interface MainOps {
   approve?: (taskId: string, sha: string) => Promise<unknown>;
   integrate?: (taskId: string) => Promise<unknown>;
   confirm?: (taskId: string, note: string) => Promise<unknown>;
-  /** gate는 자동 push의 세션. 있으면 push 직전(점검·잠금·원격 재확인 뒤) 같은 계획으로 범위·승인을 다시 검사하고, 어긋나면 push하지 않는다. */
-  push?: (sha: string, gate?: { sessionId: string }) => Promise<{ status: string; detail: string }>;
 }
 
 /** 새 메인이 낼 수 있는 행동. 이 목록 밖 type은 지원하지 않는 행동으로 거부한다. */
