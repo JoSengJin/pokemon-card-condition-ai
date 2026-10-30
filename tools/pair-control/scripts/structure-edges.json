@@ -2,17 +2,17 @@
   "note": "정적 분석이 확정하지 못하는 실제 연결을 근거와 함께 적는다. 근거 없는 간선은 도구가 거부한다. 간선은 호출자 코드와 대조해 확인한 것만 둔다.",
   "edges": [
     {
-      "from": "mainActions.ts:runOne",
+      "from": "actionDispatch.ts:dispatchAction",
       "to": "runtime.ts:approve",
       "weight": 1,
-      "evidence": "runOne의 `ops = ex.mainOps` 직접 호출(ops.approve). mainOps는 runtime.ts bindRuntime이 ex.setMainOps({approve,...})로 넣은 객체",
+      "evidence": "dispatchAction의 `ops = ex.mainOps` 직접 호출(ops.approve). mainOps는 runtime.ts bindRuntime이 ex.setMainOps({approve,...})로 넣은 객체",
       "via": "ops.approve",
       "resolves": [
         "ops.approve"
       ]
     },
     {
-      "from": "mainActions.ts:runOne",
+      "from": "actionDispatch.ts:dispatchAction",
       "to": "runtime.ts:integrate",
       "weight": 1,
       "evidence": "ops.integrate — 위와 같은 MainOps 연결",
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "from": "mainActions.ts:runOne",
+      "from": "actionDispatch.ts:dispatchAction",
       "to": "runtime.ts:assign",
       "weight": 1,
       "evidence": "ops.assign — 위와 같은 MainOps 연결",

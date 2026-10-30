@@ -24,6 +24,11 @@ export interface Approval {
 }
 
 export interface ActionResult { id: string; type: string; ok: boolean; detail: string; at: string }
+export type ActionStatus = 'accepted' | 'authorized' | 'dispatching' | 'done';
+export interface ActionWork {
+  action: MainAction; status: ActionStatus; target?: string; input?: Record<string, unknown>; selfReview?: boolean;
+  dispatchLifetime?: string; result?: ActionResult;
+}
 
 export type SessionStatus = 'launching' | 'taken_over' | 'applying' | 'completed' | 'idle' | 'failed';
 
@@ -46,6 +51,8 @@ export interface MainSession {
   actionResults: ActionResult[];
   /** 인수 확인 뒤 저장된 행동. 다음 감시 틱이 적용을 시작하기 전에 지우고 applying을 저장한다. */
   pendingActions?: MainAction[];
+  actionWork?: ActionWork[];
+  actionLifetime?: string;
 }
 
 export interface MainRuntime {
@@ -77,6 +84,7 @@ export interface MainTurn {
   execId?: string; tokenHash: string; checkpointFile: string; checkpointHash: string; actionResults: ActionResult[]; failure?: string;
   /** 검증을 통과해 저장된 응답의 행동(적용 전). 종료 관찰이 여기까지 기록하고, 적용은 연속 처리 진입점이 이 저장 상태를 읽어 따로 한다. */
   pendingActions?: MainAction[];
+  actionWork?: ActionWork[];
 }
 /** 새 턴을 막는 진행 중 상태. verified(검증 끝, 적용 전)도 포함한다. */
 export const TURN_IN_FLIGHT: TurnStatus[] = ['launching', 'launched', 'verified', 'applying'];

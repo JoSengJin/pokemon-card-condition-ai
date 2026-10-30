@@ -24,6 +24,8 @@ test('verified 턴은 다음 연속 처리에서 한 번만 적용되고 저장�
   try {
     owner(e); verifiedTurn(e);
     await pipelineTick(e.ex);
+    assert.equal(pipe(e.ex).turns.t1.status, 'applying', '첫 틱은 accepted 상태만 저장');
+    await pipelineTick(e.ex);
     const t = pipe(e.ex).turns.t1;
     assert.equal(t.status, 'applied'); assert.deepEqual(t.actionResults.map((r) => [r.id, r.ok]), [['n1', true]]); assert.equal(t.pendingActions, undefined);
     await pipelineTick(e.ex);
@@ -60,6 +62,7 @@ test('재시작 뒤: 이전 수명에서 검증만 끝난(verified) 응답은 �
   try {
     owner(e); const launches = verifiedTurn(e, { lifetime: 'previous-server' });
     pipe(e.ex).turns.t2 = { ...pipe(e.ex).turns.t1, id: 't2', status: 'applying', pendingActions: undefined, eventKeys: [] };
+    await pipelineTick(e.ex);
     await pipelineTick(e.ex);
     assert.equal(pipe(e.ex).turns.t1.status, 'applied'); assert.equal(pipe(e.ex).turns.t1.actionResults.length, 1);
     assert.equal(pipe(e.ex).turns.t2.status, 'unknown', '적용 중이던 턴은 다시 적용하지 않음'); assert.equal(pipe(e.ex).turns.t2.actionResults.length, 0);

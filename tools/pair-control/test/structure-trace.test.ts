@@ -74,6 +74,6 @@ test('실제 저장소: 구조 수정 단계별 측정값(수정 전 6857715 기
   assert.equal(depthOf(out, 'pushAction'), 6, 'pushAction→runtime.push→runPush→preflight→git→netEnv→sanitizedChildEnv');
   const direct = JSON.parse(execFileSync(process.execPath, [tool, `--root=${repoRoot}`, '--start=runPush'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).starts[0].callees as string[];
   assert.ok(direct.includes('pushOwnership.ts:verifyPushScope'), 'runPush가 verifyPushScope를 직접 호출하는 간선이 정적 그래프에 있음(수동 간선 없이)');
-  assert.equal(depthOf(out, 'onMainEnd'), 10, 'dispatch 중첩 제거로 1회 줄었지만 아직 4회를 넘는다(후속 상태 단계에서 해소)');
+  assert.equal(depthOf(out, 'onMainEnd'), 9, 'ackSession 행동 적용 분리로 1회 줄었지만 한도 처리 사슬은 아직 4회를 넘는다');
   assert.ok(Array.isArray(out.unresolved) && out.manualEdges >= 6, '수동 간선과 미확인 목록이 출력됨');
 });
