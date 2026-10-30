@@ -2,7 +2,7 @@
 
 - task_id: card-localization-widen-20261031
 - owner: Claude (Codex 토큰 만료 기간 대행. 절차는 Codex 방식을 따른다)
-- status: plan_only (worker·실행 없음)
+- status: executed — 기준 미달 (기록 `artifacts/experiments/20261030T225414-c1993f4a`)
 - base_sha: 391dc22 (main)
 - approval: 2026-10-31 사용자 "후보 계획 작성". 카드 찾기 개발 범위는 같은 날 승인("응 진행해"). 점수표·`development-progress.json`은 바꾸지 않았다.
 
@@ -46,3 +46,9 @@
 
 ## 롤백
 새 파일 2개 삭제(`git revert`).
+
+## 결과 (2026-10-31, 개발용 진단·독립 평가 아님)
+- 미충족 6/29(20.7%, Wilson 9.8~38.4%), 기준선 17/29 → 기준 ≤2 **미달**. 채택하지 않는다.
+- 복구 12면, 새로 미충족 1면(`80e168`: 넓힘 뒤 면적비 2.58). 남은 6면 중 4면은 넓혀도 4점이 상자 밖(`c9ba1d`,`3ad434`,`f82f94`,`6f4f2e`), 2면은 면적비 >2(`c6a900`,`001811`).
+- 해석: 단순 넓힘은 작은 undershoot를 크게 줄이지만 큰 실패와 이미 큰 상자는 해결 못 한다. 비율·면적 상한 변경은 새 가설 ID와 새 사전 기준 필요.
+- 학습·모델·외부 AI 호출 0. 보고서: `artifacts/card-localization-widen-20261031/report.html`.
