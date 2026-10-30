@@ -163,25 +163,37 @@ export async function preflight(ex: Executor): Promise<PushPlan> {
   return done();
 }
 
-/** 푸시. 방금 다시 점검해 막힘이 없고, 사용자가 입력한 값이 대상 SHA의 앞 12자 이상과 일치할 때만 실행한다. gate(자동 push의 세션)가 있으면 push 직전에 같은 계획으로 범위·승인을 다시 검사하고, 어긋나면 던져 push하지 않는다. */
-export async function runPush(ex: Executor, confirm: string, gate?: { sessionId: string }): Promise<PushRecord> {
-  const cwd = checkout(ex);
+/** 저장 가능한 push 계획을 만들고 확인 SHA를 대조한다. */
+export async function preparePush(ex: Executor, confirm: string): Promise<PushPlan> {
   const typed = String(confirm ?? '').trim().toLowerCase();
   const plan = await preflight(ex);
   if (plan.blockers.length) throw new UserError(`푸시할 수 없음: ${plan.blockers.join(' / ')}`);
   if (typed.length < 12 || !plan.localHead.startsWith(typed)) throw new UserError(`확인 입력이 대상 SHA(${plan.localHead.slice(0, 12)}…)의 앞 12자와 다름 — 점검 이후 로컬이 바뀌었을 수 있음`);
+  return plan;
+}
+
+/** 자동 push 범위와 현재 승인을 대조한다. scope 단계와 실제 push 직전에 같은 구현을 호출한다. */
+export async function verifyAutomaticPush(ex: Executor, sessionId: string, plan: PushPlan): Promise<string[]> {
+  const { unowned, tasks } = await pushScope(ex, plan);
+  if (unowned.length) throw new UserError(`승인된 통합 이력에 없는 커밋 ${unowned.length}개(${unowned.slice(0, 3).map((s) => s.slice(0, 8)).join(', ')})가 push 범위에 있음 — 자동 push 보류, 사용자가 직접 확인·push`);
+  if (!tasks.length) throw new UserError('push 대상 커밋이 승인된 작업과 연결되지 않음 — 사용자 판단 필요');
+  for (const id of tasks) authorize(ex, sessionId, 'integrate_task', id);
+  authorize(ex, sessionId, 'push_main', plan.branch);
+  return tasks;
+}
+
+/** 저장된 계획을 잠그고 실행한다. 호출 전에 exec 상태를 저장해야 하며, 결과 불명일 때 자동 재시도하지 않는다. */
+export async function executePush(ex: Executor, plan: PushPlan, sessionId?: string, tasks: string[] = []): Promise<PushRecord> {
+  const cwd = checkout(ex);
   const owner = crypto.randomUUID();
   if (!ex.locks.acquire('integration', { owner, kind: 'push' })) throw new UserError(`다른 통합·푸시가 진행 중: ${JSON.stringify(ex.locks.holder('integration'))}`);
   try {
     const now = await lsRemote(cwd, plan.remote, plan.branch);
     if (!now.ok) throw new UserError(`원격 확인 실패: ${now.detail}`);
     if (now.sha !== plan.remoteHead) throw new UserError('점검 이후 원격이 바뀜 — 다시 점검');
-    if (gate) {
-      const { unowned, tasks } = await pushScope(ex, plan);
-      if (unowned.length) throw new UserError(`승인된 통합 이력에 없는 커밋 ${unowned.length}개(${unowned.slice(0, 3).map((s) => s.slice(0, 8)).join(', ')})가 push 범위에 있음 — 자동 push 보류, 사용자가 직접 확인·push`);
-      if (!tasks.length) throw new UserError('push 대상 커밋이 승인된 작업과 연결되지 않음 — 사용자 판단 필요');
-      for (const id of tasks) authorize(ex, gate.sessionId, 'integrate_task', id);
-      authorize(ex, gate.sessionId, 'push_main', plan.branch);
+    if (sessionId) {
+      for (const id of tasks) authorize(ex, sessionId, 'integrate_task', id);
+      authorize(ex, sessionId, 'push_main', plan.branch);
     }
     const command = ['git', 'push', '--porcelain', plan.remote, `${plan.localHead}:refs/heads/${plan.branch}`];
     const rec: PushRecord = {
@@ -211,6 +223,13 @@ export async function runPush(ex: Executor, confirm: string, gate?: { sessionId:
     ex.store.save();
     return rec;
   } finally { ex.locks.release('integration', 'owner', owner); }
+}
+
+/** 수동/API 호환 경로는 같은 단계 함수를 한 요청 안에서 순서대로 수행한다. */
+export async function runPush(ex: Executor, confirm: string, gate?: { sessionId: string }): Promise<PushRecord> {
+  const plan = await preparePush(ex, confirm);
+  const tasks = gate ? await verifyAutomaticPush(ex, gate.sessionId, plan) : [];
+  return executePush(ex, plan, gate?.sessionId, tasks);
 }
 
 /** 결과 불명·불일치였던 푸시의 원격 상태를 다시 확인한다(읽기 전용). */

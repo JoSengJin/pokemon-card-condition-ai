@@ -4,7 +4,6 @@ import { finishAction } from './actionState.ts';
 import { confirmAction } from './mainDispatch.ts';
 import { outcomeProblem } from './mainOutcome.ts';
 import { lock } from './mainSerial.ts';
-import { runPush } from './push.ts';
 import { UserError, type Executor } from './executor.ts';
 import type { ActionWork, MainSession } from './mainTypes.ts';
 
@@ -25,8 +24,7 @@ export async function dispatchAction(ex: Executor, s: MainSession, work: ActionW
       else if (a.type === 'push_main') {
         const sha = String(a.sha ?? '').toLowerCase();
         if (sha.length < 12) throw new UserError('push 확인 SHA는 앞 12자 이상이어야 함');
-        const pushed = await runPush(ex, sha, { sessionId: s.id });
-        if (pushed.status !== 'pushed_verified') throw new UserError(`push가 검증되지 않음(${pushed.status}): ${pushed.detail}`);
+        work.pushStage = 'plan'; ex.store.save(); return;
       }
       else throw new UserError(`지원하지 않거나 연결되지 않은 행동(${a.type}) — 수행하지 않음`);
     } catch (e) { finishAction(ex, work, false, `수행 실패: ${(e as Error).message}`); return; }

@@ -6,7 +6,8 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
-import { applyActions } from '../src/executor/mainActions.ts';
+import { advanceActions, applyActions } from '../src/executor/mainActions.ts';
+import { acceptActions } from '../src/executor/actionState.ts';
 import { authorize, grantApproval, revokeApproval } from '../src/executor/mainApprovals.ts';
 import { handoverMain } from '../src/executor/mainHandover.ts';
 import { pipelineTick } from '../src/executor/pipelineTick.ts';
@@ -143,8 +144,14 @@ test('B. 승인된 작업의 커밋만 있으면 합성 원격에 push된다', {
   const e = setup();
   try {
     const s = owner(e); const head = await integratedTaskA(e); pushGrants(e);
-    const r = await applyActions(e.ex, s, [{ id: 'p1', type: 'push_main', target: 'main', sha: head }]);
-    assert.equal(r[0].ok, true, r[0].detail);
+    acceptActions(e.ex, s, [{ id: 'p1', type: 'push_main', target: 'main', sha: head }]);
+    assert.equal(s.actionWork[0].status, 'accepted');
+    await advanceActions(e.ex, s, s); assert.equal(s.actionWork[0].status, 'authorized');
+    await advanceActions(e.ex, s, s); assert.equal(s.actionWork[0].pushStage, 'plan');
+    await advanceActions(e.ex, s, s); assert.equal(s.actionWork[0].pushStage, 'scope');
+    await advanceActions(e.ex, s, s); assert.equal(s.actionWork[0].pushStage, 'lock');
+    await advanceActions(e.ex, s, s);
+    assert.equal(s.actionWork[0].status, 'done'); assert.equal(s.actionWork[0].result.ok, true, s.actionWork[0].result.detail);
     assert.equal(originHead(e), head);
   } finally { e.cleanup(); }
 });

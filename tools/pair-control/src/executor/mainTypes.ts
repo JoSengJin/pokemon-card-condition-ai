@@ -27,7 +27,7 @@ export interface ActionResult { id: string; type: string; ok: boolean; detail: s
 export type ActionStatus = 'accepted' | 'authorized' | 'dispatching' | 'done';
 export interface ActionWork {
   action: MainAction; status: ActionStatus; target?: string; input?: Record<string, unknown>; selfReview?: boolean;
-  dispatchLifetime?: string; result?: ActionResult;
+  dispatchLifetime?: string; pushStage?: 'plan' | 'scope' | 'lock' | 'exec'; pushPlanId?: string; pushTasks?: string[]; result?: ActionResult;
 }
 
 export type SessionStatus = 'launching' | 'taken_over' | 'applying' | 'completed' | 'idle' | 'failed';
