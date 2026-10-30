@@ -99,7 +99,6 @@ export interface MainOps {
   assign?: (input: Record<string, unknown>) => Promise<unknown>;
   approve?: (taskId: string, sha: string) => Promise<unknown>;
   integrate?: (taskId: string) => Promise<unknown>;
-  confirm?: (taskId: string, note: string) => Promise<unknown>;
 }
 
 /** 새 메인이 낼 수 있는 행동. 이 목록 밖 type은 지원하지 않는 행동으로 거부한다. */

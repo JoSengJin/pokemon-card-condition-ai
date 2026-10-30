@@ -16,7 +16,5 @@ export async function confirmAction(ex: Executor, a: MainAction, taskId: string,
   const seen = [...new Set(a.reviewedFiles ?? [])].sort().join('\n');
   if (!String(a.note ?? '').trim() || seen !== [...r.changedFiles].sort().join('\n')) throw new UserError(`${taskId}: 검토 메모가 없거나 검토한 파일 목록이 변경 파일 전체와 다름`);
   if (a.diffHash !== crypto.createHash('sha256').update((await G.git(t.worktree, 'diff', '--binary', t.baseSha, r.headSha)).stdout).digest('hex')) throw new UserError(`${taskId}: diff 해시가 도구 계산값과 다름 — 실제 diff를 읽은 증거 없음`);
-  const confirm = ex.mainOps.confirm;
-  if (!confirm) throw new UserError('지원하지 않거나 연결되지 않은 행동(confirm_handoff) — 수행하지 않음');
-  await confirm(taskId, `${t.agent === ex.mainAgent ? '[자기 확인 — 독립 확인 아님] ' : ''}${String(a.note)}`.slice(0, 500));
+  ex.confirmHandoff(taskId, `${t.agent === ex.mainAgent ? '[자기 확인 — 독립 확인 아님] ' : ''}${String(a.note)}`.slice(0, 500));
 }

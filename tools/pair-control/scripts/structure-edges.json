@@ -30,16 +30,6 @@
       "resolves": [
         "ops.assign"
       ]
-    },
-    {
-      "from": "mainDispatch.ts:confirmAction",
-      "to": "runtime.ts:confirm",
-      "weight": 1,
-      "evidence": "confirmAction이 ex.mainOps.confirm을 지역 변수 confirm으로 받아 직접 호출 — 위와 같은 MainOps 연결",
-      "via": "await confirm(taskId,",
-      "resolves": [
-        "confirm"
-      ]
     }
   ]
 }
