@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "criterion_version": "usable-card-analysis-v1.0",
-  "effective_date": "2026-10-24",
+  "criterion_version": "usable-card-analysis-v1.1",
+  "effective_date": "2026-11-01",
   "timezone": "Asia/Seoul",
   "scope": "사람이 카드영역을 확인할 수 있는 앞뒤사진 보조분석: 센터링/모서리/엣지/표면 손상 및 관찰제한. 카드식별/가격/위조감지/공식등급보증은 제외.",
   "score_method": "milestone binary: verified earns full fixed weight; pending earns zero; unknown is pending; no subjective partial credit",
   "score": 35,
   "max_score": 100,
-  "previous_same_version_score": 30,
+  "previous_same_version_score": null,
   "production_ready": false,
   "categories": [
     {
@@ -119,15 +119,15 @@
       "milestones": [
         {
           "id": "C1",
-          "title": "엣지",
+          "title": "엣지(후면은 점검 우선순위 제안)",
           "weight": 7,
           "status": "pending",
           "earned": 0,
-          "completion_criterion": "고정 개발 평가의 앞/뒤 각각 해당질문 FN/(TP+FN)<=5%, FP/(TN+FP)<=10%. 양성/정상 각20판정단위·각5실물이상. 모든 기존 실험 보호와 필수회귀를 통과한 동일 후보·threshold0.5로 평가하며 보류도 원래의 raw 판정/정답 분모에서 빼지 않는다. 미확인 사람정답은 분모 밖으로 명시한다. 올바른종류의 실제점 양성반응 누락<=5%(앞뒤 각20점·5실물이상)도 요구한다. 정상구역 최대의 오탐은 위 FP에 포함하되, 정상점/전체손상범위가 없어 위치정확도·IoU를 주장하지 않는다.",
+          "completion_criterion": "후면 엣지 구역은 판정이 아니라 점검 우선순위 제안으로 평가한다(사용자 승인 2026-11-01, v1.1). 학습·튜닝에 쓰지 않은 독립 보류 사진 그룹 ≥40개·결함 사진 ≥20개에서 고정 후보로 한 번 평가해, (a) 높음 구간(점수≥0.54)과 낮음 구간(점수<0.31)의 구역 결함 비율 격차 ≥0.40, (b) 결함과 정상이 섞인 사진에서 점수 1위 구역이 결함인 비율이 무작위 기대보다 ≥0.20 높음, (c) (a)(b)의 사진 그룹 부트스트랩 95% 구간 하한이 각각 기준(0.40, 0.20) 이상일 것을 요구한다. 구간 임계 0.31/0.54는 개발 자료의 교차검증 점수에서 결과 전에 고정했고 독립 자료로 바꾸지 않는다. 이 기준을 정한 뒤 처음 평가하는 독립 보류 자료로만 판정하며, 본문 수치를 본 평가 결과로 조정하지 않는다. 후면 엣지의 FN/FP 판정 목표(누락 5% 이하·오탐 10% 이하)는 이 항목에서 제외한다. 앞면 엣지는 이 항목의 충족 범위가 아니며 별도 판정 기준 없이 미지원으로 둔다. 결함·정상 확정, 누락 5% 이하 같은 표현은 후면 엣지에 쓰지 않는다. 정상점/전체손상범위가 없어 위치정확도·IoU를 주장하지 않는다.",
           "evidence": [
             "card_condition/listing_readiness.py"
           ],
-          "assessment": "해당 범위/앞뒤 전체를 동일 후보로 통과한 근거가 없다."
+          "assessment": "독립 보류 사진 그룹 ≥40·결함 사진 ≥20의 새 기준 첫 평가가 아직 판정되지 않았다. 개발 평가(교차검증 788행·보류 36장)는 참고용이며 이 항목의 증거가 아니다."
         },
         {
           "id": "C2",
@@ -334,7 +334,19 @@
       ],
       "reason": "eBay val 5수집(a~e, 86행) 사람 검토 결과를 기존 채택본(ad021468…)에 합쳐 동결. val 10셀 수량 충족·val 좌표 감사 오류0·분모/결측표 버전 고정. 모델 학습·추론·외부 AI 호출0, 정확도 변화 없음.",
       "evidence_report": "artifacts/development-manifest-20261028a/FROZEN_TABLE.md"
+    },
+    {
+      "date": "2026-11-01",
+      "criterion_version": "usable-card-analysis-v1.1",
+      "score": 35,
+      "previous_score": 35,
+      "change_pp": 0,
+      "changed_milestones": [
+        "C1"
+      ],
+      "reason": "사용자가 후면 엣지 모델의 용도 재정의(점검 우선순위 제안)와 C1 기준 변경안을 승인(2026-11-01). 기준 본문(C1 제목·완료조건)이 바뀌어 v1.0을 덮어쓰지 않고 v1.1로 분리. v1.0 snapshot 보존, v1.1 snapshot artifacts/progress-baseline-20261101/criteria-v1.1.json. 점수 35는 재산정 결과 변동 없음(C1 pending 유지, 배점·다른 항목 불변). v1.0 점수와 %p 비교하지 않는다.",
+      "evidence_report": "docs/collaboration/reports/triage-redefinition-proposal-20261031.md"
     }
   ],
-  "rubric_sha256": "c08a18ed972b55e7a23a282e87f849c45151ebccb8294a9804e3e916afb0bad7"
+  "rubric_sha256": "41921196cd0e512a202c95d9ed5d837befbbc16e9494eeba9cd4424b7d8b2bf5"
 }
