@@ -1,0 +1,57 @@
+{
+ "schema_version": 1,
+ "hypothesis_id": "edge-back-data-kl-20261031",
+ "hypothesis": "3차 head의 약점은 학습 130단위(eBay 37, 정상 65)로 작고 검증과 출처가 달랐다는 점이다(performance-top3-consensus 요인 1). 사람이 확인한 eBay 뒷면 엣지 단위 94개(k·l, 정상 55 포함)를 학습에 더하면 검증 순위가 올라가고 학습 분포 의존(복원추출 AUC 분산)이 줄어든다.",
+ "change": "바꾸는 것 하나: 학습 자료 manifest 20261030c → 20261031l(train 단위 130→224, eBay 37→131, 양성 65→104; val 275는 동일). head 구조·L2=1·출처 가중·DINOv2 448·구역·threshold 0.5·검증은 3차와 같다. 모바일 입력 라벨 2배치(k는 아직 엣지 구역 입력 전이라 이번 분은 l만 반영됨).",
+ "success_criterion": "동일 검증 275구역(양성117·정상158)에서 AUC >= 0.854(3차 0.804+0.05)이고 누락 <= 18, 오탐 <= 59 (threshold 0.5). 러너 대응 acceptance max_fn=18, max_fp=59.",
+ "failure_criterion": "하나라도 미충족이면 채택하지 않는다. 결과를 본 뒤 기준·자료 구성을 바꾸지 않는다. 보조(판정 안 함): 같은 사진 AUC(3차 0.798), 학습 그룹 복원추출 20개 단일 head AUC 평균·표준편차·범위(이전 자료 0.586±0.171, 0.328~0.845)와의 비교.",
+ "reference_result": "artifacts/edge-back-data-kl-20261031/reference/result.json",
+ "reference_note": "3차 head(20261030T113857-2deb9558) 검증 점수.",
+ "acceptance": {
+  "max_fn": 18,
+  "max_fp": 59,
+  "no_new_errors": false,
+  "require_actual_point_guard": false
+ },
+ "code_changes": [
+  {
+   "path": "artifacts/edge-back-data-kl-20261031/worker.py",
+   "baseline": null
+  }
+ ],
+ "input_sha256": {
+  "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+  "artifacts/inner-whitening-confounder-20261021/confounder_head.py": "c54864f7e0b51c5e05af9db44ef236f8976995ed68b48d749a3ce165bd919cef",
+  "card_condition/regions.py": "4d441c24f5ce11617a11f32fc03353241741d66c218bc98fe607583feb02c911",
+  "card_condition/local_wear_cnn.py": "91f0c875812baa947b7e4d5ae9d40de53427d1d94dc92d77e849d3f3c556005f",
+  "card_condition/side_experiment.py": "06162757d756525d70b4727a91bf435a16f768b2a9678eb57cd499bd37fbe87d",
+  "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+  "artifacts/train-geometry-review-20261030/answers-1.txt": "322c006788c7779ac211394e788a0ebcc79b8f678f94de0a31cc785e87289d6a",
+  "artifacts/train-geometry-review-20261030/answers-2-4.txt": "594ebc994c3c21fb2ad6b69140d233b0e3d4d0fce034c3e009b22b261b5ee7f8",
+  "artifacts/train-geometry-review-20261030/human-response-2-4.json": "0b87c34092315ac2620ad78d1ef6c3c8fcf60ab628a05abe8a4c9d0c2b24d216",
+  "tools/experiments/edge-back-source-weight-20261030/worker.py": "b51abd8e4664fe5124f2b29528c59fe8bf1bf7ce0fad168ae31084146aadd017",
+  "artifacts/experiments/20261030T113857-2deb9558/observations.json": "530cf9004b939298e606f150eda5f3fa47a505b32285ef6c561bae16d4935ff6",
+  "artifacts/experiments/20261030T113857-2deb9558/evaluation.json": "5b7cc6679922cf3b903bc7e2636f6db0fea7edf80cf4bd6c3e65f53220ac57c2",
+  "artifacts/development-manifest-20261031l/combined-reviewed.jsonl": "e68b86a554b1ea05fe987b337354c3be43e08febb74172ff04aefe48e2365212",
+  "artifacts/development-manifest-20261031l/coverage.json": "bac308cd95a09d8470a7fb61e1e9474170a7a20abdffed1b985721ebdf0cd55f",
+  "tools/experiments/edge-back-bagging-20261031/worker.py": "bc2b72e5e1605cf17857045e4e82c3badf835037f4c6902068e6415a52a04aaa"
+ },
+ "gemini_calls_allowed": 0,
+ "independent": false,
+ "production_adopted": false,
+ "experiment_kind": "model_comparison",
+ "threshold": 0.5,
+ "tracked_directory": "tools/experiments/edge-back-data-kl-20261031",
+ "coverage": "artifacts/development-manifest-20261031l/coverage.json",
+ "backbone_directory": "artifacts/torch-cache/hub/facebookresearch_dinov2_7764ea0f912e53c92e82eb78a2a1631e92725fc8",
+ "backbone_weights": "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth",
+ "expected_denominators": {
+  "train_val": [
+   224,
+   275
+  ]
+ },
+ "known_biases": "개발 검증이며 독립 시험 아님. 검증 275는 3차 선택에 쓰였다. 추가 자료는 같은 eBay 검색 계열이고 한 사람의 폰 입력이다. 같은 사진 안 교란(정상/결함 사진 통계)은 통제되지 않는다. 상자 미확인 2면은 학습에서 제외된다.",
+ "expected_limit": "추가 자료의 정상 구역은 결함 면 안의 정상 구역이 많아 같은 사진 대비 효과가 클 수 있으나 사진 단위 지름길은 남는다. 단일 실행의 우연 변동은 복원추출 분포가 보여 준다.",
+ "status": "ready_to_run"
+}
