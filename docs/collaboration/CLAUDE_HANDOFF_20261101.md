@@ -46,4 +46,4 @@
 - **외부 호출**: eBay 수집 API를 3회(intake aa·ab·ac, PokeCollector의 자격 설정을 읽기 전용으로 사용). Gemini·Codex 호출은 없다. 수집 사진·카탈로그는 `artifacts/ebay-intake-20261101-{aa,ab,ac}/`에만 쓰였고 `data/ebay-learn`에는 새 파일이 없다.
 - **공통 실행기·잠금**: `./experiment --plan`으로 실험 9건을 실행(모두 완료, 기록은 `artifacts/experiments/`). `./develop -- true`를 한 번 실행했다(no-op, 모델·소스 수정 없음). 현재 `workspace.lock`에 실행 중 프로세스 없음. `artifacts/development-cycle/latest.json`은 그대로(2026-10-24).
 - **저장소 작업**: `git stash`·`git checkout 2f90ea5 -- .`를 잘못 실행했다가 `git checkout HEAD -- .`로 복구(손실 없음). force push·이력 재작성 없음. 푸시는 일반 push만.
-- **미커밋**: `tools/mobile_surface_label_pages_v2.py`, `artifacts/surface-v2-20261101/`(취소한 작업, 삭제 가능). 세션 전부터 미추적인 4개 파일은 손대지 않음.
+- **미커밋(함께 인계, 사용자 결정 2026-11-01: 지우지 않고 Codex에게 넘김)**: `tools/mobile_surface_label_pages_v2.py`, `artifacts/surface-v2-20261101/`(취소한 재라벨 작업용 — 사용자가 이미 확대해 라벨해서 쓰지 않음. 삭제 여부는 Codex 판단, 연결된 코드·라벨 없음). 세션 전부터 미추적인 4개 파일은 손대지 않음.
