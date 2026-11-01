@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "criterion_version": "usable-card-analysis-v1.2",
+  "criterion_version": "usable-card-analysis-v1.3",
   "effective_date": "2026-11-01",
   "timezone": "Asia/Seoul",
   "scope": "사람이 카드영역을 확인할 수 있는 앞뒤사진 보조분석: 센터링/모서리/엣지/표면 손상 및 관찰제한. 카드식별/가격/위조감지/공식등급보증은 제외.",
@@ -146,16 +146,16 @@
         },
         {
           "id": "C3",
-          "title": "표면",
+          "title": "표면(후면은 점검 우선순위 제안)",
           "weight": 7,
           "status": "pending",
           "earned": 0,
-          "completion_criterion": "고정 개발 평가의 앞/뒤 각각 해당질문 FN/(TP+FN)<=5%, FP/(TN+FP)<=10%. 양성/정상 각20판정단위·각5실물이상. 모든 기존 실험 보호와 필수회귀를 통과한 동일 후보·threshold0.5로 평가하며 보류도 원래의 raw 판정/정답 분모에서 빼지 않는다. 미확인 사람정답은 분모 밖으로 명시한다. 올바른종류의 실제점 양성반응 누락<=5%(앞뒤 각20점·5실물이상)도 요구한다. 정상구역 최대의 오탐은 위 FP에 포함하되, 정상점/전체손상범위가 없어 위치정확도·IoU를 주장하지 않는다.",
+          "completion_criterion": "후면 표면 구역은 판정이 아니라 점검 우선순위 제안으로 평가한다(사용자 승인 2026-11-01, v1.3). 학습·튜닝에 쓰지 않은 독립 보류 사진 그룹 ≥40개·결함 사진 ≥20개에서 고정 후보로 한 번 평가해, (a) 높음 구간(점수≥0.531)과 낮음 구간(점수<0.281)의 구역 결함 비율 격차 ≥0.35이고 사진 그룹 부트스트랩 95% 하한 ≥0.25, (b) 결함과 정상이 섞인 사진에서 점수 1위 구역이 결함인 비율이 무작위 기대보다 ≥0.20 높고 부트스트랩 95% 하한 >0일 것을 요구한다. 구간 임계 0.281/0.531은 개발 자료의 교차검증 점수에서 결과 전에 고정했고 독립 자료로 바꾸지 않는다. 이 기준을 정한 뒤 처음 평가하는 독립 보류 자료로만 판정하며, 본문 수치를 본 평가 결과로 조정하지 않는다. 후면 표면의 FN/FP 판정 목표(누락 5% 이하·오탐 10% 이하)는 이 항목에서 제외한다. 앞면 표면은 이 항목의 충족 범위가 아니며 별도 판정 기준 없이 미지원으로 둔다. 결함·정상 확정, 누락 5% 이하 같은 표현은 후면 표면에 쓰지 않는다. 후면 표면은 결함 구역 비율이 높아(개발 52%) '높음' 구간이 넓다는 한계가 있다. 정상점/전체손상범위가 없어 위치정확도·IoU를 주장하지 않는다.",
           "evidence": [
             "artifacts/experiments/20261024T093945-04a7e5e8/result.json",
             "artifacts/experiments/20261024T093945-04a7e5e8/typed-point-scores.json"
           ],
-          "assessment": "최신후보는 같은147개발구역 FN12/94·FP13/53, typed 실제점FN20/51로 기준 및 최종수용 미통과."
+          "assessment": "독립 보류 사진 그룹 ≥40·결함 사진 ≥20의 새 기준 첫 평가가 아직 판정되지 않았다. 개발 평가(§42)는 참고용이며 이 항목의 증거가 아니다."
         },
         {
           "id": "C4",
@@ -373,7 +373,19 @@
       ],
       "reason": "사용자가 후면 모서리 점검 우선순위 용도 재정의와 C2 기준 변경안(v1.2)을 승인(2026-11-01). 기준 본문이 바뀌어 v1.1을 덮어쓰지 않고 분리. v1.1 snapshot 보존, v1.2 snapshot artifacts/progress-baseline-20261101/criteria-v1.2.json. 점수 42 변동 없음(C2 pending 유지, 배점·다른 항목 불변).",
       "evidence_report": "docs/collaboration/reports/corner-back-triage-proposal-20261101.md"
+    },
+    {
+      "date": "2026-11-01",
+      "criterion_version": "usable-card-analysis-v1.3",
+      "score": 42,
+      "previous_score": 42,
+      "change_pp": 0,
+      "changed_milestones": [
+        "C3"
+      ],
+      "reason": "사용자가 후면 표면 점검 우선순위 용도 재정의와 C3 기준 변경안(v1.3)을 승인(2026-11-01). 기준 본문이 바뀌어 v1.2를 덮어쓰지 않고 분리. v1.2 snapshot 보존, v1.3 snapshot artifacts/progress-baseline-20261101/criteria-v1.3.json. 점수 42 변동 없음(C3 pending 유지, 배점·다른 항목 불변).",
+      "evidence_report": "docs/collaboration/reports/surface-back-triage-proposal-20261101.md"
     }
   ],
-  "rubric_sha256": "26b6a4524d4e9d2255aec416066b0a5a29748aeee28bee2dad27793ca9e0abd9"
+  "rubric_sha256": "fdbc6e22491bf272b71f0964821c6d7687cc6296ea9eaf9bd545950d58f76696"
 }
