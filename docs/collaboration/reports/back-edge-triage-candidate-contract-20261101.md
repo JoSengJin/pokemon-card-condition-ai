@@ -24,3 +24,10 @@ C1(v1.1)을 독립 보류에서 충족한 후면 엣지 점검 우선순위 후�
 
 ## 롤백
 이 문서와 `artifacts/triage-edge-back-candidate-20261101/head.pt` 삭제(코드·점수·모델 사용 변경 없음).
+
+## 호출 모듈 (2026-11-01 추가)
+- 모듈 `card_condition/back_edge_triage.py`: `BackEdgeTriage(head_path, body, device).analyze(request)`. request는 `dict(id, side='back', image, box, box_reviewed=True)`.
+- 응답: 상자 미확인·앞면·무효 상자·읽을 수 없는 사진·비유한 점수는 `status='held'`(점수 없음)와 이유, 정상 시 `status='ranked'`와 8구역을 점수 내림차순(`rank`, `band` high/mid/low, 한국어 `label`). 응답에 결함·정상 판정 문구를 넣지 않고 `notice`로 용도를 명시한다. 요청 사전은 바꾸지 않는다. 구역은 엣지 8칸(중앙 제외).
+- 검증: 단위 테스트 5개(`tests/test_back_edge_triage.py`, `tests/test_back_edge_triage_guards.py`, 가짜 백본) 통과. 실제 백본+동결 head로 §41 보류 8장·64구역 점수와 비교해 최대 절대차 5.96e-8(같은 장치 mps).
+- 구조 기준: `back_edge_triage.py` 함수 5개(`band`, `load_head`, `zone_scores`, `__init__`, `analyze`), 최대 호출 경로 `analyze → zone_scores`(1회, 외부 라이브러리 호출 제외). 새 테스트 파일은 각 7개·3개.
+- 하지 않은 것: PokeCollector 연결, 운영 배포, 기존 `ListingAnalyzer` 변경. 이 모듈은 독립 호출용이며 소비 서비스 연결은 별도 승인 대상.
