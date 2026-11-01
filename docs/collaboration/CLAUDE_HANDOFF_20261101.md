@@ -39,3 +39,11 @@
 
 ## 롤백
 커밋 단위 `git revert`(이번 세션 커밋은 `3e9a70e`~`48af643`, 문서·실험 파일·모듈 추가만 있고 운영 코드·모델 가중치 변경 없음).
+
+## 부작용 점검(Codex가 확인할 목록)
+- **공유 파일을 수정한 것(정확히 이것뿐)**: `PROGRESS_CRITERIA.md`, `development-progress.json`(C2·C3 기준 본문, 버전 v1.1→v1.3, history 2건 추가; 점수 42 불변), `docs/collaboration/reports/performance-top3-consensus-20261030.md`(§43~§56 추가만), `back-edge-triage-candidate-contract-20261101.md`·제안서 2건·이 인계 문서(신규). 운영 코드·`card_condition/` 기존 파일·PokeCollector·Gemini fallback·모델 가중치는 수정하지 않았다. 신규 코드는 `card_condition/back_edge_triage.py`와 `tools/` 도구·`tools/experiments/*`뿐.
+- **실수로 커밋했다가 되돌린 것**: 커밋 `3c9e94c`에서 `git add docs/collaboration/reports`가 다른 작업의 미추적 초안 `corner-rectify-plan-20261030.md`를 함께 커밋했다. 이후 커밋에서 `git rm --cached`로 추적만 해제했고 파일 자체는 디스크에 그대로 있다(원래 미추적 상태로 복원). 이 파일의 내용은 내가 쓰지 않았고 수정하지 않았다.
+- **외부 호출**: eBay 수집 API를 3회(intake aa·ab·ac, PokeCollector의 자격 설정을 읽기 전용으로 사용). Gemini·Codex 호출은 없다. 수집 사진·카탈로그는 `artifacts/ebay-intake-20261101-{aa,ab,ac}/`에만 쓰였고 `data/ebay-learn`에는 새 파일이 없다.
+- **공통 실행기·잠금**: `./experiment --plan`으로 실험 9건을 실행(모두 완료, 기록은 `artifacts/experiments/`). `./develop -- true`를 한 번 실행했다(no-op, 모델·소스 수정 없음). 현재 `workspace.lock`에 실행 중 프로세스 없음. `artifacts/development-cycle/latest.json`은 그대로(2026-10-24).
+- **저장소 작업**: `git stash`·`git checkout 2f90ea5 -- .`를 잘못 실행했다가 `git checkout HEAD -- .`로 복구(손실 없음). force push·이력 재작성 없음. 푸시는 일반 push만.
+- **미커밋**: `tools/mobile_surface_label_pages_v2.py`, `artifacts/surface-v2-20261101/`(취소한 작업, 삭제 가능). 세션 전부터 미추적인 4개 파일은 손대지 않음.
