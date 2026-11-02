@@ -1,4 +1,4 @@
-"""C5 v1.8 independent holdout: back-face observation-limit score from ViT-S/14 448 patch mean+std pooling, standardized L2 logistic fit once on the 147 development back faces (obslimit-meanstd-20261101 rows), evaluated once on the labeled holdout back faces (AUC + photo-group bootstrap). Common-runner only."""
+"""C5 v1.8 independent holdout: back-face observation-limit score from ViT-S/14 448 patch mean pooling (§57 recipe), standardized L2 logistic fit once on the 147 development back faces (obslimit-meanstd-20261101 rows), evaluated once on the labeled holdout back faces (AUC + photo-group bootstrap). Common-runner only."""
 import hashlib
 import importlib.util
 import json
@@ -23,9 +23,7 @@ bag, sw = ms.bag, ms.sw
 
 def pooled(body, rows, device):
     x, m = sw.features(body, rows, device)
-    mean = (x*m[..., None]).sum(1)/m.sum(1, keepdim=True)
-    var = (((x-mean[:, None])**2)*m[..., None]).sum(1)/m.sum(1, keepdim=True)
-    return torch.cat([mean, var.sqrt()], 1)
+    return (x*m[..., None]).sum(1)/m.sum(1, keepdim=True)
 
 
 if __name__ == '__main__':
