@@ -5,9 +5,9 @@
   "timezone": "Asia/Seoul",
   "scope": "사람이 카드영역을 확인할 수 있는 앞뒤사진 보조분석: 센터링/모서리/엣지/표면 손상 및 관찰제한. 카드식별/가격/위조감지/공식등급보증은 제외.",
   "score_method": "milestone binary: verified earns full fixed weight; pending earns zero; unknown is pending; no subjective partial credit",
-  "score": 49,
+  "score": 56,
   "max_score": 100,
-  "previous_same_version_score": 42,
+  "previous_same_version_score": 49,
   "production_ready": false,
   "categories": [
     {
@@ -136,13 +136,15 @@
           "id": "C2",
           "title": "모서리(후면은 점검 우선순위 제안)",
           "weight": 7,
-          "status": "pending",
-          "earned": 0,
+          "status": "verified",
+          "earned": 7,
           "completion_criterion": "후면 모서리 구역은 판정이 아니라 점검 우선순위 제안으로 평가한다(사용자 승인 2026-11-01 v1.2, 격차 기준 완화·새 보류 승인 2026-11-02 v1.6, 후보·임계 교체 승인 2026-11-02 v1.7). 학습·튜닝에 쓰지 않은 독립 보류 사진 그룹 ≥40개·결함 사진 ≥20개에서 고정 후보 E(지금까지 라벨한 후면 모서리 946구역으로 한 번 학습한 head, 같은 사진 결함/정상 모서리 쌍 순위 항 포함 레시피=§71, 학습 자료·head는 결과 전에 동결)로 한 번 평가해, (a) 높음 구간(점수≥0.509)과 낮음 구간(점수<0.281)의 구역 결함 비율 격차 ≥0.30이고 사진 그룹 부트스트랩 95% 하한 ≥0.15, (b) 결함과 정상이 섞인 사진에서 점수 1위 모서리가 결함인 비율이 무작위 기대보다 ≥0.20 높고 부트스트랩 95% 하한 >0일 것을 요구한다. 구간 임계 0.281/0.509는 후보 E의 개발 사진 그룹 교차검증 out-of-fold 점수(기록 20261102T140143-82781117)에서 결함 모서리 점수의 10·30분위로 결과 전에 고정했고 독립 자료로 바꾸지 않는다(0.41/0.63은 §43 후보용). 독립 보류는 후보의 학습·튜닝에 쓰지 않은 사진이어야 하며 기존 모서리 평가(y·z·aa·ab·ac·aj·ak·al)에 쓰이지 않은 사진이어야 한다(표면 평가에 쓰인 사진은 허용). v1.6의 격차 기준(0.40/0.40→0.30/0.15)은 §43·§45 결과(격차 0.546·0.428, 하한 0.356·0.278)를 본 뒤 사용자 승인으로 정했으므로 그 자료는 증거로 쓰지 않는다. v1.7 확정 뒤 처음 평가하는 독립 보류 자료(am·an·ao 후면 모서리 라벨)로만 판정하며, 본문 수치를 본 평가 결과로 조정하지 않는다. 후면 모서리의 FN/FP 판정 목표(누락 5% 이하·오탐 10% 이하)는 이 항목에서 제외한다. 앞면 모서리는 이 항목의 충족 범위가 아니며 별도 판정 기준 없이 미지원으로 둔다. 결함·정상 확정, 누락 5% 이하 같은 표현은 후면 모서리에 쓰지 않는다. 정상점/전체손상범위가 없어 위치정확도·IoU를 주장하지 않는다.",
           "evidence": [
-            "card_condition/listing_readiness.py"
+            "artifacts/experiments/20261102T145448-7876bfd4/record.json",
+            "artifacts/edge-back-corner-triage-holdout-v17-20261102/report.html",
+            "docs/collaboration/reports/performance-top3-consensus-20261030.md §71·§72"
           ],
-          "assessment": "독립 보류 사진 그룹 ≥40·결함 사진 ≥20의 v1.7 기준(후보 E) 평가가 아직 판정되지 않았다. §43 후보는 보류 세 곳(§43·§45·§70)에서 1위 적중 기준 미충족(적중 격차 0.17·0.11·0.13), 구간 격차는 v1.6 기준을 §70에서 충족. 개발 평가(§71 포함)와 앞선 보류 결과는 이 항목의 증거가 아니다."
+          "assessment": "2026-11-02 v1.7 기준 첫 독립 보류(am·an·ao) 평가 충족: 사진 그룹 58(≥40)·결함 사진 30(≥20), 높음/낮음 구간 결함 비율 59.4%(64모서리)/5.0%(120모서리)로 격차 0.544(95% 구간 0.388~0.691, 기준 ≥0.30·하한 ≥0.15), 섞인 사진 26장 1위 적중률 80.8%로 무작위 37.5% 대비 격차 0.433(하한 0.290, 기준 ≥0.20·하한 >0). 한계: 점검 우선순위 용도만 해당(결함 판정 아님: 임계 0.5에서 누락 17/55·오탐 26/177, AUC 0.870), 58그룹 소표본·같은 eBay 계열·한 사람 확대 판정, 후보·임계는 §71 개발 점수로 정함(보류 비사용), 후보 교체와 격차 기준은 이전 보류 결과를 본 뒤 사용자 승인으로 정해졌으나 이 평가는 v1.7 확정 뒤 새로 수집한 자료이며 am 미답 6장·상자 미확인 2장은 제외. 공통 실행기는 독립성을 인증하지 않음(independent=false, 격리는 수집 시 선언)."
         },
         {
           "id": "C3",
@@ -446,6 +448,18 @@
       ],
       "reason": "사용자가 C2 후보 교체(후보 E: 모서리 946구역·같은 사진 쌍 순위 항)와 임계 0.281/0.509 고정, 새 보류(am·an·ao) 평가를 승인(2026-11-02, '응'). 격차 0.30/0.15·1위 적중 기준·그룹/결함 사진 수·배점(7점)·다른 항목 불변. 후보·임계는 §71 개발 교차검증 점수에서 결과 전에 정함. v1.6 snapshot 보존, v1.7 snapshot artifacts/progress-baseline-20261102/criteria-v1.7.json. 점수 49 변동 없음.",
       "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §70·§71"
+    },
+    {
+      "date": "2026-11-02",
+      "criterion_version": "usable-card-analysis-v1.7",
+      "score": 56,
+      "previous_score": 49,
+      "change_pp": 7,
+      "changed_milestones": [
+        "C2"
+      ],
+      "reason": "C2(후면 모서리 점검 우선순위) v1.7 기준 첫 독립 보류(am·an·ao) 평가 충족으로 49→56(+7). 기준 본문 불변(rubric_sha256 유지).",
+      "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §72"
     }
   ],
   "rubric_sha256": "ec2aa9eef26b6db5b6520e1834691c5c6a2578283914e2bc7254bd5e91cc8690"
