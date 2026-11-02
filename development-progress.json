@@ -5,9 +5,9 @@
   "timezone": "Asia/Seoul",
   "scope": "사람이 카드영역을 확인할 수 있는 앞뒤사진 보조분석: 센터링/모서리/엣지/표면 손상 및 관찰제한. 카드식별/가격/위조감지/공식등급보증은 제외.",
   "score_method": "milestone binary: verified earns full fixed weight; pending earns zero; unknown is pending; no subjective partial credit",
-  "score": 56,
+  "score": 63,
   "max_score": 100,
-  "previous_same_version_score": 49,
+  "previous_same_version_score": 56,
   "production_ready": false,
   "categories": [
     {
@@ -176,13 +176,15 @@
           "id": "C5",
           "title": "관찰 제한(후면은 재촬영 권고 우선순위 제안)",
           "weight": 7,
-          "status": "pending",
-          "earned": 0,
+          "status": "verified",
+          "earned": 7,
           "completion_criterion": "후면 관찰 제한은 판정이 아니라 재촬영 권고 우선순위 제안으로 평가한다(사용자 승인 2026-11-03 v1.8, 후보 교체 승인 2026-11-03 v1.10). 새로 수집해 라벨한 독립 보류 후면 사진 ≥100장·관찰제한 후면 ≥20장(사람 정답 '제한', '미확인'은 분모 밖에 수를 명시)에서 고정 후보 F(§57 레시피: 패치 평균 특징 + 표준화 L2 로지스틱 λ=0.01, 개발 후면 147장과 v1.8 보류에서 소비된 후면 120장을 합친 267장(제한 71)으로 한 번 학습해 결과 전에 동결)로 한 번 평가해, 점수의 AUC ≥0.75이고 사진 그룹 부트스트랩(2000회) 95% 하한 ≥0.60일 것을 요구한다. 수치는 v1.8과 같으며 결과를 본 뒤 조정하지 않는다. 독립 보류는 후보 F의 학습·튜닝에 쓰이지 않았고 기존 모든 평가·학습(aj~ao 포함)에 쓰이지 않은 새 사진 그룹이어야 한다. v1.8의 후보(개발 147장만 학습)는 보류 120장에서 AUC 0.696[0.595, 0.798]로 미충족이었다(§73). 후보 F의 합친 267면 OOF AUC 0.795(§78)는 개발 근거이며 이 항목의 증거가 아니다. 앞면 관찰 제한은 개발 AUC 0.643으로 이 항목의 충족 범위가 아니며 미지원으로 둔다. 관찰 제한 확정, 누락 5% 이하·오탐 10% 이하 같은 표현은 쓰지 않는다. 배점(7점)·다른 항목은 불변이다.",
           "evidence": [
-            "card_condition/listing_readiness.py"
+            "artifacts/experiments/20261102T233115-f405c24a/record.json",
+            "artifacts/obslimit-holdout-f-20261103/report.html",
+            "docs/collaboration/reports/performance-top3-consensus-20261030.md §78·§79"
           ],
-          "assessment": "v1.10 기준 첫 독립 평가(새 보류 후면 라벨 필요)가 아직 판정되지 않았다. v1.8 후보의 보류 평가(§73)는 미충족이며 증거로 쓰지 않는다."
+          "assessment": "2026-11-03 v1.10 기준 첫 독립 보류(ap~aw 후면 101장, 제한 26) 평가 충족: AUC 0.792(95% 구간 0.681~0.886, 기준 ≥0.75·하한 ≥0.60), 행 ≥100·제한 ≥20 충족. 점검 우선순위 참고: 점수 상위 20장 중 제한 10장, 상위 40장 중 20장(전체 제한 비율 25.7%). 한계: 재촬영 권고 우선순위 용도만 해당(제한 판정 아님: 임계 0.5에서 제한 26장 중 누락 17, 정상 오탐 8), 101장 소표본·같은 eBay 계열·한 사람 라벨, 보류 상자는 사람 확인 전 자동 제안, 미확인 2장과 답이 오지 않은 5쌍은 분모 밖, 후보 교체(v1.10)는 이전 보류(v1.8 §73 미충족)를 본 뒤 사용자 승인으로 정해졌으나 이 평가는 v1.10 확정 뒤 새로 수집한 자료다. 앞면은 미지원. 공통 실행기는 독립성을 인증하지 않음(independent=false, 격리는 수집 시 선언)."
         }
       ]
     },
@@ -496,6 +498,18 @@
       ],
       "reason": "사용자가 C5 후보 교체(후보 F: v1.8 레시피를 개발 147 + 소비된 보류 120 = 267면으로 학습)와 새 독립 보류 수집·평가를 승인(2026-11-03, 'V 1.10 승인'). 수치(AUC ≥0.75·하한 ≥0.60)·보류 크기(후면 ≥100·제한 ≥20)·배점(7점)·다른 항목 불변. v1.9 snapshot 보존, v1.10 snapshot artifacts/progress-baseline-20261102/criteria-v1.10.json. 점수 56 변동 없음.",
       "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §73·§78"
+    },
+    {
+      "date": "2026-11-03",
+      "criterion_version": "usable-card-analysis-v1.10",
+      "score": 63,
+      "previous_score": 56,
+      "change_pp": 7,
+      "changed_milestones": [
+        "C5"
+      ],
+      "reason": "C5(후면 관찰 제한 재촬영 권고 우선순위) v1.10 기준 첫 독립 보류(ap~aw) 평가 충족으로 56→63(+7). 기준 본문 불변(rubric_sha256 유지).",
+      "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §79"
     }
   ],
   "rubric_sha256": "2dd4db1ff6aa65fb1674f413109657af5d2c155eb1a07bb7c3b79003ca60636a"
