@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "centering-tb-measurer-20261103",
+  "reference_result": "artifacts/centering-tb-measurer-20261103/reference/result.json",
+  "acceptance": {
+    "max_fn": 999,
+    "max_fp": 999,
+    "no_new_errors": false,
+    "require_actual_point_guard": false
+  },
+  "code_changes": [
+    {
+      "path": "artifacts/centering-tb-measurer-20261103/worker.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "tracked_directory": "tools/experiments/centering-tb-measurer-20261103",
+  "expected_denominators": {
+    "train_val": [
+      0,
+      36
+    ]
+  },
+  "reference_note": "상수 0.5(행 대조용).",
+  "hypothesis": "카드 상자 가장자리를 바깥 가장자리로 두고, 상·하에서 고정 창 안의 가장 센 세로 그래디언트를 안쪽 틀 경계로 잡는 규칙 측정기는 사람이 표시한 앞면 상하 비대칭을 재현하고 사람 센터링 라벨과 관련된다(C4 v1.9).",
+  "change": "학습 없는 규칙 측정기. 창·대역·시그마는 결과 전 고정(BAND .25~.75, WINDOW .012~.09, SIGMA 2). 개발 앞면 36장(§75 17 + §76 19)의 사람 표시와 비교.",
+  "success_criterion": "(결과 전 고정, 개발 전용) 측정기 상하 비대칭의 사람 표시 상하 비대칭과의 순위상관(Spearman) ≥0.60이고 사람 센터링 결함 라벨에 대한 AUC ≥0.70.",
+  "failure_criterion": "하나라도 미달이면 미충족. 같은 가설에서 창을 결과에 맞춰 고치지 않는다(새 가설 ID로만 변경).",
+  "known_biases": "36장은 §75·§76에서 사람이 표시하기로 고른(건너뜀 제외) 사진이라 선택 편향이 있고 규칙은 이 사진 위에서 처음 보는 것이다(결과 전 고정). 개발 평가이며 독립 시험이 아니다.",
+  "expected_limit": "측정기가 사람 표시와 맞아도 v1.9 충족이 아니다. v1.9는 새 독립 보류 앞면에서 판정한다.",
+  "status": "approved_ready_to_run",
+  "criterion_min_delta_ci_lower": 0,
+  "rows": "artifacts/centering-tb-measurer-20261103/rows.json",
+  "expected_rows": 36,
+  "criterion_min_spearman": 0.6,
+  "criterion_min_auc": 0.7,
+  "input_sha256": {
+    "artifacts/centering-tb-measurer-20261103/rows.json": "cb8e536f9d0fa1b95b80ae613eddbd43d7f56a89876f98af1b5b2a351df5c767"
+  }
+}
