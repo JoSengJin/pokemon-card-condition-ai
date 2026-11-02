@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "centering-tb-measurer-v2-20261103",
+  "reference_result": "artifacts/centering-tb-measurer-v2-20261103/reference/result.json",
+  "acceptance": {
+    "max_fn": 999,
+    "max_fp": 999,
+    "no_new_errors": false,
+    "require_actual_point_guard": false
+  },
+  "code_changes": [
+    {
+      "path": "artifacts/centering-tb-measurer-v2-20261103/worker.py",
+      "baseline": "artifacts/centering-tb-measurer-20261103/worker.py"
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "tracked_directory": "tools/experiments/centering-tb-measurer-v2-20261103",
+  "expected_denominators": {
+    "train_val": [
+      0,
+      36
+    ]
+  },
+  "reference_note": "상수 0.5(행 대조용).",
+  "hypothesis": "v1 측정기(창 0.012~0.09)는 사람 표시와 상관 −0.03으로 실패했다(기록 20261102T223909-19fff3bb). 검색 창이 넓어 카드 안쪽 그림 경계·글자 등 더 센 엣지를 잡았다는 가설: 창을 개발 사람 표시 폭/상자 높이의 5~95분위(0.022~0.049)로 좁히면 사람 표시를 재현한다(C4 v1.9).",
+  "change": "검색 창만 (0.012,0.09) → (0.022,0.049)로 변경. 나머지(대역·시그마·바깥=상자 가장자리·판정기준)는 v1과 동일. 창은 개발 36장 사람 표시 폭의 5·95분위이므로 척도 보정이며 장별 값은 쓰지 않는다.",
+  "success_criterion": "(결과 전 고정, 개발 전용) 측정기 상하 비대칭의 사람 표시 상하 비대칭과의 순위상관(Spearman) ≥0.60이고 사람 센터링 결함 라벨에 대한 AUC ≥0.70.",
+  "failure_criterion": "하나라도 미달이면 미충족. 같은 가설에서 창을 결과에 맞춰 고치지 않는다(새 가설 ID로만 변경).",
+  "known_biases": "창이 같은 36장의 사람 표시 분포에서 정해져 순환성이 있다(척도만 제약, 장별 값은 아님). 개발 평가이며 독립 시험이 아니다. v1이 이미 실패해 같은 자료에서 두 번째 가설(다중비교).",
+  "expected_limit": "측정기가 사람 표시와 맞아도 v1.9 충족이 아니다. v1.9는 새 독립 보류 앞면에서 판정한다.",
+  "status": "approved_ready_to_run",
+  "criterion_min_delta_ci_lower": 0,
+  "rows": "artifacts/centering-tb-measurer-v2-20261103/rows.json",
+  "expected_rows": 36,
+  "criterion_min_spearman": 0.6,
+  "criterion_min_auc": 0.7,
+  "input_sha256": {
+    "artifacts/centering-tb-measurer-v2-20261103/rows.json": "cb8e536f9d0fa1b95b80ae613eddbd43d7f56a89876f98af1b5b2a351df5c767"
+  }
+}
