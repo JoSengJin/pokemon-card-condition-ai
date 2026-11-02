@@ -58,13 +58,13 @@ def main(items_json, out_path):
     return len(items)
 
 
-def select(rows_jsonl, side, per_class, seed):
+def select(rows_jsonl, side, per_class, seed, exclude=()):
     """Seeded balanced pick of confirmed-box photos with a human centering label (label itself is not written to the page items)."""
     pool = {0: [], 1: []}
     for r in map(json.loads, Path(rows_jsonl).read_text(encoding='utf-8').splitlines()):
         b = (r.get('side_annotations') or {}).get(side) or {}
         v = (b.get('labels') or {}).get('centering_defect')
-        if not r.get('excluded') and b.get('box_reviewed') and v in (0, 1):
+        if not r.get('excluded') and b.get('box_reviewed') and v in (0, 1) and r['id'] not in exclude:
             pool[v].append(dict(id=r['id'], side=side, image=b['image'], box=b['box']))
     rng = random.Random(seed)
     picked = [i for v in (0, 1) for i in rng.sample(sorted(pool[v], key=lambda i: i['id']), per_class)]
