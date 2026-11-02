@@ -40,11 +40,11 @@ def bootstrap(items, key, draws=2000, seed=20261103):
     return vals[int(.025*(len(vals)-1))], vals[int(.975*(len(vals)-1))]
 
 
-def main(answers, selection, manifest):
+def main(answers, selection, manifest, side='back'):
     marks = parse(Path(answers).read_text(encoding='utf-8'))
     target = {}
     for r in map(json.loads, Path(manifest).read_text(encoding='utf-8').splitlines()):
-        target[r['id']] = ((r.get('side_annotations') or {}).get('back') or {}).get('labels', {}).get('centering_defect')
+        target[r['id']] = ((r.get('side_annotations') or {}).get(side) or {}).get('labels', {}).get('centering_defect')
     items, skipped, invalid = [], [], []
     for s in json.loads(Path(selection).read_text()):
         v = marks.get(s['id'])
@@ -64,4 +64,4 @@ def main(answers, selection, manifest):
 
 
 if __name__ == '__main__':
-    print(json.dumps(main(*sys.argv[1:4]), ensure_ascii=False, indent=1, default=float))
+    print(json.dumps(main(*sys.argv[1:5]), ensure_ascii=False, indent=1, default=float))

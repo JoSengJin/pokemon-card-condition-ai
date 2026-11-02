@@ -37,15 +37,15 @@ def card(item, select, marks):
             f'<small>{html.escape(item["id"][-8:])}</small></div>')
 
 
-def main(analysis, selection, answers, out_path):
+def main(analysis, selection, answers, out_path, label='뒷면'):
     a = json.loads(Path(analysis).read_text())
     select = {s['id']: s for s in json.loads(Path(selection).read_text())}
     marks = {l.split('|')[0]: [float(x) for x in l.split('|')[3].split(',')] for l in Path(answers).read_text().splitlines() if '미확인' not in l}
-    head = (f'<h2>센터링 표시 시범(뒷면) 표시값 vs 사람 라벨</h2><p>사용 {a["n"]}장(결함 {a["positive"]}), 건너뜀·미응답 {a["skipped"]}장 분모 밖. 좌우 비대칭 AUC {a["lr"]["auc"]:.2f} '
+    head = (f'<h2>센터링 표시 시범({label}) 표시값 vs 사람 라벨</h2><p>사용 {a["n"]}장(결함 {a["positive"]}), 건너뜀·미응답 {a["skipped"]}장 분모 밖. 좌우 비대칭 AUC {a["lr"]["auc"]:.2f} '
             f'[{a["lr"]["ci"][0]:.2f},{a["lr"]["ci"][1]:.2f}], 상하 {a["tb"]["auc"]:.2f} [{a["tb"]["ci"][0]:.2f},{a["tb"]["ci"][1]:.2f}]. 빨강=카드 바깥, 파랑=인쇄 틀.</p>')
     css = 'body{font:14px system-ui;margin:8px}.c{display:inline-block;width:260px;margin:6px;vertical-align:top}.c img{width:100%}'
     Path(out_path).write_text(f'<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><style>{css}</style>{head}{"".join(card(i, select, marks) for i in sorted(a["items"], key=lambda i: -i["worst"]))}', encoding='utf-8')
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:5])
+    main(*sys.argv[1:6])
