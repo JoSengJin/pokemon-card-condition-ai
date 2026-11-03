@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "centering-tb-measurer-v3-20261103",
+  "reference_result": "artifacts/centering-tb-measurer-v3-20261103/reference/result.json",
+  "acceptance": {
+    "max_fn": 999,
+    "max_fp": 999,
+    "no_new_errors": false,
+    "require_actual_point_guard": false
+  },
+  "code_changes": [
+    {
+      "path": "artifacts/centering-tb-measurer-v3-20261103/worker.py",
+      "baseline": "artifacts/centering-tb-measurer-v2-20261103/worker.py"
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "tracked_directory": "tools/experiments/centering-tb-measurer-v3-20261103",
+  "expected_denominators": {
+    "train_val": [
+      0,
+      36
+    ]
+  },
+  "reference_note": "상수 0.5(행 대조용).",
+  "hypothesis": "v2 경계 72개 중 22개가 검색 창 한계에 붙었다(진단 pinned_sheet.png, 육안 분류): 13개는 창 시작(0.022)에 붙어 카드 바깥 가장자리/배경 전이의 꼬리가 창 안으로 들어온 경우, 9개는 창 끝(0.049)에 붙어 균일한 띠·그림·글자 때문에 안쪽 틀 봉우리가 없는 경우. 가장 많은 원인(13/22)인 바깥 기준 문제를 겨냥한다. 개발 36장 진단에서 단순 여유분 차감 보정은 오차를 악화시켰으므로(36/19/10장 모두), 차감이 아닌 검출 기준 교체로 검증한다.",
+  "change": "바깥 기준만 변경: 상자 가장자리(0) → 상자 안 첫 3% 구간에서 가장자리 패딩 프로파일의 최대 그래디언트 위치(0.4% 미만이면 상자 가장자리 유지). 안쪽 틀 창은 같은 크기(0.022~0.049)를 바깥 기준에서 시작하고 폭은 (안쪽-바깥)/상자 높이. 나머지(대역·시그마·점수식·창 크기)는 v2와 동일, 보류 규칙 없음(보류 0%).",
+  "success_criterion": "(결과 전 고정, 개발 36장 전용) 사람 표시 상하 비대칭과 순위상관(Spearman) ≥0.50, 센터링 라벨 AUC ≥0.70, 측정 보류 ≤20%(이 변경은 보류 규칙이 없어 0%), 창 한계에 붙은 경계 비율 < v2의 22/72(0.3056). 네 조건 모두 충족해야 한다.",
+  "failure_criterion": "하나라도 미충족이면 실패. 같은 가설에서 상수·구간을 결과에 맞춰 고치지 않고 새 가설 ID로만 변경한다. 기록 전용 추가 보고: 유효 19장(진단 휴리스틱) 부분집합의 상관·AUC(기준 아님).",
+  "known_biases": "v1·v2에 이어 같은 36장에서 세 번째 가설(다중비교). 진단에서 본 정지 샘플(22개)에서 원인을 골랐으므로 순환성이 있다. 개발 평가이며 독립 시험이 아니다. 상자가 사진 가장자리에 닿는 장은 바깥 전이가 안 보여 앵커가 0으로 남는다.",
+  "expected_limit": "통과해도 v1.9 충족이 아니다. 동결 후 새 독립 보류 앞면에서만 판정한다.",
+  "status": "approved_ready_to_run",
+  "rows": "artifacts/centering-tb-measurer-v3-20261103/rows.json",
+  "expected_rows": 36,
+  "criterion_min_spearman": 0.5,
+  "criterion_min_auc": 0.7,
+  "input_sha256": {
+    "artifacts/centering-tb-measurer-v3-20261103/rows.json": "cb8e536f9d0fa1b95b80ae613eddbd43d7f56a89876f98af1b5b2a351df5c767",
+    "artifacts/centering-tb-diagnosis-20261103/diag.json": "36540b5d5b7b4c839d77b03348d3a4e31248045dd7e37bc77fa292e58e46cbf0"
+  },
+  "criterion_max_hold": 0.2,
+  "criterion_pinned_below": 0.3055555555555556,
+  "valid_indices_file": "artifacts/centering-tb-diagnosis-20261103/diag.json"
+}
