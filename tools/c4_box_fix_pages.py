@@ -6,7 +6,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from c4_label_pages import PANEL  # noqa: E402
-from mobile_centering_mark_pages import STYLE, crop_uri  # noqa: E402
+from mobile_centering_mark_pages import STYLE  # noqa: E402
+import base64, io  # noqa: E402
+from PIL import Image, ImageOps  # noqa: E402
+
+
+def small_uri(path, width=560):
+    # kept small (about 60 KB per photo) so the page stays under 1 MB and the app preview can load it
+    with Image.open(path) as image:
+        image = ImageOps.exif_transpose(image).convert('RGB')
+        image.thumbnail((width, 800))
+        buffer = io.BytesIO()
+        image.save(buffer, 'JPEG', quality=60, optimize=True)
+    return 'data:image/jpeg;base64,' + base64.b64encode(buffer.getvalue()).decode()
 
 STEPS = ['카드 바깥 왼쪽 가장자리', '카드 바깥 오른쪽 가장자리', '카드 바깥 위쪽 가장자리', '카드 바깥 아래쪽 가장자리']
 SCRIPT = """const STEPS=%s;const o=document.getElementById('out');
@@ -23,7 +35,7 @@ a.querySelector('.undo').onclick=()=>{pts.pop();draw()};a.querySelector('.na').o
 
 
 def article(item):
-    return (f'<article data-id="{html.escape(item["id"])}" data-s="" data-src="{crop_uri(item["image"], [0, 0, 1, 1])}">'
+    return (f'<article data-id="{html.escape(item["id"])}" data-s="" data-src="{small_uri(item["image"])}">'
             f'<h2>{html.escape(item["id"])}</h2><div class="step"></div><button class="undo">되돌리기</button><canvas></canvas>'
             '<label><input type="checkbox" class="na"> 앞면 아님/판정불가</label></article>')
 
