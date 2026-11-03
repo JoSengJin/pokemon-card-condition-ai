@@ -54,12 +54,6 @@ def crop_img(im, box):
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def miss_box():
-    """Misses: zones where the reviewer sees a problem that the model did not point at (shown above)."""
-    boxes = ''.join(f'<label style="margin-right:10px;white-space:nowrap"><input type="checkbox" name="miss" value="{a}">{k}</label>' for a, k in KO.items())
-    return f'<div class="m"><p><b>놓친 곳이 있나요?</b> 위 확대 사진 말고, 카드의 다른 곳에서 문제(긁힘·마모·구김·얼룩)가 보이면 그 위치를 체크하세요. 없으면 비워 두세요.</p>{boxes}</div>'
-
-
 def card_html(request, res):
     """One enlarged crop per part (its highest-scored zone); one question per crop."""
     im = Image.open(request['image']).convert('RGB')
@@ -77,12 +71,17 @@ def card_html(request, res):
         opts = ''.join(f'<option>{c}</option>' for c in CHOICES)
         items.append(f'<div class="z"><img src="data:image/jpeg;base64,{crop_img(im, box)}"><p><b>{PNAME[part]} · {PART[part]} · {KO[z["area"]]}</b> (AI 점검 우선순위: {z["label"]})</p>'
                      f'<select name="{part}">{opts}</select></div>')
-    full.thumbnail((360, 480))
+    full.thumbnail((640, 860))
     buf = io.BytesIO()
     full.save(buf, 'JPEG', quality=70)
     sha = ' · '.join(f'{k} {v["model_sha256"][:8]}' for k, v in res['results'].items())
-    return (f'<article data-id="{html.escape(request["id"])}"><h2>카드 {html.escape(request["id"][-8:])}</h2><img class="f" src="data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}">'
-            f'<p>위 사진에서 색 상자가 아래 확대 사진의 위치입니다.</p>{"".join(items)}{miss_box()}<p style="font-size:12px;color:#555">모델 버전: {sha}</p><input name="n" placeholder="메모(선택)"></article>')
+    l, tp, r, b = request['box']
+    cells = ''.join(f'<div class="c" data-a="{a}" style="left:{(l+(i%3)*(r-l)/3)*100:.2f}%;top:{(tp+(i//3)*(b-tp)/3)*100:.2f}%;width:{(r-l)/3*100:.2f}%;height:{(b-tp)/3*100:.2f}%"></div>' for i, a in enumerate(KO))
+    sha = ' · '.join(f'{k} {v["model_sha256"][:8]}' for k, v in res['results'].items())
+    return (f'<article data-id="{html.escape(request["id"])}"><h2>카드 {html.escape(request["id"][-8:])}</h2>'
+            f'<p><b>전체 사진</b>: 색 상자 = 아래 확대 사진의 위치. <b>AI가 놓친 곳</b>(문제가 보이는데 상자가 없는 곳)을 사진에서 <b>탭</b>하면 빨갛게 표시됩니다. 다시 탭하면 해제. 없으면 안 누르면 됩니다.</p>'
+            f'<div class="ph"><img src="data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}">{cells}</div>'
+            f'{"".join(items)}<p style="font-size:12px;color:#555">모델 버전: {sha}</p><input name="n" placeholder="메모(선택)"></article>')
 
 
 def main(out, requests_path, known_path, backbone, weights):
@@ -94,8 +93,8 @@ def main(out, requests_path, known_path, backbone, weights):
     Path(out, 'results.json').write_text(json.dumps(dict(coverage=cov, results=results), ensure_ascii=False))
     for n in range(0, len(requests), 4):
         body = ''.join(card_html(r, x) for r, x in zip(requests[n:n+4], results[n:n+4]))
-        script = "function b(){return [...document.querySelectorAll('article')].map(a=>a.dataset.id+'='+[...a.querySelectorAll('select')].map(s=>s.name+':'+s.value).join(',')+';miss:'+[...a.querySelectorAll('[name=miss]:checked')].map(c=>c.value).join('|')+';'+a.querySelector('[name=n]').value).join('\\n')}document.querySelectorAll('select,input').forEach(e=>e.addEventListener('input',()=>document.getElementById('o').value=b()));document.getElementById('o').value=b();"
-        Path(out, f'review-{n//4+1:02d}.html').write_text(f'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>후면 점검 검토</title><style>body{{font:15px system-ui;max-width:640px;margin:8px auto;padding:8px;background:#fff;color:#111}}img{{width:100%}}td,th{{border:1px solid #999;padding:2px 5px;font-size:13px}}article{{border-top:2px solid #888;margin-top:16px}}textarea{{width:100%;height:120px}}</style><h1>후면 사진 검토 연습</h1><div style="background:#f3f3f3;padding:8px;border-radius:6px"><p><b>이게 뭔가요?</b> AI가 카드 뒷면 사진에서 <b>먼저 확인해 보라고 짚은 칸(종류마다 점수 높은 순 최대 2칸)</b>을 색 사각형(빨강=가장자리, 파랑=모서리, 노랑=안쪽 면)으로 보여줍니다. 결함이 있다고 확정하는 게 아니라 “여기부터 보세요”라는 추천입니다.</p><p><b>하실 일</b>: 아래 <b>확대된 작은 사진</b>(AI가 짚은 한 곳)을 보고, 그 사진 안에서 긁힘·마모·구김·얼룩 같은 문제가 <b>보이는지</b> 고릅니다. AI가 맞았는지 따지지 않고 사진에 보이는 대로만 고르시면 됩니다. 모르겠으면 ‘모르겠다’.</p><p>센터링(좌우 치우침)과 앞면은 AI가 지원하지 않아 여기서 보지 않습니다.</p></div>{body}<h3>결과(복사해서 채팅에 붙여넣기)</h3><textarea id="o" readonly></textarea><script>{script}</script>', encoding='utf-8')
+        script = "function b(){return [...document.querySelectorAll('article')].map(a=>a.dataset.id+'='+[...a.querySelectorAll('select')].map(s=>s.name+':'+s.value).join(',')+';miss:'+[...a.querySelectorAll('.c.on')].map(c=>c.dataset.a).join('|')+';'+a.querySelector('[name=n]').value).join('\\n')}document.querySelectorAll('.c').forEach(c=>c.addEventListener('click',()=>{c.classList.toggle('on');document.getElementById('o').value=b()}));document.querySelectorAll('select,input').forEach(e=>e.addEventListener('input',()=>document.getElementById('o').value=b()));document.getElementById('o').value=b();"
+        Path(out, f'review-{n//4+1:02d}.html').write_text(f'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>후면 점검 검토</title><style>body{{font:15px system-ui;max-width:640px;margin:8px auto;padding:8px;background:#fff;color:#111}}img{{width:100%}}td,th{{border:1px solid #999;padding:2px 5px;font-size:13px}}article{{border-top:2px solid #888;margin-top:16px}}textarea{{width:100%;height:120px}}.ph{{position:relative;line-height:0}}.c{{position:absolute;box-sizing:border-box;border:1px dashed #fff8;-webkit-user-select:none;user-select:none}}.c.on{{background:#ff000066;border:2px solid #f00}}</style><h1>후면 사진 검토 연습</h1><div style="background:#f3f3f3;padding:8px;border-radius:6px"><p><b>이게 뭔가요?</b> AI가 카드 뒷면 사진에서 <b>먼저 확인해 보라고 짚은 칸(종류마다 점수 높은 순 최대 2칸)</b>을 색 사각형(빨강=가장자리, 파랑=모서리, 노랑=안쪽 면)으로 보여줍니다. 결함이 있다고 확정하는 게 아니라 “여기부터 보세요”라는 추천입니다.</p><p><b>하실 일</b>: 아래 <b>확대된 작은 사진</b>(AI가 짚은 한 곳)을 보고, 그 사진 안에서 긁힘·마모·구김·얼룩 같은 문제가 <b>보이는지</b> 고릅니다. AI가 맞았는지 따지지 않고 사진에 보이는 대로만 고르시면 됩니다. 모르겠으면 ‘모르겠다’.</p><p>센터링(좌우 치우침)과 앞면은 AI가 지원하지 않아 여기서 보지 않습니다.</p></div>{body}<h3>결과(복사해서 채팅에 붙여넣기)</h3><textarea id="o" readonly></textarea><script>{script}</script>', encoding='utf-8')
     return cov
 
 
