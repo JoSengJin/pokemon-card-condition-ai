@@ -12,10 +12,10 @@ INTAKES = 'ax az ba bb bc bd'.split()
 TARGET = {'정상': 0, '결함': 1, '제한': 1}
 
 
-def backs():
+def backs(intakes=INTAKES):
     """id -> (back image path, intake, review box) from the sealed intakes' review files."""
     out = {}
-    for k in INTAKES:
+    for k in intakes:
         for line in Path(f'artifacts/ebay-intake-20261103-{k}/review/labels-review.jsonl').read_text(encoding='utf-8').splitlines():
             r = json.loads(line) if line.strip() else None
             if r:
@@ -23,9 +23,9 @@ def backs():
     return out
 
 
-def zone_rows(answers, kind, need_ok=True):
+def zone_rows(answers, kind, need_ok=True, intakes=INTAKES):
     """One row per zone with a 정상/결함 answer on a 확인 box; 미확인 zones and cards are left out (counts in the summary)."""
-    info, rows = backs(), []
+    info, rows = backs(intakes), []
     for line in (LABELS/answers).read_text(encoding='utf-8').splitlines():
         ident, rest = line.split('/back=', 1)
         if need_ok and not rest.startswith('확인'):
