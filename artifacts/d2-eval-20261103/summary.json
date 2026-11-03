@@ -1,0 +1,20 @@
+{
+ "corner": {
+  "rows": 508,
+  "groups": 128,
+  "positive": 178,
+  "defect_photos": 72
+ },
+ "surface": {
+  "rows": 1183,
+  "groups": 133,
+  "positive": 67,
+  "defect_photos": 31
+ },
+ "obs": {
+  "rows": 135,
+  "groups": 135,
+  "positive": 35,
+  "defect_photos": 35
+ }
+}
