@@ -20,6 +20,16 @@ a.querySelector('.undo').onclick=()=>{pts.pop();draw()};a.querySelectorAll('sele
 SELECT = '<label>{t} <select class="{c}"><option value="">선택</option>{o}</select></label>'
 
 
+PANEL = ('<div id="bar" style="position:sticky;bottom:0;background:#fff;border-top:2px solid #333;padding:8px;z-index:9">'
+         '<div><b id="cnt">0</b>/<span id="tot"></span> 완료 <button id="cp" style="font-size:17px;padding:6px 14px">전체 선택·복사</button> <span id="msg"></span></div>'
+         '<textarea id="out" readonly style="width:100%;height:90px;font-size:12px"></textarea></div>')
+COPY = ("""const o=document.getElementById('out');document.getElementById('tot').textContent=document.querySelectorAll('article').length;
+function cnt(){document.getElementById('cnt').textContent=[...document.querySelectorAll('article')].filter(x=>x.dataset.s).length}
+document.querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>setTimeout(cnt,0)));document.querySelectorAll('canvas').forEach(c=>c.addEventListener('click',()=>setTimeout(cnt,0)));
+function pick(){o.focus();o.select();o.setSelectionRange(0,99999);let ok=false;try{ok=document.execCommand('copy')}catch(e){}document.getElementById('msg').textContent=ok?'복사됨':'선택됨 — 길게 눌러 복사'}
+document.getElementById('cp').onclick=pick;o.onclick=pick;""")
+
+
 def options(values):
     return ''.join(f'<option value="{v}">{v}</option>' for v in values)
 
@@ -39,9 +49,9 @@ def main(pool_json, role, start, count, out_path):
     guide = ('<p>주황 사각형은 자동 제안 상자입니다(정답 아님). 카드 전체가 상자 안에 들어오면 "맞음". '
              + ('카드 바깥 가장자리 4곳(빨강: 왼·오·위·아래)과 인쇄 틀 안쪽 경계 4곳(파랑)을 차례로 탭하세요. ' if taps else '')
              + '센터링은 사진에서 보이는 사람 판단입니다. 확실치 않으면 미확인.</p>')
-    body = guide + ''.join(article(i, taps) for i in items) + '<textarea id="out" readonly></textarea>'
+    body = guide + ''.join(article(i, taps) for i in items) + PANEL
     script = SCRIPT % json.dumps(STEPS, ensure_ascii=False)
-    Path(out_path).write_text(f'<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><style>{STYLE}select{{font-size:17px;margin:6px 0;display:block}}</style>{body}<script>{script}</script>', encoding='utf-8')
+    Path(out_path).write_text(f'<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><style>{STYLE}select{{font-size:17px;margin:6px 0;display:block}}</style>{body}<script>{script}{COPY}</script>', encoding='utf-8')
     return len(items)
 
 
