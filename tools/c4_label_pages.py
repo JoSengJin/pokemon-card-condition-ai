@@ -5,7 +5,22 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from mobile_centering_mark_pages import STEPS, STYLE, crop_uri, window  # noqa: E402
+from mobile_centering_mark_pages import STEPS, STYLE, window  # noqa: E402
+import base64, io  # noqa: E402
+from PIL import Image, ImageOps  # noqa: E402
+
+
+def crop_uri(path, win, width=640):
+    # smaller JPEG so each page stays near 1 MB and the app preview can load it
+    with Image.open(path) as image:
+        image = ImageOps.exif_transpose(image).convert('RGB')
+        w, h = image.size
+        crop = image.crop((round(win[0]*w), round(win[1]*h), round(win[2]*w), round(win[3]*h)))
+    crop.thumbnail((width, 1000))
+    buffer = io.BytesIO()
+    crop.save(buffer, 'JPEG', quality=62, optimize=True)
+    return 'data:image/jpeg;base64,' + base64.b64encode(buffer.getvalue()).decode()
+
 
 SCRIPT = """const STEPS=%s;
 document.querySelectorAll('article').forEach(a=>{const c=a.querySelector('canvas'),g=c.getContext('2d'),img=new Image(),w=a.dataset.w.split(',').map(Number),bx=a.dataset.b.split(',').map(Number),taps=a.dataset.taps=='1';let pts=[];
