@@ -7,7 +7,7 @@
 |---|---|---|---|
 | 엣지(§41) | `artifacts/triage-edge-back-candidate-20261101/head.pt` | 4b0412c4…(기존) | 기존 재현 0.0 |
 | 모서리 후보 E | `artifacts/triage-back-candidates-20261103/corner-head.pt` | `3dafe055…ab50187` | 5.96e-8(232구역·58사진) |
-| 표면 후보 B | `artifacts/triage-back-candidates-20261103/surface-head.pt` | `cb862aa6…ca787b8` | 1.19e-7(531구역·59사진) |
+| 표면 후보 B | `artifacts/triage-back-candidates-20261103/surface-head.pt` | `cb862aa6…29ca787b` | 1.19e-7(531구역·59사진) |
 | 관찰 제한 후보 F | `artifacts/triage-back-candidates-20261103/observation_limit-head.pt` | `e28e655e…86491b8` | 1.19e-7(101면) |
 임계: 엣지 0.31/0.54, 모서리 0.2808/0.5093, 표면 0.2129/0.4682. 백본 DINOv2 ViT-S/14는 head와 별도 보관.
 
