@@ -5,9 +5,9 @@
   "timezone": "Asia/Seoul",
   "scope": "사람이 카드영역을 확인할 수 있는 앞뒤사진 보조분석: 센터링/모서리/엣지/표면 손상 및 관찰제한. 카드식별/가격/위조감지/공식등급보증은 제외.",
   "score_method": "milestone binary: verified earns full fixed weight; pending earns zero; unknown is pending; no subjective partial credit",
-  "score": 73,
+  "score": 78,
   "max_score": 100,
-  "previous_same_version_score": 68,
+  "previous_same_version_score": 73,
   "production_ready": false,
   "categories": [
     {
@@ -265,14 +265,18 @@
           "id": "E2",
           "title": "전 범위 사용자 시나리오 완주",
           "weight": 5,
-          "status": "pending",
-          "earned": 0,
+          "status": "verified(2026-11-04)",
+          "earned": 5,
           "completion_criterion": "지원 칸(후면 엣지·모서리·표면·관찰 제한)을 통합한 승인 전 사용자시나리오에서 원본사진·근거구역·모델버전·판정/보류이유를 확인하고 정정/검토를 완료할 수 있다. 센터링과 앞면 칸은 '미지원/사람 검토'로 표시되고 정상으로 판정되지 않아야 한다(v1.11). 동결 평가의 사람이 관찰가능하다고 확인한 알려진 필수셀 중 모델 비보류 coverage>=70%; C의 FN/FP 분모는 그대로 유지. 배경/사진누락/미지원으로 정상판정 금지.",
           "evidence": [
-            "card_condition/listing_readiness.py",
-            "card_condition/listing_model.py"
+            "tools/back_triage_review.py",
+            "card_condition/back_triage_suite.py",
+            "artifacts/e2-scenario-20261104/results.json (local)",
+            "artifacts/e2-scenario-20261104/walkthrough-page1-v4.txt",
+            "artifacts/e2-scenario-20261104/walkthrough-page1-v6.txt",
+            "docs/collaboration/reports/performance-top3-consensus-20261030.md §83"
           ],
-          "assessment": "현재 centering/whole-listing observability blocker와 부분지원이 남아 전범위 사용완료 근거가 없다."
+          "assessment": "2026-11-04 충족: 지원 칸(후면 엣지·모서리·표면·관찰 제한)을 통합한 검토 시나리오(BackTriageSuite 실제 사진 138장 호출, 검토 페이지에 원본 사진·근거 구역(확대)·모델 버전·보류 이유·센터링/앞면 미지원 표시)에서 알려진 필수 칸 2778 중 2776칸(99.9%, 기준 ≥70%)에 모델이 점수를 냈고(미달 2칸은 상자 미확인 카드의 보류), 사용자가 4장 카드에서 확대 사진 12개 판단과 놓친 곳 표시(전체 사진 탭, 2장 카드에서 8칸)를 입력해 검토를 완료했다. 정상 판정은 어떤 경로에서도 나오지 않는다(complete=false, 미지원은 사람 검토). 한계: 사용자 완주는 카드 4장·페이지 6회 수정 뒤에 확인됐고(처음에는 이해하기 어렵다는 피드백), 확대 사진 질문은 종류별 정의와 맞지 않아 정확도 근거가 아니다. 놓침 표시 일부는 모델이 '높음'으로 본 칸이지만 화면에는 종류별 1순위만 보여서 놓침으로 기록된 경우다. 모델 성능 증거가 아니며 점검 우선순위 용도 한정. 앞면·센터링은 미지원."
         }
       ]
     },
@@ -555,6 +559,18 @@
       ],
       "reason": "사용자 승인(2026-11-04, '권장 방향'): D2에 보충 시험셋 해석 추가(v1.12, 수치 불변) 후 D2 verified. 지원 4칸 동결 후보를 독립 시험에서 평가해 모두 충족(C1·C2·C5는 D1, C3는 D1 미충족 후 보류2에서 충족, 다중 시도 명시).",
       "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §80~§82, artifacts/d1b-surface-20261104/SEALED.json"
+    },
+    {
+      "date": "2026-11-04",
+      "criterion_version": "usable-card-analysis-v1.12",
+      "score": 78,
+      "previous_score": 73,
+      "change_pp": 5,
+      "changed_milestones": [
+        "E2"
+      ],
+      "reason": "E2 충족(기준 본문 불변, rubric_sha256 유지): 통합 검토 시나리오 구성·커버리지 99.9% 확인·사용자 검토 완주(놓침 입력 포함). 한계는 assessment 참조.",
+      "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §83~§84"
     }
   ],
   "rubric_sha256": "175932984bc22b090861ffad1bdecc368b6509d6c2ab9c97aebaa5ae6bee4935"
