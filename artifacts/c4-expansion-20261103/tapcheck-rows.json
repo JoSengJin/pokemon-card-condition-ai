@@ -1,0 +1,98 @@
+[
+ {
+  "id": "ebay-pair-55e693767c9bd0",
+  "label": "결함",
+  "outer_top": 0.0884,
+  "outer_bottom": 0.9648,
+  "inner_top": 0.1185,
+  "inner_bottom": 0.9357,
+  "outer_left": 0.0691,
+  "outer_right": 0.9009,
+  "inner_left": 0.1129,
+  "inner_right": 0.8571
+ },
+ {
+  "id": "ebay-pair-45f9b909b5e875",
+  "label": "결함",
+  "outer_top": 0.2138,
+  "outer_bottom": 0.7639,
+  "inner_top": 0.2442,
+  "inner_bottom": 0.7354,
+  "outer_left": 0.2023,
+  "outer_right": 0.7759,
+  "inner_left": 0.2679,
+  "inner_right": 0.712
+ },
+ {
+  "id": "ebay-pair-763d80bdd69428",
+  "label": "결함",
+  "outer_top": 0.2043,
+  "outer_bottom": 0.7341,
+  "inner_top": 0.2235,
+  "inner_bottom": 0.7157,
+  "outer_left": 0.2343,
+  "outer_right": 0.7439,
+  "inner_left": 0.2603,
+  "inner_right": 0.7195
+ },
+ {
+  "id": "ebay-pair-248744f21bc9f3",
+  "label": "결함",
+  "outer_top": 0.1993,
+  "outer_bottom": 0.9225,
+  "inner_top": 0.2471,
+  "inner_bottom": 0.8747,
+  "outer_left": 0.1785,
+  "outer_right": 0.8745,
+  "inner_left": 0.2131,
+  "inner_right": 0.8358
+ },
+ {
+  "id": "ebay-pair-7ac7d3e7152768",
+  "label": "정상",
+  "outer_top": 0.0502,
+  "outer_bottom": 0.9496,
+  "inner_top": 0.0827,
+  "inner_bottom": 0.9192,
+  "outer_left": 0.0691,
+  "outer_right": 0.9263,
+  "inner_left": 0.1221,
+  "inner_right": 0.8917
+ },
+ {
+  "id": "ebay-pair-2cf43268f5db04",
+  "label": "정상",
+  "outer_top": 0.0992,
+  "outer_bottom": 0.883,
+  "inner_top": 0.1221,
+  "inner_bottom": 0.8552,
+  "outer_left": 0.1475,
+  "outer_right": 0.8473,
+  "inner_left": 0.1703,
+  "inner_right": 0.812
+ },
+ {
+  "id": "ebay-pair-f53ac76eaae18c",
+  "label": "정상",
+  "outer_top": 0.0446,
+  "outer_bottom": 0.9523,
+  "inner_top": 0.0668,
+  "inner_bottom": 0.9191,
+  "outer_left": 0.0645,
+  "outer_right": 0.9401,
+  "inner_left": 0.1175,
+  "inner_right": 0.9078
+ },
+ {
+  "id": "ebay-pair-2963b0add88cbb",
+  "label": "정상",
+  "outer_top": 0.0068,
+  "outer_bottom": 0.8736,
+  "inner_top": 0.0332,
+  "inner_bottom": 0.8425,
+  "outer_left": 0.1652,
+  "outer_right": 0.7963,
+  "inner_left": 0.2072,
+  "inner_right": 0.7715
+ }
+]
