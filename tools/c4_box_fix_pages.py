@@ -27,28 +27,30 @@ document.getElementById('tot').textContent=document.querySelectorAll('article').
 document.querySelectorAll('article').forEach(a=>{const c=a.querySelector('canvas'),g=c.getContext('2d'),img=new Image();let pts=[];
 function draw(){g.drawImage(img,0,0,c.width,c.height);pts.forEach((p,i)=>{g.strokeStyle='#e22';g.lineWidth=2;g.beginPath();if(i<2){g.moveTo(p*c.width,0);g.lineTo(p*c.width,c.height)}else{g.moveTo(0,p*c.height);g.lineTo(c.width,p*c.height)}g.stroke()});
 a.querySelector('.step').textContent=a.querySelector('.na').checked?'판정불가':pts.length<4?(pts.length+1)+'/4 '+STEPS[pts.length]+' — 탭':'표시 완료';
-a.dataset.s=a.querySelector('.na').checked?[a.dataset.id,'front','판정불가'].join('|'):pts.length==4?[a.dataset.id,'front',pts.map(p=>p.toFixed(4)).join(',')].join('|'):'';sync()}
+const cen=a.querySelector('.cen'),cv=cen?cen.value:null;
+a.dataset.s=a.querySelector('.na').checked?[a.dataset.id,'front','판정불가'].join('|'):(pts.length==4&&(!cen||cv))?[a.dataset.id,'front',pts.map(p=>p.toFixed(4)).join(','),...(cen?[cv]:[])].join('|'):'';sync()}
 img.onload=()=>{c.width=img.width;c.height=img.height;draw()};img.src=a.dataset.src;
 c.addEventListener('click',e=>{if(pts.length>=4)return;const r=c.getBoundingClientRect();pts.push(pts.length<2?(e.clientX-r.left)/r.width:(e.clientY-r.top)/r.height);draw()});
-a.querySelector('.undo').onclick=()=>{pts.pop();draw()};a.querySelector('.na').onchange=draw});
+a.querySelector('.undo').onclick=()=>{pts.pop();draw()};a.querySelector('.na').onchange=draw;const ce=a.querySelector('.cen');if(ce)ce.onchange=draw});
 %s""" 
 
 
-def article(item):
+def article(item, cen=False):
     return (f'<article data-id="{html.escape(item["id"])}" data-s="" data-src="{small_uri(item["image"])}">'
             f'<h2>{html.escape(item["id"])}</h2><div class="step"></div><button class="undo">되돌리기</button><canvas></canvas>'
-            '<label><input type="checkbox" class="na"> 앞면 아님/판정불가</label></article>')
+            '<label><input type="checkbox" class="na"> 앞면 아님/판정불가</label>'
+            + ('<label>센터링(사람 판단) <select class="cen"><option value="">선택</option><option>결함</option><option>정상</option><option>미확인</option></select></label>' if cen else '') + '</article>')
 
 
-def main(pool_json, ids_json, out_path):
+def main(pool_json, ids_json, out_path, with_centering=False):
     ids = json.loads(Path(ids_json).read_text())
     items = [i for i in json.loads(Path(pool_json).read_text()) if i['id'] in set(ids)]
     from c4_label_pages import COPY
     guide = '<p>카드 전체(앞면)의 바깥 가장자리 4곳을 순서대로 탭하세요: 왼 → 오른 → 위 → 아래. 사진 전체가 보입니다.</p>'
     script = SCRIPT % (json.dumps(STEPS, ensure_ascii=False), COPY.split('\n', 1)[1])
-    Path(out_path).write_text(f'<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><style>{STYLE}</style>{guide}{"".join(article(i) for i in items)}{PANEL}<script>{script}</script>', encoding='utf-8')
+    Path(out_path).write_text(f'<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><style>{STYLE}</style>{guide}{"".join(article(i, with_centering) for i in items)}{PANEL}<script>{script}</script>', encoding='utf-8')
     return len(items)
 
 
 if __name__ == '__main__':
-    print(main(*sys.argv[1:4]))
+    print(main(*sys.argv[1:4], with_centering=len(sys.argv) > 4))
