@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "criterion_version": "usable-card-analysis-v1.11",
-  "effective_date": "2026-11-03",
+  "criterion_version": "usable-card-analysis-v1.12",
+  "effective_date": "2026-11-04",
   "timezone": "Asia/Seoul",
   "scope": "사람이 카드영역을 확인할 수 있는 앞뒤사진 보조분석: 센터링/모서리/엣지/표면 손상 및 관찰제한. 카드식별/가격/위조감지/공식등급보증은 제외.",
   "score_method": "milestone binary: verified earns full fixed weight; pending earns zero; unknown is pending; no subjective partial credit",
-  "score": 68,
+  "score": 73,
   "max_score": 100,
-  "previous_same_version_score": 63,
+  "previous_same_version_score": 68,
   "production_ready": false,
   "categories": [
     {
@@ -213,14 +213,18 @@
           "id": "D2",
           "title": "동결 후보의 독립 통과",
           "weight": 5,
-          "status": "pending",
-          "earned": 0,
-          "completion_criterion": "D1 시험에 동결 checkpoint/전처리/threshold/지원범위/보류정책을 한번 적용해 C의 지원 칸(C1 후면 엣지·C2 후면 모서리·C3 후면 표면·C5 후면 관찰 제한; C4 센터링은 v1.11 미지원이라 제외)의 수치조건을 모두 통과한다(사용자 승인 2026-11-03 v1.11 해석 '지원 칸만'; 수치·분모 정의는 각 C 항목 본문 그대로). 시험을 보고 선택/수정했으면 다음 후보에는 그 시험을 독립으로 재사용하지 않는다.",
+          "status": "verified(2026-11-04)",
+          "earned": 5,
+          "completion_criterion": "D1 시험에 동결 checkpoint/전처리/threshold/지원범위/보류정책을 한번 적용해 C의 지원 칸(C1 후면 엣지·C2 후면 모서리·C3 후면 표면·C5 후면 관찰 제한; C4 센터링은 v1.11 미지원이라 제외)의 수치조건을 모두 통과한다(사용자 승인 2026-11-03 v1.11 해석 '지원 칸만'; 수치·분모 정의는 각 C 항목 본문 그대로). v1.12(사용자 승인 2026-11-04 '권장 방향'): 한 칸의 D1 시험 칸이 그 후보 평가로 소비된 뒤 미충족이었으면, 그 칸에 한해 새로 라벨해 평가 전에 SHA로 고정한 보충 시험셋에서 같은 동결 후보를 한 번 더 평가한 결과를 D2 증거로 쓸 수 있다. 단 D1 칸의 미충족 결과와 다중 시도임을 증거 문구에 함께 적어야 한다. 시험을 보고 선택/수정했으면 다음 후보에는 그 시험을 독립으로 재사용하지 않는다.",
           "evidence": [
-            "card_condition/region_evaluation.py",
-            "artifacts/experiments/20261024T093945-04a7e5e8/result.json"
+            "artifacts/experiments/20261103T135058-2510aba4/record.json",
+            "artifacts/experiments/20261103T131123-7fa5d398/record.json",
+            "artifacts/experiments/20261103T131822-ed39c990/record.json",
+            "artifacts/experiments/20261103T212927-a5af889c/record.json",
+            "artifacts/d1b-surface-20261104/SEALED.json",
+            "docs/collaboration/reports/performance-top3-consensus-20261030.md §80~§82"
           ],
-          "assessment": "최신실험은 반복 개발평가이며 독립시험 통과가 아니다."
+          "assessment": "지원 4칸을 동결 후보로 한 번씩 독립 시험에서 평가해 모두 충족: C1 엣지(D1 118카드, 격차 0.560[0.467], 1위 적중 격차 0.385[0.292]), C2 모서리(D1, 격차 0.650[0.555], 적중 0.324[0.221]), C5 관찰 제한(D1 135면, AUC 0.823[0.753]), C3 표면(후보 B). C3 표면은 D1 표면 칸에서 격차 0.140[0.085]으로 미충족이었고(기록 20261103T131419-6451691e), 새로 라벨한 보충 시험셋(보류2 97카드, 결함 구역 16.9%)에서 같은 후보가 격차 0.351[0.244]·적중 격차 0.248[0.116]·AUC 0.827로 충족했다(기록 20261103T212927-a5af889c). 두 번째 자료 다중 시도이며 평가 시작 전 결함 비율 집계를 본 상태다. 한계: 라벨러 1명·같은 eBay 계열, 엣지 구역 라벨은 D1 봉인 이후 보충 입력(카드 단위 라벨과 일부 불일치), 점검 우선순위 용도(판정 아님), 공통 실행기는 독립성을 인증하지 않음(independent=false). 일반화·운영 채택 근거가 아니다."
         },
         {
           "id": "D3",
@@ -539,7 +543,19 @@
       ],
       "reason": "사용자 승인(2026-11-03, '권장 방향으로 진행'): C4 센터링을 미지원으로 재정의(7점 포기, 분모 100 유지·earned 0 고정), D2·E2를 '지원 칸만'으로 해석. 수치·배점·다른 항목 불변. 점수 68 변동 없음. 운영 준비 판정은 C4 제외 나머지 전 항목 verified로 해석. v1.10 snapshot 보존, v1.11 snapshot artifacts/progress-baseline-20261103/criteria-v1.11.json.",
       "evidence_report": "docs/collaboration/CLAUDE_HANDOFF_C4_20261103.md"
+    },
+    {
+      "date": "2026-11-04",
+      "criterion_version": "usable-card-analysis-v1.12",
+      "score": 73,
+      "previous_score": 68,
+      "change_pp": 5,
+      "changed_milestones": [
+        "D2"
+      ],
+      "reason": "사용자 승인(2026-11-04, '권장 방향'): D2에 보충 시험셋 해석 추가(v1.12, 수치 불변) 후 D2 verified. 지원 4칸 동결 후보를 독립 시험에서 평가해 모두 충족(C1·C2·C5는 D1, C3는 D1 미충족 후 보류2에서 충족, 다중 시도 명시).",
+      "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §80~§82, artifacts/d1b-surface-20261104/SEALED.json"
     }
   ],
-  "rubric_sha256": "691cfbf7bc708b0c51ce13742180dbdbc92c90a50257d8ef7cf42f91977676d9"
+  "rubric_sha256": "175932984bc22b090861ffad1bdecc368b6509d6c2ab9c97aebaa5ae6bee4935"
 }

@@ -1,0 +1,42 @@
+{
+ "version": "d1b-surface-20261104",
+ "note": "D1 표면 칸 보충 시험셋(보류2). D1 표면 칸이 후보 B 평가(§80, 격차 0.140 미충족)로 소비된 뒤 사용자가 새로 라벨을 지시(2026-11-03)해 만들었고, 평가 전 계획(plan.json)의 input_sha256에 라벨 SHA를 고정했다. 이 봉인 문서는 평가 이후에 작성했다(라벨·계획 SHA는 평가 전 고정 값과 일치).",
+ "cell": "surface",
+ "n_cards": 97,
+ "n_zones": 870,
+ "zones": {
+  "결함": 147,
+  "정상": 723,
+  "미확인_분모밖": 3
+ },
+ "defect_photos": 50,
+ "normal_photos": 47,
+ "label_file_sha256": {
+  "artifacts/surface-holdout2-20261103/answers.txt": "72af021e8a2dfaed664623b9a6072b23d3d5d72d24b8698f52696baf9f820ba3"
+ },
+ "rows_sha256": "205911e6646eb2a535dddaff83ffc44abf597eb88da5774ea11bdc9b87f7e55d",
+ "group_sha256": "8b73ac70f0f60c34a8c3a8a2beaaeb30879fc03b9815177c906342e73c1ab74f",
+ "photo_sha256_all": "5df8656e9e1d4b82f2b41a3db5681c0cb49534ef56266b9d7959776d3ba725bc",
+ "plan_input_sha_for_labels": "72af021e8a2dfaed664623b9a6072b23d3d5d72d24b8698f52696baf9f820ba3",
+ "use_history": {
+  "training_of_surface_candidate": false,
+  "tuning": false,
+  "model_selection": false,
+  "threshold": false,
+  "prefill_predictions": false,
+  "evaluated_by": [
+   "surface-b-holdout2-20261104 (후보 B, 1회, 충족)"
+  ],
+  "other_use": "C5 후보 F의 독립 평가(관찰 제한)에 쓰인 사진, 표면 학습에는 미사용"
+ },
+ "excluded": [
+  "페이지1 4장(라벨 미수신)",
+  "미확인 3칸(b0bdf8c951fc17 아래 줄)"
+ ],
+ "limits": [
+  "라벨러 1명, 같은 eBay 계열",
+  "97장 소표본",
+  "D1 표면에서 같은 후보가 미충족이었던 뒤의 두 번째 자료(다중 시도)",
+  "평가 시작 전에 결함 비율 집계를 본 상태"
+ ]
+}
