@@ -1,0 +1,595 @@
+{
+ "normal": {
+  "exit": 0,
+  "out": {
+   "id": "ebay-pair-8c763af3ed2ba0",
+   "results": {
+    "edge": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 엣지 8구역에만 적용됩니다.",
+     "model_sha256": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+     "thresholds": {
+      "low": 0.31,
+      "high": 0.54
+     },
+     "status": "ranked",
+     "zones": [
+      {
+       "area": "lower_right",
+       "score": 0.9151479005813599,
+       "band": "high",
+       "rank": 1,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "middle_right",
+       "score": 0.9030807614326477,
+       "band": "high",
+       "rank": 2,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "lower_left",
+       "score": 0.87103670835495,
+       "band": "high",
+       "rank": 3,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "lower_center",
+       "score": 0.7201279401779175,
+       "band": "high",
+       "rank": 4,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "upper_left",
+       "score": 0.6317270398139954,
+       "band": "high",
+       "rank": 5,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "upper_center",
+       "score": 0.49241137504577637,
+       "band": "mid",
+       "rank": 6,
+       "label": "점검 우선순위 중간"
+      },
+      {
+       "area": "middle_left",
+       "score": 0.48417988419532776,
+       "band": "mid",
+       "rank": 7,
+       "label": "점검 우선순위 중간"
+      },
+      {
+       "area": "upper_right",
+       "score": 0.28716161847114563,
+       "band": "low",
+       "rank": 8,
+       "label": "점검 우선순위 낮음"
+      }
+     ]
+    },
+    "corner": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "corner",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 모서리 4구역에만 적용됩니다.",
+     "model_sha256": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+     "thresholds": {
+      "low": 0.28083738684654236,
+      "high": 0.5092798471450806
+     },
+     "status": "ranked",
+     "zones": [
+      {
+       "area": "lower_right",
+       "score": 0.7270931005477905,
+       "band": "high",
+       "rank": 1,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "upper_left",
+       "score": 0.55622398853302,
+       "band": "high",
+       "rank": 2,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "lower_left",
+       "score": 0.1835418939590454,
+       "band": "low",
+       "rank": 3,
+       "label": "점검 우선순위 낮음"
+      },
+      {
+       "area": "upper_right",
+       "score": 0.07752365618944168,
+       "band": "low",
+       "rank": 4,
+       "label": "점검 우선순위 낮음"
+      }
+     ]
+    },
+    "surface": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "surface",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 표면 9구역에만 적용됩니다.",
+     "model_sha256": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+     "thresholds": {
+      "low": 0.2129085659980774,
+      "high": 0.4681871235370636
+     },
+     "status": "ranked",
+     "zones": [
+      {
+       "area": "lower_right",
+       "score": 0.741116464138031,
+       "band": "high",
+       "rank": 1,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "upper_left",
+       "score": 0.7346460819244385,
+       "band": "high",
+       "rank": 2,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "middle_right",
+       "score": 0.6414793133735657,
+       "band": "high",
+       "rank": 3,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "upper_center",
+       "score": 0.6019854545593262,
+       "band": "high",
+       "rank": 4,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "upper_right",
+       "score": 0.6019317507743835,
+       "band": "high",
+       "rank": 5,
+       "label": "점검 우선순위 높음"
+      },
+      {
+       "area": "lower_left",
+       "score": 0.4341711699962616,
+       "band": "mid",
+       "rank": 6,
+       "label": "점검 우선순위 중간"
+      },
+      {
+       "area": "lower_center",
+       "score": 0.39515578746795654,
+       "band": "mid",
+       "rank": 7,
+       "label": "점검 우선순위 중간"
+      },
+      {
+       "area": "middle_left",
+       "score": 0.2880941927433014,
+       "band": "mid",
+       "rank": 8,
+       "label": "점검 우선순위 중간"
+      },
+      {
+       "area": "center",
+       "score": 0.2350185215473175,
+       "band": "mid",
+       "rank": 9,
+       "label": "점검 우선순위 중간"
+      }
+     ]
+    },
+    "observation_limit": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "observation_limit",
+     "purpose": "reshoot_priority",
+     "notice": "재촬영 권고 우선순위 점수이며 관찰 제한 판정이 아닙니다. 후면 사진에만 적용됩니다.",
+     "model_sha256": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8",
+     "status": "scored",
+     "score": 0.0017783441580832005
+    }
+   },
+   "unsupported": {
+    "centering": "unsupported_human_review",
+    "front_face": "unsupported_human_review"
+   },
+   "complete": false,
+   "model_sha256": {
+    "edge": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+    "corner": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+    "surface": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+    "observation_limit": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8"
+   },
+   "release_id": "back-triage-0.6.0",
+   "manifest_sha256": "fef9f9c814ee3879da1543528ca356dbeab1c738a4c9cc9d0e78ca72112c85d5"
+  }
+ },
+ "missing_photo": {
+  "exit": 0,
+  "out": {
+   "id": "ebay-pair-8c763af3ed2ba0",
+   "results": {
+    "edge": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 엣지 8구역에만 적용됩니다.",
+     "model_sha256": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+     "thresholds": {
+      "low": 0.31,
+      "high": 0.54
+     },
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    },
+    "corner": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "corner",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 모서리 4구역에만 적용됩니다.",
+     "model_sha256": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+     "thresholds": {
+      "low": 0.28083738684654236,
+      "high": 0.5092798471450806
+     },
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    },
+    "surface": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "surface",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 표면 9구역에만 적용됩니다.",
+     "model_sha256": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+     "thresholds": {
+      "low": 0.2129085659980774,
+      "high": 0.4681871235370636
+     },
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    },
+    "observation_limit": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "observation_limit",
+     "purpose": "reshoot_priority",
+     "notice": "재촬영 권고 우선순위 점수이며 관찰 제한 판정이 아닙니다. 후면 사진에만 적용됩니다.",
+     "model_sha256": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8",
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    }
+   },
+   "unsupported": {
+    "centering": "unsupported_human_review",
+    "front_face": "unsupported_human_review"
+   },
+   "complete": false,
+   "model_sha256": {
+    "edge": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+    "corner": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+    "surface": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+    "observation_limit": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8"
+   },
+   "release_id": "back-triage-0.6.0",
+   "manifest_sha256": "fef9f9c814ee3879da1543528ca356dbeab1c738a4c9cc9d0e78ca72112c85d5",
+   "fallback": "existing_path"
+  }
+ },
+ "corrupt_file": {
+  "exit": 0,
+  "out": {
+   "id": "ebay-pair-8c763af3ed2ba0",
+   "results": {
+    "edge": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 엣지 8구역에만 적용됩니다.",
+     "model_sha256": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+     "thresholds": {
+      "low": 0.31,
+      "high": 0.54
+     },
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    },
+    "corner": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "corner",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 모서리 4구역에만 적용됩니다.",
+     "model_sha256": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+     "thresholds": {
+      "low": 0.28083738684654236,
+      "high": 0.5092798471450806
+     },
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    },
+    "surface": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "surface",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 표면 9구역에만 적용됩니다.",
+     "model_sha256": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+     "thresholds": {
+      "low": 0.2129085659980774,
+      "high": 0.4681871235370636
+     },
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    },
+    "observation_limit": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "observation_limit",
+     "purpose": "reshoot_priority",
+     "notice": "재촬영 권고 우선순위 점수이며 관찰 제한 판정이 아닙니다. 후면 사진에만 적용됩니다.",
+     "model_sha256": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8",
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    }
+   },
+   "unsupported": {
+    "centering": "unsupported_human_review",
+    "front_face": "unsupported_human_review"
+   },
+   "complete": false,
+   "model_sha256": {
+    "edge": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+    "corner": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+    "surface": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+    "observation_limit": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8"
+   },
+   "release_id": "back-triage-0.6.0",
+   "manifest_sha256": "fef9f9c814ee3879da1543528ca356dbeab1c738a4c9cc9d0e78ca72112c85d5",
+   "fallback": "existing_path"
+  }
+ },
+ "front_side": {
+  "exit": 0,
+  "out": {
+   "id": "ebay-pair-8c763af3ed2ba0",
+   "results": {
+    "edge": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 엣지 8구역에만 적용됩니다.",
+     "model_sha256": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+     "thresholds": {
+      "low": 0.31,
+      "high": 0.54
+     },
+     "status": "held",
+     "reason": "back_photo_with_confirmed_box_required"
+    },
+    "corner": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "corner",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 모서리 4구역에만 적용됩니다.",
+     "model_sha256": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+     "thresholds": {
+      "low": 0.28083738684654236,
+      "high": 0.5092798471450806
+     },
+     "status": "held",
+     "reason": "back_photo_with_confirmed_box_required"
+    },
+    "surface": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "surface",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 표면 9구역에만 적용됩니다.",
+     "model_sha256": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+     "thresholds": {
+      "low": 0.2129085659980774,
+      "high": 0.4681871235370636
+     },
+     "status": "held",
+     "reason": "back_photo_with_confirmed_box_required"
+    },
+    "observation_limit": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "observation_limit",
+     "purpose": "reshoot_priority",
+     "notice": "재촬영 권고 우선순위 점수이며 관찰 제한 판정이 아닙니다. 후면 사진에만 적용됩니다.",
+     "model_sha256": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8",
+     "status": "held",
+     "reason": "back_photo_with_confirmed_box_required"
+    }
+   },
+   "unsupported": {
+    "centering": "unsupported_human_review",
+    "front_face": "unsupported_human_review"
+   },
+   "complete": false,
+   "model_sha256": {
+    "edge": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+    "corner": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+    "surface": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+    "observation_limit": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8"
+   },
+   "release_id": "back-triage-0.6.0",
+   "manifest_sha256": "fef9f9c814ee3879da1543528ca356dbeab1c738a4c9cc9d0e78ca72112c85d5",
+   "fallback": "existing_path"
+  }
+ },
+ "box_unconfirmed": {
+  "exit": 0,
+  "out": {
+   "id": "ebay-pair-8c763af3ed2ba0",
+   "results": {
+    "edge": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 엣지 8구역에만 적용됩니다.",
+     "model_sha256": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+     "thresholds": {
+      "low": 0.31,
+      "high": 0.54
+     },
+     "status": "held",
+     "reason": "back_photo_with_confirmed_box_required"
+    },
+    "corner": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "corner",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 모서리 4구역에만 적용됩니다.",
+     "model_sha256": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+     "thresholds": {
+      "low": 0.28083738684654236,
+      "high": 0.5092798471450806
+     },
+     "status": "held",
+     "reason": "back_photo_with_confirmed_box_required"
+    },
+    "surface": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "surface",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 표면 9구역에만 적용됩니다.",
+     "model_sha256": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+     "thresholds": {
+      "low": 0.2129085659980774,
+      "high": 0.4681871235370636
+     },
+     "status": "held",
+     "reason": "back_photo_with_confirmed_box_required"
+    },
+    "observation_limit": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "observation_limit",
+     "purpose": "reshoot_priority",
+     "notice": "재촬영 권고 우선순위 점수이며 관찰 제한 판정이 아닙니다. 후면 사진에만 적용됩니다.",
+     "model_sha256": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8",
+     "status": "held",
+     "reason": "back_photo_with_confirmed_box_required"
+    }
+   },
+   "unsupported": {
+    "centering": "unsupported_human_review",
+    "front_face": "unsupported_human_review"
+   },
+   "complete": false,
+   "model_sha256": {
+    "edge": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+    "corner": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+    "surface": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+    "observation_limit": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8"
+   },
+   "release_id": "back-triage-0.6.0",
+   "manifest_sha256": "fef9f9c814ee3879da1543528ca356dbeab1c738a4c9cc9d0e78ca72112c85d5",
+   "fallback": "existing_path"
+  }
+ },
+ "invalid_box": {
+  "exit": 0,
+  "out": {
+   "id": "ebay-pair-8c763af3ed2ba0",
+   "results": {
+    "edge": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 엣지 8구역에만 적용됩니다.",
+     "model_sha256": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+     "thresholds": {
+      "low": 0.31,
+      "high": 0.54
+     },
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    },
+    "corner": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "corner",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 모서리 4구역에만 적용됩니다.",
+     "model_sha256": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+     "thresholds": {
+      "low": 0.28083738684654236,
+      "high": 0.5092798471450806
+     },
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    },
+    "surface": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "surface",
+     "purpose": "inspection_priority",
+     "notice": "점검 우선순위 제안이며 결함·정상 판정이 아닙니다. 후면 표면 9구역에만 적용됩니다.",
+     "model_sha256": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+     "thresholds": {
+      "low": 0.2129085659980774,
+      "high": 0.4681871235370636
+     },
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    },
+    "observation_limit": {
+     "id": "ebay-pair-8c763af3ed2ba0",
+     "kind": "observation_limit",
+     "purpose": "reshoot_priority",
+     "notice": "재촬영 권고 우선순위 점수이며 관찰 제한 판정이 아닙니다. 후면 사진에만 적용됩니다.",
+     "model_sha256": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8",
+     "status": "held",
+     "reason": "invalid_box_or_unreadable_image"
+    }
+   },
+   "unsupported": {
+    "centering": "unsupported_human_review",
+    "front_face": "unsupported_human_review"
+   },
+   "complete": false,
+   "model_sha256": {
+    "edge": "4b0412c43338f6f48f4c032467caa8297b74c7369dc868655f0f7cda65d31924",
+    "corner": "3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187",
+    "surface": "cb862aa608c0e088e24e86ce2ebb3fb7fadc303e1a791483e776a24f29ca787b",
+    "observation_limit": "e28e655e8317c2d28a76e3ffad2f35164202d3200196e88bfdb34f3a686491b8"
+   },
+   "release_id": "back-triage-0.6.0",
+   "manifest_sha256": "fef9f9c814ee3879da1543528ca356dbeab1c738a4c9cc9d0e78ca72112c85d5",
+   "fallback": "existing_path"
+  }
+ },
+ "contract_violation": {
+  "exit": 3,
+  "out": {
+   "id": null,
+   "status": "held",
+   "reason": "request_contract_violation",
+   "fallback": "existing_path",
+   "complete": false
+  }
+ },
+ "head_tampered": {
+  "exit": 2,
+  "out": {
+   "id": "ebay-pair-8c763af3ed2ba0",
+   "status": "held",
+   "reason": "release_unavailable:checksum_mismatch:surface",
+   "fallback": "existing_path",
+   "complete": false
+  }
+ },
+ "backbone_missing": {
+  "exit": 2,
+  "out": {
+   "id": "ebay-pair-8c763af3ed2ba0",
+   "status": "held",
+   "reason": "release_unavailable:checksum_mismatch:backbone_weights",
+   "fallback": "existing_path",
+   "complete": false
+  }
+ }
+}
