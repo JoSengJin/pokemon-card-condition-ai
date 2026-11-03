@@ -51,3 +51,9 @@
 ## 작업 방식 제안(검토 결과)
 - 코드 구현(모듈·도구·테스트)은 **worktree + task 문서 + Codex 통합/push**로 전환하는 것이 규칙에 맞다. 단, 실제 실험·라벨·사진 추론은 기본 checkout 단일 담당자 규칙이라 worktree에서 실행할 수 없다.
 - 이 세션처럼 사용자와 라벨→평가→보고를 빠르게 도는 작업은 매번 Codex 통합을 거치면 한 바퀴가 크게 느려진다. 제안: 구현은 worktree·task 문서·SHA 전달, 실험은 "그 시점의 실험 담당자 1명"을 사용자가 지정, push는 Codex(또는 `AGENTS.md` 상시 승인 범위). 상세는 채팅 보고 참고.
+
+## 통합 준비 점검 (2026-11-04 추가, 같은 날 후속)
+- 전체 단위 테스트 `python -m unittest discover -s tests` **995개 통과**(약 120초; `-t .` 옵션을 쓰면 import 오류가 난다). 사용 기록 추가 후 관련 17개 테스트 재통과.
+- 후속 개발(F2 준비): `card_condition/back_triage_usage.py`(+CLI `--usage-log`·`--summary`, 기존 `pilot_record.append_line`·`pilot_summary` 문턱 재사용, 경로·오류 문장 미기록)과 `tests/test_back_triage_usage.py`. F1 증거(휠 SHA `2bbaa125…`, 장애 케이스, 0.6.1 업그레이드→0.6.0 복구 출력 동일)를 코드 변경 뒤 재실행해 갱신.
+- Codex가 최종 통합하지 않는 동안에는 이 checkout에서 계속 개발하고 push하지 않는다(로컬 커밋만). worktree 전환은 사용자 결정 대기.
+- 통합 시 주의: `pyproject.toml`(version 0.6.0, 스크립트 `card-condition-back-triage`)만 기존 파일 변경. 나머지는 새 파일. `artifacts/`(release 폴더, 라벨, 기록)는 git 제외라 같은 컴퓨터 기본 checkout에서만 실행 가능.
