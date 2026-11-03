@@ -20,9 +20,9 @@ a.querySelector('.undo').onclick=()=>{pts.pop();draw()};a.querySelectorAll('sele
 SELECT = '<label>{t} <select class="{c}"><option value="">선택</option>{o}</select></label>'
 
 
-PANEL = ('<div id="bar" style="position:sticky;bottom:0;background:#fff;border-top:2px solid #333;padding:8px;z-index:9">'
+PANEL = ('<div id="bar" style="position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:2px solid #333;padding:6px 8px;z-index:9">'
          '<div><b id="cnt">0</b>/<span id="tot"></span> 완료 <button id="cp" style="font-size:17px;padding:6px 14px">전체 선택·복사</button> <span id="msg"></span></div>'
-         '<textarea id="out" readonly style="width:100%;height:90px;font-size:12px"></textarea></div>')
+         '<textarea id="out" readonly style="width:100%;height:44px;font-size:12px"></textarea></div><div style="height:130px"></div>')
 COPY = ("""const o=document.getElementById('out');document.getElementById('tot').textContent=document.querySelectorAll('article').length;
 function cnt(){document.getElementById('cnt').textContent=[...document.querySelectorAll('article')].filter(x=>x.dataset.s).length}
 document.querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>setTimeout(cnt,0)));document.querySelectorAll('canvas').forEach(c=>c.addEventListener('click',()=>setTimeout(cnt,0)));
