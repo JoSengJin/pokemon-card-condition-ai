@@ -1,0 +1,4 @@
+ebay-pair-009fdaadb3fe2c=edge:문제가 보인다,corner:문제가 보인다,surface:문제가 보인다;
+ebay-pair-01ac207c47e044=edge:문제가 보인다,corner:문제가 보인다,surface:문제가 안 보인다;
+ebay-pair-01e3a72946c799=edge:문제가 보인다,corner:문제가 보인다,surface:문제가 보인다;
+ebay-pair-01fe03f111c1fc=edge:문제가 안 보인다,corner:문제가 보인다,surface:문제가 안 보인다;
