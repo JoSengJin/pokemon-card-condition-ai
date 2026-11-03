@@ -23,12 +23,12 @@ def backs():
     return out
 
 
-def zone_rows(answers, kind):
+def zone_rows(answers, kind, need_ok=True):
     """One row per zone with a 정상/결함 answer on a 확인 box; 미확인 zones and cards are left out (counts in the summary)."""
     info, rows = backs(), []
     for line in (LABELS/answers).read_text(encoding='utf-8').splitlines():
         ident, rest = line.split('/back=', 1)
-        if not rest.startswith('확인'):
+        if need_ok and not rest.startswith('확인'):
             continue
         box = [float(v) for v in re.search(r'box:([\d.,]+)', rest).group(1).split(',')]
         image, intake, _ = info[ident]
@@ -65,7 +65,7 @@ def obs_rows():
 def main(out_dir):
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    sets = dict(corner=zone_rows('cor-answers.txt', 'corner'), surface=zone_rows('sur-answers.txt', 'surface'), obs=obs_rows())
+    sets = dict(corner=zone_rows('cor-answers.txt', 'corner'), surface=zone_rows('sur-answers.txt', 'surface'), obs=obs_rows(), edge=zone_rows('edge-zone-answers.txt', 'edge', need_ok=False))
     summary = {}
     for name, rows in sets.items():
         (out/f'{name}-rows.json').write_text(json.dumps(rows, ensure_ascii=False))

@@ -16,5 +16,11 @@
   "groups": 135,
   "positive": 35,
   "defect_photos": 35
+ },
+ "edge": {
+  "rows": 942,
+  "groups": 118,
+  "positive": 282,
+  "defect_photos": 70
  }
 }

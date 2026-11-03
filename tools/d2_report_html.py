@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-RUNS = dict(corner=('20261103T131123-7fa5d398', 'C2 후면 모서리 · 후보 E', 0.2808, 0.5093),
+RUNS = dict(edge=('20261103T135058-2510aba4', 'C1 후면 엣지 · §41 후보', 0.31, 0.54), corner=('20261103T131123-7fa5d398', 'C2 후면 모서리 · 후보 E', 0.2808, 0.5093),
             surface=('20261103T131419-6451691e', 'C3 후면 표면 · 후보 B', 0.2129, 0.4682))
 
 
