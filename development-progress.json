@@ -581,6 +581,16 @@
       "changed_milestones": [],
       "reason": "사용자가 채팅에서 명시적으로 결정: v1.11(C4 미지원)·v1.12(D2 보충 시험셋 해석) 승인 확정 -> 78점 유지. F1은 소비 서비스 없는 독립 CLI를 소비경로로 인정하지 않기로 해 pending 유지(+5 보류). 기준 본문·배점 불변.",
       "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §85~§88 (표면 개선 시도는 사전 기준 미충족, 점수 영향 없음)"
+    },
+    {
+      "date": "2026-11-04",
+      "criterion_version": "usable-card-analysis-v1.12",
+      "score": 78,
+      "previous_score": 78,
+      "change_pp": 0,
+      "changed_milestones": [],
+      "reason": "승인 원문 확인: 사용자가 채팅에서 'v1.11(센터링 미지원, 7점 포기)과 v1.12(D2 보충 시험셋 해석)를 각각 승인하십니까?'라는 질문에 '승인'이라고 답했다. 직전 기록의 '권장 방향' 해석 승인은 이 원문으로 대체된다. 기준 본문·배점·점수 불변.",
+      "evidence_report": "CLAUDE_HANDOFF_20261104.md '사용자 결정 기록'"
     }
   ],
   "rubric_sha256": "175932984bc22b090861ffad1bdecc368b6509d6c2ab9c97aebaa5ae6bee4935"
