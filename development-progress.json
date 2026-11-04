@@ -296,7 +296,7 @@
             "LISTING_OBSERVATION_API_VALIDATION_20261011.md",
             "FINITE_LOGITS_VALIDATION_20261011.md"
           ],
-          "assessment": "이전 설치/연결 도구검증은 있으나 품질통과 릴리스후보의 실제소비경로·복구완료는 아니다."
+          "assessment": "이전 설치/연결 도구검증은 있으나 품질통과 릴리스후보의 실제소비경로·복구완료는 아니다. 2026-11-04: 릴리스 0.6.0 manifest·CLI·깨끗한 설치·장애 케이스·0.6.1->0.6.0 복구는 검증했으나(docs/collaboration/reports/f1-back-triage-release-20261104/), 소비 서비스 없이 만든 독립 CLI는 승인된 소비경로로 인정하지 않기로 사용자가 결정해 pending 유지."
         },
         {
           "id": "F2",
@@ -571,6 +571,16 @@
       ],
       "reason": "E2 충족(기준 본문 불변, rubric_sha256 유지): 통합 검토 시나리오 구성·커버리지 99.9% 확인·사용자 검토 완주(놓침 입력 포함). 한계는 assessment 참조.",
       "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §83~§84"
+    },
+    {
+      "date": "2026-11-04",
+      "criterion_version": "usable-card-analysis-v1.12",
+      "score": 78,
+      "previous_score": 78,
+      "change_pp": 0,
+      "changed_milestones": [],
+      "reason": "사용자가 채팅에서 명시적으로 결정: v1.11(C4 미지원)·v1.12(D2 보충 시험셋 해석) 승인 확정 -> 78점 유지. F1은 소비 서비스 없는 독립 CLI를 소비경로로 인정하지 않기로 해 pending 유지(+5 보류). 기준 본문·배점 불변.",
+      "evidence_report": "docs/collaboration/reports/performance-top3-consensus-20261030.md §85~§88 (표면 개선 시도는 사전 기준 미충족, 점수 영향 없음)"
     }
   ],
   "rubric_sha256": "175932984bc22b090861ffad1bdecc368b6509d6c2ab9c97aebaa5ae6bee4935"

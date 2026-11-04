@@ -57,3 +57,9 @@
 - 후속 개발(F2 준비): `card_condition/back_triage_usage.py`(+CLI `--usage-log`·`--summary`, 기존 `pilot_record.append_line`·`pilot_summary` 문턱 재사용, 경로·오류 문장 미기록)과 `tests/test_back_triage_usage.py`. F1 증거(휠 SHA `2bbaa125…`, 장애 케이스, 0.6.1 업그레이드→0.6.0 복구 출력 동일)를 코드 변경 뒤 재실행해 갱신.
 - Codex가 최종 통합하지 않는 동안에는 이 checkout에서 계속 개발하고 push하지 않는다(로컬 커밋만). worktree 전환은 사용자 결정 대기.
 - 통합 시 주의: `pyproject.toml`(version 0.6.0, 스크립트 `card-condition-back-triage`)만 기존 파일 변경. 나머지는 새 파일. `artifacts/`(release 폴더, 라벨, 기록)는 git 제외라 같은 컴퓨터 기본 checkout에서만 실행 가능.
+
+## 사용자 결정 기록 (2026-11-04 채팅)
+- v1.11·v1.12: **명시 승인**(권장안 수락). 78점 확정, revert 불필요.
+- F1: 독립 CLI를 소비경로로 **인정하지 않음** -> pending 유지(83 보류). 필요 시 실제 소비 서비스/시범 계획이 정해질 때 재판정.
+- 표면 모델 개선 루프 종료(§85~§88: 백본 교체·라벨 필터·점수 평균·TTA 모두 사전 기준 미충족, 최대 신호는 두 백본 평균 +0.016). 독립 시험·새 라벨 없이는 더 진행하지 않음.
+- 미결: worktree·Codex push 방식, 보류2 페이지 1(4장) 라벨. 
