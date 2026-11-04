@@ -54,7 +54,9 @@ export class FreeGuard {
 
   trip(reason: string, detail: string, source: string) {
     const alert: Alert = { at: new Date().toISOString(), reason, detail, source };
-    if (!this.pending()) writeJsonAtomic(this.alertFile, alert);
+    let exists = false;
+    try { exists = !!JSON.parse(fs.readFileSync(this.alertFile, 'utf8')); } catch { /* no prior alert */ }
+    if (!exists) writeJsonAtomic(this.alertFile, alert);
     this.onTrip(alert);
   }
 }

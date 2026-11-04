@@ -8,6 +8,7 @@ import { manualGate } from './mainHandoverGate.ts';
 import { lock } from './mainSerial.ts';
 import { tokenHash, writeBundle } from './mainTakeover.ts';
 import { swapBlockers } from './mainRole.ts';
+import { appendEvent } from './store.ts';
 import type { Executor } from './executor.ts';
 import type { Agent, MainSession } from './mainTypes.ts';
 
@@ -23,7 +24,7 @@ export function failSession(ex: Executor, s: MainSession, reason: string) {
   s.status = 'failed'; s.failure = reason;
   rt.history.push(s); rt.session = null; rt.frozen = false;
   rt.failures.push({ at: new Date().toISOString(), reason, checkpointFile: s.checkpointFile });
-  ex.audit('main_handover_failed', { session: s.id, to: s.agent, reason, checkpointFile: s.checkpointFile });
+  appendEvent(ex.cfg.stateDir, { type: 'main_handover_failed', lifetime: ex.lifetime, session: s.id, to: s.agent, reason, checkpointFile: s.checkpointFile });
   ex.store.save();
   return { ok: false as const, status: 'failed' as const, detail: reason, sessionId: s.id, checkpointFile: s.checkpointFile };
 }

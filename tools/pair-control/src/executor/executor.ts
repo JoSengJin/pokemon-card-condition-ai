@@ -21,8 +21,10 @@ import { buildStartPrompt, type PromptOptions } from './startPrompt.ts';
 import type { Agent, MainOps, MainRuntime } from './mainTypes.ts';
 import { onMainEnd } from './mainEnd.ts';
 import { onTurnEnd } from './pipelineEnd.ts';
-import { pipe } from './pipelineState.ts';
+import { mark, pipe } from './pipelineState.ts';
 import { pipelineTick } from './pipelineTick.ts';
+import { advanceSessionLaunch } from './mainSessionLaunch.ts';
+import { handoverAfterLimit } from './mainLimit.ts';
 import { onLimitHit } from './limitScope.ts';
 
 export type TaskStatus =
@@ -366,7 +368,7 @@ export class Executor {
     let command = plan.command, args = plan.args;
     if (t.mode === 'mock') args = [...args, '--counter', path.join(this.cfg.stateDir, 'mock-invocations.jsonl')];
     if (t.usesDevelopLock) { command = path.join(t.worktree, 'develop'); args = ['--', plan.command, ...args]; }
-    const ex = this.spawnSupervised(t, { kind: 'agent', execId, runId, cwd: t.worktree, command, args,
+    const ex = this.spawnSupervised(t, { kind: 'agent', execId, runId, cwd: t.worktree, command, args, env: sanitizedChildEnv(),
       display: t.usesDevelopLock ? ['./develop', '--', ...plan.display] : plan.display });
     t.lastExecId = execId; t.runId = runId; t.runHistory = [...t.runHistory, runId];
     t.result = null; t.approval = null; t.integration = null; t.verification = null; t.review = null; t.handoff = null;
@@ -375,16 +377,16 @@ export class Executor {
   }
 
   /** 감독 프로세스(새 프로세스 그룹)로 명령 하나를 실행한다. 에이전트·작업 테스트·리뷰가 같은 경로를 쓴다. */
-  private spawnSupervised(t: Pick<Task, 'taskId' | 'agent' | 'mode'>, o: { kind: ExecKind; execId?: string; runId: string; cwd: string; command: string; args: string[]; display: string[]; checkId?: string; sha?: string }) {
+  private spawnSupervised(t: Pick<Task, 'taskId' | 'agent' | 'mode'>, o: { kind: ExecKind; execId?: string; runId: string; cwd: string; command: string; args: string[]; env: NodeJS.ProcessEnv; display: string[]; checkId?: string; sha?: string }) {
     const execId = o.execId ?? crypto.randomUUID();
     const dir = path.join(this.cfg.stateDir, 'runs', execId);
     fs.mkdirSync(dir, { recursive: true });
     const token = crypto.randomUUID();
-    const spec = { execId, token, cwd: o.cwd, command: o.command, args: o.args, env: sanitizedChildEnv(), logPath: path.join(dir, 'output.log'), exitPath: path.join(dir, 'exit.json') };
+    const spec = { execId, token, cwd: o.cwd, command: o.command, args: o.args, env: o.env, logPath: path.join(dir, 'output.log'), exitPath: path.join(dir, 'exit.json') };
     const specPath = path.join(dir, 'spec.json');
     writeJsonAtomic(specPath, spec);
     fs.writeFileSync(spec.logPath, '');
-    const sup = spawn(process.execPath, [this.supervisorPath, specPath], { cwd: o.cwd, detached: true, stdio: 'ignore', env: sanitizedChildEnv() });
+    const sup = spawn(process.execPath, [this.supervisorPath, specPath], { cwd: o.cwd, detached: true, stdio: 'ignore', env: o.env });
     sup.on('error', (e) => appendEvent(this.cfg.stateDir, { type: 'supervisor_spawn_error', lifetime: this.lifetime, execId, error: e.message })); // 정리 도중 등 시작 실패가 프로세스 전체 예외로 번지지 않게 기록만 한다
     sup.unref();
     if (!sup.pid) throw new Error('감독 프로세스 시작 실패');
@@ -406,19 +408,13 @@ export class Executor {
    * 새 메인 세션 프로세스를 실행한다. 리뷰와 같은 방식(읽기 전용·입력 묶음 폴더만 받음)이며 구독 로그인 가드와 한도 차단을 그대로 거친다.
    * 옵션 이름은 --help로 확인한 것만 쓰고, 세션 재개·도구 동작은 가정하지 않는다(별도 프로세스는 이전 대화 기억을 승계하지 않는다).
    */
-  async probeMainAgent(agent: Agent): Promise<void> {
-    this.probes[agent] = await probe(agent, this.cfg);
-  }
-
   async launchMainProcess(o: { agent: Agent; bundleDir: string; prompt: string; sessionId: string }): Promise<string> {
     if (this.tripped) throw new UserError('과금 신호 감지 상태 — 새 메인을 실행하지 않음');
-    const rr = realReadiness(o.agent, this.probes[o.agent], this.cfg, { limit: this.limitFor(o.agent) });
-    if (!rr.available) throw new UserError(`실제 ${o.agent} 메인 실행 차단: ${rr.blockers.map((b) => b.message).join(', ')}`);
     const args = o.agent === 'codex' ? ['exec', '--cd', o.bundleDir, '--sandbox', 'read-only', o.prompt] : ['--print', '--permission-mode', 'plan', o.prompt];
     const argRisks = scanArgs(args);
     if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
     const shown = args.map((a) => (a === o.bundleDir ? '<입력 묶음>' : a === o.prompt ? '<prompt>' : a));
-    const ex = this.spawnSupervised({ taskId: '(main)', agent: o.agent, mode: 'real' }, { kind: 'main', runId: o.sessionId, cwd: o.bundleDir, command: this.probes[o.agent]!.binary!, args, display: [o.agent, ...shown] });
+    const ex = this.spawnSupervised({ taskId: '(main)', agent: o.agent, mode: 'real' }, { kind: 'main', runId: o.sessionId, cwd: o.bundleDir, command: this.probes[o.agent]!.binary!, args, env: sanitizedChildEnv(), display: [o.agent, ...shown] });
     return ex.execId;
   }
 
@@ -456,8 +452,9 @@ export class Executor {
       const cut = text.lastIndexOf('\n') + 1;
       if (text.slice(cut).startsWith('{') && size - off <= 1_000_000) { text = text.slice(0, cut); used = Buffer.byteLength(text); }
       this.logOffsets.set(ex.execId, off + used);
-      scanOutput(this.guard, text, `exec:${ex.execId}`);
+      return text;
     } catch { /* log not yet created */ }
+    return '';
   }
 
   async tick() {
@@ -478,13 +475,15 @@ export class Executor {
         if (!alreadyHandled) {
           if (turn) await onTurnEnd(this, turn, pending, result);
           else if (pending.kind === 'main') await onMainEnd(this, pending, result);
+          else if (pending.kind === 'review') await this.onReviewEnd(task, pending, result);
           else await this.onAuxEnd(pending, result);
         }
         saved.stage = 'done'; this.store.save(); return;
       }
     for (const ex of Object.values(this.state.executions)) {
       if (ex.status !== 'running' && ex.status !== 'cancelling') continue;
-      this.readNewLog(ex);
+      const log = this.readNewLog(ex);
+      if (log) scanOutput(this.guard, log, `exec:${ex.execId}`);
       if (fs.existsSync(ex.exitPath)) { await this.observeExit(ex); continue; }
       if (!this.alive(ex.pid)) {
         await new Promise((r) => setTimeout(r, 200));
@@ -514,6 +513,19 @@ export class Executor {
       await this.startNextCheck(t);
       return;
     }
+    const launching = this.runtime.session;
+    if (launching?.status === 'launching' && launching.launchStage) { await advanceSessionLaunch(this, launching); return; }
+    const limited = Object.values(pipe(this).turns).find((turn) => turn.status === 'limited' && turn.limitHandledAt && !turn.limitHandoverDoneAt);
+    if (limited) {
+      if (!limited.limitHandoverStartedAt) { limited.limitHandoverStartedAt = new Date().toISOString(); limited.limitHandoverLifetime = this.lifetime; this.store.save(); return; }
+      if (limited.limitHandoverLifetime !== this.lifetime) {
+        limited.limitHandoverDoneAt = new Date().toISOString(); limited.failure = '서버 재시작 전 한도 교대 시작 — 결과 불명, 재시도하지 않음';
+        mark(this, limited.eventKeys, 'unknown', { reason: limited.failure }); this.store.save(); return;
+      }
+      const other = limited.agent === 'codex' ? 'claude' : 'codex';
+      await handoverAfterLimit(this, other, limited.eventKeys, `${limited.agent} 메인 한도 — 승인된 교대 절차 연결`);
+      limited.limitHandoverDoneAt = new Date().toISOString(); this.store.save(); return;
+    }
     await pipelineTick(this); // 교대 뒤 연속 처리: 상태를 읽고 새 이벤트가 있을 때만 현재 메인에게 턴을 준다
     } finally { this.ticking = false; }
   }
@@ -528,7 +540,6 @@ export class Executor {
       else this.setStatus(t, 'unknown', 'exit.json 토큰 불일치');
       return;
     }
-    this.readNewLog(ex);
     if (this.groupAlive(ex.pgid)) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } } // 남은 손자 정리
     const cancelled = ex.cancelRequested || res.cancelRequested;
     ex.exitCode = res.code; ex.signal = res.signal; ex.spawnError = res.spawnError ?? null; ex.endedAt = res.endedAt;
@@ -588,7 +599,7 @@ export class Executor {
     return this.cancelRunning(taskId);
   }
 
-  private async cancelRunning(taskId: string): Promise<{ ok: boolean; reason: string }> {
+  async cancelRunning(taskId: string): Promise<{ ok: boolean; reason: string }> {
     const t = this.task(taskId);
     const ex = Object.values(this.state.executions).filter((e) => e.taskId === taskId && ['running', 'cancelling'].includes(e.status))
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
@@ -1029,7 +1040,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     const spec = t.checks.find((c) => c.id === item.id)!;
     const r = this.resolveCheck(t.worktree, spec, { base: t.baseSha, contract: t.contractSha, head: v.sha });
     try {
-      const ex = this.spawnSupervised(t, { kind: 'check', runId: v.runId, cwd: r.cwd, command: r.command, args: r.args, display: r.display, checkId: item.id, sha: v.sha });
+      const ex = this.spawnSupervised(t, { kind: 'check', runId: v.runId, cwd: r.cwd, command: r.command, args: r.args, env: sanitizedChildEnv(), display: r.display, checkId: item.id, sha: v.sha });
       item.status = 'running'; item.execId = ex.execId; item.logPath = ex.logPath; item.startedAt = ex.startedAt;
       this.store.save();
     } catch (err) {
@@ -1052,7 +1063,6 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
   /** 작업 테스트·리뷰 프로세스 종료 처리. 재시작 후 관찰된 종료는 기록만 하고 다음 단계를 자동으로 잇지 않는다. */
   private async onAuxEnd(ex: Execution, r: { code: number | null; cancelled: boolean; unknown: boolean }): Promise<void> {
     const t = this.state.tasks[ex.taskId];
-    if (ex.kind === 'review') return this.onReviewEnd(t, ex, r);
     const v = t.verification;
     if (!v || v.runId !== ex.runId) { this.store.save(); return; }
     const item = v.items.find((i) => i.execId === ex.execId);
@@ -1151,7 +1161,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
         command = this.probes[reviewer]!.binary!; display = [reviewer, ...args.slice(0, -1).map((a) => (a === bundleDir ? '<리뷰 묶음>' : a)), '<prompt>'];
       }
       t.review = { reviewId, reviewer, mode, sha, contractHash: t.contractHash, bundleDir, worktreeFingerprint: await this.worktreeFingerprint(t), status: 'running', startedAt: new Date().toISOString(), ...(o.forHandoff ? { forHandoff: true } : {}) };
-      const ex = this.spawnSupervised(t, { kind: 'review', runId: reviewId, cwd: bundleDir, command, args, display, sha });
+      const ex = this.spawnSupervised(t, { kind: 'review', runId: reviewId, cwd: bundleDir, command, args, env: sanitizedChildEnv(), display, sha });
       t.review.execId = ex.execId;
       this.event('review_started', { taskId, reviewId, reviewer, mode, sha });
       this.store.save();
@@ -1168,26 +1178,27 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     this.locks.release(`review:${t.taskId}`, 'execId', ex.runId);
     if (!rv || rv.reviewId !== ex.runId) { this.store.save(); return; }
     rv.endedAt = new Date().toISOString();
-    const done = (status: ReviewRecord['status'], note?: string, verdict: ReviewVerdict | null = null, summary?: string) => {
-      rv.status = status; rv.note = note; rv.verdict = verdict; rv.summary = summary;
-      this.event('review_finished', { taskId: t.taskId, reviewId: rv.reviewId, status, verdict });
-      this.store.save();
-      this.settleHandoffReview(t, rv);
-    };
-    if (r.unknown) return done('unknown', '리뷰 프로세스가 종료 기록 없이 사라짐(결과 불명)');
-    if (r.cancelled) return done('cancelled', '사용자 중단');
-    if ((await this.worktreeFingerprint(t)) !== rv.worktreeFingerprint) return done('failed', '리뷰 중 구현 worktree가 바뀜 — 결과를 쓰지 않음');
-    if (r.code !== 0) return done('failed', `리뷰 CLI 종료코드 ${r.code}`);
-    let parsed: any = null;
-    const file = path.join(rv.bundleDir, 'review-result.json');
-    try { parsed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {
-      const lines = (fs.existsSync(ex.logPath) ? fs.readFileSync(ex.logPath, 'utf8') : '').trim().split('\n').reverse();
-      for (const l of lines) { try { const j = JSON.parse(l); if (j && typeof j === 'object' && 'verdict' in j) { parsed = j; break; } } catch { /* next */ } }
+    let status: ReviewRecord['status'], note: string | undefined, verdict: ReviewVerdict | null = null, summary: string | undefined;
+    if (r.unknown) { status = 'unknown'; note = '리뷰 프로세스가 종료 기록 없이 사라짐(결과 불명)'; }
+    else if (r.cancelled) { status = 'cancelled'; note = '사용자 중단'; }
+    else if ((await this.worktreeFingerprint(t)) !== rv.worktreeFingerprint) { status = 'failed'; note = '리뷰 중 구현 worktree가 바뀜 — 결과를 쓰지 않음'; }
+    else if (r.code !== 0) { status = 'failed'; note = `리뷰 CLI 종료코드 ${r.code}`; }
+    else {
+      let parsed: any = null;
+      const file = path.join(rv.bundleDir, 'review-result.json');
+      try { parsed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {
+        const lines = (fs.existsSync(ex.logPath) ? fs.readFileSync(ex.logPath, 'utf8') : '').trim().split('\n').reverse();
+        for (const line of lines) { try { const value = JSON.parse(line); if (value && typeof value === 'object' && 'verdict' in value) { parsed = value; break; } } catch { /* next */ } }
+      }
+      const verdicts: ReviewVerdict[] = ['approve', 'changes_requested', 'insufficient_evidence'];
+      if (!parsed || !verdicts.includes(parsed.verdict)) { status = 'failed'; note = '판정 형식을 읽지 못함 — "통과" 같은 문구만으로는 판정으로 보지 않음'; }
+      else if (parsed.sha !== rv.sha) { status = 'failed'; note = `다른 SHA(${String(parsed.sha).slice(0, 12)})에 대한 판정 — 사용하지 않음`; }
+      else { status = 'done'; note = ex.observedAfterRestart ? '서버 재시작 후 종료 관찰' : undefined; verdict = parsed.verdict; summary = String(parsed.summary ?? '').slice(0, 2000); }
     }
-    const verdicts: ReviewVerdict[] = ['approve', 'changes_requested', 'insufficient_evidence'];
-    if (!parsed || !verdicts.includes(parsed.verdict)) return done('failed', '판정 형식을 읽지 못함 — "통과" 같은 문구만으로는 판정으로 보지 않음');
-    if (parsed.sha !== rv.sha) return done('failed', `다른 SHA(${String(parsed.sha).slice(0, 12)})에 대한 판정 — 사용하지 않음`);
-    return done('done', ex.observedAfterRestart ? '서버 재시작 후 종료 관찰' : undefined, parsed.verdict, String(parsed.summary ?? '').slice(0, 2000));
+    rv.status = status; rv.note = note; rv.verdict = verdict; rv.summary = summary;
+    this.event('review_finished', { taskId: t.taskId, reviewId: rv.reviewId, status, verdict });
+    this.store.save();
+    this.settleHandoffReview(t, rv);
   }
 
   /**

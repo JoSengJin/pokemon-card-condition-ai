@@ -28,14 +28,16 @@ export function onLimitHit(ex: Executor, a: Alert) {
   const who = limitProvider(ex, a.source);
   if (who) {
     recordAgentLimit(ex, who.agent, a.detail, who.kind);
-    if (who.kind === 'agent') ex.cancelAll('구독 한도 도달(공급자별)', who.agent);
+    if (who.kind === 'agent') for (const row of Object.values(ex.state.executions)) {
+      if (row.agent === who.agent && ['running', 'cancelling'].includes(row.status)) void ex.cancelRunning(row.taskId).then((result) => ex.audit('cancel_all', { taskId: row.taskId, trigger: '구독 한도 도달(공급자별)', result: result.reason, ok: result.ok }));
+    }
     return;
   }
   if (ex.state.limit) return;
   ex.state.limit = { at: a.at, detail: a.detail, source: a.source };
   ex.audit('limit_hit', { detail: a.detail, source: a.source });
   ex.store.save();
-  ex.cancelAll('구독 한도 도달');
+  for (const row of Object.values(ex.state.executions)) if (['running', 'cancelling'].includes(row.status)) void ex.cancelRunning(row.taskId).then((result) => ex.audit('cancel_all', { taskId: row.taskId, trigger: '구독 한도 도달', result: result.reason, ok: result.ok }));
 }
 
 /** 사용자가 그 에이전트의 한도가 풀렸음을 확인했을 때만 호출한다. */

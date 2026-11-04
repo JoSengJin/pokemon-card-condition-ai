@@ -3,6 +3,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { modelActions } from './mainApprovals.ts';
+import { probe, realReadiness } from './adapters.ts';
 import { saveCheckpoint } from './mainCheckpoint.ts';
 import { tokenHash } from './mainTakeover.ts';
 import { mark, pipe } from './pipelineState.ts';
@@ -23,7 +24,9 @@ export async function launchTurn(ex: Executor, s: MainSession, events: PipelineE
     const rows = [];
     for (const e of events) rows.push(await eventRow(ex, e, turnDir(ex, t)));
     const b = writeTurnBundle(ex, t, token, rows, modelActions(ex, s.id));
-    await ex.probeMainAgent(t.agent);
+    ex.probes[t.agent] = await probe(t.agent, ex.cfg);
+    const readiness = realReadiness(t.agent, ex.probes[t.agent], ex.cfg, { limit: ex.limitFor(t.agent) });
+    if (!readiness.available) throw new Error(`실제 ${t.agent} 메인 실행 차단: ${readiness.blockers.map((blocker) => blocker.message).join(', ')}`);
     t.execId = await ex.launchMainProcess({ agent: t.agent, bundleDir: b.bundleDir, prompt: b.prompt, sessionId: t.id });
     t.status = 'launched';
   } catch (e) { t.status = 'failed'; t.failure = `턴 실행 실패: ${(e as Error).message}`; mark(ex, keys, 'held', { reason: `실행 실패: ${t.failure}` }); }

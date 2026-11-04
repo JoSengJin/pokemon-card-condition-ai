@@ -8,10 +8,8 @@ import { actionsDone, finishAction, type ActionOwner } from './actionState.ts';
 import { autoSteps } from './pipelineSteps.ts';
 import { scanEvents } from './pipelineEvents.ts';
 import { mark, pipe } from './pipelineState.ts';
-import { handoverAfterLimit } from './mainLimit.ts';
 import { launchTurn } from './pipelineTurn.ts';
 import { applyTakenOver, finishSession } from './mainSessionApply.ts';
-import { advanceSessionLaunch } from './mainSessionLaunch.ts';
 import { TURN_IN_FLIGHT, type MainTurn } from './mainTypes.ts';
 import type { Executor } from './executor.ts';
 
@@ -40,13 +38,11 @@ export async function pipelineTick(ex: Executor): Promise<void> {
   busy.add(ex);
   try {
     const rt = ex.runtime, s = rt.session;
-    if (s?.status === 'launching' && s.launchStage) { await advanceSessionLaunch(ex, s); return; }
     if (!s || rt.frozen) return;
     const limited = Object.values(pipe(ex).turns).find((t) => t.status === 'limited' && !t.limitHandledAt);
     if (limited) {
       limited.limitHandledAt = new Date().toISOString(); ex.store.save();
-      const other = limited.agent === 'codex' ? 'claude' : 'codex';
-      await handoverAfterLimit(ex, other, limited.eventKeys, `${limited.agent} 메인 한도 — 승인된 교대 절차 연결`); return;
+      return;
     }
     applyTakenOver(ex, s);
     let owner: ActionOwner | undefined, applying: MainTurn | undefined;
@@ -78,8 +74,9 @@ export async function pipelineTick(ex: Executor): Promise<void> {
     const due = Object.values(pipe(ex).events).filter((e) => e.state === 'pending' && e.kind !== 'blocked' && !e.tried.includes(s.generation));
     if (!due.length) return;
     if (ex.limitFor(s.agent)) {
-      const other = s.agent === 'codex' ? 'claude' : 'codex';
-      await handoverAfterLimit(ex, other, due.map((e) => e.key), `${s.agent} 메인 한도 — 승인된 교대 절차 연결`);
+      const key = `limit-${s.generation}-${s.agent}`;
+      pipe(ex).turns[key] = { id: key, sessionId: s.id, generation: s.generation, agent: s.agent, status: 'limited', eventKeys: due.map((e) => e.key), startedAt: new Date().toISOString(), lifetime: ex.lifetime, tokenHash: '', checkpointFile: '', checkpointHash: '', actionResults: [], limitHandledAt: new Date().toISOString() };
+      ex.store.save();
       return;
     }
     await launchTurn(ex, s, due);

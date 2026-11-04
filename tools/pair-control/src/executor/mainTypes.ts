@@ -53,7 +53,7 @@ export interface MainSession {
   pendingActions?: MainAction[];
   actionWork?: ActionWork[];
   actionLifetime?: string;
-  launchStage?: 'probe' | 'exec';
+  launchStage?: 'probe' | 'ready' | 'exec';
   launchLifetime?: string;
   bundleDir?: string;
   launchPrompt?: string;
@@ -90,6 +90,9 @@ export interface MainTurn {
   pendingActions?: MainAction[];
   actionWork?: ActionWork[];
   limitHandledAt?: string;
+  limitHandoverStartedAt?: string;
+  limitHandoverLifetime?: string;
+  limitHandoverDoneAt?: string;
 }
 /** 새 턴을 막는 진행 중 상태. verified(검증 끝, 적용 전)도 포함한다. */
 export const TURN_IN_FLIGHT: TurnStatus[] = ['launching', 'launched', 'verified', 'applying'];

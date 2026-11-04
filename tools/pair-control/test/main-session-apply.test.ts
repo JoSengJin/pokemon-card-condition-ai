@@ -4,7 +4,6 @@ import { test } from 'node:test';
 import { ackSession } from '../src/executor/mainAck.ts';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
 import { applyTakenOver, finishSession } from '../src/executor/mainSessionApply.ts';
-import { pipelineTick } from '../src/executor/pipelineTick.ts';
 import { pipe } from '../src/executor/pipelineState.ts';
 import type { MainSession } from '../src/executor/mainTypes.ts';
 import { advanceActions, setup } from './helpers.ts';
@@ -83,7 +82,7 @@ test('메인 실행 exec 진입 뒤 재시작 상태는 CLI 재호출 없이 결
     e.ex.runtime.session = s; e.ex.runtime.frozen = true;
     let calls = 0;
     e.ex.launchMainProcess = async () => { calls++; return 'unexpected'; };
-    await pipelineTick(e.ex);
+    await e.ex.tick();
     assert.equal(calls, 0);
     assert.equal(e.ex.runtime.session, null);
     assert.equal(e.ex.runtime.frozen, false);

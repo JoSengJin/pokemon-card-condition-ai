@@ -2,6 +2,7 @@
 import { swapBlockers } from './mainRole.ts';
 import { UserError, type Executor } from './executor.ts';
 import type { Agent } from './mainTypes.ts';
+import { appendEvent } from './store.ts';
 
 export async function targetGate(ex: Executor, toRaw: string, limitReason?: string) {
   if (toRaw !== 'codex' && toRaw !== 'claude') throw new UserError('메인은 codex 또는 claude 중 하나');
@@ -12,7 +13,7 @@ export async function targetGate(ex: Executor, toRaw: string, limitReason?: stri
   const lim = rt.limited[to] ?? ex.limit;
   if (!lim) return { to, from };
   rt.failures.push({ at: new Date().toISOString(), reason: `대상 ${to} 사용 불가(한도): ${lim.detail}` });
-  ex.audit('main_handover_blocked', { to, detail: lim.detail, bothLimited: !!(rt.limited[from] && rt.limited[to]) });
+  appendEvent(ex.cfg.stateDir, { type: 'main_handover_blocked', lifetime: ex.lifetime, to, detail: lim.detail, bothLimited: !!(rt.limited[from] && rt.limited[to]) });
   ex.store.save();
   return { ok: false as const, status: rt.limited[from] && rt.limited[to] ? 'blocked_both_limited' as const : 'blocked_target_limited' as const, detail: lim.detail };
 }
