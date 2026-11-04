@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 // 스트리밍(JSONL) 출력과 무과금 가드. 모델 요청 없음(mock 에이전트·샘플 이벤트만).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -81,7 +82,7 @@ test('읽는 중간에 잘린 JSON 줄은 다음 주기에 이어 읽어 조각�
 });
 
 async function runStream(env: Env, scenario: string) {
-  await env.ex.assign(task(env, 'task-a', { mockScenario: scenario }));
+  await assign(env.ex, task(env, 'task-a', { mockScenario: scenario }));
   await startTask('task-a');
 }
 

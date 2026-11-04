@@ -44,7 +44,7 @@ export type TaskStatus =
 /** 실행 잠금은 없어도 같은 파일의 결과가 아직 통합/거절되지 않은 상태. */
 export const OCCUPYING: TaskStatus[] = ['starting', 'running', 'manual_working', 'collecting', 'cancelling', 'orphan_running', 'exit_observed', 'unknown',
   'review_pending', 'approved', 'integrating', 'integration_refused', 'integration_conflict', 'integration_blocked'];
-const STARTABLE: TaskStatus[] = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
+export const STARTABLE: TaskStatus[] = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
 
 export interface Check { name: string; ok: boolean; detail: string }
 
@@ -217,165 +217,20 @@ export class Executor {
   }
 
   // ---------- 배정 ----------
-  async assign(raw: unknown): Promise<Task> {
-    this.assertMainActive('작업 배정');
-    const parsed = TaskInput.safeParse(raw);
-    if (!parsed.success) throw new UserError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(' / '));
-    const input = parsed.data;
-    if (this.state.tasks[input.taskId]) throw new UserError(`이미 배정된 task ID: ${input.taskId}`);
-    const worktree = fs.existsSync(input.worktree) ? fs.realpathSync.native(input.worktree) : input.worktree;
-    const now = new Date().toISOString();
-    const t: Task = { ...input, worktree, status: 'assigned', createdAt: now, updatedAt: now, runHistory: [], usesDevelopLock: needsDevelopLock(input),
-      contractPath: contractPath(input.taskId), contractSha: '', contractHash: '' };
-    // 계약은 등록된 별도 worktree의 작업 브랜치에만 커밋한다(main·통합 checkout 금지).
-    const must = ['설정', 'worktree 등록', '기본 checkout 분리', '브랜치', '기준 SHA', 'Git 진행 중 작업 없음'];
-    const pre = (await this.preflightChecks(t)).filter((c) => must.includes(c.name) && !c.ok);
-    if (pre.length) throw new UserError(`계약을 커밋할 수 없음: ${pre.map((c) => `${c.name}(${c.detail})`).join(', ')}`);
-    try {
-      const cc = await commitContract(worktree, input);
-      t.contractSha = cc.contractSha; t.contractHash = cc.contractHash;
-      this.audit('contract_committed', { taskId: t.taskId, contractSha: cc.contractSha, reused: cc.reused });
-    } catch (err) { throw new UserError((err as Error).message); }
-    t.preflight = await this.preflightChecks(t);
-    this.state.tasks[t.taskId] = t;
-    this.audit('task_assigned', { taskId: t.taskId, agent: t.agent, mode: t.mode, branch: t.branch, baseSha: t.baseSha });
-    this.store.save();
-    return t;
-  }
+
 
   // ---------- 사전 검사 ----------
-  async preflightChecks(t: Task): Promise<Check[]> {
-    const c: Check[] = [];
-    const add = (name: string, ok: boolean, detail: string) => c.push({ name, ok, detail });
-    if (!this.cfg.repo) { add('설정', false, 'config.repo 미설정'); return c; }
-    const wts = await G.worktrees(this.cfg.repo);
-    const main = wts[0]?.path;
-    const integ = this.cfg.integration.checkout && fs.existsSync(this.cfg.integration.checkout) ? fs.realpathSync.native(this.cfg.integration.checkout) : null;
-    const wt = wts.find((w) => w.path === t.worktree);
-    add('worktree 등록', !!wt, wt ? '저장소 worktree 목록에 있음' : '저장소의 git worktree 목록에 없는 경로');
-    add('기본 checkout 분리', t.worktree !== main && t.worktree !== integ, t.worktree === main || t.worktree === integ ? '기본/통합 checkout에서는 병렬 작업을 실행하지 않음' : '별도 worktree');
-    if (!wt) return c;
-    const branch = await G.currentBranch(t.worktree);
-    add('브랜치', branch === t.branch, `현재 ${branch ?? '(detached)'} / 계약 ${t.branch}`);
-    const baseOk = !!(await G.revParse(t.worktree, t.baseSha)) && (await G.isAncestor(t.worktree, t.baseSha, 'HEAD'));
-    add('기준 SHA', baseOk, baseOk ? `${t.baseSha.slice(0, 12)}…는 HEAD의 조상` : '기준 SHA가 없거나 HEAD의 조상이 아님');
-    const op = await G.operationInProgress(t.worktree);
-    add('Git 진행 중 작업 없음', !op, op ?? '없음');
-    if (t.contractSha) {
-      // 실행 준비: worktree가 있어도 자체 가상환경·import 경로가 준비되지 않으면 시작하지 않는다.
-      t.envReadiness = await checkVenv(t.worktree, neededEnv(t, t.usesDevelopLock), t.requiredModules);
-      for (const e of t.envReadiness.checks) add(`환경: ${e.name}`, e.ok, e.detail);
-    }
-    if (t.usesDevelopLock) {
-      const dev = path.join(t.worktree, 'develop');
-      let ok = false; try { fs.accessSync(dev, fs.constants.X_OK); ok = true; } catch { /* missing */ }
-      add('./develop 잠금 경로', ok, ok ? '모델·worker 경로 → worktree의 ./develop -- <CLI> 로 실행' : 'worktree에 실행 가능한 ./develop 없음');
-    }
-    add('과금 신호', !this.tripped, this.tripped ? `감지됨: ${this.tripped.detail}` : '감지 없음(무료 보장 아님)');
-    if (t.mode === 'real') {
-      // 실제 CLI는 구독 로그인으로만 시작한다. API 키·설정 주입·금지 옵션·한도 상태·사용자 확인 표시를 모두 본다.
-      const risks = chargeRisks(t.agent, this.cfg, { worktree: t.worktree });
-      for (const r of risks) add(`무과금: ${r.code}`, false, `${r.message} → ${r.fix}`);
-      if (!risks.length) add('무과금 검사', true, '환경변수·설정에서 API 과금 경로 없음(로그인 방식은 확인 불가 — 사용자 확인 표시에 의존)');
-      add('구독 확인 표시', this.cfg.confirmedSubscriptionAuth, this.cfg.confirmedSubscriptionAuth ? '사용자가 구독 로그인·추가 크레딧 꺼짐을 확인함' : 'config.confirmedSubscriptionAuth=false');
-      const lim = this.limitFor(t.agent);
-      add('구독 한도', !lim, lim ? lim.detail : '한도 도달 없음');
-    }
-    return c;
-  }
+
 
   // ---------- 시작 ----------
   /** 동기 구간에서 충돌 검사와 잠금 획득을 함께 수행한다(같은 프로세스 내 원자성). 파일 잠금은 프로세스 간 중복을 막는다. */
-  private reserve(t: Task, execId: string): { ok: true } | { ok: false; reason: string; conflicts?: ConflictReason[] } {
-    if (this.tripped) return { ok: false, reason: `무료 가드 발동 상태: ${this.tripped.detail}` };
-    if (!STARTABLE.includes(t.status)) return { ok: false, reason: `현재 상태(${t.status})에서는 시작할 수 없음(중복 실행 차단)` };
-    const found: ConflictReason[] = [];
-    for (const o of Object.values(this.state.tasks)) {
-      if (o.taskId === t.taskId || !OCCUPYING.includes(o.status)) continue;
-      found.push(...conflicts(t, o));
-    }
-    if (found.length) return { ok: false, reason: '다른 진행 중 작업과 충돌', conflicts: found };
-    const names = [`task:${t.taskId}`, `worktree:${t.worktree}`, `branch:${t.branch}`];
-    const got: string[] = [];
-    for (const n of names) {
-      if (!this.locks.acquire(n, { execId, taskId: t.taskId, lifetime: this.lifetime })) {
-        for (const g of got) this.locks.release(g, 'execId', execId);
-        return { ok: false, reason: `잠금 사용 중: ${n} (소유 ${JSON.stringify(this.locks.holder(n))})` };
-      }
-      got.push(n);
-    }
-    setStatus(this, t, 'starting');
-    return { ok: true };
-  }
 
 
 
-  async launch(taskId: string, runId: string): Promise<{ ok: true; execId: string; pid: number } | { ok: true; manual: true; execId: null } | { ok: false; reason: string; conflicts?: ConflictReason[]; checks?: Check[] }> {
-    const t = this.task(taskId);
-    const execId = crypto.randomUUID();
-    const r = this.reserve(t, execId);
-    if (!r.ok) {
-      const occupants = [...new Set((r.conflicts ?? []).map((c) => c.otherTask))].map((id) => `${id}[${this.state.tasks[id]?.status ?? '?'}]`).join(', ');
-      const reason = r.conflicts?.length ? `${r.reason}: ${r.conflicts.map((c) => `${c.otherTask}(${c.kind} ${c.detail})`).join(', ')} — 점유 작업 ${occupants}. 필요 없으면 그 작업을 열어 "폐기"하세요` : r.reason;
-      this.audit('start_refused', { taskId, reason });
-      // 실행 중 작업의 중복 시작이면 상태를 건드리지 않고, 시작 가능한 작업이면 거절 사유만 남긴다.
-      if (STARTABLE.includes(t.status)) { t.statusReason = `시작 거절: ${reason}`; t.updatedAt = new Date().toISOString(); this.store.save(); }
-      return { ...r, reason };
-    }
-    try {
-      const checks = await this.preflightChecks(t);
-      t.preflight = checks;
-      const failed = checks.filter((c) => !c.ok);
-      if (t.mode === 'manual') {
-        if (failed.length) {
-          const reason = `사전 검사 실패: ${failed.map((c) => `${c.name}(${c.detail})`).join(', ')}`;
-          releaseExecLocks(this, t, execId);
-          setStatus(this, t, 'blocked', reason);
-          return { ok: false, reason, checks };
-        }
-        // 수동 모드: 프로세스를 띄우지 않는다. 같은 잠금과 충돌 검사로 파일 소유권만 유지한다.
-        t.manual = { execId, runId, startedAt: new Date().toISOString() };
-        t.runId = runId; t.runHistory = [...t.runHistory, runId]; t.lastExecId = null;
-        t.result = null; t.approval = null; t.integration = null; t.verification = null; t.review = null; t.handoff = null;
-        t.permission = '수동 모드: 도구는 에이전트를 실행하지 않음. 에이전트 세션이 worktree에서 작업하며, 허용 파일은 "작업 완료" 후 diff로만 검사(실행 중 쓰기를 막지 않음).';
-        setStatus(this, t, 'manual_working', '수동 작업 중 — 에이전트 세션에서 작업 후 "작업 완료"를 누르세요');
-        this.audit('manual_started', { taskId, runId });
-        return { ok: true as const, manual: true as const, execId: null };
-      }
-      let plan: LaunchPlan | { refused: string };
-      if (t.mode === 'mock') plan = mockPlan(t, this.cfg);
-      else {
-        this.probes[t.agent] = await probe(t.agent, this.cfg);
-        // 수동 경로와 같은 시작 프롬프트를 쓴다. 사용자가 자리에 없으므로 unattended(사람 정답 추정·재요청 금지)를 켠다.
-        const start = await buildStartPrompt(t, this.mainAgent, { unattended: true });
-        plan = realPlan(t, this.probes[t.agent]!, this.cfg, start.text);
-      }
-      if (failed.length || 'refused' in plan) {
-        const reason = failed.length ? `사전 검사 실패: ${failed.map((c) => `${c.name}(${c.detail})`).join(', ')}` : (plan as { refused: string }).refused;
-        releaseExecLocks(this, t, execId);
-        setStatus(this, t, 'blocked', reason);
-        return { ok: false, reason, checks };
-      }
-      t.permission = plan.permission;
-      return this.spawnExec(t, runId, execId, plan);
-    } catch (err) {
-      releaseExecLocks(this, t, execId);
-      setStatus(this, t, 'blocked', `시작 오류: ${(err as Error).message}`);
-      return { ok: false, reason: (err as Error).message };
-    }
-  }
 
-  private spawnExec(t: Task, runId: string, execId: string, plan: LaunchPlan) {
-    let command = plan.command, args = plan.args;
-    if (t.mode === 'mock') args = [...args, '--counter', path.join(this.cfg.stateDir, 'mock-invocations.jsonl')];
-    if (t.usesDevelopLock) { command = path.join(t.worktree, 'develop'); args = ['--', plan.command, ...args]; }
-    const ex = spawnSupervised(this, t, { kind: 'agent', execId, runId, cwd: t.worktree, command, args, env: sanitizedChildEnv(),
-      display: t.usesDevelopLock ? ['./develop', '--', ...plan.display] : plan.display });
-    t.lastExecId = execId; t.runId = runId; t.runHistory = [...t.runHistory, runId];
-    t.result = null; t.approval = null; t.integration = null; t.verification = null; t.review = null; t.handoff = null;
-    setStatus(this, t, 'running');
-    return { ok: true as const, execId, pid: ex.pid };
-  }
+
+
+
 
   /** 감독 프로세스(새 프로세스 그룹)로 명령 하나를 실행한다. 에이전트·작업 테스트·리뷰가 같은 경로를 쓴다. */
 

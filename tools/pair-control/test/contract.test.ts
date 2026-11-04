@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { logTail } from '../src/executor/executorView.ts';
 // 작업 계약 파일 커밋·불변 검사·재시도 멱등성. 모델 요청 없음.
@@ -17,7 +18,7 @@ test('계약은 작업 브랜치에만 커밋되고 개인 경로가 없으며 �
   const env = setup();
   try {
     const mainBefore = gitOut(env.fixture.repo, 'rev-parse', 'main');
-    const t = await env.ex.assign(task(env, 'task-a', { doneCriteria: ['src_a 파일 갱신'], prompt: '긴 지시 '.repeat(500) }));
+    const t = await assign(env.ex, task(env, 'task-a', { doneCriteria: ['src_a 파일 갱신'], prompt: '긴 지시 '.repeat(500) }));
     const wt = env.fixture.worktrees['task-a'].path;
     assert.equal(gitOut(env.fixture.repo, 'rev-parse', 'main'), mainBefore, 'main 불변');
     assert.equal(t.contractSha, gitOut(wt, 'rev-parse', 'HEAD'));
@@ -39,7 +40,7 @@ test('계약은 작업 브랜치에만 커밋되고 개인 경로가 없으며 �
 test('에이전트가 계약 파일을 바꾸면 Git 계약 검사 실패', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { mockScenario: 'edit-contract' }));
+    await assign(env.ex, task(env, 'task-a', { mockScenario: 'edit-contract' }));
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     const r = env.ex.task('task-a').result!;

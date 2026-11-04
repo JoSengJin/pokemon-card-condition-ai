@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { startReviewJob } from '../src/executor/reviewStart.ts';
 // 별도 리뷰 작업 연결(fake 리뷰 CLI). 모델 요청 없음.
 import assert from 'node:assert/strict';
@@ -15,7 +16,7 @@ async function reviewed(env: Env, id: string, mockScenario: string) {
 test('Claude 결과를 고정 SHA 묶음으로 Codex 리뷰 작업에 등록, 판정 3종 구분, 구현 worktree 미전달', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a'));
+    await assign(env.ex, task(env, 'task-a'));
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     await verify(env, 'task-a');
@@ -40,7 +41,7 @@ test('Claude 결과를 고정 SHA 묶음으로 Codex 리뷰 작업에 등록, �
 test('리뷰 출력 형식 오류·다른 SHA·실패·worktree 변경은 판정으로 쓰지 않음', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a'));
+    await assign(env.ex, task(env, 'task-a'));
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     const garbage = await reviewed(env, 'task-a', 'garbage');
@@ -65,7 +66,7 @@ test('리뷰 출력 형식 오류·다른 SHA·실패·worktree 변경은 판정
 test('실제 리뷰 모드는 차단 원인과 함께 거절(모델 요청 없음)', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a'));
+    await assign(env.ex, task(env, 'task-a'));
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     await assert.rejects(startReviewJob(env.ex, 'task-a', { mode: 'real' }), /실제 codex 리뷰 차단: .*실제 모델 호출 차단/);

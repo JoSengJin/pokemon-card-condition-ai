@@ -1,3 +1,4 @@
+import { assign } from './executor/taskAssign.ts';
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 import { getExecutor } from './runtime.ts';
@@ -28,7 +29,7 @@ export const registerStep = createStep({
   id: 'register', description: '작업 계약을 커밋하고 등록한다. 시작은 사람이 따로 누른다.', inputSchema: Prepared, outputSchema: Prepared,
   execute: async ({ inputData, bail }) => {
     try {
-      const task = await getExecutor().assign(inputData.task);
+      const task = await assign(getExecutor(), inputData.task);
       return { ok: true, taskId: task.taskId, createWorktree: inputData.createWorktree, detail: `배정 완료: ${task.branch} @ ${task.baseSha.slice(0, 12)}` };
     } catch (err) { return bail({ ok: false, taskId: inputData.taskId, detail: `${(err as Error).message}${inputData.createWorktree ? ' (만든 worktree는 지우지 않았음 — 직접 확인)' : ''}` }); }
   },

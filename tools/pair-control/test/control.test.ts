@@ -1,3 +1,5 @@
+import { launch } from '../src/executor/taskLaunch.ts';
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { recheckEnv } from '../src/executor/taskEnvironment.ts';
 import { acknowledgeUnknown, applyObservedExit } from '../src/executor/taskRecovery.ts';
@@ -35,8 +37,8 @@ async function approveAndWait(env: Env, id: string) {
 test('독립 작업 두 개 병렬 실행 → 각각 전체 SHA로 검토 대기', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { allowedFiles: ['src_a/'], mockScenario: 'slow-success' }));
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'], mockScenario: 'slow-success' }));
+    await assign(env.ex, task(env, 'task-a', { allowedFiles: ['src_a/'], mockScenario: 'slow-success' }));
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'], mockScenario: 'slow-success' }));
     await Promise.all([startTask('task-a'), startTask('task-b')]);
     const [ea, eb] = ['task-a', 'task-b'].map((id) => env.ex.state.executions[env.ex.task(id).lastExecId!]);
     assert.equal(status(env, 'task-a'), 'running');
@@ -61,10 +63,10 @@ test('독립 작업 두 개 병렬 실행 → 각각 전체 SHA로 검토 대기
 test('파일 소유권·API 그룹·공용 설정 충돌과 중복 시작 차단', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { allowedFiles: ['src_a/'], mockScenario: 'hang', conflictGroups: ['api:observation'] }));
-    await env.ex.assign(task(env, 'task-c', { allowedFiles: ['src_a/file.txt'] }));
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'], conflictGroups: ['api:observation'] }));
-    await env.ex.assign(task(env, 'task-d', { allowedFiles: ['src_c/', 'README.md'] }));
+    await assign(env.ex, task(env, 'task-a', { allowedFiles: ['src_a/'], mockScenario: 'hang', conflictGroups: ['api:observation'] }));
+    await assign(env.ex, task(env, 'task-c', { allowedFiles: ['src_a/file.txt'] }));
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'], conflictGroups: ['api:observation'] }));
+    await assign(env.ex, task(env, 'task-d', { allowedFiles: ['src_c/', 'README.md'] }));
     // 동시에 두 번 시작해도 한 번만 실행
     const results = await Promise.allSettled([startTask('task-a'), startTask('task-a')]);
     await waitFor(() => invocations(env) === 1, 'one invocation');
@@ -72,16 +74,16 @@ test('파일 소유권·API 그룹·공용 설정 충돌과 중복 시작 차단
     const refused = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
     assert.match(refused.reason.message, /중복 실행 차단|잠금 사용 중/);
     assert.equal(status(env, 'task-a'), 'running');
-    const again = await env.ex.launch('task-a', 'manual');
+    const again = await launch(env.ex, 'task-a', 'manual');
     assert.equal(again.ok, false);
     assert.match((again as any).reason, /중복 실행 차단/);
 
-    const c = await env.ex.launch('task-c', 'manual');
+    const c = await launch(env.ex, 'task-c', 'manual');
     assert.equal(c.ok, false);
     assert.ok((c as any).conflicts.some((x: any) => x.kind === 'files' && x.otherTask === 'task-a'));
     await assert.rejects(startTask('task-c'), /충돌: task-a\(files/);
     assert.match(env.ex.task('task-c').statusReason ?? '', /시작 거절/);
-    const b = await env.ex.launch('task-b', 'manual');
+    const b = await launch(env.ex, 'task-b', 'manual');
     assert.equal(b.ok, false, '파일이 달라도 API 계약 그룹이 같으면 직렬화');
     assert.ok((b as any).conflicts.some((x: any) => x.kind === 'group' && x.detail === 'api:observation'));
     assert.deepEqual(groupsOf(env.ex.task('task-d')), ['shared-config']);
@@ -99,7 +101,7 @@ test('중단은 이 실행기가 만든 프로세스 그룹만 정리(손자 프
   const env = setup();
   const outsider = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { detached: true, stdio: 'ignore' });
   try {
-    await env.ex.assign(task(env, 'task-a', { mockScenario: 'spawn-child' }));
+    await assign(env.ex, task(env, 'task-a', { mockScenario: 'spawn-child' }));
     await startTask('task-a');
     const ex = env.ex.state.executions[env.ex.task('task-a').lastExecId!];
     const log = await waitFor(() => { const t = logTail(env.ex, ex.execId).text; return /grandchild pid=(\d+)/.exec(t); }, 'grandchild');
@@ -119,9 +121,9 @@ test('중단은 이 실행기가 만든 프로세스 그룹만 정리(손자 프
 test('서버 재시작: 살아 있는 프로세스·종료된 프로세스·결과 불명을 자동 완료/재실행하지 않음', async () => {
   let env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { allowedFiles: ['src_a/'], mockScenario: 'hang' }));
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'], mockScenario: 'slow-success' }));
-    await env.ex.assign(task(env, 'task-c', { allowedFiles: ['src_c/'], mockScenario: 'hang' }));
+    await assign(env.ex, task(env, 'task-a', { allowedFiles: ['src_a/'], mockScenario: 'hang' }));
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'], mockScenario: 'slow-success' }));
+    await assign(env.ex, task(env, 'task-c', { allowedFiles: ['src_c/'], mockScenario: 'hang' }));
     await startTask('task-a'); await startTask('task-b'); await startTask('task-c');
     await waitFor(() => invocations(env) === 3, 'three invocations');
     const exC = env.ex.state.executions[env.ex.task('task-c').lastExecId!];
@@ -137,8 +139,8 @@ test('서버 재시작: 살아 있는 프로세스·종료된 프로세스·결�
     assert.equal((await runInfo(env.ex.task('task-b').runId))?.suspendedStep, 'await-exit');
     assert.ok(discrepancy(env.ex.task('task-c'), await runInfo(env.ex.task('task-c').runId))?.includes('결과 불명'));
     // 중복 호출 방지
-    assert.equal((await env.ex.launch('task-a', 'x')).ok, false);
-    assert.equal((await env.ex.launch('task-c', 'x')).ok, false);
+    assert.equal((await launch(env.ex, 'task-a', 'x')).ok, false);
+    assert.equal((await launch(env.ex, 'task-c', 'x')).ok, false);
     assert.equal(invocations(env), 3, '재시작 후 자동 재실행 없음');
     // 사용자 조작
     await applyObservedExit(env.ex, 'task-b');
@@ -156,7 +158,7 @@ test('승인 후 SHA·기준 브랜치가 바뀌면 통합 거절, 재검토 후
   try {
     const repo = env.fixture.repo;
     const mainBefore = gitOut(repo, 'rev-parse', 'HEAD');
-    await env.ex.assign(task(env, 'task-a', { allowedFiles: ['src_a/'] }));
+    await assign(env.ex, task(env, 'task-a', { allowedFiles: ['src_a/'] }));
     const t = await toReview(env, 'task-a');
     await assert.rejects(approve(env.ex, 'task-a', t.result!.headSha!), /작업 테스트가 통과하지 않음\(미실행\)/, '미실행은 통과가 아님');
     await verify(env, 'task-a');
@@ -198,8 +200,8 @@ test('통합 충돌은 자동 해결하지 않고 abort, ./develop 잠금 사용
   const env = setup();
   try {
     const repo = env.fixture.repo;
-    await env.ex.assign(task(env, 'task-a', { allowedFiles: ['shared/file.txt'] }));
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['shared/file.txt'] }));
+    await assign(env.ex, task(env, 'task-a', { allowedFiles: ['shared/file.txt'] }));
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['shared/file.txt'] }));
     await toReview(env, 'task-a');
     await approveAndWait(env, 'task-a');
     // ./develop 잠금을 다른 작업이 쥐고 있는 동안
@@ -229,8 +231,8 @@ test('통합 충돌은 자동 해결하지 않고 abort, ./develop 잠금 사용
 test('실패·범위 밖 변경·결과 불명을 명확히 표시', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { allowedFiles: ['src_a/'], mockScenario: 'fail' }));
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'], mockScenario: 'touch-forbidden' }));
+    await assign(env.ex, task(env, 'task-a', { allowedFiles: ['src_a/'], mockScenario: 'fail' }));
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'], mockScenario: 'touch-forbidden' }));
     await toReview(env, 'task-a');
     assert.equal(status(env, 'task-a'), 'failed');
     const ex = env.ex.state.executions[env.ex.task('task-a').lastExecId!];
@@ -248,12 +250,12 @@ test('실패·범위 밖 변경·결과 불명을 명확히 표시', async () =>
 test('계약 검증: 금지 경로·브랜치 접두어·실험 작업·미등록/기본 checkout 차단', async () => {
   const env = setup();
   try {
-    await assert.rejects(env.ex.assign(task(env, 'task-a', { allowedFiles: ['data/labels.jsonl'] })), /금지 경로/);
-    await assert.rejects(env.ex.assign(task(env, 'task-a', { branch: 'codex/task-a' })), /접두어/);
-    await assert.rejects(env.ex.assign(task(env, 'task-a', { requiresExperiment: true })), /기본 checkout 단일 실행 담당자/);
-    await assert.rejects(env.ex.assign(task(env, 'task-a', { allowedFiles: ['src_*/'] })), /glob/);
+    await assert.rejects(assign(env.ex, task(env, 'task-a', { allowedFiles: ['data/labels.jsonl'] })), /금지 경로/);
+    await assert.rejects(assign(env.ex, task(env, 'task-a', { branch: 'codex/task-a' })), /접두어/);
+    await assert.rejects(assign(env.ex, task(env, 'task-a', { requiresExperiment: true })), /기본 checkout 단일 실행 담당자/);
+    await assert.rejects(assign(env.ex, task(env, 'task-a', { allowedFiles: ['src_*/'] })), /glob/);
     const mainBefore = gitOut(env.fixture.repo, 'rev-parse', 'HEAD');
-    await assert.rejects(env.ex.assign(task(env, 'task-a', { taskId: 'task-x', worktree: env.fixture.repo })), /계약을 커밋할 수 없음: 기본 checkout 분리/);
+    await assert.rejects(assign(env.ex, task(env, 'task-a', { taskId: 'task-x', worktree: env.fixture.repo })), /계약을 커밋할 수 없음: 기본 checkout 분리/);
     assert.equal(gitOut(env.fixture.repo, 'rev-parse', 'HEAD'), mainBefore, 'main에는 계약을 커밋하지 않음');
     assert.equal(env.ex.state.tasks['task-x'], undefined);
     assert.equal(invocations(env), 0);
@@ -263,7 +265,7 @@ test('계약 검증: 금지 경로·브랜치 접두어·실험 작업·미등�
 test('모델·worker 경로 작업은 worktree의 ./develop 잠금 안에서 실행', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { allowedFiles: ['card_condition/new_worker.py'], mockScenario: 'hang' }));
+    await assign(env.ex, task(env, 'task-a', { allowedFiles: ['card_condition/new_worker.py'], mockScenario: 'hang' }));
     const wt0 = env.fixture.worktrees['task-a'].path;
     // worktree는 만들어졌지만 ./develop이 쓸 자체 .venv가 없으면 실행 준비가 아님
     assert.equal(env.ex.task('task-a').envReadiness?.ready, false);
@@ -289,14 +291,14 @@ test('모델·worker 경로 작업은 worktree의 ./develop 잠금 안에서 실
 test('무료 가드: 과금 신호 로그·API 키 환경변수 → 실행 중단·알림 파일·이후 시작 차단', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { mockScenario: 'paid-message' }));
+    await assign(env.ex, task(env, 'task-a', { mockScenario: 'paid-message' }));
     await startTask('task-a');
     await waitFor(() => env.trips.length > 0, 'trip');
     assert.match(env.trips[0].detail, /credit balance/i);
     await waitFor(() => ['cancelled'].includes(status(env, 'task-a')), 'cancelled by guard');
     assert.ok(fs.existsSync(env.ex.guard.alertFile));
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'] }));
-    const r = await env.ex.launch('task-b', 'x');
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'] }));
+    const r = await launch(env.ex, 'task-b', 'x');
     assert.equal(r.ok, false);
     assert.match((r as any).reason, /무료 가드/);
 

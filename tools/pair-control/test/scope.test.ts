@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 // 허용 파일 정리 규칙·프롬프트 추출·프리셋. 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -56,7 +57,7 @@ test('작업 만들기 미리보기(planTask)와 assign(API 직접 호출) 모�
     const p = await planTask(env.ex, { agent: 'claude', goal: '범위 모름', allowedFiles: ['./'] });
     assert.equal(p.ok, false);
     assert.match(JSON.stringify(p.checks), /정리되지 않은 경로/);
-    await assert.rejects(env.ex.assign(task(env, 'task-a', { allowedFiles: ['./'] })), /정리되지 않은 경로/);
+    await assert.rejects(assign(env.ex, task(env, 'task-a', { allowedFiles: ['./'] })), /정리되지 않은 경로/);
     assert.equal(Object.keys(env.ex.state.tasks).length, 0, '거부된 작업은 등록되지 않음');
   } finally { env.cleanup(); }
 });

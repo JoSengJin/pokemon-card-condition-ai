@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { startPrompt } from '../src/executor/executorPrompt.ts';
 // 메인이 쓴 계약으로 구현 에이전트가 이어 개발하게 하는 흐름: 요청문·답 나누기, 읽을 문서, 시작 프롬프트, 모호한 계약 경고.
 import assert from 'node:assert/strict';
@@ -103,7 +104,7 @@ test('미리보기: 완료 조건·읽을 문서가 모두 없으면 경고, 없
 test('시작 프롬프트: 읽을 문서를 자동 실행·수동 모두에 넣고, 보고서만 쓰고 끝내지 말라는 규칙과 근거 없을 때의 종료 규칙을 담는다', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'manual', readDocs: ['README.md'] }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'manual', readDocs: ['README.md'] }));
     const p = await startPrompt(env.ex, 'task-a');
     assert.deepEqual(p.extraDocs, ['README.md']);
     assert.match(p.text, /README\.md/);
@@ -112,7 +113,7 @@ test('시작 프롬프트: 읽을 문서를 자동 실행·수동 모두에 넣�
     assert.match(p.text, /필요한 계약 보완을 한 줄로 보고한 뒤 종료/);
     assert.match(p.text, /git add \.`로 전체를 올리지 마세요/);
     assert.match(p.text, /untracked 파일을 빈 작업물로 보고 삭제·초기화하지 마세요/);
-    await env.ex.assign(task(env, 'task-b', { mode: 'manual', allowedFiles: ['src_b/'], readDocs: ['없는문서.md'] }));
+    await assign(env.ex, task(env, 'task-b', { mode: 'manual', allowedFiles: ['src_b/'], readDocs: ['없는문서.md'] }));
     await assert.rejects(startPrompt(env.ex, 'task-b'), /시작 HEAD에 없는 문서/);
   } finally { env.cleanup(); }
 });
@@ -120,7 +121,7 @@ test('시작 프롬프트: 읽을 문서를 자동 실행·수동 모두에 넣�
 test('시작 프롬프트 구조: 메인이 쓰던 8절 형식(식별·확인·목표·소유권·제한·검증·진행·인계)과 조건부 항목', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'manual', doneCriteria: ['결과 파일 추가'] }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'manual', doneCriteria: ['결과 파일 추가'] }));
     const p = (await startPrompt(env.ex, 'task-a', { unattended: true })).text;
     const heads = [...p.matchAll(/^## (\d)\. (.+)$/gm)].map((m) => m[1] + m[2]);
     assert.deepEqual(heads, ['1작업 식별', '2먼저 확인할 것', '3목표와 완료 조건', '4파일 소유권', '5구현·실행 제한', '6검증', '7진행 방식', '8산출물·커밋·최종 인계']);
@@ -132,7 +133,7 @@ test('시작 프롬프트 구조: 메인이 쓰던 8절 형식(식별·확인·�
     assert.match(p, /task_id \/ branch \/ base_sha, 최종 전체 커밋 SHA와 적용 순서/);
     assert.ok(!p.includes('HTML_REPORTING'), '허용 파일에 docs/collaboration이 없으면 HTML 안내를 넣지 않음');
     assert.ok(!p.includes('./develop'));
-    await env.ex.assign(task(env, 'task-b', { mode: 'manual', allowedFiles: ['docs/collaboration/'] }));
+    await assign(env.ex, task(env, 'task-b', { mode: 'manual', allowedFiles: ['docs/collaboration/'] }));
     assert.match((await startPrompt(env.ex, 'task-b')).text, /HTML_REPORTING\.md가 요구하면 HTML 경로와 열기·렌더 확인 결과를 구분해 적으세요/);
   } finally { env.cleanup(); }
 });
@@ -141,10 +142,10 @@ test('./develop 안내: 관제 실행부가 감싸 시작하는 에이전트에�
   const env = setup();
   try {
     const dev = { allowedFiles: ['card_condition/x.py'] };
-    await env.ex.assign(task(env, 'task-a', { ...dev, mode: 'manual' }));
+    await assign(env.ex, task(env, 'task-a', { ...dev, mode: 'manual' }));
     const manual = (await startPrompt(env.ex, 'task-a')).text;
     assert.match(manual, /`\.\/develop -- <수정 명령>` 안에서 수행하세요/);
-    await env.ex.assign(task(env, 'task-b', { ...dev, mode: 'real' }));
+    await assign(env.ex, task(env, 'task-b', { ...dev, mode: 'real' }));
     const run = (await startPrompt(env.ex, 'task-b')).text;
     assert.match(run, /관제 도구가 worktree의 `\.\/develop` 잠금을 획득한 상태로 시작했습니다\. `\.\/develop`을 직접 실행하지 말고/);
     assert.ok(!run.includes('안에서 수행하세요(AGENTS.md)'), '중첩 실행 요구 문구 없음');

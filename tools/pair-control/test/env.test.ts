@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 // 실행 준비 검사. 가상환경은 테스트가 "사용자 준비"로 직접 만든다(실행기는 만들지 않음).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -41,7 +42,7 @@ test('python-project: card_condition import가 자기 worktree가 아니면 준�
 test('계약 env=none이고 ./develop을 쓰지 않는 작업은 .venv 없이도 준비됨', async () => {
   const env = setup();
   try {
-    const t = await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'] }));
+    const t = await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'] }));
     assert.equal(t.envReadiness?.needed, 'none');
     assert.equal(t.envReadiness?.ready, true);
   } finally { env.cleanup(); }

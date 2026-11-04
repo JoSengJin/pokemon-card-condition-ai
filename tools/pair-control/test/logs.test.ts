@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 // 실시간 로그: 줄 단위 비밀 가림·즉시 기록·시간 제한, 통합 후 검사 실행 중 로그, 수동 모드 활동. 모델 요청 없음.
 import assert from 'node:assert/strict';
@@ -53,7 +54,7 @@ test('통합 후 검사: 실행 중에 로그가 먼저 보이고, 끝나면 완
   try {
     const secret = fakeSecret('post');
     const code = `console.log("post-start");console.log("key ${secret}");setTimeout(()=>{console.log("post-end")},1500)`;
-    await env.ex.assign(task(env, 'task-a', { postChecks: [{ id: 'slow', name: '느린 검사', executable: 'node', args: ['-e', code] }] }));
+    await assign(env.ex, task(env, 'task-a', { postChecks: [{ id: 'slow', name: '느린 검사', executable: 'node', args: ['-e', code] }] }));
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     await verify(env, 'task-a');
@@ -84,7 +85,7 @@ test('통합 후 검사: 실행 중에 로그가 먼저 보이고, 끝나면 완
 test('활동: 새 커밋·변경 파일·미커밋·범위 밖 변경을 읽기만 해서 보여 줌', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'manual' }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'manual' }));
     const wt = env.ex.task('task-a').worktree;
     const empty = await activityOf(env.ex, 'task-a');
     assert.equal(empty.commits.length, 0, '계약 커밋 위의 작업은 아직 없음');

@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve, reject } from '../src/executor/taskApproval.ts';
 import { recheckEnv } from '../src/executor/taskEnvironment.ts';
 // 승인 취소·작업 보관. mock 프로세스 기반, 실제 모델 요청 없음.
@@ -23,7 +24,7 @@ async function toApproved(env: Env, id: string) {
 test('승인 취소: 같은 SHA로 검토 단계 복귀, 에이전트 재실행 없음, 작업 테스트 유효, 다시 승인하면 통합 가능', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a'));
+    await assign(env.ex, task(env, 'task-a'));
     const before = await toApproved(env, 'task-a');
     const sha = before.result!.headSha!, oldRun = before.runId!, runs = invocations(env);
 
@@ -48,7 +49,7 @@ test('승인 취소: 같은 SHA로 검토 단계 복귀, 에이전트 재실행 
 test('승인 취소는 승인됨 상태에서만, 보관은 진행 중·결정 남은 작업 거부·기록 유지·해제 가능', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a'));
+    await assign(env.ex, task(env, 'task-a'));
     await assert.rejects(withdrawApproval(env.ex, 'task-a', resumeStep, startReview), /승인됨 상태에서만/);
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
@@ -71,7 +72,7 @@ test('승인 취소는 승인됨 상태에서만, 보관은 진행 중·결정 �
 test('환경 만들기: 고정 명령으로 .venv만 만들고 준비 완료, 이미 있으면·기본 checkout·진행 중이면 거부', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { env: 'python' }));
+    await assign(env.ex, task(env, 'task-a', { env: 'python' }));
     const wt = env.ex.task('task-a').worktree;
     assert.equal(fs.existsSync(path.join(wt, '.venv')), false);
     const before = await recheckEnv(env.ex, 'task-a');
@@ -84,7 +85,7 @@ test('환경 만들기: 고정 명령으로 .venv만 만들고 준비 완료, �
     assert.equal(fs.existsSync(path.join(env.fixture.repo, '.venv')) && fs.lstatSync(path.join(env.fixture.repo, '.venv')).isSymbolicLink(), false, '다른 checkout 공유 없음');
     await assert.rejects(createVenv(env.ex, 'task-a'), /이미 .venv가 있음/);
 
-    await env.ex.assign(task(env, 'task-b', { env: 'python', allowedFiles: ['src_b/'] }));
+    await assign(env.ex, task(env, 'task-b', { env: 'python', allowedFiles: ['src_b/'] }));
     env.ex.task('task-b').worktree = env.fixture.repo; // 기본 checkout을 가리키는 비정상 기록
     await assert.rejects(createVenv(env.ex, 'task-b'), /기본 checkout/);
     env.ex.task('task-a').status = 'running';

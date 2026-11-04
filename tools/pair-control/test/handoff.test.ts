@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { recollect } from '../src/executor/taskCollect.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
@@ -23,7 +24,7 @@ const commit = (env: Env, name: string, file: string) => {
   return gitOut(wt, 'rev-parse', 'HEAD');
 };
 async function manualDone(env: Env, name: string, file = 'src_a/work.txt', extra: Record<string, unknown> = {}) {
-  await env.ex.assign(task(env, name, { mode: 'manual', ...extra }));
+  await assign(env.ex, task(env, name, { mode: 'manual', ...extra }));
   await startTask(name);
   const sha = file ? commit(env, name, file) : null;
   await finishManual(env.ex, name);
@@ -35,7 +36,7 @@ const turn = (env: Env, id: string) => turnOf(env.ex.task(id));
 test('누구 차례: 배정 → 에이전트 작업 → 사용자(검사·인계) → 메인 확인 중 → 사용자(승인) → 통합', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'manual' }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'manual' }));
     assert.equal(turn(env, 'task-a').who, 'user');
     await startTask('task-a');
     assert.deepEqual([turn(env, 'task-a').who, turn(env, 'task-a').agent], ['implementer', 'claude']);

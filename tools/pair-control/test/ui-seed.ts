@@ -1,11 +1,12 @@
+import { assign } from '../src/executor/taskAssign.ts';
 // 연속 처리 화면 검증용 합성 상태(테스트와 수동 화면 확인이 같이 쓴다). 실제 모델·원격 호출 없음.
 import { task, type Env } from './helpers.ts';
 
 /** 인수 확인이 끝난 메인 + 성공·실패 행동이 섞인 턴 + 보류·결과 불명 이벤트 + 원격 push가 검증된 작업 하나. */
 export async function seed(e: Env) {
   const now = new Date().toISOString();
-  await e.ex.assign(task(e, 'task-a', { mode: 'manual', allowedFiles: ['src_a/'] }));
-  await e.ex.assign(task(e, 'task-b', { mode: 'manual', allowedFiles: ['src_b/'] }));
+  await assign(e.ex, task(e, 'task-a', { mode: 'manual', allowedFiles: ['src_a/'] }));
+  await assign(e.ex, task(e, 'task-b', { mode: 'manual', allowedFiles: ['src_b/'] }));
   e.ex.runtime.session = { id: 's1', agent: 'claude', from: 'codex', generation: 2, status: 'completed', startedAt: now, limitRecovery: false, checkpointFile: '', checkpointHash: '', tokenHash: '', actionResults: [], ackedAt: now } as any;
   e.ex.runtime.generation = 2;
   const p = (e.ex.runtime.pipeline ??= { events: {}, turns: {}, steps: {} });

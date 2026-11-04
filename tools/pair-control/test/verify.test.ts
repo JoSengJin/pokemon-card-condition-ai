@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { runChecks } from '../src/executor/verificationStart.ts';
 import { approve as approveTask } from '../src/executor/taskApproval.ts';
 // 작업 테스트(에이전트 종료 후 독립 실행)·통합 후 검사. 모델 요청 없음.
@@ -28,7 +29,7 @@ const checkExecs = (env: Env, id: string) => Object.values(env.ex.state.executio
 test('CLI 종료코드 0이어도 작업 테스트가 실패하면 승인 차단, 기록에 SHA·명령·종료코드·로그·시각', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { checks: [nodeCheck('ok', 'console.log("fine")'), nodeCheck('bad', 'console.error("boom");process.exit(4)')] }));
+    await assign(env.ex, task(env, 'task-a', { checks: [nodeCheck('ok', 'console.log("fine")'), nodeCheck('bad', 'console.error("boom");process.exit(4)')] }));
     const t = await toReview(env, 'task-a');
     assert.equal(env.ex.state.executions[t.lastExecId!].exitCode, 0);
     assert.ok(t.result!.checksPassed, 'Git 계약 검사는 통과');
@@ -47,10 +48,10 @@ test('CLI 종료코드 0이어도 작업 테스트가 실패하면 승인 차단
 test('검사 명령 계약: 허용 실행 파일만, 학습·실험 진입점 금지, 계약에 검사가 없으면 승인 불가', async () => {
   const env = setup();
   try {
-    await assert.rejects(env.ex.assign(task(env, 'task-a', { checks: [{ id: 'sh', name: 'sh', executable: 'bash', args: ['-c', 'ls'] }] })), /checks/);
-    await assert.rejects(env.ex.assign(task(env, 'task-a', { checks: [{ id: 'x', name: 'x', executable: '.venv/bin/python', args: ['-m', 'card_condition.experiment_record'] }], env: 'python' })), /학습·실험/);
-    await assert.rejects(env.ex.assign(task(env, 'task-a', { checks: [{ id: 'p', name: 'p', executable: '.venv/bin/python', args: ['-V'] }] })), /python 또는 python-project/);
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'], checks: [] }));
+    await assert.rejects(assign(env.ex, task(env, 'task-a', { checks: [{ id: 'sh', name: 'sh', executable: 'bash', args: ['-c', 'ls'] }] })), /checks/);
+    await assert.rejects(assign(env.ex, task(env, 'task-a', { checks: [{ id: 'x', name: 'x', executable: '.venv/bin/python', args: ['-m', 'card_condition.experiment_record'] }], env: 'python' })), /학습·실험/);
+    await assert.rejects(assign(env.ex, task(env, 'task-a', { checks: [{ id: 'p', name: 'p', executable: '.venv/bin/python', args: ['-V'] }] })), /python 또는 python-project/);
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'], checks: [] }));
     await toReview(env, 'task-b');
     await assert.rejects(runChecks(env.ex, 'task-b'), /계약에 작업 테스트가 없음/);
     await assert.rejects(approveTask(env.ex, 'task-b', env.ex.task('task-b').result!.headSha!), /미실행/);
@@ -60,7 +61,7 @@ test('검사 명령 계약: 허용 실행 파일만, 학습·실험 진입점 �
 test('코드가 바뀌면 이전 작업 테스트로 승인 불가, 계약 파일을 바꾸면 Git 계약 검사 실패', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a'));
+    await assign(env.ex, task(env, 'task-a'));
     const t = await toReview(env, 'task-a');
     assert.equal((await verify(env, 'task-a')).status, 'passed');
     const wt = env.fixture.worktrees['task-a'].path;
@@ -76,9 +77,9 @@ test('작업 테스트 중단·중복 실행 차단·재시작 시 이어서 실
   let env = setup();
   try {
     const slow = nodeCheck('slow', 'setTimeout(()=>{}, 1500)');
-    await env.ex.assign(task(env, 'task-a', { checks: [slow, nodeCheck('second', 'process.exit(0)')] }));
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'], checks: [nodeCheck('hang', 'setInterval(()=>{},1000)')] }));
-    await env.ex.assign(task(env, 'task-c', { allowedFiles: ['src_c/'], checks: [nodeCheck('hang', 'setInterval(()=>{},1000)')] }));
+    await assign(env.ex, task(env, 'task-a', { checks: [slow, nodeCheck('second', 'process.exit(0)')] }));
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'], checks: [nodeCheck('hang', 'setInterval(()=>{},1000)')] }));
+    await assign(env.ex, task(env, 'task-c', { allowedFiles: ['src_c/'], checks: [nodeCheck('hang', 'setInterval(()=>{},1000)')] }));
     for (const id of ['task-a', 'task-b', 'task-c']) await toReview(env, id);
 
     // 중단
@@ -115,9 +116,9 @@ test('통합 후 검사: 실패는 성공으로 표시하지 않고 복구 SHA�
   const env = setup();
   try {
     const repo = env.fixture.repo;
-    await env.ex.assign(task(env, 'task-a', { postChecks: [nodeCheck('post-bad', 'process.exit(2)')] }));
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'], postChecks: [nodeCheck('post-ok', 'process.exit(0)')] }));
-    await env.ex.assign(task(env, 'task-c', { allowedFiles: ['src_c/'] }));
+    await assign(env.ex, task(env, 'task-a', { postChecks: [nodeCheck('post-bad', 'process.exit(2)')] }));
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'], postChecks: [nodeCheck('post-ok', 'process.exit(0)')] }));
+    await assign(env.ex, task(env, 'task-c', { allowedFiles: ['src_c/'] }));
     const before = gitOut(repo, 'rev-parse', 'HEAD');
     for (const id of ['task-a', 'task-b', 'task-c']) {
       await toReview(env, id);
@@ -143,7 +144,7 @@ test('통합 후 검사: 실패는 성공으로 표시하지 않고 복구 SHA�
 test('통합 checkout의 .venv가 없으면 통합하지 않고 승인 유지', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a'));
+    await assign(env.ex, task(env, 'task-a'));
     await toReview(env, 'task-a');
     await verify(env, 'task-a');
     await approve(env, 'task-a');
@@ -157,7 +158,7 @@ test('통합 checkout의 .venv가 없으면 통합하지 않고 승인 유지', 
 test('통합 거절 후 재검토하면 계약 변경이 Git 계약 검사에서 드러남', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a'));
+    await assign(env.ex, task(env, 'task-a'));
     await toReview(env, 'task-a');
     await verify(env, 'task-a');
     await approve(env, 'task-a');

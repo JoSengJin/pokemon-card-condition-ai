@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { spawnSupervised } from '../src/executor/processSupervisor.ts';
@@ -47,7 +48,7 @@ function countChecks(e: Env) {
 
 // ---------- A. 공급자별 한도 ----------
 async function slowWorker(e: Env, name: string, dir: string) {
-  await e.ex.assign(task(e, name, { mode: 'mock', mockScenario: 'slow-success', allowedFiles: [`${dir}/`] }));
+  await assign(e.ex, task(e, name, { mode: 'mock', mockScenario: 'slow-success', allowedFiles: [`${dir}/`] }));
   await startTask(name);
   await waitFor(() => e.ex.task(name).status === 'running', `${name} running`);
   return Object.values(e.ex.state.executions).find((x) => x.taskId === name && (x.kind ?? 'agent') === 'agent')!;
@@ -119,7 +120,7 @@ test('A. 한도에 닿은 공급자의 worker만 중단하고 다른 공급자�
 
 // ---------- B. 자동 push의 커밋 범위 ----------
 async function integratedTaskA(e: Env) {
-  await e.ex.assign(task(e, 'task-a', { mode: 'manual', allowedFiles: ['src_a/'] }));
+  await assign(e.ex, task(e, 'task-a', { mode: 'manual', allowedFiles: ['src_a/'] }));
   await startTask('task-a');
   const wt = e.fixture.worktrees['task-a'].path;
   fs.appendFileSync(path.join(wt, 'src_a/file.txt'), 'review change\n');
@@ -214,7 +215,7 @@ test('B. 승인 철회·push 결과 불명 뒤에는 재수행하지 않는다',
 
 // ---------- C. 조건 미확정 시 자동 검사·모델 턴 보류 ----------
 async function unverifiedResult(e: Env, name = 'task-a', dir = 'src_a') {
-  await e.ex.assign(task(e, name, { mode: 'manual', allowedFiles: [`${dir}/`] }));
+  await assign(e.ex, task(e, name, { mode: 'manual', allowedFiles: [`${dir}/`] }));
   await startTask(name);
   const wt = e.fixture.worktrees[name].path;
   fs.appendFileSync(path.join(wt, dir, 'work.txt'), 'change\n');

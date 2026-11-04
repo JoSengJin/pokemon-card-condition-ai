@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { recheckEnv } from '../src/executor/taskEnvironment.ts';
 import { recollect } from '../src/executor/taskCollect.ts';
@@ -23,7 +24,7 @@ const sessionCommit = (env: Env, name: string, file: string, text = 'session cha
   gitOut(wt, 'add', '--', file); gitOut(wt, 'commit', '-qm', `feat: ${file}`);
   return gitOut(wt, 'rev-parse', 'HEAD');
 };
-const manual = (env: Env, name: string, extra: Record<string, unknown> = {}) => env.ex.assign(task(env, name, { mode: 'manual', ...extra }));
+const manual = (env: Env, name: string, extra: Record<string, unknown> = {}) => assign(env.ex, task(env, name, { mode: 'manual', ...extra }));
 
 test('수동 모드 전체 흐름: 프로세스 없이 소유권 유지 → 작업 완료 → Git 검사 → 작업 테스트 → 승인 대기', async () => {
   const env = setup();
@@ -36,7 +37,7 @@ test('수동 모드 전체 흐름: 프로세스 없이 소유권 유지 → 작�
     assert.equal((await runInfo(env.ex.task('task-a').runId))?.suspendedStep, 'await-exit');
     assert.ok(env.ex.locks.holder('task:task-a'), '소유권 잠금 유지');
     // 같은 파일을 쓰는 다른 작업은 시작할 수 없음
-    await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_a/file.txt'] }));
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_a/file.txt'] }));
     await assert.rejects(startTask('task-b'), /충돌: task-a\(files/);
     await assert.rejects(startTask('task-a'), /중복 실행 차단|잠금 사용 중/);
 

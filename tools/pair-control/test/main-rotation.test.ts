@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
@@ -23,7 +24,7 @@ const gitOut = (cwd: string, ...a: string[]) => execFileSync('git', ['-c', 'user
 
 /** 구현이 끝나 메인 인계 확인까지 된(승인 가능한) 작업을 만든다. 전체 SHA를 돌려준다. */
 async function ready(env: Env, name: string, dir: string) {
-  await env.ex.assign(task(env, name, { mode: 'manual', allowedFiles: [`${dir}/`] }));
+  await assign(env.ex, task(env, name, { mode: 'manual', allowedFiles: [`${dir}/`] }));
   await startTask(name);
   const wt = env.fixture.worktrees[name].path;
   fs.appendFileSync(path.join(wt, dir, 'work.txt'), 'change\n');
@@ -70,7 +71,7 @@ test('양방향 교대: 인수 확인 뒤에만 메인이 바뀌고, 승인은 �
     assert.equal(r.status, 'launching');
     assert.equal(env.ex.mainAgent, 'codex', '인수 확인 전에는 메인이 바뀌지 않음');
     assert.equal(env.ex.runtime.frozen, true);
-    await assert.rejects(env.ex.assign(task(env, 'task-c', { mode: 'manual' })), /메인 교대 중/);
+    await assert.rejects(assign(env.ex, task(env, 'task-c', { mode: 'manual' })), /메인 교대 중/);
     await assert.rejects(handoverMain(env.ex, 'claude'), /이미 진행 중/, '교대 중 중복 교대 명령 차단');
     const s1 = await finished(env);
     assert.equal(s1.status, 'completed');
@@ -153,7 +154,7 @@ test('이전 메인의 지연 응답·중복 명령 차단: 같은 행동 ID는 
 test('한도 오류 직후 복구: 마지막 인계문 없이 저장된 상태로 교대하고, 진행 중 구현 에이전트는 중단하지 않고 인수한다. 행동이 없으면 완료가 아니라 인수만 표시', async () => {
   const env = setup(real);
   await withFlag(env, async () => {
-    await env.ex.assign(task(env, 'task-c', { mode: 'mock', mockScenario: 'slow-success', allowedFiles: ['src_c/'] }));
+    await assign(env.ex, task(env, 'task-c', { mode: 'mock', mockScenario: 'slow-success', allowedFiles: ['src_c/'] }));
     await startTask('task-c');
     await waitFor(() => env.ex.task('task-c').status === 'running', 'running');
     script({ actions: [] });

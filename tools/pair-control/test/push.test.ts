@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 // 푸시·되돌림 절차. 원격은 로컬 bare 저장소(합성)뿐이며 실제 GitHub에는 연결하지 않는다.
@@ -16,7 +17,7 @@ const fakeKey = () => ['sk', 'live', 'a1b2c3d4e5f6g7h8i9j0k1l2'].join('-'); // �
 
 /** 수동 모드 작업 하나를 승인·통합까지 진행한다(에이전트 세션은 직접 커밋으로 흉내낸다). */
 async function integrate(env: Env, name: string, file: string, extra: Record<string, unknown> = {}) {
-  await env.ex.assign(task(env, name, { mode: 'manual', allowedFiles: [path.dirname(file) + '/'], ...extra }));
+  await assign(env.ex, task(env, name, { mode: 'manual', allowedFiles: [path.dirname(file) + '/'], ...extra }));
   await startTask(name);
   const wt = env.fixture.worktrees[name].path;
   fs.mkdirSync(path.dirname(path.join(wt, file)), { recursive: true });

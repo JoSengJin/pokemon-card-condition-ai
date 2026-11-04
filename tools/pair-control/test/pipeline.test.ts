@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 // 교대 후 연속 페어코딩: 새 메인이 인수 뒤 도착하는 구현 결과를 받아 검사→검토→통합→합성 원격 push까지 이어 처리하는지 확인한다.
 // 가짜 CLI·합성 bare 원격만 쓰며 실제 Codex/Claude 호출·실제 push는 없다(합성 계약/회귀 검사이지 실제 CLI 검증이 아니다).
@@ -47,7 +48,7 @@ const as = (env: Env, agent: 'codex' | 'claude') => { env.ex.state.main = { agen
 
 /** 수동 모드 작업이 커밋 하나로 끝나 검토 대기가 되게 한다(사용자가 에이전트 세션에서 작업을 마친 것을 흉내). */
 async function manualResult(env: Env, name: string, dirName: string, extra: Record<string, unknown> = {}, content = 'change\n') {
-  await env.ex.assign(task(env, name, { mode: 'manual', allowedFiles: [`${dirName}/`], ...extra }));
+  await assign(env.ex, task(env, name, { mode: 'manual', allowedFiles: [`${dirName}/`], ...extra }));
   await startTask(name);
   const wt = env.fixture.worktrees[name].path;
   fs.appendFileSync(path.join(wt, dirName, 'work.txt'), content);
@@ -73,7 +74,7 @@ for (const [from, to, name, dirName] of [['codex', 'claude', 'task-d', 'src_b'],
   test(`${from}→${to} 교대 후 도착한 구현 결과를 새 메인이 검사·검토·통합·합성 원격 push까지 처리한다(재승인·복사 없음)`, { timeout: 180_000 }, async () => withEnv(async (env) => {
     as(env, from);
     // 구현 에이전트(${name})는 교대 시점에 실행 중이며 중단되지 않는다.
-    await env.ex.assign(task(env, name, { mode: 'mock', mockScenario: 'slow-success', allowedFiles: [`${dirName}/`] }));
+    await assign(env.ex, task(env, name, { mode: 'mock', mockScenario: 'slow-success', allowedFiles: [`${dirName}/`] }));
     await startTask(name);
     await waitFor(() => env.ex.task(name).status === 'running', 'running');
     grant(env);

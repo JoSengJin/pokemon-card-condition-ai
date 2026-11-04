@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { startPrompt } from '../src/executor/executorPrompt.ts';
@@ -15,7 +16,7 @@ import { setup, task, verify, waitFor } from './helpers.ts';
 test('이양: 안전 확인 통과 시 메인 변경·이력·인계 메모, 이후 프롬프트·인계 문구에 반영, 재시작 후 유지', async () => {
   let env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'manual' }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'manual' }));
     await startTask('task-a');
     assert.equal(env.ex.mainAgent, 'codex');
     assert.deepEqual(await swapBlockers(env.ex), []);
@@ -38,7 +39,7 @@ test('이양: 안전 확인 통과 시 메인 변경·이력·인계 메모, 이
 test('이양 거절: 프로세스 실행 중·통합 잠금·푸시 결과 불명·./develop 잠금 사용 중 — 메인은 그대로', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { mockScenario: 'hang' }));
+    await assign(env.ex, task(env, 'task-a', { mockScenario: 'hang' }));
     await startTask('task-a');
     await waitFor(() => Object.values(env.ex.state.executions).some((e) => e.status === 'running'), 'running');
     await assert.rejects(setMain(env.ex, 'claude'), /프로세스 실행 중: agent task-a/);
@@ -69,7 +70,7 @@ test('이양 거절: 프로세스 실행 중·통합 잠금·푸시 결과 불�
 test('이양 메모: 이전 메인에게 인계되어 확인 전인 작업은 새 메인에게 다시 전달하라고 안내, 같은 에이전트가 메인이면 인계 문서에 독립 확인 아님 표시', async () => {
   const env = setup();
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'manual' }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'manual' }));
     await startTask('task-a');
     const wt = env.fixture.worktrees['task-a'].path;
     fs.mkdirSync(path.join(wt, 'src_a'), { recursive: true });

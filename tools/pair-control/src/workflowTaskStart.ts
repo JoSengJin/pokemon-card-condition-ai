@@ -1,3 +1,4 @@
+import { launch as launchTask } from './executor/taskLaunch.ts';
 import { collect as collectResult } from './executor/taskCollect.ts';
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
@@ -8,7 +9,7 @@ export const launch = createStep({
   id: 'launch', description: '계약·충돌·잠금·Git 사전 검사 후 감독 프로세스로 CLI 시작', inputSchema: Flow, outputSchema: Flow,
   execute: async ({ inputData, runId, bail }) => {
     if (inputData.reviewOnly) return { ...inputData, execId: null };
-    const result = await getExecutor().launch(inputData.taskId, runId);
+    const result = await launchTask(getExecutor(), inputData.taskId, runId);
     if (!result.ok) return bail({ taskId: inputData.taskId, outcome: 'blocked', detail: result.reason });
     if ('manual' in result) return { ...inputData, execId: null, manual: true };
     return { ...inputData, execId: result.execId };

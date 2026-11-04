@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
@@ -31,7 +32,7 @@ const assignInput = { agent: 'claude', mode: 'mock', goal: '합성 배정', allo
 
 /** 구현·확인·승인 직전까지 끝난 작업(전체 SHA 반환). approved=true면 승인까지. */
 async function ready(env: Env, name: string, opts: { approved?: boolean; confirm?: boolean } = {}) {
-  await env.ex.assign(task(env, name, { mode: 'manual', allowedFiles: ['src_a/'] }));
+  await assign(env.ex, task(env, name, { mode: 'manual', allowedFiles: ['src_a/'] }));
   await startTask(name);
   const wt = env.fixture.worktrees[name].path;
   fs.appendFileSync(path.join(wt, 'src_a/work.txt'), 'change\n');

@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain, handoffToMainAuto } from '../src/executor/handoffCreate.ts';
@@ -52,7 +53,7 @@ test('codex login status: ChatGPT 로그인만 통과, API 키·로그아웃·�
 
 const gitOut = (cwd: string, ...a: string[]) => execFileSync('git', ['-c', 'user.name=session', '-c', 'user.email=s@l', ...a], { cwd }).toString().trim();
 async function readyForHandoff(env: Env, name: string) {
-  await env.ex.assign(task(env, name, { mode: 'manual' }));
+  await assign(env.ex, task(env, name, { mode: 'manual' }));
   await startTask(name);
   const wt = env.fixture.worktrees[name].path;
   fs.mkdirSync(path.join(wt, 'src_a'), { recursive: true });

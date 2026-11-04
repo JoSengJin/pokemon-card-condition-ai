@@ -1,3 +1,4 @@
+import { assign } from '../src/executor/taskAssign.ts';
 import { logTail, refreshProbes } from '../src/executor/executorView.ts';
 // 실제 CLI 경로의 무과금 조건. 가짜 claude/codex 실행 파일만 사용하며 모델 요청·설치·로그인은 없다.
 import assert from 'node:assert/strict';
@@ -73,7 +74,7 @@ test('Claude 설정: apiKeyHelper·env의 API 키 이름·claudeai 아닌 로그
 test('API 키 환경변수가 있으면 실제 실행 시작 거부, 프로젝트 설정(.claude)의 키도 거부, 자식에게 전달하지 않음', async () => {
   const env = setup(real);
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'real', goal: 'ok' }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'real', goal: 'ok' }));
     const antKey = fakeSecret('ant');
     await withEnv('ANTHROPIC_API_KEY', antKey, async () => {
       await assert.rejects(startTask('task-a'), /무과금: paid_env/);
@@ -98,7 +99,7 @@ test('API 키 환경변수가 있으면 실제 실행 시작 거부, 프로젝�
 test('가짜 claude로 실제 어댑터 경로: 문서 옵션만 사용, --bare 없음, 허용 도구 제한, 계약 경로만 전달', async () => {
   const env = setup(real);
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'real', goal: '실제 경로 확인', prompt: '긴 지시 '.repeat(800) }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'real', goal: '실제 경로 확인', prompt: '긴 지시 '.repeat(800) }));
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     const t = env.ex.task('task-a');
@@ -123,7 +124,7 @@ test('금지 옵션 검사와 계획 거절 조건', async () => {
   const env = setup({ ...real });
   try {
     await refreshProbes(env.ex);
-    const t = await env.ex.assign(task(env, 'task-a', { mode: 'real' }));
+    const t = await assign(env.ex, task(env, 'task-a', { mode: 'real' }));
     const plan = realPlan(t, env.ex.probes.claude!, env.cfg);
     assert.ok(!('refused' in plan));
     assert.deepEqual(scanArgs((plan as any).args), []);
@@ -136,10 +137,10 @@ test('금지 옵션 검사와 계획 거절 조건', async () => {
 test('한도 도달은 공급자별 정지: 그 공급자만 막고 다른 공급자·mock은 계속, 해제는 사용자 확인으로만(출처 불명은 전역 정지)', async () => {
   let env = setup(real);
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'real', goal: '[fake:limit] 한도 흉내' })); // claude worker
-    await env.ex.assign(task(env, 'task-c', { mode: 'real', allowedFiles: ['src_c/'], goal: 'ok' })); // claude worker(한도 중 시작 거부 확인)
-    await env.ex.assign(task(env, 'task-b', { mode: 'real', allowedFiles: ['src_b/'], goal: 'ok' })); // codex worker(영향 없음)
-    await env.ex.assign(task(env, 'task-d', { allowedFiles: ['src_a/'], mode: 'mock' }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'real', goal: '[fake:limit] 한도 흉내' })); // claude worker
+    await assign(env.ex, task(env, 'task-c', { mode: 'real', allowedFiles: ['src_c/'], goal: 'ok' })); // claude worker(한도 중 시작 거부 확인)
+    await assign(env.ex, task(env, 'task-b', { mode: 'real', allowedFiles: ['src_b/'], goal: 'ok' })); // codex worker(영향 없음)
+    await assign(env.ex, task(env, 'task-d', { allowedFiles: ['src_a/'], mode: 'mock' }));
     await startTask('task-a');
     await waitFor(() => env.ex.limitFor('claude') !== null, 'claude limit');
     assert.match(env.ex.limitFor('claude')!.detail, /한도 도달/);
@@ -171,7 +172,7 @@ test('한도 도달은 공급자별 정지: 그 공급자만 막고 다른 공�
 test('확실한 과금 문구(credit balance)는 한도 문구와 달리 서비스 종료 신호', async () => {
   const env = setup(real);
   try {
-    await env.ex.assign(task(env, 'task-a', { mode: 'real', goal: '[fake:paid] 과금 흉내' }));
+    await assign(env.ex, task(env, 'task-a', { mode: 'real', goal: '[fake:paid] 과금 흉내' }));
     await startTask('task-a');
     await waitFor(() => env.trips.length > 0, 'trip');
     assert.match(env.trips[0].detail, /credit balance/i);
@@ -182,7 +183,7 @@ test('확실한 과금 문구(credit balance)는 한도 문구와 달리 서비�
 test('가짜 codex로 실제 어댑터 경로: exec --cd --sandbox, API 키 미전달, 한도 정지', async () => {
   const env = setup(real);
   try {
-    await env.ex.assign(task(env, 'task-b', { mode: 'real', allowedFiles: ['src_b/'], goal: '코덱스 경로' }));
+    await assign(env.ex, task(env, 'task-b', { mode: 'real', allowedFiles: ['src_b/'], goal: '코덱스 경로' }));
     await withEnv('OPENAI_API_KEY', fakeSecret('openai'), async () => {
       await assert.rejects(startTask('task-b'), /무과금: paid_env/);
     });
@@ -193,7 +194,7 @@ test('가짜 codex로 실제 어댑터 경로: exec --cd --sandbox, API 키 미�
     assert.match(log, /args: exec --cd .* --sandbox workspace-write/);
     assert.match(log, /OPENAI_API_KEY: absent CODEX_API_KEY: absent/);
     assert.ok(env.ex.task('task-b').result!.checksPassed);
-    await env.ex.assign(task(env, 'task-d', { mode: 'real', allowedFiles: ['src_c/'], goal: '[fake:limit] x' }));
+    await assign(env.ex, task(env, 'task-d', { mode: 'real', allowedFiles: ['src_c/'], goal: '[fake:limit] x' }));
     await startTask('task-d');
     await waitFor(() => env.ex.limitFor('codex') !== null, 'codex limit');
     assert.equal(env.ex.limit, null, 'codex 한도는 전역 한도가 아님');
