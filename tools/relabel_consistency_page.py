@@ -9,6 +9,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageOps
 
+from card_condition.label_instructions import SURFACE_INSTRUCTIONS
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ebay_region_review_pages as base  # noqa: E402
 
@@ -60,10 +62,9 @@ def article(number, card):
 def page(n, total, start, cards):
     return ('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>표면 재판정 {n}/{total}</title><style>{base.STYLE}</style><h1>표면 재판정 {n}/{total}</h1>'
-            '<p>이전 판정이나 모델 점수는 보이지 않습니다(같은 기준으로 처음 보듯이 판정). ① 파란 상자에 카드가 다 들어오면 “상자 맞음”. '
-            '② 표면(면 위 긁힘·뜯김·접힘·눌림·얼룩, 화이트닝은 정상)이 다 정상이면 “9구역 전부 정상”. '
-            '③ 구역을 터치하면 정상 → 결함 → 판단 불가 → 미확인 순으로 바뀝니다. 결함 구역만 터치하세요. '
-            '확신이 없으면 판단 불가, 안 본 구역은 미확인으로 두세요. 평소 하시던 확대 기준 그대로 판정하시면 됩니다. '
+            + SURFACE_INSTRUCTIONS +
+            '<p>이전 판정·모델 점수는 보이지 않습니다. 파란 상자에 카드가 다 들어오면 “상자 맞음”을 누르세요. '
+            '구역을 터치하면 정상 → 결함 → 판단 불가 → 미확인 순으로 바뀝니다. '
             '자동 저장하지 않으며 결과를 채팅에 붙여넣어야 반영됩니다.</p>'
             + ''.join(article(start + k, c) for k, c in enumerate(cards, 1)) +
             '<h2>결과</h2><button id="copy">결과 복사</button><p id="msg"></p><textarea id="out" readonly></textarea>'

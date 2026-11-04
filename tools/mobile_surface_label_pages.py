@@ -8,6 +8,8 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
+from card_condition.label_instructions import SURFACE_INSTRUCTIONS
+
 AREAS = [('upper_left', 0, 0), ('upper_center', 1, 0), ('upper_right', 2, 0), ('middle_left', 0, 1), ('center', 1, 1), ('middle_right', 2, 1), ('lower_left', 0, 2), ('lower_center', 1, 2), ('lower_right', 2, 2)]
 STYLE = """body{font:17px/1.5 system-ui;margin:0 auto;max-width:720px;padding:12px}article{border-top:2px solid #888;margin-top:20px;padding-top:6px}
 .ph{position:relative;line-height:0}.ph img{width:100%;display:block}.c{position:absolute;box-sizing:border-box;border:1px dashed #fff9;font:700 18px system-ui;color:#fff;
@@ -88,9 +90,9 @@ def main(review_jsonl, ids_text, out_path, side='back', answers_path=None):
     Path(out_path).write_text(
         '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         f'<title>표면 구역 라벨 입력</title><style>{STYLE}</style><h1>표면 구역 라벨</h1>'
-        '<p><b>이 페이지의 “결함”은 카드 면(표면)의 긁힘·눌림·구김·얼룩·인쇄 외 자국만입니다.</b> 카드 네 귀퉁이의 모서리 마모, 옆면 테두리(엣지) 백화는 결함으로 누르지 마세요(칸이 모서리를 걸쳐도 표면 자체에 자국이 없으면 정상). 홀로 반사나 인쇄 무늬는 결함이 아닙니다. 판단이 어려우면 미확인으로 두세요.</p>'
+        + SURFACE_INSTRUCTIONS +
         '<p>빨간 점 4개를 끌어 파란 상자가 <b>카드가 전부 안에 들어오게</b> 맞추세요(딱 맞을 필요 없음). 상자를 고쳤다면 마지막에 “상자 확인”을 누르세요. '
-        '각 모서리 칸은 탭할 때마다 미확인→정상→결함으로 바뀝니다. 모르면 미확인으로 두세요. 자동 저장하지 않습니다.</p>' + body +
+        '각 표면 칸은 탭할 때마다 미확인→정상→결함으로 바뀝니다. 모르면 미확인으로 두세요. 자동 저장하지 않습니다.</p>' + body +
         '<h2>결과</h2><button id="copy">결과 복사</button><p id="msg"></p><textarea id="out" readonly></textarea>'
         f'<script>{SCRIPT}</script></html>', encoding='utf-8')
     return len(faces)

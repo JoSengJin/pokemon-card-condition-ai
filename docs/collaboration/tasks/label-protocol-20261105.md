@@ -3,7 +3,7 @@ owner: Codex
 status: implementing
 base_sha: 643382cd159453924cdb394f296e5ab5b6cf27f6
 branch: main (serialized implementation/integration; no parallel worker)
-goal: 新しく生成する表面案内の誤った除外文をなくし、既存の人の判断と種類別の範囲を一致させる。
+goal: 앞으로 생성하는 표면 안내에서 잘못된 제외 문구를 없애고 기존 사람 판단·종류별 범위를 일치시킨다.
 
 ## allowed_files
 - LABELING_PROTOCOL.md

@@ -9,6 +9,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageOps
 
+from card_condition.label_instructions import SURFACE_INSTRUCTIONS
+
 SEED, TOP, PER_PAGE = 20261104, 0.20, 20
 STYLE = """body{font:17px/1.5 system-ui;margin:0 auto;max-width:640px;padding:12px}article{border-top:2px solid #888;margin-top:14px;padding-top:4px}
 img{width:100%;display:block}.row{display:flex;gap:8px;margin:6px 0}.row button,#copy,#alln{flex:1;font-size:18px;min-height:48px}
@@ -60,8 +62,9 @@ def article(number, z):
 def page(n, total, start, zones):
     return ('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>구역 재판정 {n}/{total}</title><style>{STYLE}</style><h1>구역 재판정 {n}/{total}</h1>'
-            '<p>이전 판정·모델 점수는 보이지 않습니다. 파란 사각형 안 구역의 표면(면 위 긁힘·뜯김·접힘·눌림·얼룩, 화이트닝은 정상)을 평소 확대 기준으로 판정하세요. '
-            '결함만 누르고 나머지를 한 번에 정상으로 두려면 맨 아래 “안 누른 곳 전부 정상”을 누르세요. 확신이 없으면 판단 불가. '
+            + SURFACE_INSTRUCTIONS +
+            '<p>이전 판정·모델 점수는 보이지 않습니다. 파란 사각형 안 구역만 판정하세요. '
+            '확신이 없으면 판단 불가로 두세요. “안 누른 곳 전부 정상”은 남은 구역도 실제 확인했을 때만 누르세요. '
             '자동 저장하지 않으며 결과를 채팅에 붙여넣어야 반영됩니다.</p>'
             + ''.join(article(start + k, z) for k, z in enumerate(zones)) +
             '<button id="alln">안 누른 곳 전부 정상</button><h2>결과</h2><button id="copy">결과 복사</button><p id="msg"></p><textarea id="out" readonly></textarea>'
