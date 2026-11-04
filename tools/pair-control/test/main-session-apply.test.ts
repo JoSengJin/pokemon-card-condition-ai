@@ -5,6 +5,7 @@ import { ackSession } from '../src/executor/mainAck.ts';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
 import { applyTakenOver, finishSession } from '../src/executor/mainSessionApply.ts';
 import { pipelineTick } from '../src/executor/pipelineTick.ts';
+import { pipe } from '../src/executor/pipelineState.ts';
 import type { MainSession } from '../src/executor/mainTypes.ts';
 import { advanceActions, setup } from './helpers.ts';
 
@@ -87,5 +88,20 @@ test('메인 실행 exec 진입 뒤 재시작 상태는 CLI 재호출 없이 결
     assert.equal(e.ex.runtime.session, null);
     assert.equal(e.ex.runtime.frozen, false);
     assert.match(e.ex.runtime.history.at(-1)?.failure ?? '', /결과 불명.*재시도하지 않음/);
+  } finally { e.cleanup(); }
+});
+
+test('종료 라우팅 중 재시작한 메인 턴은 응답을 적용하지 않고 결과 불명으로 끝낸다', async () => {
+  const e = setup();
+  try {
+    const s = launching(); s.status = 'idle'; e.ex.runtime.session = s; e.ex.runtime.generation = 1;
+    pipe(e.ex).events.k = { key: 'k', kind: 'result_ready', taskId: 'task-a', sha: 'x', at: 'x', state: 'launched', tried: [1] };
+    pipe(e.ex).turns.t = { id: 't', sessionId: s.id, generation: 1, agent: s.agent, status: 'launched', eventKeys: ['k'], startedAt: 'x', lifetime: 'old', execId: 'x', tokenHash: 'x', checkpointFile: 'x', checkpointHash: 'x', actionResults: [] };
+    e.ex.state.executions.x = { execId: 'x', taskId: '(main)', runId: 't', token: 'x', agent: s.agent, mode: 'real', display: [], pid: 999_999_999, pgid: 999_999_999, startedAt: 'x', status: 'exited', cancelRequested: false, observedAfterRestart: false, serverLifetime: 'old', logPath: 'missing', exitPath: 'missing', specPath: 'missing', tokens: '미측정', cost: '미측정', kind: 'main', completion: { stage: 'routing', code: 0, cancelled: false, unknown: false, lifetime: 'old' } };
+    await e.ex.tick();
+    assert.equal(pipe(e.ex).turns.t.status, 'unknown');
+    assert.equal(pipe(e.ex).events.k.state, 'unknown');
+    assert.equal(pipe(e.ex).turns.t.actionResults.length, 0);
+    assert.equal(e.ex.state.executions.x.completion?.stage, 'done');
   } finally { e.cleanup(); }
 });

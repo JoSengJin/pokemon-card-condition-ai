@@ -20,6 +20,8 @@ import type { CheckSpecT } from './contract.ts';
 import { buildStartPrompt, type PromptOptions } from './startPrompt.ts';
 import type { Agent, MainOps, MainRuntime } from './mainTypes.ts';
 import { onMainEnd } from './mainEnd.ts';
+import { onTurnEnd } from './pipelineEnd.ts';
+import { pipe } from './pipelineState.ts';
 import { pipelineTick } from './pipelineTick.ts';
 import { onLimitHit } from './limitScope.ts';
 
@@ -118,6 +120,7 @@ export interface Execution {
   exitCode?: number | null; signal?: string | null; spawnError?: string | null; cancelRequested: boolean;
   observedAfterRestart: boolean; serverLifetime: string; logPath: string; exitPath: string; specPath: string;
   tokens: '미측정'; cost: '미측정';
+  completion?: { stage: 'observed' | 'routing' | 'done'; code: number | null; cancelled: boolean; unknown: boolean; lifetime?: string };
 }
 
 /** 구독 사용 한도 도달 상태. 과금이 아니라 정지 신호이며, 사용자가 풀렸음을 확인하기 전에는 실제 실행을 시작하지 않는다. */
@@ -460,22 +463,38 @@ export class Executor {
   async tick() {
     if (this.ticking) return;
     this.ticking = true;
-    try { await this.tickOnce(); } finally { this.ticking = false; }
-  }
-
-  private async tickOnce() {
+    try {
+      const pending = Object.values(this.state.executions).find((row) => row.completion && row.completion.stage !== 'done');
+      if (pending?.completion?.stage === 'observed') {
+        pending.completion.stage = 'routing'; pending.completion.lifetime = this.lifetime; this.store.save(); return;
+      }
+      if (pending?.completion?.stage === 'routing') {
+        const saved = pending.completion, stale = saved.lifetime !== this.lifetime;
+        const result = stale ? { code: null, cancelled: false, unknown: true } : { code: saved.code, cancelled: saved.cancelled, unknown: saved.unknown };
+        const turn = pending.kind === 'main' ? pipe(this).turns[pending.runId] : undefined;
+        const task = this.state.tasks[pending.taskId];
+        const check = pending.kind === 'check' ? task?.verification?.items.find((item) => item.execId === pending.execId) : undefined;
+        const alreadyHandled = !!(stale && ((turn && turn.status !== 'launched') || (pending.kind === 'main' && !turn && this.runtime.session?.status !== 'launching') || (pending.kind === 'check' && check?.status !== 'running') || (pending.kind === 'review' && task?.review?.status !== 'running')));
+        if (!alreadyHandled) {
+          if (turn) await onTurnEnd(this, turn, pending, result);
+          else if (pending.kind === 'main') await onMainEnd(this, pending, result);
+          else await this.onAuxEnd(pending, result);
+        }
+        saved.stage = 'done'; this.store.save(); return;
+      }
     for (const ex of Object.values(this.state.executions)) {
       if (ex.status !== 'running' && ex.status !== 'cancelling') continue;
       this.readNewLog(ex);
-      if (fs.existsSync(ex.exitPath)) { await this.finalize(ex); continue; }
+      if (fs.existsSync(ex.exitPath)) { await this.observeExit(ex); continue; }
       if (!this.alive(ex.pid)) {
         await new Promise((r) => setTimeout(r, 200));
-        if (fs.existsSync(ex.exitPath)) { await this.finalize(ex); continue; }
+        if (fs.existsSync(ex.exitPath)) { await this.observeExit(ex); continue; }
         if (this.groupAlive(ex.pgid)) continue; // 리더만 죽고 자식이 남은 경우: 정리 전까지 실행 중으로 본다
         const t = this.state.tasks[ex.taskId];
         if ((ex.kind ?? 'agent') !== 'agent') {
           ex.status = ex.cancelRequested ? 'cancelled' : 'unknown'; ex.endedAt = new Date().toISOString();
-          await this.onAuxEnd(ex, { code: null, cancelled: ex.cancelRequested, unknown: !ex.cancelRequested });
+          ex.completion = { stage: 'observed', code: null, cancelled: ex.cancelRequested, unknown: !ex.cancelRequested };
+          this.store.save();
           continue;
         }
         if (ex.cancelRequested) {
@@ -496,15 +515,16 @@ export class Executor {
       return;
     }
     await pipelineTick(this); // 교대 뒤 연속 처리: 상태를 읽고 새 이벤트가 있을 때만 현재 메인에게 턴을 준다
+    } finally { this.ticking = false; }
   }
 
-  private async finalize(ex: Execution) {
+  private async observeExit(ex: Execution) {
     const t = this.state.tasks[ex.taskId];
     let res: any = {};
     try { res = JSON.parse(fs.readFileSync(ex.exitPath, 'utf8')); } catch { return; }
     if (res.token !== ex.token) {
       ex.status = 'unknown';
-      if ((ex.kind ?? 'agent') !== 'agent') await this.onAuxEnd(ex, { code: null, cancelled: false, unknown: true });
+      if ((ex.kind ?? 'agent') !== 'agent') { ex.completion = { stage: 'observed', code: null, cancelled: false, unknown: true }; this.store.save(); }
       else this.setStatus(t, 'unknown', 'exit.json 토큰 불일치');
       return;
     }
@@ -513,7 +533,7 @@ export class Executor {
     const cancelled = ex.cancelRequested || res.cancelRequested;
     ex.exitCode = res.code; ex.signal = res.signal; ex.spawnError = res.spawnError ?? null; ex.endedAt = res.endedAt;
     ex.status = cancelled ? 'cancelled' : 'exited';
-    if ((ex.kind ?? 'agent') !== 'agent') { await this.onAuxEnd(ex, { code: res.code, cancelled, unknown: false }); return; }
+    if ((ex.kind ?? 'agent') !== 'agent') { ex.completion = { stage: 'observed', code: res.code, cancelled, unknown: false }; this.store.save(); return; }
     this.releaseExecLocks(t, ex.execId);
     this.event('exec_ended', { execId: ex.execId, taskId: t.taskId, code: res.code, signal: res.signal, cancelled, afterRestart: ex.observedAfterRestart });
     if (ex.observedAfterRestart) {
@@ -541,7 +561,7 @@ export class Executor {
       const t = this.state.tasks[ex.taskId];
       if ((ex.kind ?? 'agent') !== 'agent') {
         // 작업 테스트·리뷰: 살아 있으면 관찰만, 종료 기록이 있으면 tick에서 기록만 하고 다음 검사를 이어 실행하지 않는다.
-        if (!fs.existsSync(ex.exitPath) && !this.groupAlive(ex.pgid)) { ex.status = 'unknown'; void this.onAuxEnd(ex, { code: null, cancelled: false, unknown: true }); }
+        if (!fs.existsSync(ex.exitPath) && !this.groupAlive(ex.pgid)) { ex.status = 'unknown'; ex.completion = { stage: 'observed', code: null, cancelled: false, unknown: true }; }
         continue;
       }
       if (fs.existsSync(ex.exitPath)) { /* tick에서 exit_observed로 정리 */ }
@@ -1031,7 +1051,6 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
 
   /** 작업 테스트·리뷰 프로세스 종료 처리. 재시작 후 관찰된 종료는 기록만 하고 다음 단계를 자동으로 잇지 않는다. */
   private async onAuxEnd(ex: Execution, r: { code: number | null; cancelled: boolean; unknown: boolean }): Promise<void> {
-    if (ex.kind === 'main') return onMainEnd(this, ex, r);
     const t = this.state.tasks[ex.taskId];
     if (ex.kind === 'review') return this.onReviewEnd(t, ex, r);
     const v = t.verification;
