@@ -16,7 +16,7 @@ import { scanOutput } from './streamGuard.ts';
 import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
 import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
 import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
-import type { CheckSpecT } from './contract.ts';
+import { resolveCheck } from './checkCommand.ts';
 import { buildStartPrompt, type PromptOptions } from './startPrompt.ts';
 import type { Agent, MainOps, MainRuntime } from './mainTypes.ts';
 import { onMainEnd } from './mainEnd.ts';
@@ -975,13 +975,6 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
 
   // ---------- 작업 테스트(에이전트 종료 후 독립 실행) ----------
   /** 계약의 검사 명령을 구조화된 인자로 해석한다. 셸을 거치지 않고, cwd는 checkout 안으로 제한한다. */
-  private resolveCheck(checkout: string, c: CheckSpecT, vars: { base: string; contract: string; head: string }) {
-    const command = c.executable === 'node' ? process.execPath : c.executable === 'git' ? 'git' : path.join(checkout, '.venv', 'bin', 'python');
-    const args = c.args.map((a) => a.replaceAll('{base}', vars.base).replaceAll('{contract}', vars.contract).replaceAll('{head}', vars.head));
-    const cwd = path.resolve(checkout, c.cwd);
-    if (cwd !== checkout && !cwd.startsWith(checkout + path.sep)) throw new UserError(`검사 cwd가 checkout 밖: ${c.cwd}`);
-    return { command, args, cwd, display: [c.executable, ...args] };
-  }
 
   /** 사용자가 확인한 뒤에만 호출된다(UI 확인 대화상자). 같은 작업의 중복 실행은 잠금으로 막는다. */
   async runChecks(taskId: string) {
@@ -998,7 +991,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     if (!envr.ready) throw new UserError(`실행 환경 미준비: ${envr.checks.filter((c) => !c.ok).map((c) => `${c.name}(${c.detail})`).join(', ')}`);
     const runId = crypto.randomUUID();
     const vars = { base: t.baseSha, contract: t.contractSha, head };
-    const items: CheckRun[] = t.checks.map((c) => ({ id: c.id, name: c.name, display: this.resolveCheck(t.worktree, c, vars).display, cwd: c.cwd, status: 'pending', sha: head }));
+    const items: CheckRun[] = t.checks.map((c) => ({ id: c.id, name: c.name, display: resolveCheck(t.worktree, c, vars).display, cwd: c.cwd, status: 'pending', sha: head }));
     const names = [`task:${t.taskId}`, `worktree:${t.worktree}`];
     const got: string[] = [];
     for (const n of names) {
@@ -1020,7 +1013,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     const item = v.items.find((i) => i.status === 'pending');
     if (!item) return this.finishVerification(t);
     const spec = t.checks.find((c) => c.id === item.id)!;
-    const r = this.resolveCheck(t.worktree, spec, { base: t.baseSha, contract: t.contractSha, head: v.sha });
+    const r = resolveCheck(t.worktree, spec, { base: t.baseSha, contract: t.contractSha, head: v.sha });
     try {
       const ex = this.spawnSupervised(t, { kind: 'check', runId: v.runId, cwd: r.cwd, command: r.command, args: r.args, env: sanitizedChildEnv(), display: r.display, checkId: item.id, sha: v.sha });
       item.status = 'running'; item.execId = ex.execId; item.logPath = ex.logPath; item.startedAt = ex.startedAt;
@@ -1063,7 +1056,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     const items: CheckRun[] = [];
     if (!t.postChecks.length) return { status: 'not_run' as const, items };
     for (const c of t.postChecks) {
-      const r = this.resolveCheck(checkout, c, vars);
+      const r = resolveCheck(checkout, c, vars);
       const item: CheckRun = { id: c.id, name: c.name, display: ['./develop', '--', ...r.display], cwd: '.', status: 'running', sha: vars.head, startedAt: new Date().toISOString() };
       // 화면이 실행 중에도 로그를 이어받도록: 실행 중 항목을 먼저 통합 기록에 남기고, 출력은 줄 단위로 가려 바로 파일에 쓴다.
       item.logPath = path.join(this.cfg.stateDir, 'runs', `post-${crypto.randomUUID()}.log`);
