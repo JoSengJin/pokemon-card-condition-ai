@@ -38,10 +38,10 @@ function stubLaunch(e: Env) {
   (e.ex as any).launchMainProcess = async (o: unknown) => { calls.push(o); return `stub-exec-${calls.length}`; };
   return calls;
 }
-/** 검사 실행 횟수를 센다(원래 동작은 그대로 수행). */
+/** 실제 검사 시작 감사 기록을 센다. */
 function countChecks(e: Env) {
-  const calls: string[] = [], orig = e.ex.runChecks.bind(e.ex);
-  (e.ex as any).runChecks = async (id: string) => { calls.push(id); return orig(id); };
+  const calls: string[] = [], audit = e.ex.audit.bind(e.ex);
+  e.ex.audit = (type, data) => { if (type === 'checks_started') calls.push(String(data.taskId)); audit(type, data); };
   return calls;
 }
 

@@ -1,3 +1,4 @@
+import { runChecks } from '../src/executor/verificationStart.ts';
 import { approve as approveTask } from '../src/executor/taskApproval.ts';
 // 작업 테스트(에이전트 종료 후 독립 실행)·통합 후 검사. 모델 요청 없음.
 import assert from 'node:assert/strict';
@@ -51,7 +52,7 @@ test('검사 명령 계약: 허용 실행 파일만, 학습·실험 진입점 �
     await assert.rejects(env.ex.assign(task(env, 'task-a', { checks: [{ id: 'p', name: 'p', executable: '.venv/bin/python', args: ['-V'] }] })), /python 또는 python-project/);
     await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'], checks: [] }));
     await toReview(env, 'task-b');
-    await assert.rejects(env.ex.runChecks('task-b'), /계약에 작업 테스트가 없음/);
+    await assert.rejects(runChecks(env.ex, 'task-b'), /계약에 작업 테스트가 없음/);
     await assert.rejects(approveTask(env.ex, 'task-b', env.ex.task('task-b').result!.headSha!), /미실행/);
   } finally { env.cleanup(); }
 });
@@ -67,7 +68,7 @@ test('코드가 바뀌면 이전 작업 테스트로 승인 불가, 계약 파�
     gitOut(wt, 'commit', '-qam', 'contract edit');
     await assert.rejects(approveTask(env.ex, 'task-a', gitOut(wt, 'rev-parse', 'HEAD')), /현재 SHA·계약과 다름|현재 결과와 다름/);
     await assert.rejects(approveTask(env.ex, 'task-a', t.result!.headSha!), /현재 결과와 다름/);
-    await assert.rejects(env.ex.runChecks('task-a'), /코드 SHA가 바뀜/);
+    await assert.rejects(runChecks(env.ex, 'task-a'), /코드 SHA가 바뀜/);
   } finally { env.cleanup(); }
 });
 
@@ -81,16 +82,16 @@ test('작업 테스트 중단·중복 실행 차단·재시작 시 이어서 실
     for (const id of ['task-a', 'task-b', 'task-c']) await toReview(env, id);
 
     // 중단
-    await env.ex.runChecks('task-b');
-    await assert.rejects(env.ex.runChecks('task-b'), /이미 실행 중/);
+    await runChecks(env.ex, 'task-b');
+    await assert.rejects(runChecks(env.ex, 'task-b'), /이미 실행 중/);
     assert.ok((await env.ex.cancel('task-b')).ok);
     await waitFor(() => env.ex.task('task-b').verification?.status === 'cancelled', 'cancelled');
     assert.equal(env.ex.locks.holder('task:task-b'), null, '중단 후 잠금 해제');
     assert.equal(status(env, 'task-b'), 'review_pending', '작업 상태는 그대로');
 
     // 재시작: 진행 중이던 첫 검사가 끝나도 두 번째 검사를 자동 실행하지 않음
-    await env.ex.runChecks('task-a');
-    await env.ex.runChecks('task-c');
+    await runChecks(env.ex, 'task-a');
+    await runChecks(env.ex, 'task-c');
     await waitFor(() => checkExecs(env, 'task-a')[0], 'task-a first check started');
     const cExec = await waitFor(() => checkExecs(env, 'task-c')[0], 'task-c check started');
     env = env.restart();

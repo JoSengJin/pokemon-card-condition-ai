@@ -1,3 +1,4 @@
+import { startNextCheck, finishVerification, onAuxEnd } from './verificationLifecycle.ts';
 import { onReviewEnd } from './reviewEnd.ts';
 import { cancelManual } from './taskManual.ts';
 import { setStatus, releaseExecLocks } from './taskState.ts';
@@ -453,7 +454,7 @@ export class Executor {
           if (turn) await onTurnEnd(this, turn, pending, result);
           else if (pending.kind === 'main') await onMainEnd(this, pending, result);
           else if (pending.kind === 'review') await onReviewEnd(this, task, pending, result);
-          else await this.onAuxEnd(pending, result);
+          else await onAuxEnd(this, pending, result);
         }
         saved.stage = 'done'; this.store.save(); return;
       }
@@ -487,7 +488,7 @@ export class Executor {
     for (const t of Object.values(this.state.tasks)) {
       const v = t.verification;
       if (v?.status !== 'running' || v.items.some((item) => item.status === 'running')) continue;
-      await this.startNextCheck(t);
+      await startNextCheck(this, t);
       return;
     }
     const launching = this.runtime.session;
@@ -570,7 +571,7 @@ export class Executor {
     const t = this.task(taskId);
     if (t.status === 'manual_working') return cancelManual(this, taskId);
     if (t.verification?.status === 'running' && !t.verification.items.some((item) => item.status === 'running')) {
-      this.finishVerification(t, 'cancelled', '사용자 중단(검사 프로세스 시작 전)');
+      finishVerification(this, t, 'cancelled', '사용자 중단(검사 프로세스 시작 전)');
       return { ok: true, reason: '시작 전 작업 테스트 취소' };
     }
     return this.cancelRunning(taskId);
@@ -667,79 +668,14 @@ export class Executor {
   /** 계약의 검사 명령을 구조화된 인자로 해석한다. 셸을 거치지 않고, cwd는 checkout 안으로 제한한다. */
 
   /** 사용자가 확인한 뒤에만 호출된다(UI 확인 대화상자). 같은 작업의 중복 실행은 잠금으로 막는다. */
-  async runChecks(taskId: string) {
-    const t = this.task(taskId);
-    if (this.tripped) throw new UserError('과금 신호 감지 상태 — 실행하지 않음');
-    if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 작업 테스트를 실행(${t.status})`);
-    if (!t.checks.length) throw new UserError('계약에 작업 테스트가 없음 — 승인할 수 없음(검사를 포함해 새 작업으로 준비)');
-    if (t.verification?.status === 'running') throw new UserError('작업 테스트가 이미 실행 중');
-    const head = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
-    if (!head || head !== t.result?.headSha) throw new UserError('Git 계약 검사 이후 코드 SHA가 바뀜 — 결과 재수집 필요');
-    if ((await G.dirtyFiles(t.worktree)).length) throw new UserError('worktree에 미커밋 변경이 있음 — 커밋된 코드만 검사');
-    const envr = await checkVenv(t.worktree, neededEnv(t, t.usesDevelopLock), t.requiredModules);
-    t.envReadiness = envr;
-    if (!envr.ready) throw new UserError(`실행 환경 미준비: ${envr.checks.filter((c) => !c.ok).map((c) => `${c.name}(${c.detail})`).join(', ')}`);
-    const runId = crypto.randomUUID();
-    const vars = { base: t.baseSha, contract: t.contractSha, head };
-    const items: CheckRun[] = t.checks.map((c) => ({ id: c.id, name: c.name, display: resolveCheck(t.worktree, c, vars).display, cwd: c.cwd, status: 'pending', sha: head }));
-    const names = [`task:${t.taskId}`, `worktree:${t.worktree}`];
-    const got: string[] = [];
-    for (const n of names) {
-      if (!this.locks.acquire(n, { execId: runId, taskId, kind: 'check', lifetime: this.lifetime })) {
-        for (const g of got) this.locks.release(g, 'execId', runId);
-        throw new UserError(`잠금 사용 중: ${n}`);
-      }
-      got.push(n);
-    }
-    t.verification = { runId, sha: head, contractHash: t.contractHash, status: 'running', items, startedAt: new Date().toISOString() };
-    this.audit('checks_started', { taskId, runId, sha: head });
-    this.store.save();
-    this.ensureWatcher();
-    return t.verification;
-  }
 
-  private async startNextCheck(t: Task): Promise<void> {
-    const v = t.verification!;
-    const item = v.items.find((i) => i.status === 'pending');
-    if (!item) return this.finishVerification(t);
-    const spec = t.checks.find((c) => c.id === item.id)!;
-    const r = resolveCheck(t.worktree, spec, { base: t.baseSha, contract: t.contractSha, head: v.sha });
-    try {
-      const ex = spawnSupervised(this, t, { kind: 'check', runId: v.runId, cwd: r.cwd, command: r.command, args: r.args, env: sanitizedChildEnv(), display: r.display, checkId: item.id, sha: v.sha });
-      item.status = 'running'; item.execId = ex.execId; item.logPath = ex.logPath; item.startedAt = ex.startedAt;
-      this.store.save();
-    } catch (err) {
-      item.status = 'failed'; item.endedAt = new Date().toISOString(); v.note = `시작 실패: ${(err as Error).message}`;
-      this.store.save();
-    }
-  }
 
-  private finishVerification(t: Task, forced?: Verification["status"], note?: string): void {
-    const v = t.verification!;
-    for (const i of v.items) if (i.status === 'pending' || i.status === 'running') i.status = 'not_run';
-    v.status = forced ?? (v.items.every((i) => i.status === 'passed') ? 'passed' : 'failed');
-    if (note) v.note = note;
-    v.endedAt = new Date().toISOString();
-    for (const n of [`task:${t.taskId}`, `worktree:${t.worktree}`]) this.locks.release(n, 'execId', v.runId);
-    this.audit('checks_finished', { taskId: t.taskId, runId: v.runId, status: v.status, sha: v.sha });
-    this.store.save();
-  }
+
+
+
 
   /** 작업 테스트·리뷰 프로세스 종료 처리. 재시작 후 관찰된 종료는 기록만 하고 다음 단계를 자동으로 잇지 않는다. */
-  private async onAuxEnd(ex: Execution, r: { code: number | null; cancelled: boolean; unknown: boolean }): Promise<void> {
-    const t = this.state.tasks[ex.taskId];
-    const v = t.verification;
-    if (!v || v.runId !== ex.runId) { this.store.save(); return; }
-    const item = v.items.find((i) => i.execId === ex.execId);
-    if (item) {
-      item.status = r.unknown ? 'unknown' : r.cancelled ? 'cancelled' : r.code === 0 ? 'passed' : 'failed';
-      item.exitCode = r.code; item.endedAt = new Date().toISOString();
-    }
-    if (r.unknown) return this.finishVerification(t, 'unknown', '검사 프로세스가 종료 기록 없이 사라짐(결과 불명) — 다시 실행 필요');
-    if (r.cancelled) return this.finishVerification(t, 'cancelled', '사용자 중단');
-    if (ex.observedAfterRestart) return this.finishVerification(t, 'interrupted', '서버 재시작으로 검사 순서가 끊김 — 남은 검사는 실행하지 않음. 다시 실행 필요');
-    this.store.save();
-  }
+
 
   /** 통합 checkout에서 ./develop 잠금 안으로 통합 후 검사를 실행한다. */
 

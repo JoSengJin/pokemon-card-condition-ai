@@ -1,3 +1,4 @@
+import { runChecks } from '../src/executor/verificationStart.ts';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -95,7 +96,7 @@ export function task(env: Env, name: string, extra: Record<string, unknown> = {}
 
 /** 사용자가 '작업 테스트 실행'을 누른 것과 같다. 끝날 때까지 기다린다. */
 export async function verify(env: Env, id: string) {
-  await env.ex.runChecks(id);
+  await runChecks(env.ex, id);
   return waitFor(() => { const v = env.ex.task(id).verification; return v && v.status !== 'running' ? v : null; }, `${id} checks`);
 }
 

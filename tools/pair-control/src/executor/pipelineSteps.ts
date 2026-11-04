@@ -1,3 +1,4 @@
+import { runChecks } from './verificationStart.ts';
 import { handoffToMain } from './handoffCreate.ts';
 // 모델 없이 도구가 한 번씩만 하는 단계: 구현 결과 도착 뒤 지정 검사 실행 → 통과하면 인계 문서 생성.
 // 준비 권한(prepare_checks 또는 confirm_handoff 승인)이 열린 작업만 대상이며(approve_task 등 다른 승인으로 확대하지 않음),
@@ -36,6 +37,6 @@ export async function autoSteps(ex: Executor, sessionId: string) {
     if (t.status !== 'review_pending' || whyClosed(ex, sessionId, PREP, t.taskId)) continue;
     const step = nextStep(t);
     if (!step || !begin(ex, step.key)) continue;
-    try { await (step.kind === 'checks' ? ex.runChecks(t.taskId) : handoffToMain(ex, t.taskId)); finish(ex, step.key); } catch (e) { finish(ex, step.key, e as Error); }
+    try { await (step.kind === 'checks' ? runChecks(ex, t.taskId) : handoffToMain(ex, t.taskId)); finish(ex, step.key); } catch (e) { finish(ex, step.key, e as Error); }
   }
 }
