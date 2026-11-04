@@ -1,3 +1,5 @@
+import { cancel } from '../src/executor/taskCancel.ts';
+import { groupAlive } from '../src/executor/processIdentity.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { runChecks } from '../src/executor/verificationStart.ts';
 import { approve as approveTask } from '../src/executor/taskApproval.ts';
@@ -85,7 +87,7 @@ test('작업 테스트 중단·중복 실행 차단·재시작 시 이어서 실
     // 중단
     await runChecks(env.ex, 'task-b');
     await assert.rejects(runChecks(env.ex, 'task-b'), /이미 실행 중/);
-    assert.ok((await env.ex.cancel('task-b')).ok);
+    assert.ok((await cancel(env.ex, 'task-b')).ok);
     await waitFor(() => env.ex.task('task-b').verification?.status === 'cancelled', 'cancelled');
     assert.equal(env.ex.locks.holder('task:task-b'), null, '중단 후 잠금 해제');
     assert.equal(status(env, 'task-b'), 'review_pending', '작업 상태는 그대로');
@@ -97,7 +99,7 @@ test('작업 테스트 중단·중복 실행 차단·재시작 시 이어서 실
     const cExec = await waitFor(() => checkExecs(env, 'task-c')[0], 'task-c check started');
     env = env.restart();
     process.kill(-cExec.pgid, 'SIGKILL'); // 서버가 없는 동안 기록 없이 사라짐
-    await waitFor(() => !env.ex.groupAlive(cExec.pgid), 'c gone');
+    await waitFor(() => !groupAlive(env.ex, cExec.pgid), 'c gone');
     env = env.restart();
     await waitFor(() => env.ex.task('task-a').verification?.status === 'interrupted', 'interrupted', 10_000);
     const va = env.ex.task('task-a').verification!;

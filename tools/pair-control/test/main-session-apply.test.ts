@@ -1,3 +1,4 @@
+import { tick } from '../src/executor/monitorTick.ts';
 // 인수 확인과 행동 적용의 영속 경계 회귀. 실제 CLI나 외부 호출 없이 저장 상태만 검사한다.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -20,7 +21,7 @@ test('메인 ready 이후 exec 직전 공급자 한도가 생기면 CLI를 시�
     e.ex.runtime.session = s; e.ex.runtime.frozen = true;
     e.ex.probes.claude = { installed: true, binary: '/nonexistent/synthetic-cli', missingFlags: [] } as any;
     e.ex.runtime.limited.claude = { at: new Date().toISOString(), detail: 'ready 이후 한도' };
-    await e.ex.tick();
+    await tick(e.ex, );
     assert.equal(Object.keys(e.ex.state.executions).length, 0);
     assert.equal(e.ex.runtime.session, null);
     assert.match(e.ex.runtime.history.at(-1)?.failure ?? '', /구독 사용 한도 도달 상태/);
@@ -97,7 +98,7 @@ test('메인 실행 exec 진입 뒤 재시작 상태는 CLI 재호출 없이 결
     e.ex.runtime.session = s; e.ex.runtime.frozen = true;
     let calls = 0;
     e.ex.launchMainProcess = async () => { calls++; return 'unexpected'; };
-    await e.ex.tick();
+    await tick(e.ex, );
     assert.equal(calls, 0);
     assert.equal(e.ex.runtime.session, null);
     assert.equal(e.ex.runtime.frozen, false);
@@ -112,7 +113,7 @@ test('종료 라우팅 중 재시작한 메인 턴은 응답을 적용하지 않
     pipe(e.ex).events.k = { key: 'k', kind: 'result_ready', taskId: 'task-a', sha: 'x', at: 'x', state: 'launched', tried: [1] };
     pipe(e.ex).turns.t = { id: 't', sessionId: s.id, generation: 1, agent: s.agent, status: 'launched', eventKeys: ['k'], startedAt: 'x', lifetime: 'old', execId: 'x', tokenHash: 'x', checkpointFile: 'x', checkpointHash: 'x', actionResults: [] };
     e.ex.state.executions.x = { execId: 'x', taskId: '(main)', runId: 't', token: 'x', agent: s.agent, mode: 'real', display: [], pid: 999_999_999, pgid: 999_999_999, startedAt: 'x', status: 'exited', cancelRequested: false, observedAfterRestart: false, serverLifetime: 'old', logPath: 'missing', exitPath: 'missing', specPath: 'missing', tokens: '미측정', cost: '미측정', kind: 'main', completion: { stage: 'routing', code: 0, cancelled: false, unknown: false, lifetime: 'old' } };
-    await e.ex.tick();
+    await tick(e.ex, );
     assert.equal(pipe(e.ex).turns.t.status, 'unknown');
     assert.equal(pipe(e.ex).events.k.state, 'unknown');
     assert.equal(pipe(e.ex).turns.t.actionResults.length, 0);

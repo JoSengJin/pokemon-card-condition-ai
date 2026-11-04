@@ -1,3 +1,4 @@
+import { cancel } from '../src/executor/taskCancel.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { startReviewJob } from '../src/executor/reviewStart.ts';
 // 별도 리뷰 작업 연결(fake 리뷰 CLI). 모델 요청 없음.
@@ -57,7 +58,7 @@ test('리뷰 출력 형식 오류·다른 SHA·실패·worktree 변경은 판정
     fs.rmSync(path.join(env.fixture.worktrees['task-a'].path, 'src_a', 'stray.txt'));
     // 중단
     await startReviewJob(env.ex, 'task-a', { mockScenario: 'hang' });
-    assert.ok((await env.ex.cancel('task-a')).ok);
+    assert.ok((await cancel(env.ex, 'task-a')).ok);
     await waitFor(() => env.ex.task('task-a').review?.status === 'cancelled', 'cancel');
     assert.equal(env.ex.locks.holder('review:task-a'), null);
   } finally { env.cleanup(); }

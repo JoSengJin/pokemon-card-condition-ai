@@ -1,3 +1,6 @@
+import { cancelAll } from './taskCancel.ts';
+import { recover } from './monitorRecovery.ts';
+import { tick } from './monitorTick.ts';
 import { startNextCheck, finishVerification, onAuxEnd } from './verificationLifecycle.ts';
 import { onReviewEnd } from './reviewEnd.ts';
 import { cancelManual } from './taskManual.ts';
@@ -158,10 +161,10 @@ export class Executor {
   readonly lifetime = crypto.randomUUID();
   readonly probes: Partial<Record<'codex' | 'claude', Probe>> = {};
   private timer: NodeJS.Timeout | null = null;
-  private logOffsets = new Map<string, number>();
+  readonly logOffsets = new Map<string, number>();
   resumer: Resumer | null = null;
   private tripped: Alert | null = null;
-  private ticking = false;
+  ticking = false;
 
   constructor(readonly cfg: PairConfig, opts: { onTrip?: (a: Alert) => void } = {}) {
     fs.mkdirSync(cfg.stateDir, { recursive: true });
@@ -170,11 +173,11 @@ export class Executor {
     this.guard = new FreeGuard(cfg.stateDir, (a) => {
       this.tripped = a;
       this.audit('free_guard_trip', { ...a });
-      this.cancelAll('무료 가드 발동');
+      cancelAll(this, '무료 가드 발동');
       opts.onTrip?.(a);
     }, (a) => onLimitHit(this, a)); // 한도 출처의 공급자별 처리(limitScope.ts)
     this.tripped = this.guard.pending();
-    this.recover();
+    recover(this, );
   }
 
   get state() { return this.store.data; }
@@ -253,208 +256,36 @@ export class Executor {
 
   // ---------- 감시 ----------
   ensureWatcher() {
-    if (!this.timer) { this.timer = setInterval(() => void this.tick(), 300); this.timer.unref?.(); }
+    if (!this.timer) { this.timer = setInterval(() => void tick(this, ), 300); this.timer.unref?.(); }
   }
   /** stop() 뒤에는 연속 처리가 새 검사·턴을 시작하지 않는다(정리 도중 비동기 시작 방지). */
   stopped = false;
   stop() { this.stopped = true; if (this.timer) clearInterval(this.timer); this.timer = null; }
 
-  private alive(pid: number) { try { process.kill(pid, 0); return true; } catch (e: any) { return e.code === 'EPERM'; } }
-  groupAlive(pgid: number) { try { process.kill(-pgid, 0); return true; } catch (e: any) { return e.code === 'EPERM'; } }
+
+
 
   /** 감독 프로세스가 이 실행기의 spec으로 실행된 프로세스인지(PID 재사용 방지). */
-  private ownsLeader(ex: Execution): boolean | null {
-    try {
-      const out = execFileSync('ps', ['-o', 'pgid=,command=', '-p', String(ex.pid)]).toString().trim();
-      if (!out) return null;
-      const [pgid, ...cmd] = out.split(/\s+/);
-      return Number(pgid) === ex.pgid && cmd.join(' ').includes(ex.specPath);
-    } catch { return null; }
-  }
 
-  private readNewLog(ex: Execution) {
-    const off = this.logOffsets.get(ex.execId) ?? 0;
-    try {
-      const size = fs.statSync(ex.logPath).size;
-      if (size <= off) return;
-      const fd = fs.openSync(ex.logPath, 'r');
-      const buf = Buffer.alloc(Math.min(size - off, 1_000_000));
-      fs.readSync(fd, buf, 0, buf.length, off); fs.closeSync(fd);
-      // 줄 단위 이벤트(JSON)가 읽는 중간에 잘렸으면 그 줄은 다음 주기에 이어 읽는다(조각이 일반 글로 검사되지 않게).
-      let text = buf.toString(), used = buf.length;
-      const cut = text.lastIndexOf('\n') + 1;
-      if (text.slice(cut).startsWith('{') && size - off <= 1_000_000) { text = text.slice(0, cut); used = Buffer.byteLength(text); }
-      this.logOffsets.set(ex.execId, off + used);
-      return text;
-    } catch { /* log not yet created */ }
-    return '';
-  }
 
-  async tick() {
-    if (this.ticking) return;
-    this.ticking = true;
-    try {
-      const pending = Object.values(this.state.executions).find((row) => row.completion && row.completion.stage !== 'done');
-      if (pending?.completion?.stage === 'observed') {
-        pending.completion.stage = 'routing'; pending.completion.lifetime = this.lifetime; this.store.save(); return;
-      }
-      if (pending?.completion?.stage === 'routing') {
-        const saved = pending.completion, stale = saved.lifetime !== this.lifetime;
-        const result = stale ? { code: null, cancelled: false, unknown: true } : { code: saved.code, cancelled: saved.cancelled, unknown: saved.unknown };
-        const turn = pending.kind === 'main' ? pipe(this).turns[pending.runId] : undefined;
-        const task = this.state.tasks[pending.taskId];
-        const check = pending.kind === 'check' ? task?.verification?.items.find((item) => item.execId === pending.execId) : undefined;
-        const alreadyHandled = !!(stale && ((turn && turn.status !== 'launched') || (pending.kind === 'main' && !turn && this.runtime.session?.status !== 'launching') || (pending.kind === 'check' && check?.status !== 'running') || (pending.kind === 'review' && task?.review?.status !== 'running')));
-        if (!alreadyHandled) {
-          if (turn) await onTurnEnd(this, turn, pending, result);
-          else if (pending.kind === 'main') await onMainEnd(this, pending, result);
-          else if (pending.kind === 'review') await onReviewEnd(this, task, pending, result);
-          else await onAuxEnd(this, pending, result);
-        }
-        saved.stage = 'done'; this.store.save(); return;
-      }
-    for (const ex of Object.values(this.state.executions)) {
-      if (ex.status !== 'running' && ex.status !== 'cancelling') continue;
-      const log = this.readNewLog(ex);
-      if (log) scanOutput(this.guard, log, `exec:${ex.execId}`);
-      if (fs.existsSync(ex.exitPath)) { await this.observeExit(ex); continue; }
-      if (!this.alive(ex.pid)) {
-        await new Promise((r) => setTimeout(r, 200));
-        if (fs.existsSync(ex.exitPath)) { await this.observeExit(ex); continue; }
-        if (this.groupAlive(ex.pgid)) continue; // 리더만 죽고 자식이 남은 경우: 정리 전까지 실행 중으로 본다
-        const t = this.state.tasks[ex.taskId];
-        if ((ex.kind ?? 'agent') !== 'agent') {
-          ex.status = ex.cancelRequested ? 'cancelled' : 'unknown'; ex.endedAt = new Date().toISOString();
-          ex.completion = { stage: 'observed', code: null, cancelled: ex.cancelRequested, unknown: !ex.cancelRequested };
-          this.store.save();
-          continue;
-        }
-        if (ex.cancelRequested) {
-          ex.status = 'cancelled'; ex.endedAt = new Date().toISOString();
-          releaseExecLocks(this, t, ex.execId);
-          setStatus(this, t, 'collecting', '사용자 중단(강제 종료로 종료 기록 없음) · 결과 수집 중');
-          await this.resume(t, ex, { execId: ex.execId, exitCode: null, signal: 'SIGKILL', cancelled: true });
-        } else {
-          ex.status = 'unknown';
-          setStatus(this, t, 'unknown', '감독 프로세스가 종료 기록 없이 사라짐(결과 불명). 잠금 유지.');
-        }
-      }
-    }
-    for (const t of Object.values(this.state.tasks)) {
-      const v = t.verification;
-      if (v?.status !== 'running' || v.items.some((item) => item.status === 'running')) continue;
-      await startNextCheck(this, t);
-      return;
-    }
-    const launching = this.runtime.session;
-    if (launching?.status === 'launching' && launching.launchStage) { await advanceSessionLaunch(this, launching); return; }
-    const limited = Object.values(pipe(this).turns).find((turn) => turn.status === 'limited' && turn.limitHandledAt && !turn.limitHandoverDoneAt);
-    if (limited) {
-      if (!limited.limitHandoverStartedAt) { limited.limitHandoverStartedAt = new Date().toISOString(); limited.limitHandoverLifetime = this.lifetime; this.store.save(); return; }
-      if (limited.limitHandoverLifetime !== this.lifetime) {
-        limited.limitHandoverDoneAt = new Date().toISOString(); limited.failure = '서버 재시작 전 한도 교대 시작 — 결과 불명, 재시도하지 않음';
-        mark(this, limited.eventKeys, 'unknown', { reason: limited.failure }); this.store.save(); return;
-      }
-      const other = limited.agent === 'codex' ? 'claude' : 'codex';
-      await handoverAfterLimit(this, other, limited.eventKeys, `${limited.agent} 메인 한도 — 승인된 교대 절차 연결`);
-      limited.limitHandoverDoneAt = new Date().toISOString(); this.store.save(); return;
-    }
-    await pipelineTick(this); // 교대 뒤 연속 처리: 상태를 읽고 새 이벤트가 있을 때만 현재 메인에게 턴을 준다
-    } finally { this.ticking = false; }
-  }
 
-  private async observeExit(ex: Execution) {
-    const t = this.state.tasks[ex.taskId];
-    let res: any = {};
-    try { res = JSON.parse(fs.readFileSync(ex.exitPath, 'utf8')); } catch { return; }
-    if (res.token !== ex.token) {
-      ex.status = 'unknown';
-      if ((ex.kind ?? 'agent') !== 'agent') { ex.completion = { stage: 'observed', code: null, cancelled: false, unknown: true }; this.store.save(); }
-      else setStatus(this, t, 'unknown', 'exit.json 토큰 불일치');
-      return;
-    }
-    if (this.groupAlive(ex.pgid)) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } } // 남은 손자 정리
-    const cancelled = ex.cancelRequested || res.cancelRequested;
-    ex.exitCode = res.code; ex.signal = res.signal; ex.spawnError = res.spawnError ?? null; ex.endedAt = res.endedAt;
-    ex.status = cancelled ? 'cancelled' : 'exited';
-    if ((ex.kind ?? 'agent') !== 'agent') { ex.completion = { stage: 'observed', code: res.code, cancelled, unknown: false }; this.store.save(); return; }
-    releaseExecLocks(this, t, ex.execId);
-    this.audit('exec_ended', { execId: ex.execId, taskId: t.taskId, code: res.code, signal: res.signal, cancelled, afterRestart: ex.observedAfterRestart });
-    if (ex.observedAfterRestart) {
-      // 서버 재시작 전후로 이어진 실행: 결과를 자동 반영하지 않고 사용자 확인을 기다린다.
-      setStatus(this, t, 'exit_observed', `재시작 후 종료 관찰(code ${res.code}). '결과 반영'으로 await-exit 단계를 재개`);
-      return;
-    }
-    // 최종 상태(검토 대기/실패/중단)는 workflow collect 단계가 정한다.
-    setStatus(this, t, 'collecting', `종료 확인(code ${res.code}${cancelled ? ', 중단' : ''}) · 결과 수집 중`);
-    await this.resume(t, ex, { execId: ex.execId, exitCode: res.code, signal: res.signal, cancelled });
-  }
 
-  private async resume(t: Task, ex: Execution, data: Record<string, unknown>) {
-    if (!this.resumer || !ex.runId) return;
-    try { await this.resumer(ex.runId, 'await-exit', data); }
-    catch (err) { this.audit('resume_error', { taskId: t.taskId, error: (err as Error).message }); t.statusReason = `workflow 재개 실패: ${(err as Error).message}`; this.store.save(); }
-  }
+
+
+
+
+
 
   /** 서버 재시작 후 상태 복구. 살아 있는 프로세스·결과 불명 작업을 완료로 표시하거나 재실행하지 않는다. */
-  private recover() {
-    for (const ex of Object.values(this.state.executions)) {
-      if (ex.status !== 'running' && ex.status !== 'cancelling') continue;
-      if (ex.serverLifetime === this.lifetime) continue;
-      ex.observedAfterRestart = true;
-      const t = this.state.tasks[ex.taskId];
-      if ((ex.kind ?? 'agent') !== 'agent') {
-        // 작업 테스트·리뷰: 살아 있으면 관찰만, 종료 기록이 있으면 tick에서 기록만 하고 다음 검사를 이어 실행하지 않는다.
-        if (!fs.existsSync(ex.exitPath) && !this.groupAlive(ex.pgid)) { ex.status = 'unknown'; ex.completion = { stage: 'observed', code: null, cancelled: false, unknown: true }; }
-        continue;
-      }
-      if (fs.existsSync(ex.exitPath)) { /* tick에서 exit_observed로 정리 */ }
-      else if (this.alive(ex.pid) && this.ownsLeader(ex)) setStatus(this, t, 'orphan_running', '서버 재시작 전 시작된 프로세스가 아직 실행 중(관찰만 함)');
-      else if (this.groupAlive(ex.pgid)) setStatus(this, t, 'orphan_running', '감독자는 없고 같은 그룹 자식 프로세스만 남음');
-      else { ex.status = 'unknown'; setStatus(this, t, 'unknown', '재시작 후 프로세스·종료 기록 모두 없음(결과 불명)'); }
-    }
-    for (const t of Object.values(this.state.tasks)) {
-      if (t.status === 'starting') setStatus(this, t, 'unknown', '시작 도중 서버 종료(결과 불명)');
-      if (t.status === 'integrating') setStatus(this, t, 'unknown', '통합 도중 서버 종료(통합 checkout을 직접 확인)');
-    }
-    this.store.save();
-    this.ensureWatcher();
-  }
+
 
   // ---------- 중단 ----------
-  async cancel(taskId: string): Promise<{ ok: boolean; reason: string }> {
-    const t = this.task(taskId);
-    if (t.status === 'manual_working') return cancelManual(this, taskId);
-    if (t.verification?.status === 'running' && !t.verification.items.some((item) => item.status === 'running')) {
-      finishVerification(this, t, 'cancelled', '사용자 중단(검사 프로세스 시작 전)');
-      return { ok: true, reason: '시작 전 작업 테스트 취소' };
-    }
-    return this.cancelRunning(taskId);
-  }
 
-  async cancelRunning(taskId: string): Promise<{ ok: boolean; reason: string }> {
-    const t = this.task(taskId);
-    const ex = Object.values(this.state.executions).filter((e) => e.taskId === taskId && ['running', 'cancelling'].includes(e.status))
-      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
-    if (!ex) return { ok: false, reason: '이 실행기가 시작한 실행 중 프로세스가 없음' };
-    const leader = this.ownsLeader(ex);
-    if (leader === false) return { ok: false, reason: `PID ${ex.pid}가 이 실행기의 감독 프로세스가 아님(중단 거부)` };
-    if (leader === null && !this.groupAlive(ex.pgid)) return { ok: false, reason: '프로세스 그룹이 이미 없음' };
-    ex.cancelRequested = true; ex.status = 'cancelling';
-    if ((ex.kind ?? 'agent') === 'agent') setStatus(this, t, 'cancelling', `SIGTERM → 프로세스 그룹 ${ex.pgid}`);
-    else { this.audit('aux_cancel', { taskId, kind: ex.kind, execId: ex.execId }); this.store.save(); }
-    try { process.kill(-ex.pgid, 'SIGTERM'); } catch { /* gone */ }
-    setTimeout(() => { if (this.groupAlive(ex.pgid)) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } } }, 3000).unref?.();
-    return { ok: true, reason: `${ex.kind ?? 'agent'} 프로세스 그룹 ${ex.pgid}에 SIGTERM (3초 후 남으면 SIGKILL)` };
-  }
+
+
 
   /** 실행 중인 작업을 모두 중단한다. agent를 주면 그 공급자의 실행만 중단한다(다른 공급자의 진행 중 작업은 보존). */
-  cancelAll(reason: string, agent?: string) {
-    const busy = new Set(Object.values(this.state.executions).filter((e) => ['running', 'cancelling'].includes(e.status) && (!agent || e.agent === agent)).map((e) => e.taskId));
-    for (const t of Object.values(this.state.tasks)) {
-      if (busy.has(t.taskId)) void this.cancelRunning(t.taskId).then((r) => this.audit("cancel_all", { taskId: t.taskId, trigger: reason, result: r.reason, ok: r.ok }));
-    }
-  }
+
 
   // ---------- 메인 에이전트 인계 ----------
   /** 지금 누구 차례인지. 상태에서 파생하며 저장하지 않는다. 에이전트를 자동으로 부르지 못하므로 전환은 사용자가 한다. */

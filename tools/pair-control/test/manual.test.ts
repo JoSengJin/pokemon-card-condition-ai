@@ -1,3 +1,4 @@
+import { cancel } from '../src/executor/taskCancel.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { recheckEnv } from '../src/executor/taskEnvironment.ts';
@@ -103,7 +104,7 @@ test('수동 모드: 취소는 잠금을 풀고 workflow를 끝냄, 서버 재�
     await assert.rejects(startTask('task-a'), /중복 실행 차단|잠금 사용 중/);
     assert.equal((await runInfo(env.ex.task('task-a').runId))?.suspendedStep, 'await-exit', '재시작 후에도 Mastra 대기 상태 유지');
 
-    const r = await env.ex.cancel('task-a');
+    const r = await cancel(env.ex, 'task-a');
     assert.ok(r.ok, r.reason);
     assert.equal(status(env, 'task-a'), 'cancelled');
     assert.equal(env.ex.locks.holder('task:task-a'), null);

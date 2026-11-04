@@ -1,3 +1,4 @@
+import { groupAlive } from './executor/processIdentity.ts';
 import { turnOf } from './executor/executorView.ts';
 import { groupsOf } from './executor/executorView.ts';
 import fs from 'node:fs';
@@ -24,7 +25,7 @@ export async function snapshot(pipeline: ReturnType<typeof pipelineView>) {
   const tasks = await Promise.all(Object.values(ex.state.tasks).map(async (task) => {
     const info = await runInfo(task.runId);
     const execution = task.lastExecId ? ex.state.executions[task.lastExecId] : null;
-    return { ...task, groups: groupsOf(task), mastra: info, mismatch: discrepancy(task, info), turn: turnOf(task), exec: execution && { ...execution, token: undefined, groupAlive: ex.groupAlive(execution.pgid) } };
+    return { ...task, groups: groupsOf(task), mastra: info, mismatch: discrepancy(task, info), turn: turnOf(task), exec: execution && { ...execution, token: undefined, groupAlive: groupAlive(ex, execution.pgid) } };
   }));
   tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {

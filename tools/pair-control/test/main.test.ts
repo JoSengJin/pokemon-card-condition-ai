@@ -1,3 +1,4 @@
+import { cancel } from '../src/executor/taskCancel.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
@@ -43,7 +44,7 @@ test('이양 거절: 프로세스 실행 중·통합 잠금·푸시 결과 불�
     await startTask('task-a');
     await waitFor(() => Object.values(env.ex.state.executions).some((e) => e.status === 'running'), 'running');
     await assert.rejects(setMain(env.ex, 'claude'), /프로세스 실행 중: agent task-a/);
-    await env.ex.cancel('task-a');
+    await cancel(env.ex, 'task-a');
     await waitFor(() => env.ex.task('task-a').status === 'cancelled', 'cancelled');
     assert.deepEqual(await swapBlockers(env.ex), []);
 

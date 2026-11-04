@@ -1,3 +1,4 @@
+import { readNewLog } from '../src/executor/processLog.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 // 스트리밍(JSONL) 출력과 무과금 가드. 모델 요청 없음(mock 에이전트·샘플 이벤트만).
 import assert from 'node:assert/strict';
@@ -69,14 +70,14 @@ test('읽는 중간에 잘린 JSON 줄은 다음 주기에 이어 읽어 조각�
     const rec: any = { execId: 'cut-1', logPath: log };
     const head = '{"type":"user","message":{"content":[{"type":"tool_result","content":"credit bal';
     fs.writeFileSync(log, line({ type: 'system', subtype: 'init', apiKeySource: 'none' }) + '\n' + head);
-    ex.readNewLog(rec);
+    scanOutput(env.ex.guard, readNewLog(ex, rec) ?? '', 'exec:cut-1');
     assert.equal(env.trips.length, 0, '잘린 조각은 검사하지 않고 보류');
     fs.appendFileSync(log, 'ance is too low"}]}}\n');
-    ex.readNewLog(rec);
+    scanOutput(env.ex.guard, readNewLog(ex, rec) ?? '', 'exec:cut-1');
     assert.equal(env.trips.length, 0, '이어 읽으면 내용 이벤트라 신호 아님');
     fs.writeFileSync(log, 'Your credit balance is too low to continue.');
     ex.logOffsets.set('cut-1', 0);
-    ex.readNewLog(rec);
+    scanOutput(env.ex.guard, readNewLog(ex, rec) ?? '', 'exec:cut-1');
     assert.equal(env.trips.length, 1, '줄바꿈 없는 일반 텍스트는 바로 검사(기존 동작)');
   } finally { env.cleanup(); }
 });

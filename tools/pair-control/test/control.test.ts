@@ -1,3 +1,5 @@
+import { cancel } from '../src/executor/taskCancel.ts';
+import { groupAlive } from '../src/executor/processIdentity.ts';
 import { launch } from '../src/executor/taskLaunch.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
@@ -91,7 +93,7 @@ test('파일 소유권·API 그룹·공용 설정 충돌과 중복 시작 차단
 
     // 잠금 파일은 프로세스를 넘어 원자적(O_EXCL)
     assert.equal(env.ex.locks.acquire('task:task-a', { execId: 'other' }), false);
-    await env.ex.cancel('task-a');
+    await cancel(env.ex, 'task-a');
     await waitFor(() => status(env, 'task-a') === 'cancelled', 'cancel');
     assert.equal(env.ex.locks.holder('task:task-a'), null, '종료 확인 후 잠금 해제');
   } finally { env.cleanup(); }
@@ -107,14 +109,14 @@ test('중단은 이 실행기가 만든 프로세스 그룹만 정리(손자 프
     const log = await waitFor(() => { const t = logTail(env.ex, ex.execId).text; return /grandchild pid=(\d+)/.exec(t); }, 'grandchild');
     const grandchild = Number(log[1]);
     assert.ok(alive(grandchild));
-    const r = await env.ex.cancel('task-a');
+    const r = await cancel(env.ex, 'task-a');
     assert.ok(r.ok, r.reason);
     await waitFor(() => status(env, 'task-a') === 'cancelled', 'cancelled');
     await waitFor(() => !alive(grandchild) && !alive(ex.pid), 'children gone');
     assert.ok(alive(outsider.pid!), '다른 프로세스는 종료하지 않음');
     const info = await waitFor(async () => { const i = await runInfo(env.ex.task('task-a').runId); return i?.result ? i : null; }, 'run result');
     assert.equal(info.result.outcome, 'cancelled');
-    assert.equal((await env.ex.cancel('task-a')).ok, false, '종료된 실행은 다시 중단하지 않음');
+    assert.equal((await cancel(env.ex, 'task-a')).ok, false, '종료된 실행은 다시 중단하지 않음');
   } finally { outsider.kill('SIGKILL'); env.cleanup(); }
 });
 
@@ -130,7 +132,7 @@ test('서버 재시작: 살아 있는 프로세스·종료된 프로세스·결�
     // 서버 다운
     env = env.restart();
     process.kill(-exC.pgid, 'SIGKILL'); // 서버가 없는 동안 감독자가 기록 없이 사라짐
-    await waitFor(() => !env.ex.groupAlive(exC.pgid), 'c dead');
+    await waitFor(() => !groupAlive(env.ex, exC.pgid), 'c dead');
     env = env.restart();
     assert.equal(status(env, 'task-a'), 'orphan_running');
     assert.equal(status(env, 'task-c'), 'unknown');
@@ -148,7 +150,7 @@ test('서버 재시작: 살아 있는 프로세스·종료된 프로세스·결�
     acknowledgeUnknown(env.ex, 'task-c');
     assert.equal(status(env, 'task-c'), 'abandoned');
     assert.equal(env.ex.locks.holder('task:task-c'), null);
-    assert.ok((await env.ex.cancel('task-a')).ok, '재시작 전 이 실행기가 만든 프로세스는 spec 경로로 소유 확인 후 중단 가능');
+    assert.ok((await cancel(env.ex, 'task-a')).ok, '재시작 전 이 실행기가 만든 프로세스는 spec 경로로 소유 확인 후 중단 가능');
     await waitFor(() => status(env, 'task-a') === 'exit_observed', 'a exit observed');
   } finally { env.cleanup(); }
 });
@@ -283,7 +285,7 @@ test('모델·worker 경로 작업은 worktree의 ./develop 잠금 안에서 실
     let code = 0;
     try { execFileSync(path.join(wt, 'develop'), ['--check'], { cwd: wt, stdio: 'pipe' }); } catch (e: any) { code = e.status; }
     assert.equal(code, 1, '실행 중에는 같은 worktree의 ./develop 잠금이 사용 중');
-    await env.ex.cancel('task-a');
+    await cancel(env.ex, 'task-a');
     await waitFor(() => status(env, 'task-a') === 'cancelled', 'cancelled');
   } finally { env.cleanup(); }
 });

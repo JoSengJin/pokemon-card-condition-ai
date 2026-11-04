@@ -1,3 +1,4 @@
+import { cancelRunning } from './processCancel.ts';
 // 구독 사용 한도 도달의 공급자별 처리.
 // 한도 문구를 낸 실행의 공급자(메인 세션·구현 worker)를 구분해 그 공급자만 막고, 다른 공급자의 교대·실행은 막지 않는다.
 // 같은 공급자는 worker든 메인이든 새 세션이든 사용자가 풀렸음을 확인하기 전에 시작하지 않는다(다른 세션으로 우회하지 않음).
@@ -29,7 +30,7 @@ export function onLimitHit(ex: Executor, a: Alert) {
   if (who) {
     recordAgentLimit(ex, who.agent, a.detail, who.kind);
     if (who.kind === 'agent') for (const row of Object.values(ex.state.executions)) {
-      if (row.agent === who.agent && ['running', 'cancelling'].includes(row.status)) void ex.cancelRunning(row.taskId).then((result) => ex.audit('cancel_all', { taskId: row.taskId, trigger: '구독 한도 도달(공급자별)', result: result.reason, ok: result.ok }));
+      if (row.agent === who.agent && ['running', 'cancelling'].includes(row.status)) void cancelRunning(ex, row.taskId).then((result) => ex.audit('cancel_all', { taskId: row.taskId, trigger: '구독 한도 도달(공급자별)', result: result.reason, ok: result.ok }));
     }
     return;
   }
@@ -37,7 +38,7 @@ export function onLimitHit(ex: Executor, a: Alert) {
   ex.state.limit = { at: a.at, detail: a.detail, source: a.source };
   ex.audit('limit_hit', { detail: a.detail, source: a.source });
   ex.store.save();
-  for (const row of Object.values(ex.state.executions)) if (['running', 'cancelling'].includes(row.status)) void ex.cancelRunning(row.taskId).then((result) => ex.audit('cancel_all', { taskId: row.taskId, trigger: '구독 한도 도달', result: result.reason, ok: result.ok }));
+  for (const row of Object.values(ex.state.executions)) if (['running', 'cancelling'].includes(row.status)) void cancelRunning(ex, row.taskId).then((result) => ex.audit('cancel_all', { taskId: row.taskId, trigger: '구독 한도 도달', result: result.reason, ok: result.ok }));
 }
 
 /** 사용자가 그 에이전트의 한도가 풀렸음을 확인했을 때만 호출한다. */
