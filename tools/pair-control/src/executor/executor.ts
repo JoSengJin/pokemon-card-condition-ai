@@ -1,5 +1,5 @@
-import { handoffMessage } from './handoffRecords.ts';
-import { handoffText } from './handoffDocument.ts';
+import { runPostChecks } from './verificationPost.ts';
+import { worktreeFingerprint } from './reviewFingerprint.ts';
 // Node 실행기: 작업 소유권·CLI 프로세스·Git 검사·취소·상태 저장·통합.
 // Mastra workflow는 단계·승인 대기를 맡고, 실제 프로세스와 Git 상태의 근거는 이 실행기가 가진다.
 import { spawn, execFileSync } from 'node:child_process';
@@ -13,7 +13,6 @@ import * as G from './git.ts';
 import { conflicts, isAllowed, needsDevelopLock, TaskInput, type ConflictReason, type TaskInputT } from './contract.ts';
 import { chargeRisks, mockPlan, probe, realPlan, realReadiness, type LaunchPlan, type Probe } from './adapters.ts';
 import { scanArgs } from './nocharge.ts';
-import { runLogged } from './logstream.ts';
 import { scanOutput } from './streamGuard.ts';
 import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
 import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
@@ -636,36 +635,9 @@ export class Executor {
 
 
   /** 구현이 끝났음을 메인에게 넘긴다. 도구가 Git으로 교차 확인하며(커밋 없음·미커밋 변경·SHA 변경은 거절) 인계 문서는 상태 폴더에만 저장한다. */
-  async handoffToMain(taskId: string) {
-    this.assertMainActive('메인 인계');
-    const t = this.task(taskId);
-    if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 인계(${t.status})`);
-    const r = t.result;
-    if (!r?.headSha || !r.commits.length) throw new UserError('인계할 커밋이 없음 — 에이전트가 커밋하지 않았습니다');
-    const headResult = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${t.branch}^{commit}`], t.worktree);
-    const head = headResult.code === 0 && G.FULL_SHA.test(headResult.stdout.trim()) ? headResult.stdout.trim() : null;
-    if (head !== r.headSha) throw new UserError('Git 계약 검사 이후 코드 SHA가 바뀜 — "결과 다시 수집" 후 인계');
-    const dirty = await G.dirtyFiles(t.worktree);
-    if (dirty.length) throw new UserError(`worktree에 미커밋 변경이 있음: ${dirty.slice(0, 5).join(', ')}`);
-    if (t.verification?.status === 'running' || t.review?.status === 'running') throw new UserError('작업 테스트나 리뷰가 실행 중');
-    if (t.handoff && !t.handoff.cancelledAt && t.handoff.headSha === head) throw new UserError('이미 인계됨(취소 후 다시 인계 가능)');
-    const text = await handoffText(t, head, this.mainAgent);
-    const file = path.join(this.cfg.stateDir, 'handoffs', `${t.taskId}-${head.slice(0, 12)}.md`);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, text);
-    t.handoff = { at: new Date().toISOString(), to: this.mainAgent, headSha: head, file };
-    this.event('handoff', { taskId, to: t.handoff.to, headSha: head });
-    this.store.save();
-    return { handoff: t.handoff, text, message: handoffMessage(t), autoNote: undefined as string | undefined };
-  }
 
-  async handoffToMainAuto(taskId: string) {
-    const handoff = await this.handoffToMain(taskId);
-    // 자동 확인은 구독 로그인 가드를 통과한 실제 CLI로만 한다. 막히면 인계는 유지하고 사람이 붙여 넣는 기존 방식으로 남긴다.
-    try { await this.startReviewJob(taskId, { reviewer: this.mainAgent, mode: 'real', forHandoff: true }); handoff.autoNote = `${this.mainAgent} 자동 확인 시작(별도 프로세스, read-only)`; }
-    catch (err) { handoff.autoNote = `자동 확인 안 함: ${(err as Error).message} — 안내문을 직접 전달하세요`; }
-    return handoff;
-  }
+
+
 
   /** 메인 에이전트 세션에 붙여 넣을 한 줄 안내. */
 
@@ -876,7 +848,7 @@ export class Executor {
       const r = await G.run(develop, ['--', 'git', 'cherry-pick', '-x', ...commits], checkout, 120_000, sanitizedChildEnv());
       if (r.code === 0) {
         const newHead = await G.revParse(checkout, 'HEAD');
-        const post = await this.runPostChecks(t, checkout, develop, { base: a.baseHead, head: newHead!, contract: t.contractSha });
+        const post = await runPostChecks(this, t, checkout, develop, { base: a.baseHead, head: newHead!, contract: t.contractSha });
         t.integration = { at: new Date().toISOString(), outcome: 'integrated', detail: r.stdout.slice(-2000), newHead, preHead: a.baseHead, commits, postStatus: post.status, postChecks: post.items };
         if (post.status === 'failed') {
           const bad = post.items.filter((i) => i.status !== 'passed').map((i) => `${i.name}(${i.status}, code ${i.exitCode ?? '-'})`).join(', ');
@@ -981,30 +953,11 @@ export class Executor {
   }
 
   /** 통합 checkout에서 ./develop 잠금 안으로 통합 후 검사를 실행한다. */
-  private async runPostChecks(t: Task, checkout: string, develop: string, vars: { base: string; contract: string; head: string }) {
-    const items: CheckRun[] = [];
-    if (!t.postChecks.length) return { status: 'not_run' as const, items };
-    for (const c of t.postChecks) {
-      const r = resolveCheck(checkout, c, vars);
-      const item: CheckRun = { id: c.id, name: c.name, display: ['./develop', '--', ...r.display], cwd: '.', status: 'running', sha: vars.head, startedAt: new Date().toISOString() };
-      // 화면이 실행 중에도 로그를 이어받도록: 실행 중 항목을 먼저 통합 기록에 남기고, 출력은 줄 단위로 가려 바로 파일에 쓴다.
-      item.logPath = path.join(this.cfg.stateDir, 'runs', `post-${crypto.randomUUID()}.log`);
-      t.integration = { ...(t.integration ?? { at: item.startedAt!, outcome: 'integrating', detail: '통합 후 검사 실행 중' }), postStatus: 'running', postChecks: [...items, item] };
-      this.store.save();
-      const res = await runLogged(develop, ['--', r.command, ...r.args], checkout, 600_000, sanitizedChildEnv(), item.logPath, redact);
-      item.status = res.code === 0 ? 'passed' : 'failed'; item.exitCode = res.code; item.endedAt = new Date().toISOString();
-      items.push(item);
-    }
-    return { status: items.every((i) => i.status === 'passed') ? 'passed' as const : 'failed' as const, items };
-  }
+
 
   // ---------- 리뷰(별도 CLI 작업) ----------
   /** 구현 worktree의 HEAD·미커밋 상태 지문. 리뷰 전후로 같아야 리뷰가 구현을 건드리지 않았다고 본다. */
-  private async worktreeFingerprint(t: Task) {
-    const head = await G.revParse(t.worktree, 'HEAD');
-    const dirty = await G.dirtyFiles(t.worktree);
-    return `${head}|${dirty.sort().join(',')}`;
-  }
+
 
   /**
    * 고정 SHA·diff·계약·검사 결과를 묶어 별도 리뷰 작업으로 실행한다.
@@ -1064,7 +1017,7 @@ export class Executor {
         if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
         command = this.probes[reviewer]!.binary!; display = [reviewer, ...args.slice(0, -1).map((a) => (a === bundleDir ? '<리뷰 묶음>' : a)), '<prompt>'];
       }
-      t.review = { reviewId, reviewer, mode, sha, contractHash: t.contractHash, bundleDir, worktreeFingerprint: await this.worktreeFingerprint(t), status: 'running', startedAt: new Date().toISOString(), ...(o.forHandoff ? { forHandoff: true } : {}) };
+      t.review = { reviewId, reviewer, mode, sha, contractHash: t.contractHash, bundleDir, worktreeFingerprint: await worktreeFingerprint(t), status: 'running', startedAt: new Date().toISOString(), ...(o.forHandoff ? { forHandoff: true } : {}) };
       const ex = this.spawnSupervised(t, { kind: 'review', runId: reviewId, cwd: bundleDir, command, args, env: sanitizedChildEnv(), display, sha });
       t.review.execId = ex.execId;
       this.event('review_started', { taskId, reviewId, reviewer, mode, sha });
@@ -1085,7 +1038,7 @@ export class Executor {
     let status: ReviewRecord['status'], note: string | undefined, verdict: ReviewVerdict | null = null, summary: string | undefined;
     if (r.unknown) { status = 'unknown'; note = '리뷰 프로세스가 종료 기록 없이 사라짐(결과 불명)'; }
     else if (r.cancelled) { status = 'cancelled'; note = '사용자 중단'; }
-    else if ((await this.worktreeFingerprint(t)) !== rv.worktreeFingerprint) { status = 'failed'; note = '리뷰 중 구현 worktree가 바뀜 — 결과를 쓰지 않음'; }
+    else if ((await worktreeFingerprint(t)) !== rv.worktreeFingerprint) { status = 'failed'; note = '리뷰 중 구현 worktree가 바뀜 — 결과를 쓰지 않음'; }
     else if (r.code !== 0) { status = 'failed'; note = `리뷰 CLI 종료코드 ${r.code}`; }
     else {
       let parsed: any = null;
@@ -1125,7 +1078,3 @@ export class Executor {
   }
 
 }
-
-
-const SECRET_PATTERNS = [/sk-ant-[A-Za-z0-9_-]{8,}/g, /sk-[A-Za-z0-9_-]{16,}/g, /gh[pousr]_[A-Za-z0-9]{20,}/g, /Bearer\s+[A-Za-z0-9._-]{16,}/g];
-function redact(s: string) { return SECRET_PATTERNS.reduce((acc, re) => acc.replace(re, '[REDACTED]'), s); }

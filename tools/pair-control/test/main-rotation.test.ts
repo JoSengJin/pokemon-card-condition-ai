@@ -1,3 +1,4 @@
+import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // 메인 역할 교대 실행: 새 메인 프로세스 실행·인수 확인·승인 범위 승계·세대 차단·한도 복구. 가짜 CLI만 쓰며 실제 모델 호출은 없다.
 // 가짜 새 메인의 응답은 test/fake-cli/.fake-takeover(JSON)로 정한다(자식 프로세스 환경은 정리되어 전달되므로).
@@ -28,7 +29,7 @@ async function ready(env: Env, name: string, dir: string) {
   await env.ex.finishManual(name);
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   await verify(env, name);
-  await env.ex.handoffToMain(name);
+  await handoffToMain(env.ex, name);
   confirmHandoff(env.ex, name, '테스트 확인');
   return env.ex.task(name).result!.headSha!;
 }

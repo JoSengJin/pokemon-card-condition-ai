@@ -1,3 +1,4 @@
+import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // 연속 관제 통합 검토(2026-10-29) 반례 회귀: 공급자별 한도, 자동 push 커밋 범위, 조건 미확정 보류, selfReview 승인 선택, 정지·spawn 오류, 재시작 정책, 구조 기준.
 // 가짜 CLI·임시 bare 원격·스텁만 쓰며 실제 Codex/Claude/Gemini 호출·운영 push는 없다. 합성 계약/회귀 검사이지 실제 CLI 검증이 아니다.
@@ -122,7 +123,7 @@ async function integratedTaskA(e: Env) {
   git(wt, 'add', '--', 'src_a/file.txt'); git(wt, 'commit', '-qm', 'synthetic task change');
   await e.ex.finishManual('task-a');
   await waitFor(() => e.ex.task('task-a').status === 'review_pending', 'review');
-  await verify(e, 'task-a'); await e.ex.handoffToMain('task-a');
+  await verify(e, 'task-a'); await handoffToMain(e.ex, 'task-a');
   const sha = e.ex.task('task-a').result!.headSha!;
   confirmHandoff(e.ex, 'task-a', '합성 검토');
   const a = await e.ex.approve('task-a', sha, { requireHandoff: true });
@@ -275,7 +276,7 @@ test('C. 열린 confirm_handoff 승인이면 검사→인계→모델 턴이 필
 // ---------- D. selfReview 승인 선택 ----------
 async function selfSetup(e: Env, mainAgent: 'claude' | 'codex') {
   const s = owner(e, mainAgent);
-  await unverifiedResult(e); await verify(e, 'task-a'); await e.ex.handoffToMain('task-a'); // task-a 구현 담당 = claude
+  await unverifiedResult(e); await verify(e, 'task-a'); await handoffToMain(e.ex, 'task-a'); // task-a 구현 담당 = claude
   const t = e.ex.task('task-a'), sha = t.result!.headSha!;
   const diff = git(t.worktree, 'diff', '--binary', t.baseSha, sha);
   return { s, sha, act: (id: string) => ({ id, type: 'confirm_handoff', taskId: 'task-a', sha, reviewedFiles: t.result!.changedFiles, note: '합성 검토 메모', diffHash: crypto.createHash('sha256').update(diff + '\n').digest('hex') }) };

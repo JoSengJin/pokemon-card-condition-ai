@@ -1,3 +1,4 @@
+import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // 메인 교대 안전성 회귀: 검토(2026-10-29)에서 재현된 반례를 합성 fixture로 고정한다. 가짜 CLI·스텁만 쓰며 실제 모델 호출은 없다.
 // 합성 검사이므로 실제 Codex/Claude CLI 검증이 아니다.
@@ -36,7 +37,7 @@ async function ready(env: Env, name: string, opts: { approved?: boolean; confirm
   await env.ex.finishManual(name);
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   await verify(env, name);
-  await env.ex.handoffToMain(name);
+  await handoffToMain(env.ex, name);
   if (opts.confirm !== false) confirmHandoff(env.ex, name, '합성 확인');
   const sha = env.ex.task(name).result!.headSha!;
   if (opts.approved) { const a = await env.ex.approve(name, sha, { requireHandoff: true }); await resumeStep(env.ex.task(name).runId!, 'review-gate', { decision: 'approve', sha: a.sha }); }

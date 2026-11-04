@@ -1,3 +1,4 @@
+import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { startPrompt } from '../src/executor/executorPrompt.ts';
 import { cancelHandoff } from '../src/executor/handoffRecords.ts';
 // 메인 역할 이양: 안전 확인·기록·인계 메모. 권한을 강제하지 않는다.
@@ -78,12 +79,12 @@ test('이양 메모: 이전 메인에게 인계되어 확인 전인 작업은 �
     await env.ex.finishManual('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     await verify(env, 'task-a');
-    await env.ex.handoffToMain('task-a');
+    await handoffToMain(env.ex, 'task-a');
     const { memo } = await setMain(env.ex, 'claude', '토큰');
     assert.match(memo, /`task-a`: 이전 메인\(codex\)에게 인계됨 → claude에게 인계 안내문을 다시 전달/);
     // 구현 담당(claude)이 곧 메인(claude)일 때
     cancelHandoff(env.ex, 'task-a');
-    const h = await env.ex.handoffToMain('task-a');
+    const h = await handoffToMain(env.ex, 'task-a');
     assert.match(h.text, /구현 담당과 메인이 같은 에이전트다 — 이 확인은 독립 확인이 아니다/);
   } finally { env.cleanup(); }
 });
