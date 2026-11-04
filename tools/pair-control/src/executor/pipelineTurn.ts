@@ -23,6 +23,7 @@ export async function launchTurn(ex: Executor, s: MainSession, events: PipelineE
     const rows = [];
     for (const e of events) rows.push(await eventRow(ex, e, turnDir(ex, t)));
     const b = writeTurnBundle(ex, t, token, rows, modelActions(ex, s.id));
+    await ex.probeMainAgent(t.agent);
     t.execId = await ex.launchMainProcess({ agent: t.agent, bundleDir: b.bundleDir, prompt: b.prompt, sessionId: t.id });
     t.status = 'launched';
   } catch (e) { t.status = 'failed'; t.failure = `턴 실행 실패: ${(e as Error).message}`; mark(ex, keys, 'held', { reason: `실행 실패: ${t.failure}` }); }

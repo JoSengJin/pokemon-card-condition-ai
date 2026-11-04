@@ -264,7 +264,7 @@ test('체크포인트 해시는 키 순서와 무관하고 재귀 없이 계산�
 });
 
 test('구조: 메인 교대 파일은 익명 콜백 포함 함수 정의가 7개 이하다(전체 구조 점검은 structure-trace.test.ts·review-fixes.test.ts)', () => {
-  const files = ['mainActions', 'mainApprovals', 'mainCheckpoint', 'mainEnd', 'mainGuard', 'mainHandover', 'mainOutcome', 'mainSerial'].map((n) => `src/executor/${n}.ts`);
+  const files = ['mainApprovals', 'mainCheckpoint', 'mainEnd', 'mainGuard', 'mainHandover', 'mainOutcome', 'mainSerial', 'mainSessionLaunch'].map((n) => `src/executor/${n}.ts`);
   const out = JSON.parse(execFileSync('node', ['scripts/structure-trace.mjs'], { cwd: path.resolve(import.meta.dirname, '..'), stdio: ['ignore', 'pipe', 'ignore'] }).toString());
   for (const f of files) assert.ok(out.perFile[f] <= 7, `${f}: ${out.perFile[f]}개`);
 });

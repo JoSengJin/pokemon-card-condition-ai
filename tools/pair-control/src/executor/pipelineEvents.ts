@@ -21,8 +21,8 @@ function wanted(ex: Executor, t: Task): { kind: 'result_ready' | 'approved' | 'i
   return null;
 }
 
-/** 보류 사유가 해소됐는지 보고 풀 수 있는 이벤트는 대기로 되돌린다(승인이 열림, 한도가 풀림). */
-function revive(ex: Executor, sid: string | undefined) {
+export function scanEvents(ex: Executor) {
+  const sid = ex.runtime.session?.id;
   for (const e of Object.values(pipe(ex).events)) {
     if (e.state !== 'held' || e.kind === 'blocked') continue;
     const t = ex.state.tasks[e.taskId];
@@ -33,11 +33,6 @@ function revive(ex: Executor, sid: string | undefined) {
     if (limit) e.tried = e.tried.filter((g) => g !== ex.runtime.generation);
     ex.audit('pipeline_event_revived', { key: e.key });
   }
-}
-
-export function scanEvents(ex: Executor) {
-  const sid = ex.runtime.session?.id;
-  revive(ex, sid);
   for (const t of Object.values(ex.state.tasks)) {
     const w = wanted(ex, t);
     if (!w) continue;

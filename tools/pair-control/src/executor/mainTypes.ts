@@ -53,6 +53,10 @@ export interface MainSession {
   pendingActions?: MainAction[];
   actionWork?: ActionWork[];
   actionLifetime?: string;
+  launchStage?: 'probe' | 'exec';
+  launchLifetime?: string;
+  bundleDir?: string;
+  launchPrompt?: string;
 }
 
 export interface MainRuntime {

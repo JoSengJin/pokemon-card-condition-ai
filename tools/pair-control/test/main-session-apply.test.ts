@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { ackSession } from '../src/executor/mainAck.ts';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
 import { applyTakenOver, finishSession } from '../src/executor/mainSessionApply.ts';
+import { pipelineTick } from '../src/executor/pipelineTick.ts';
 import type { MainSession } from '../src/executor/mainTypes.ts';
 import { advanceActions, setup } from './helpers.ts';
 
@@ -70,5 +71,21 @@ test('push exec 진입 뒤 재시작 상태는 원격 호출 없이 결과 불�
     assert.equal(s.actionWork[0].status, 'done');
     assert.match(s.actionWork[0].result?.detail ?? '', /결과 불명.*재시도하지 않음/);
     assert.equal(Object.keys(e.ex.state.pushes ?? {}).length, 0);
+  } finally { e.cleanup(); }
+});
+
+test('메인 실행 exec 진입 뒤 재시작 상태는 CLI 재호출 없이 결과 불명으로 보존한다', async () => {
+  const e = setup();
+  try {
+    const s = launching();
+    Object.assign(s, { launchStage: 'exec', launchLifetime: 'previous-server', bundleDir: 'saved-bundle', launchPrompt: 'saved-prompt' });
+    e.ex.runtime.session = s; e.ex.runtime.frozen = true;
+    let calls = 0;
+    e.ex.launchMainProcess = async () => { calls++; return 'unexpected'; };
+    await pipelineTick(e.ex);
+    assert.equal(calls, 0);
+    assert.equal(e.ex.runtime.session, null);
+    assert.equal(e.ex.runtime.frozen, false);
+    assert.match(e.ex.runtime.history.at(-1)?.failure ?? '', /결과 불명.*재시도하지 않음/);
   } finally { e.cleanup(); }
 });

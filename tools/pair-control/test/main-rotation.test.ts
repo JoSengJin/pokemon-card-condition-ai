@@ -205,9 +205,11 @@ test('교대 실패는 상태와 복구 지점을 보존하고 재시도하지 �
     const n0 = execs();
 
     const r1 = await handoverMain(env.ex, 'codex');
-    assert.equal(r1.status, 'failed');
-    assert.match((r1 as any).detail, /새 메인 실행 실패: 실제 codex 메인 실행 차단/);
-    assert.ok(fs.existsSync((r1 as any).checkpointFile), '복구 지점(체크포인트) 보존');
+    assert.equal(r1.status, 'launching');
+    const f1 = await finished(env);
+    assert.equal(f1.status, 'failed');
+    assert.match(f1.failure!, /새 메인 실행 실패: 실제 codex 메인 실행 차단/);
+    assert.ok(fs.existsSync(f1.checkpointFile), '복구 지점(체크포인트) 보존');
     assert.equal(env.ex.mainAgent, 'claude'); assert.equal(env.ex.runtime.frozen, false); assert.equal(env.ex.runtime.session, null);
     assert.equal(snap(), before, '작업 상태는 그대로');
     await new Promise((r) => setTimeout(r, 800));

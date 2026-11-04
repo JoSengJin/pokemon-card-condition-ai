@@ -403,9 +403,12 @@ export class Executor {
    * 새 메인 세션 프로세스를 실행한다. 리뷰와 같은 방식(읽기 전용·입력 묶음 폴더만 받음)이며 구독 로그인 가드와 한도 차단을 그대로 거친다.
    * 옵션 이름은 --help로 확인한 것만 쓰고, 세션 재개·도구 동작은 가정하지 않는다(별도 프로세스는 이전 대화 기억을 승계하지 않는다).
    */
+  async probeMainAgent(agent: Agent): Promise<void> {
+    this.probes[agent] = await probe(agent, this.cfg);
+  }
+
   async launchMainProcess(o: { agent: Agent; bundleDir: string; prompt: string; sessionId: string }): Promise<string> {
     if (this.tripped) throw new UserError('과금 신호 감지 상태 — 새 메인을 실행하지 않음');
-    this.probes[o.agent] = await probe(o.agent, this.cfg);
     const rr = realReadiness(o.agent, this.probes[o.agent], this.cfg, { limit: this.limitFor(o.agent) });
     if (!rr.available) throw new UserError(`실제 ${o.agent} 메인 실행 차단: ${rr.blockers.map((b) => b.message).join(', ')}`);
     const args = o.agent === 'codex' ? ['exec', '--cd', o.bundleDir, '--sandbox', 'read-only', o.prompt] : ['--print', '--permission-mode', 'plan', o.prompt];
@@ -866,13 +869,19 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     const head = headResult.code === 0 && G.FULL_SHA.test(headResult.stdout.trim()) ? headResult.stdout.trim() : null;
     if (head !== sha || t.result.headSha !== sha) throw new UserError(`승인 SHA가 현재 결과와 다름(현재 ${head})`);
     if (!this.cfg.integration.checkout) throw new UserError('config.integration.checkout 미설정');
-    const s = await this.integrationState(t, sha);
-    if (!s.baseHead) throw new UserError('통합 기준 브랜치를 읽지 못함');
+    const changed = await G.run('git', ['diff', '--name-only', '-z', `${t.baseSha}..${sha}`], t.worktree);
+    const files = changed.stdout.split('\0').filter(Boolean).sort();
+    const base = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${this.cfg.integration.branch}^{commit}`], this.cfg.integration.checkout);
+    const baseHead = G.FULL_SHA.test(base.stdout.trim()) ? base.stdout.trim() : null;
+    if (!baseHead) throw new UserError('통합 기준 브랜치를 읽지 못함');
+    const filesHash = crypto.createHash('sha256').update(files.join('\0')).digest('hex');
     const rv = t.review && t.review.sha === sha && t.review.contractHash === t.contractHash && t.review.status === 'done' ? t.review.verdict ?? null : null;
     const ho = t.handoff && !t.handoff.cancelledAt && t.handoff.headSha === sha ? t.handoff.confirmedAt ?? null : null;
-    t.approval = { sha, baseBranch: this.cfg.integration.branch, baseHead: s.baseHead, files: s.files, filesHash: s.filesHash, contractHash: t.contractHash, reviewVerdict: rv, mainConfirmedAt: ho, at: new Date().toISOString() };
-    this.setStatus(t, 'approved', `SHA ${sha.slice(0, 12)} 승인 · 통합 실행 대기`);
-    this.event('approved', { taskId, sha, baseHead: s.baseHead });
+    t.approval = { sha, baseBranch: this.cfg.integration.branch, baseHead, files, filesHash, contractHash: t.contractHash, reviewVerdict: rv, mainConfirmedAt: ho, at: new Date().toISOString() };
+    t.status = 'approved'; t.statusReason = `SHA ${sha.slice(0, 12)} 승인 · 통합 실행 대기`; t.updatedAt = new Date().toISOString();
+    appendEvent(this.cfg.stateDir, { type: 'task_status', lifetime: this.lifetime, taskId: t.taskId, status: t.status, reason: t.statusReason });
+    this.store.save();
+    appendEvent(this.cfg.stateDir, { type: 'approved', lifetime: this.lifetime, taskId, sha, baseHead });
     return t.approval;
   }
 

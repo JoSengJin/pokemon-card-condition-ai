@@ -11,6 +11,7 @@ import { mark, pipe } from './pipelineState.ts';
 import { handoverAfterLimit } from './mainLimit.ts';
 import { launchTurn } from './pipelineTurn.ts';
 import { applyTakenOver, finishSession } from './mainSessionApply.ts';
+import { advanceSessionLaunch } from './mainSessionLaunch.ts';
 import { TURN_IN_FLIGHT, type MainTurn } from './mainTypes.ts';
 import type { Executor } from './executor.ts';
 
@@ -39,6 +40,7 @@ export async function pipelineTick(ex: Executor): Promise<void> {
   busy.add(ex);
   try {
     const rt = ex.runtime, s = rt.session;
+    if (s?.status === 'launching' && s.launchStage) { await advanceSessionLaunch(ex, s); return; }
     if (!s || rt.frozen) return;
     const limited = Object.values(pipe(ex).turns).find((t) => t.status === 'limited' && !t.limitHandledAt);
     if (limited) {

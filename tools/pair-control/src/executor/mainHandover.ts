@@ -28,19 +28,17 @@ export function failSession(ex: Executor, s: MainSession, reason: string) {
   return { ok: false as const, status: 'failed' as const, detail: reason, sessionId: s.id, checkpointFile: s.checkpointFile };
 }
 
-/** 새 메인 세션을 기록하고 입력 묶음을 만들어 프로세스를 시작한다. 시작하지 못하면 세션을 실패로 남긴다(체크포인트 보존). */
-export async function launchSession(ex: Executor, who: { to: Agent; from: Agent }, cp: { file: string; hash: string }, opts: { limit?: boolean }) {
+/** 새 메인 세션과 입력 묶음을 저장한다. CLI 확인과 실행은 다음 감시 틱의 launchStage가 각각 진행한다. */
+export function prepareSession(ex: Executor, who: { to: Agent; from: Agent }, cp: { file: string; hash: string }, opts: { limit?: boolean }) {
   const rt = ex.runtime, token = crypto.randomUUID();
   const s: MainSession = { id: crypto.randomUUID(), agent: who.to, from: who.from, generation: rt.generation + 1, status: 'launching', startedAt: new Date().toISOString(), limitRecovery: !!opts.limit,
-    checkpointFile: cp.file, checkpointHash: cp.hash, tokenHash: tokenHash(token), actionResults: [] };
+    checkpointFile: cp.file, checkpointHash: cp.hash, tokenHash: tokenHash(token), actionResults: [], launchStage: 'probe', launchLifetime: ex.lifetime };
   rt.session = s;
   ex.audit('main_handover_started', { session: s.id, from: who.from, to: who.to, generation: s.generation, limitRecovery: s.limitRecovery, checkpointFile: cp.file });
+  const b = writeBundle(ex, s, token, modelActions(ex, s.id));
+  s.bundleDir = b.bundleDir; s.launchPrompt = b.prompt;
   ex.store.save();
-  try {
-    const b = writeBundle(ex, s, token, modelActions(ex, s.id));
-    s.execId = await ex.launchMainProcess({ agent: who.to, bundleDir: b.bundleDir, prompt: b.prompt, sessionId: s.id });
-  } catch (e) { return failSession(ex, s, `새 메인 실행 실패: ${(e as Error).message}`); }
-  ex.store.save();
+  ex.ensureWatcher();
   return { ok: true as const, status: 'launching' as const, sessionId: s.id, generation: s.generation, checkpointFile: cp.file };
 }
 
@@ -54,6 +52,6 @@ export async function handoverMain(ex: Executor, toRaw: string, _opts: { reason?
     const gate = await manualGate(ex, toRaw);
     if ('status' in gate) return gate;
     ex.runtime.frozen = true; // 이 줄부터 이전 메인의 배정·승인·통합은 받지 않는다
-    return await launchSession(ex, gate, await saveCheckpoint(ex, 'handover'), {});
+    return prepareSession(ex, gate, await saveCheckpoint(ex, 'handover'), {});
   } finally { release(); }
 }

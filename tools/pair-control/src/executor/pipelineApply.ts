@@ -6,13 +6,6 @@ import { endTurn, mark, pipe } from './pipelineState.ts';
 import type { Executor } from './executor.ts';
 import type { MainTurn } from './mainTypes.ts';
 
-function acceptTurn(ex: Executor, t: MainTurn) {
-  const rt = ex.runtime;
-  if (rt.session?.id !== t.sessionId || rt.generation !== t.generation || rt.frozen) { delete t.pendingActions; return endTurn(ex, t, 'stale', 'pending', '검증 뒤 세션·세대가 바뀜 — 이전 응답은 적용하지 않음(새 메인이 다시 판단)'); }
-  const actions = t.pendingActions ?? [];
-  delete t.pendingActions; t.status = 'applying'; t.lifetime = ex.lifetime; acceptActions(ex, t, actions);
-}
-
 export function finishApplied(ex: Executor, t: MainTurn) {
   t.actionResults = actionResults(t); delete t.actionWork;
   let ok = 0;
@@ -27,6 +20,15 @@ export function finishApplied(ex: Executor, t: MainTurn) {
 export function applyVerified(ex: Executor) {
   for (const t of Object.values(pipe(ex).turns)) {
     if (ex.stopped) return;
-    if (t.status === 'verified') { acceptTurn(ex, t); return; }
+    if (t.status !== 'verified') continue;
+    const rt = ex.runtime;
+    if (rt.session?.id !== t.sessionId || rt.generation !== t.generation || rt.frozen) {
+      delete t.pendingActions;
+      endTurn(ex, t, 'stale', 'pending', '검증 뒤 세션·세대가 바뀜 — 이전 응답은 적용하지 않음(새 메인이 다시 판단)');
+      return;
+    }
+    const actions = t.pendingActions ?? [];
+    delete t.pendingActions; t.status = 'applying'; t.lifetime = ex.lifetime; acceptActions(ex, t, actions);
+    return;
   }
 }
