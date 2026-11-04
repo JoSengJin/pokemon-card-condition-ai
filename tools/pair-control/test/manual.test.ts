@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 import { recheckEnv } from '../src/executor/taskEnvironment.ts';
 import { recollect } from '../src/executor/taskCollect.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
@@ -68,7 +69,7 @@ test('수동 모드: 허용 밖 변경·미커밋 변경은 Git 검사 실패, �
     assert.deepEqual(r.outOfScope, ['outside.txt'], '허용 범위 안의 미커밋 파일은 범위 밖이 아니라 미커밋 검사에서 실패');
     assert.equal(r.checks.find((c) => c.name === '미커밋 변경 없음')!.ok, false);
     assert.equal(r.checks.find((c) => c.name === '허용 파일 범위')!.ok, false);
-    await assert.rejects(env.ex.approve('task-a', r.headSha!), /Git 계약 검사 실패/);
+    await assert.rejects(approve(env.ex, 'task-a', r.headSha!), /Git 계약 검사 실패/);
 
     // 정리하고 허용 범위 안 커밋만 남긴 뒤 다시 수집
     const wt = env.fixture.worktrees['task-a'].path;
@@ -84,7 +85,7 @@ test('수동 모드: 허용 밖 변경·미커밋 변경은 Git 검사 실패, �
     const sha3 = sessionCommit(env, 'task-a', 'src_a/more.txt');
     await recollect(env.ex, 'task-a');
     assert.equal(env.ex.task('task-a').result!.headSha, sha3);
-    await assert.rejects(env.ex.approve('task-a', sha3), /작업 테스트가 통과하지 않음|현재 SHA·계약과 다름/);
+    await assert.rejects(approve(env.ex, 'task-a', sha3), /작업 테스트가 통과하지 않음|현재 SHA·계약과 다름/);
   } finally { env.cleanup(); }
 });
 

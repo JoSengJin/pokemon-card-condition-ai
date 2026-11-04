@@ -647,128 +647,20 @@ export class Executor {
 
 
   // ---------- 승인 ----------
-  private async integrationState(t: Task, sha: string) {
-    const changed = await G.run('git', ['diff', '--name-only', '-z', `${t.baseSha}..${sha}`], t.worktree);
-    const files = changed.stdout.split('\0').filter(Boolean).sort();
-    const base = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${this.cfg.integration.branch}^{commit}`], this.cfg.integration.checkout);
-    const baseHead = G.FULL_SHA.test(base.stdout.trim()) ? base.stdout.trim() : null;
-    return { files, filesHash: crypto.createHash('sha256').update(files.join('\0')).digest('hex'), baseHead };
-  }
+
 
   /**
    * requireHandoff: 화면·API 승인은 앞 단계(리뷰가 돌고 있지 않음, 메인 인계 확인 완료)가 끝난 뒤에만 허용한다.
    * 내부 호출(테스트 등)은 기본 false로 기존 동작을 유지한다.
    */
-  async approve(taskId: string, sha: string, o: { requireHandoff?: boolean } = {}): Promise<Approval> {
-    this.assertMainActive('승인');
-    const t = this.task(taskId);
-    if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태가 아님(${t.status})`);
-    if (o.requireHandoff) {
-      if (t.review?.status === 'running') throw new UserError('리뷰가 실행 중 — 끝난 뒤 승인할 수 있음');
-      const h = t.handoff;
-      if (!h || h.cancelledAt) throw new UserError('메인 인계가 끝나지 않음 — 인계하고 확인 완료를 받은 뒤 승인할 수 있음');
-      if (h.headSha !== t.result?.headSha) throw new UserError('인계 후 코드가 바뀜 — 다시 인계하고 확인을 받으세요');
-      if (!h.confirmedAt) throw new UserError('메인 확인이 끝나지 않음 — 확인 완료 후 승인할 수 있음');
-    }
-    if (!G.FULL_SHA.test(sha)) throw new UserError('전체 40자 SHA로 승인해야 함');
-    if (!t.result?.checksPassed) throw new UserError('Git 계약 검사 실패가 있어 승인할 수 없음');
-    const v = t.verification;
-    if (!v || v.status !== 'passed') throw new UserError(`작업 테스트가 통과하지 않음(${v ? v.status : '미실행'}) — 미실행·실패·중단·결과 불명은 통과가 아님`);
-    if (v.sha !== sha || v.contractHash !== t.contractHash) throw new UserError('작업 테스트 결과가 현재 SHA·계약과 다름 — 다시 실행');
-    const headResult = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${t.branch}^{commit}`], t.worktree);
-    const head = headResult.code === 0 && G.FULL_SHA.test(headResult.stdout.trim()) ? headResult.stdout.trim() : null;
-    if (head !== sha || t.result.headSha !== sha) throw new UserError(`승인 SHA가 현재 결과와 다름(현재 ${head})`);
-    if (!this.cfg.integration.checkout) throw new UserError('config.integration.checkout 미설정');
-    const changed = await G.run('git', ['diff', '--name-only', '-z', `${t.baseSha}..${sha}`], t.worktree);
-    const files = changed.stdout.split('\0').filter(Boolean).sort();
-    const base = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${this.cfg.integration.branch}^{commit}`], this.cfg.integration.checkout);
-    const baseHead = G.FULL_SHA.test(base.stdout.trim()) ? base.stdout.trim() : null;
-    if (!baseHead) throw new UserError('통합 기준 브랜치를 읽지 못함');
-    const filesHash = crypto.createHash('sha256').update(files.join('\0')).digest('hex');
-    const rv = t.review && t.review.sha === sha && t.review.contractHash === t.contractHash && t.review.status === 'done' ? t.review.verdict ?? null : null;
-    const ho = t.handoff && !t.handoff.cancelledAt && t.handoff.headSha === sha ? t.handoff.confirmedAt ?? null : null;
-    t.approval = { sha, baseBranch: this.cfg.integration.branch, baseHead, files, filesHash, contractHash: t.contractHash, reviewVerdict: rv, mainConfirmedAt: ho, at: new Date().toISOString() };
-    t.status = 'approved'; t.statusReason = `SHA ${sha.slice(0, 12)} 승인 · 통합 실행 대기`; t.updatedAt = new Date().toISOString();
-    appendEvent(this.cfg.stateDir, { type: 'task_status', lifetime: this.lifetime, taskId: t.taskId, status: t.status, reason: t.statusReason });
-    this.store.save();
-    appendEvent(this.cfg.stateDir, { type: 'approved', lifetime: this.lifetime, taskId, sha, baseHead });
-    return t.approval;
-  }
 
-  reject(taskId: string, reason: string) {
-    this.assertMainActive('거절');
-    const t = this.task(taskId);
-    if (!['review_pending', 'approved', 'integration_refused', 'integration_blocked'].includes(t.status)) throw new UserError(`거절할 수 없는 상태(${t.status})`);
-    t.approval = null;
-    setStatus(this, t, 'rejected', reason || '사용자 거절');
-  }
+
+
 
   // ---------- 통합 ----------
-  async integrate(taskId: string): Promise<{ outcome: string; detail: string }> {
-    this.assertMainActive('통합');
-    const t = this.task(taskId);
-    if (t.status !== 'approved' || !t.approval) throw new UserError(`승인된 상태가 아님(${t.status})`);
-    if (this.tripped) throw new UserError('무료 가드 발동 상태');
-    const owner = crypto.randomUUID();
-    if (!this.locks.acquire('integration', { owner, taskId })) {
-      return this.endIntegration(t, 'integration_blocked', `다른 통합 진행 중: ${JSON.stringify(this.locks.holder('integration'))}`, true);
-    }
-    try {
-      setStatus(this, t, 'integrating');
-      const a = t.approval;
-      const checkout = this.cfg.integration.checkout;
-      const head = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
-      const s = await this.integrationState(t, a.sha);
-      const branchNow = await G.currentBranch(checkout);
-      const changes: string[] = [];
-      if (head !== a.sha) changes.push(`작업 브랜치 SHA 변경 ${a.sha.slice(0, 12)} → ${head?.slice(0, 12)}`);
-      if (branchNow !== a.baseBranch) changes.push(`통합 checkout 브랜치 ${branchNow} ≠ ${a.baseBranch}`);
-      if (s.baseHead !== a.baseHead) changes.push(`기준 브랜치 이동 ${a.baseHead.slice(0, 12)} → ${s.baseHead?.slice(0, 12)}`);
-      if (s.filesHash !== a.filesHash) changes.push('관련 파일 목록 변경');
-      if (t.verification?.status !== 'passed' || t.verification.sha !== a.sha) changes.push('작업 테스트 결과가 승인 SHA와 다름');
-      const hashAtSha = await contractHashAt(t.worktree, t.taskId, a.sha);
-      if (hashAtSha !== a.contractHash || a.contractHash !== t.contractHash) changes.push('작업 계약 변경');
-      if (changes.length) {
-        t.approval = null;
-        return this.endIntegration(t, 'integration_refused', `승인 무효화: ${changes.join('; ')}`);
-      }
-      const dirty = (await G.dirtyFiles(checkout)).filter((f) => !f.startsWith('artifacts/'));
-      const op = await G.operationInProgress(checkout);
-      if (dirty.length || op) return this.endIntegration(t, 'integration_blocked', `통합 checkout이 깨끗하지 않음: ${op ?? dirty.join(', ')}`, true);
-      const develop = path.join(checkout, 'develop');
-      if (!fs.existsSync(develop)) return this.endIntegration(t, 'integration_blocked', '통합 checkout에 ./develop 없음', true);
-      // ./develop은 통합 checkout 자체의 .venv/bin/python으로 실행된다.
-      const integEnv = await checkVenv(checkout, 'python');
-      if (!integEnv.ready) return this.endIntegration(t, 'integration_blocked', `통합 checkout 실행 환경 미준비: ${integEnv.checks.filter((c) => !c.ok).map((c) => `${c.name}(${c.detail})`).join(', ')}`, true);
-      const commits = await G.commitsBetween(t.worktree, t.baseSha, a.sha);
-      const r = await G.run(develop, ['--', 'git', 'cherry-pick', '-x', ...commits], checkout, 120_000, sanitizedChildEnv());
-      if (r.code === 0) {
-        const newHead = await G.revParse(checkout, 'HEAD');
-        const post = await runPostChecks(this, t, checkout, develop, { base: a.baseHead, head: newHead!, contract: t.contractSha });
-        t.integration = { at: new Date().toISOString(), outcome: 'integrated', detail: r.stdout.slice(-2000), newHead, preHead: a.baseHead, commits, postStatus: post.status, postChecks: post.items };
-        if (post.status === 'failed') {
-          const bad = post.items.filter((i) => i.status !== 'passed').map((i) => `${i.name}(${i.status}, code ${i.exitCode ?? '-'})`).join(', ');
-          return this.endIntegration(t, 'integrated_check_failed', `통합은 됐지만 통합 후 검사 실패: ${bad}. 통합 전 ${a.baseHead} / 통합 후 ${newHead}. 자동 되돌림 없음 — 확인 후 사람이 ./develop -- git revert 로 복구`);
-        }
-        return this.endIntegration(t, 'integrated', post.status === 'not_run' ? `통합 완료 → ${newHead} · 통합 후 검사 미지정(미실행)` : `통합 완료 → ${newHead} · 통합 후 검사 ${post.items.length}개 통과`);
-      }
-      if (/사용 중/.test(r.stderr)) return this.endIntegration(t, 'integration_blocked', `./develop 잠금 사용 중: ${r.stderr.trim()}`, true);
-      const unmerged = (await G.git(checkout, 'diff', '--name-only', '--diff-filter=U')).stdout.split('\n').filter(Boolean);
-      const abort = await G.run(develop, ['--', 'git', 'cherry-pick', '--abort'], checkout, 60_000, sanitizedChildEnv());
-      t.integration = { at: new Date().toISOString(), outcome: 'conflict', detail: (r.stderr || r.stdout).slice(-2000), conflictFiles: unmerged, commits };
-      t.approval = null;
-      return this.endIntegration(t, 'integration_conflict', `충돌 파일: ${unmerged.join(', ') || '(확인 불가)'} · cherry-pick --abort ${abort.code === 0 ? '완료' : `실패(code ${abort.code}) — 통합 checkout 직접 확인 필요`}. 자동 ours/theirs·reset 없음.`);
-    } finally {
-      this.locks.release('integration', 'owner', owner);
-    }
-  }
 
-  private endIntegration(t: Task, s: TaskStatus, detail: string, keepApproval = false) {
-    if (!keepApproval && s !== 'integrated' && s !== 'integrated_check_failed') t.approval = null;
-    if (s !== 'integrated' && s !== 'integrated_check_failed') t.integration = { ...(t.integration ?? {}), at: new Date().toISOString(), outcome: s, detail };
-    setStatus(this, t, keepApproval && s === 'integration_blocked' ? 'approved' : s, detail);
-    return { outcome: s, detail };
-  }
+
+
 
   // ---------- 작업 테스트(에이전트 종료 후 독립 실행) ----------
   /** 계약의 검사 명령을 구조화된 인자로 해석한다. 셸을 거치지 않고, cwd는 checkout 안으로 제한한다. */

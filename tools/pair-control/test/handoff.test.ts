@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 import { recollect } from '../src/executor/taskCollect.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
@@ -65,7 +66,7 @@ test('누구 차례: 배정 → 에이전트 작업 → 사용자(검사·인계
     confirmHandoff(env.ex, 'task-a', '계약 대조 완료');
     assert.equal(turn(env, 'task-a').who, 'user');
     assert.match(turn(env, 'task-a').next, /승인 또는 거절/);
-    const a = await env.ex.approve('task-a', t.result!.headSha!);
+    const a = await approve(env.ex, 'task-a', t.result!.headSha!);
     assert.ok(a.mainConfirmedAt);
     await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     assert.equal(turn(env, 'task-a').next, '통합 실행');

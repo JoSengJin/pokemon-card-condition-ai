@@ -1,3 +1,5 @@
+import { integrate } from './executor/taskIntegration.ts';
+import { reject } from './executor/taskApproval.ts';
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 import { getExecutor } from './runtime.ts';
@@ -13,7 +15,7 @@ export const reviewGate = createStep({
     if (!resumeData) return await wait();
     const task = ex.task(inputData.taskId);
     if (resumeData.decision === 'reject') {
-      if (task.status !== 'rejected') ex.reject(inputData.taskId, resumeData.reason ?? '');
+      if (task.status !== 'rejected') reject(ex, inputData.taskId, resumeData.reason ?? '');
       return bail({ taskId: inputData.taskId, outcome: 'rejected', detail: resumeData.reason ?? '사용자 거절' });
     }
     if (task.status !== 'approved' || task.approval?.sha !== resumeData.sha) return await wait('실행기 승인 기록과 재개 SHA가 다름');
@@ -31,10 +33,10 @@ export const integrateGate = createStep({
     if (resumeData.action === 'withdraw') return { ...inputData, outcome: 'withdrawn', detail: '사용자가 승인을 취소 — 재검토 실행으로 넘김' };
     if (resumeData.action === 'reject') {
       const task = ex.task(inputData.taskId);
-      if (task.status !== 'rejected') ex.reject(inputData.taskId, resumeData.reason ?? '통합 거절');
+      if (task.status !== 'rejected') reject(ex, inputData.taskId, resumeData.reason ?? '통합 거절');
       return { ...inputData, outcome: 'rejected', detail: resumeData.reason ?? '통합 거절' };
     }
-    const result = await ex.integrate(inputData.taskId);
+    const result = await integrate(ex, inputData.taskId);
     if (result.outcome === 'integration_blocked') return (await suspend({ waitingFor: 'integration_approval', sha: inputData.headSha ?? null, detail: result.detail })) as never;
     return { ...inputData, outcome: result.outcome, detail: result.detail };
   },

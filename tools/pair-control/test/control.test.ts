@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 import { recheckEnv } from '../src/executor/taskEnvironment.ts';
 import { acknowledgeUnknown, applyObservedExit } from '../src/executor/taskRecovery.ts';
 import { logTail, groupsOf } from '../src/executor/executorView.ts';
@@ -26,7 +27,7 @@ async function approveAndWait(env: Env, id: string) {
   const v = await verify(env, id);
   assert.equal(v.status, 'passed', JSON.stringify(v.items));
   const t = env.ex.task(id);
-  const a = await env.ex.approve(id, t.result!.headSha!);
+  const a = await approve(env.ex, id, t.result!.headSha!);
   await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
   return a;
 }
@@ -157,9 +158,9 @@ test('승인 후 SHA·기준 브랜치가 바뀌면 통합 거절, 재검토 후
     const mainBefore = gitOut(repo, 'rev-parse', 'HEAD');
     await env.ex.assign(task(env, 'task-a', { allowedFiles: ['src_a/'] }));
     const t = await toReview(env, 'task-a');
-    await assert.rejects(env.ex.approve('task-a', t.result!.headSha!), /작업 테스트가 통과하지 않음\(미실행\)/, '미실행은 통과가 아님');
+    await assert.rejects(approve(env.ex, 'task-a', t.result!.headSha!), /작업 테스트가 통과하지 않음\(미실행\)/, '미실행은 통과가 아님');
     await verify(env, 'task-a');
-    await assert.rejects(env.ex.approve('task-a', 'a'.repeat(40)), /현재 결과와 다름|현재 SHA/);
+    await assert.rejects(approve(env.ex, 'task-a', 'a'.repeat(40)), /현재 결과와 다름|현재 SHA/);
     await approveAndWait(env, 'task-a');
     assert.equal(status(env, 'task-a'), 'approved');
     assert.equal((await runInfo(t.runId))?.suspendedStep, 'integrate-gate');
@@ -240,7 +241,7 @@ test('실패·범위 밖 변경·결과 불명을 명확히 표시', async () =>
     const r = env.ex.task('task-b').result!;
     assert.equal(r.checksPassed, false);
     assert.deepEqual(r.outOfScope, ['outside-scope.txt']);
-    await assert.rejects(env.ex.approve('task-b', r.headSha!), /검사 실패/);
+    await assert.rejects(approve(env.ex, 'task-b', r.headSha!), /검사 실패/);
   } finally { env.cleanup(); }
 });
 

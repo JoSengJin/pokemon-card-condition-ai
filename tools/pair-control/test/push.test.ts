@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 // 푸시·되돌림 절차. 원격은 로컬 bare 저장소(합성)뿐이며 실제 GitHub에는 연결하지 않는다.
 import assert from 'node:assert/strict';
@@ -25,7 +26,7 @@ async function integrate(env: Env, name: string, file: string, extra: Record<str
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   await verify(env, name);
   const t = env.ex.task(name);
-  const a = await env.ex.approve(name, t.result!.headSha!);
+  const a = await approve(env.ex, name, t.result!.headSha!);
   await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
   await resumeStep(t.runId!, 'integrate-gate', { action: 'integrate' });
   return env.ex.task(name);

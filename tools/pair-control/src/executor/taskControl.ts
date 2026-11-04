@@ -1,3 +1,4 @@
+import { reject } from './taskApproval.ts';
 import { recheckEnv } from './taskEnvironment.ts';
 // 작업 제어: 승인 취소(승인됨 → 검토 단계), 작업 보관(목록에서 숨기기), 실행 환경 만들기(.venv). 에이전트를 다시 실행하지 않는다.
 import fs from 'node:fs';
@@ -58,7 +59,7 @@ export async function discardTask(ex: Executor, taskId: string, reason: string, 
   const prev = t.status;
   if (DISCARD_VIA_REJECT.includes(prev)) {
     const runId = t.runId, step = prev === 'approved' ? 'integrate-gate' : 'review-gate';
-    ex.reject(taskId, `폐기: ${why}`);
+    reject(ex, taskId, `폐기: ${why}`);
     if (runId && (prev === 'approved' || prev === 'review_pending')) await resume(runId, step, step === 'review-gate' ? { decision: 'reject', reason: why } : { action: 'reject', reason: why });
   } else if (!DISCARD_DIRECT.includes(prev)) {
     throw new UserError(prev === 'integrated' || prev === 'integrated_check_failed'

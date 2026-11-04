@@ -1,3 +1,4 @@
+import { approve, reject } from '../src/executor/taskApproval.ts';
 import { recheckEnv } from '../src/executor/taskEnvironment.ts';
 // 승인 취소·작업 보관. mock 프로세스 기반, 실제 모델 요청 없음.
 import assert from 'node:assert/strict';
@@ -13,7 +14,7 @@ async function toApproved(env: Env, id: string) {
   await waitFor(() => env.ex.task(id).status === 'review_pending', `${id} review`);
   assert.equal((await verify(env, id)).status, 'passed');
   const t = env.ex.task(id);
-  const a = await env.ex.approve(id, t.result!.headSha!);
+  const a = await approve(env.ex, id, t.result!.headSha!);
   await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
   assert.equal((await runInfo(t.runId))?.suspendedStep, 'integrate-gate');
   return env.ex.task(id);
@@ -37,7 +38,7 @@ test('승인 취소: 같은 SHA로 검토 단계 복귀, 에이전트 재실행 
     assert.equal((await runInfo(oldRun))?.status, 'success', '이전 실행은 withdraw로 끝남');
     assert.equal((await runInfo(t.runId))?.suspendedStep, 'review-gate');
 
-    const a = await env.ex.approve('task-a', sha);
+    const a = await approve(env.ex, 'task-a', sha);
     await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     await resumeStep(t.runId!, 'integrate-gate', { action: 'integrate' });
     await waitFor(() => env.ex.task('task-a').status === 'integrated', 'integrated');
@@ -54,7 +55,7 @@ test('승인 취소는 승인됨 상태에서만, 보관은 진행 중·결정 �
     await assert.rejects(withdrawApproval(env.ex, 'task-a', resumeStep, startReview), /승인됨 상태에서만/);
     assert.throws(() => setArchived(env.ex, 'task-a', true), /보관할 수 없음\(review_pending\)/);
 
-    env.ex.reject('task-a', '테스트 거절');
+    reject(env.ex, 'task-a', '테스트 거절');
     const archived = setArchived(env.ex, 'task-a', true);
     assert.ok(archived.archivedAt);
     assert.equal(archived.status, 'rejected', '상태·기록은 그대로');

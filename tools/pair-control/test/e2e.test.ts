@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 // 실제 사용자 흐름 회귀(합성 저장소 + mock 에이전트 + fake 리뷰 CLI). 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -59,7 +60,7 @@ test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 �
     assert.equal(env.ex.task(id).status, 'review_pending', '리뷰가 승인을 대신하지 않음');
 
     // 5) 사람 승인 → 통합 → 통합 후 검사
-    const a = await env.ex.approve(id, t.result!.headSha!);
+    const a = await approve(env.ex, id, t.result!.headSha!);
     assert.equal(a.reviewVerdict, 'approve');
     await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     assert.equal((await runInfo(t.runId))?.suspendedStep, 'integrate-gate');

@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 import { logTail } from '../src/executor/executorView.ts';
 // 작업 계약 파일 커밋·불변 검사·재시도 멱등성. 모델 요청 없음.
 import assert from 'node:assert/strict';
@@ -44,7 +45,7 @@ test('에이전트가 계약 파일을 바꾸면 Git 계약 검사 실패', asyn
     const r = env.ex.task('task-a').result!;
     assert.equal(r.checksPassed, false);
     assert.equal(r.checks.find((c) => c.name === '계약 파일 불변')?.ok, false);
-    await assert.rejects(env.ex.approve('task-a', r.headSha!), /검사 실패/);
+    await assert.rejects(approve(env.ex, 'task-a', r.headSha!), /검사 실패/);
   } finally { env.cleanup(); }
 });
 

@@ -1,3 +1,4 @@
+import { approve } from './executor/taskApproval.ts';
 import type { Mastra } from '@mastra/core/mastra';
 import type { Executor } from './executor/executor.ts';
 import { setRuntime } from './runtimeCore.ts';
@@ -8,7 +9,7 @@ export function bindRuntime(ex: Executor, mastra: Mastra) {
   ex.setResumer(async (runId, step, data) => { await resumeStep(runId, step, data); });
   ex.setMainOps({
     approve: async (taskId, sha) => {
-      const a = await ex.approve(taskId, sha, { requireHandoff: true });
+      const a = await approve(ex, taskId, sha, { requireHandoff: true });
       await resumeStep(ex.task(taskId).runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     },
     integrate: async (taskId) => {

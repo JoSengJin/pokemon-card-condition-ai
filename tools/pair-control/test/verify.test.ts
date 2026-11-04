@@ -1,3 +1,4 @@
+import { approve as approveTask } from '../src/executor/taskApproval.ts';
 // 작업 테스트(에이전트 종료 후 독립 실행)·통합 후 검사. 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -18,7 +19,7 @@ async function toReview(env: Env, id: string) {
 }
 async function approve(env: Env, id: string) {
   const t = env.ex.task(id);
-  const a = await env.ex.approve(id, t.result!.headSha!);
+  const a = await approveTask(env.ex, id, t.result!.headSha!);
   await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
 }
 const checkExecs = (env: Env, id: string) => Object.values(env.ex.state.executions).filter((e) => e.taskId === id && e.kind === 'check');
@@ -38,7 +39,7 @@ test('CLI 종료코드 0이어도 작업 테스트가 실패하면 승인 차단
     assert.deepEqual(bad.display.slice(0, 2), ['node', '-e']);
     assert.ok(bad.startedAt && bad.endedAt);
     assert.match(fs.readFileSync(bad.logPath!, 'utf8'), /boom/);
-    await assert.rejects(env.ex.approve('task-a', t.result!.headSha!), /작업 테스트가 통과하지 않음\(failed\)/);
+    await assert.rejects(approveTask(env.ex, 'task-a', t.result!.headSha!), /작업 테스트가 통과하지 않음\(failed\)/);
   } finally { env.cleanup(); }
 });
 
@@ -51,7 +52,7 @@ test('검사 명령 계약: 허용 실행 파일만, 학습·실험 진입점 �
     await env.ex.assign(task(env, 'task-b', { allowedFiles: ['src_b/'], checks: [] }));
     await toReview(env, 'task-b');
     await assert.rejects(env.ex.runChecks('task-b'), /계약에 작업 테스트가 없음/);
-    await assert.rejects(env.ex.approve('task-b', env.ex.task('task-b').result!.headSha!), /미실행/);
+    await assert.rejects(approveTask(env.ex, 'task-b', env.ex.task('task-b').result!.headSha!), /미실행/);
   } finally { env.cleanup(); }
 });
 
@@ -64,8 +65,8 @@ test('코드가 바뀌면 이전 작업 테스트로 승인 불가, 계약 파�
     const wt = env.fixture.worktrees['task-a'].path;
     fs.appendFileSync(path.join(wt, t.contractPath), '\n추가 지시\n');
     gitOut(wt, 'commit', '-qam', 'contract edit');
-    await assert.rejects(env.ex.approve('task-a', gitOut(wt, 'rev-parse', 'HEAD')), /현재 SHA·계약과 다름|현재 결과와 다름/);
-    await assert.rejects(env.ex.approve('task-a', t.result!.headSha!), /현재 결과와 다름/);
+    await assert.rejects(approveTask(env.ex, 'task-a', gitOut(wt, 'rev-parse', 'HEAD')), /현재 SHA·계약과 다름|현재 결과와 다름/);
+    await assert.rejects(approveTask(env.ex, 'task-a', t.result!.headSha!), /현재 결과와 다름/);
     await assert.rejects(env.ex.runChecks('task-a'), /코드 SHA가 바뀜/);
   } finally { env.cleanup(); }
 });
@@ -103,7 +104,7 @@ test('작업 테스트 중단·중복 실행 차단·재시작 시 이어서 실
     assert.equal(checkExecs(env, 'task-a').length, 1, '자동 재실행 없음');
     await waitFor(() => env.ex.task('task-c').verification?.status === 'unknown', 'unknown');
     assert.equal(env.ex.task('task-c').verification!.items[0].status, 'unknown');
-    await assert.rejects(env.ex.approve('task-a', env.ex.task('task-a').result!.headSha!), /interrupted/);
+    await assert.rejects(approveTask(env.ex, 'task-a', env.ex.task('task-a').result!.headSha!), /interrupted/);
     // 사용자가 다시 실행하면 처음부터
     assert.equal((await verify(env, 'task-a')).status, 'passed');
   } finally { env.cleanup(); }

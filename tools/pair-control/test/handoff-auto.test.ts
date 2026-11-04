@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain, handoffToMainAuto } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
@@ -108,16 +109,16 @@ test('자동 확인이 approve가 아니면 인계는 확인되지 않고 결과
   try {
     await readyForHandoff(env, 'task-a');
     const sha = env.ex.task('task-a').result!.headSha!;
-    await assert.rejects(env.ex.approve('task-a', sha, { requireHandoff: true }), /메인 인계가 끝나지 않음/);
+    await assert.rejects(approve(env.ex, 'task-a', sha, { requireHandoff: true }), /메인 인계가 끝나지 않음/);
     await handoffToMainAuto(env.ex, 'task-a');
     await waitFor(() => env.ex.task('task-a').review?.status === 'done', '리뷰 종료');
     const h = env.ex.task('task-a').handoff!;
     assert.equal(h.confirmedAt, undefined, 'approve가 아니면 자동 확인하지 않음');
     assert.equal(h.autoResult!.verdict, 'insufficient_evidence');
     assert.match(h.autoResult!.summary!, /fake codex review/);
-    await assert.rejects(env.ex.approve('task-a', sha, { requireHandoff: true }), /메인 확인이 끝나지 않음/);
+    await assert.rejects(approve(env.ex, 'task-a', sha, { requireHandoff: true }), /메인 확인이 끝나지 않음/);
     confirmHandoff(env.ex, 'task-a', '사람이 결과를 보고 확인');
-    const a = await env.ex.approve('task-a', sha, { requireHandoff: true });
+    const a = await approve(env.ex, 'task-a', sha, { requireHandoff: true });
     assert.equal(a.sha, sha);
     assert.ok(a.mainConfirmedAt, '확인 완료 기록이 승인에 남음');
   } finally { fs.rmSync(flag, { force: true }); env.cleanup(); }
@@ -131,6 +132,6 @@ test('승인 전제조건: 리뷰가 실행 중이면 승인할 수 없다', asy
     await handoffToMain(env.ex, 'task-a');
     confirmHandoff(env.ex, 'task-a');
     t.review = { reviewId: 'r', reviewer: 'codex', mode: 'real', sha, contractHash: t.contractHash, bundleDir: '', worktreeFingerprint: '', status: 'running', startedAt: 'x' };
-    await assert.rejects(env.ex.approve('task-a', sha, { requireHandoff: true }), /리뷰가 실행 중/);
+    await assert.rejects(approve(env.ex, 'task-a', sha, { requireHandoff: true }), /리뷰가 실행 중/);
   } finally { env.cleanup(); }
 });

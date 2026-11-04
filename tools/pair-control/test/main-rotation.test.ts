@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
@@ -38,7 +39,7 @@ async function ready(env: Env, name: string, dir: string) {
 /** 화면·API와 같은 연결: 승인은 기존 승인 함수와 workflow 재개로 수행한다. */
 function wire(env: Env) {
   env.ex.setMainOps({ approve: async (id, sha) => {
-    const a = await env.ex.approve(id, sha, { requireHandoff: true });
+    const a = await approve(env.ex, id, sha, { requireHandoff: true });
     await resumeStep(env.ex.task(id).runId!, 'review-gate', { decision: 'approve', sha: a.sha });
   } });
 }

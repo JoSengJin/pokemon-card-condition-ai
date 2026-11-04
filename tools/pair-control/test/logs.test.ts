@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 // 실시간 로그: 줄 단위 비밀 가림·즉시 기록·시간 제한, 통합 후 검사 실행 중 로그, 수동 모드 활동. 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -57,7 +58,7 @@ test('통합 후 검사: 실행 중에 로그가 먼저 보이고, 끝나면 완
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     await verify(env, 'task-a');
     const t = env.ex.task('task-a');
-    const a = await env.ex.approve('task-a', t.result!.headSha!);
+    const a = await approve(env.ex, 'task-a', t.result!.headSha!);
     await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     const integrating = resumeStep(t.runId!, 'integrate-gate', { action: 'integrate' });
 

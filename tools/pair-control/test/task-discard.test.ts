@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 // 작업 폐기(사유 기록·거절 흐름·보관함 이동), 끝난 작업 일괄 보관, 충돌 안내. mock 프로세스 기반, 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -25,7 +26,7 @@ test('폐기: 승인 대기·승인됨 작업은 거절 흐름으로 끝내고 �
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     assert.equal((await verify(env, 'task-a')).status, 'passed');
     const t0 = env.ex.task('task-a');
-    const a = await env.ex.approve('task-a', t0.result!.headSha!);
+    const a = await approve(env.ex, 'task-a', t0.result!.headSha!);
     await resumeStep(t0.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     assert.equal(env.ex.task('task-a').status, 'approved');
 

@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
@@ -41,7 +42,7 @@ async function ready(env: Env, name: string, opts: { approved?: boolean; confirm
   await handoffToMain(env.ex, name);
   if (opts.confirm !== false) confirmHandoff(env.ex, name, '합성 확인');
   const sha = env.ex.task(name).result!.headSha!;
-  if (opts.approved) { const a = await env.ex.approve(name, sha, { requireHandoff: true }); await resumeStep(env.ex.task(name).runId!, 'review-gate', { decision: 'approve', sha: a.sha }); }
+  if (opts.approved) { const a = await approve(env.ex, name, sha, { requireHandoff: true }); await resumeStep(env.ex.task(name).runId!, 'review-gate', { decision: 'approve', sha: a.sha }); }
   return sha;
 }
 

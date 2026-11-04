@@ -1,3 +1,4 @@
+import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 import { spawnSupervised } from '../src/executor/processSupervisor.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
@@ -128,7 +129,7 @@ async function integratedTaskA(e: Env) {
   await verify(e, 'task-a'); await handoffToMain(e.ex, 'task-a');
   const sha = e.ex.task('task-a').result!.headSha!;
   confirmHandoff(e.ex, 'task-a', '합성 검토');
-  const a = await e.ex.approve('task-a', sha, { requireHandoff: true });
+  const a = await approve(e.ex, 'task-a', sha, { requireHandoff: true });
   await resumeStep(e.ex.task('task-a').runId!, 'review-gate', { decision: 'approve', sha: a.sha });
   await resumeStep(e.ex.task('task-a').runId!, 'integrate-gate', { action: 'integrate' });
   assert.equal(e.ex.task('task-a').status, 'integrated');
