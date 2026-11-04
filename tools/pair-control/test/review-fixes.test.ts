@@ -1,3 +1,4 @@
+import { finishManual } from '../src/executor/taskManual.ts';
 import { spawnSupervised } from '../src/executor/processSupervisor.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
@@ -122,7 +123,7 @@ async function integratedTaskA(e: Env) {
   const wt = e.fixture.worktrees['task-a'].path;
   fs.appendFileSync(path.join(wt, 'src_a/file.txt'), 'review change\n');
   git(wt, 'add', '--', 'src_a/file.txt'); git(wt, 'commit', '-qm', 'synthetic task change');
-  await e.ex.finishManual('task-a');
+  await finishManual(e.ex, 'task-a');
   await waitFor(() => e.ex.task('task-a').status === 'review_pending', 'review');
   await verify(e, 'task-a'); await handoffToMain(e.ex, 'task-a');
   const sha = e.ex.task('task-a').result!.headSha!;
@@ -217,7 +218,7 @@ async function unverifiedResult(e: Env, name = 'task-a', dir = 'src_a') {
   const wt = e.fixture.worktrees[name].path;
   fs.appendFileSync(path.join(wt, dir, 'work.txt'), 'change\n');
   git(wt, 'add', '--', `${dir}/work.txt`); git(wt, 'commit', '-qm', `feat: ${name}`);
-  await e.ex.finishManual(name);
+  await finishManual(e.ex, name);
   await waitFor(() => e.ex.task(name).status === 'review_pending', `${name} review`);
 }
 const tickUntil = async (e: Env, cond: () => unknown, label: string) => waitFor(async () => { await pipelineTick(e.ex); return cond(); }, label, 30_000);

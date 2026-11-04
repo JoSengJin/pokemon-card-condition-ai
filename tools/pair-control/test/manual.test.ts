@@ -1,3 +1,6 @@
+import { recheckEnv } from '../src/executor/taskEnvironment.ts';
+import { recollect } from '../src/executor/taskCollect.ts';
+import { finishManual } from '../src/executor/taskManual.ts';
 import { startPrompt } from '../src/executor/executorPrompt.ts';
 // 수동 모드(에이전트 세션에서 작업)와 시작 프롬프트. 에이전트 세션은 테스트가 worktree에 직접 커밋해 흉내낸다.
 import assert from 'node:assert/strict';
@@ -38,7 +41,7 @@ test('수동 모드 전체 흐름: 프로세스 없이 소유권 유지 → 작�
 
     // 사용자가 에이전트 세션에서 작업(커밋)한 뒤 "작업 완료"
     const sha = sessionCommit(env, 'task-a', 'src_a/session.txt');
-    await env.ex.finishManual('task-a');
+    await finishManual(env.ex, 'task-a');
     await waitFor(() => status(env, 'task-a') === 'review_pending', 'review');
     const t = env.ex.task('task-a');
     assert.equal(env.ex.locks.holder('task:task-a'), null, '완료 후 잠금 해제');
@@ -58,7 +61,7 @@ test('수동 모드: 허용 밖 변경·미커밋 변경은 Git 검사 실패, �
     await startTask('task-a');
     sessionCommit(env, 'task-a', 'outside.txt');
     fs.writeFileSync(path.join(env.fixture.worktrees['task-a'].path, 'src_a', 'wip.txt'), '미커밋');
-    await env.ex.finishManual('task-a');
+    await finishManual(env.ex, 'task-a');
     await waitFor(() => status(env, 'task-a') === 'review_pending', 'review');
     let r = env.ex.task('task-a').result!;
     assert.equal(r.checksPassed, false);
@@ -72,14 +75,14 @@ test('수동 모드: 허용 밖 변경·미커밋 변경은 Git 검사 실패, �
     fs.rmSync(path.join(wt, 'src_a', 'wip.txt'));
     gitOut(wt, 'reset', '-q', '--hard', env.ex.task('task-a').contractSha);
     const sha2 = sessionCommit(env, 'task-a', 'src_a/ok.txt');
-    await env.ex.recollect('task-a');
+    await recollect(env.ex, 'task-a');
     r = env.ex.task('task-a').result!;
     assert.ok(r.checksPassed, JSON.stringify(r.checks));
     assert.equal(r.headSha, sha2);
     await verify(env, 'task-a');
     // 커밋을 더 하면 이전 작업 테스트로 승인할 수 없음
     const sha3 = sessionCommit(env, 'task-a', 'src_a/more.txt');
-    await env.ex.recollect('task-a');
+    await recollect(env.ex, 'task-a');
     assert.equal(env.ex.task('task-a').result!.headSha, sha3);
     await assert.rejects(env.ex.approve('task-a', sha3), /작업 테스트가 통과하지 않음|현재 SHA·계약과 다름/);
   } finally { env.cleanup(); }
@@ -108,10 +111,10 @@ test('수동 모드: 취소는 잠금을 풀고 workflow를 끝냄, 서버 재�
     await startTask('task-a'); // 취소 후 다시 시작 가능
     assert.equal(status(env, 'task-a'), 'manual_working');
     // 완료를 두 번 누르거나 작업 중이 아닐 때는 거절
-    await assert.rejects(env.ex.finishManual('task-c' as any), /task 없음/);
-    await env.ex.finishManual('task-b');
+    await assert.rejects(finishManual(env.ex, 'task-c' as any), /task 없음/);
+    await finishManual(env.ex, 'task-b');
     await waitFor(() => status(env, 'task-b') === 'review_pending', 'b review');
-    await assert.rejects(env.ex.finishManual('task-b'), /수동 작업 중이 아님/);
+    await assert.rejects(finishManual(env.ex, 'task-b'), /수동 작업 중이 아님/);
   } finally { env.cleanup(); }
 });
 
@@ -121,7 +124,7 @@ test('수동 모드: ./develop 경로 작업은 실행 준비(.venv) 전에는 �
     await manual(env, 'task-a', { allowedFiles: ['card_condition/new_worker.py'] });
     await assert.rejects(startTask('task-a'), /환경: 자체 \.venv\(없음\)/);
     makeVenv(env.fixture.worktrees['task-a'].path);
-    await env.ex.recheckEnv('task-a');
+    await recheckEnv(env.ex, 'task-a');
     await startTask('task-a');
     assert.equal(status(env, 'task-a'), 'manual_working');
   } finally { env.cleanup(); }

@@ -1,3 +1,4 @@
+import { finishManual } from '../src/executor/taskManual.ts';
 // 푸시·되돌림 절차. 원격은 로컬 bare 저장소(합성)뿐이며 실제 GitHub에는 연결하지 않는다.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -20,7 +21,7 @@ async function integrate(env: Env, name: string, file: string, extra: Record<str
   fs.mkdirSync(path.dirname(path.join(wt, file)), { recursive: true });
   fs.appendFileSync(path.join(wt, file), `${name} change\n`);
   git(wt, 'add', '--', file); git(wt, 'commit', '-qm', `feat: ${name}`);
-  await env.ex.finishManual(name);
+  await finishManual(env.ex, name);
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   await verify(env, name);
   const t = env.ex.task(name);

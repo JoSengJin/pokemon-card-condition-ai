@@ -1,3 +1,4 @@
+import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // 메인 역할 교대 실행: 새 메인 프로세스 실행·인수 확인·승인 범위 승계·세대 차단·한도 복구. 가짜 CLI만 쓰며 실제 모델 호출은 없다.
@@ -26,7 +27,7 @@ async function ready(env: Env, name: string, dir: string) {
   const wt = env.fixture.worktrees[name].path;
   fs.appendFileSync(path.join(wt, dir, 'work.txt'), 'change\n');
   gitOut(wt, 'add', '--', `${dir}/work.txt`); gitOut(wt, 'commit', '-qm', `feat: ${name}`);
-  await env.ex.finishManual(name);
+  await finishManual(env.ex, name);
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   await verify(env, name);
   await handoffToMain(env.ex, name);

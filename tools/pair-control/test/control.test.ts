@@ -1,3 +1,5 @@
+import { recheckEnv } from '../src/executor/taskEnvironment.ts';
+import { acknowledgeUnknown, applyObservedExit } from '../src/executor/taskRecovery.ts';
 import { logTail, groupsOf } from '../src/executor/executorView.ts';
 // mock 프로세스 기반 검증. 실제 Codex/Claude 모델 요청 없음.
 import assert from 'node:assert/strict';
@@ -138,9 +140,9 @@ test('서버 재시작: 살아 있는 프로세스·종료된 프로세스·결�
     assert.equal((await env.ex.launch('task-c', 'x')).ok, false);
     assert.equal(invocations(env), 3, '재시작 후 자동 재실행 없음');
     // 사용자 조작
-    await env.ex.applyObservedExit('task-b');
+    await applyObservedExit(env.ex, 'task-b');
     await waitFor(() => status(env, 'task-b') === 'review_pending', 'b review');
-    env.ex.acknowledgeUnknown('task-c');
+    acknowledgeUnknown(env.ex, 'task-c');
     assert.equal(status(env, 'task-c'), 'abandoned');
     assert.equal(env.ex.locks.holder('task:task-c'), null);
     assert.ok((await env.ex.cancel('task-a')).ok, '재시작 전 이 실행기가 만든 프로세스는 spec 경로로 소유 확인 후 중단 가능');
@@ -269,7 +271,7 @@ test('모델·worker 경로 작업은 worktree의 ./develop 잠금 안에서 실
     assert.ok(env.ex.task('task-a').envReadiness!.fixes.some((f) => f.includes('python3 -m venv .venv')), '해결 명령 안내');
     assert.equal(fs.existsSync(path.join(wt0, '.venv')), false, '가상환경을 자동으로 만들지 않음');
     makeVenv(wt0); // 사용자가 직접 준비
-    assert.equal((await env.ex.recheckEnv('task-a'))?.ready, true);
+    assert.equal((await recheckEnv(env.ex, 'task-a'))?.ready, true);
     await startTask('task-a');
     const ex = env.ex.state.executions[env.ex.task('task-a').lastExecId!];
     assert.deepEqual(ex.display.slice(0, 2), ['./develop', '--']);

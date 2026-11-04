@@ -1,3 +1,4 @@
+import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { startPrompt } from '../src/executor/executorPrompt.ts';
 import { cancelHandoff } from '../src/executor/handoffRecords.ts';
@@ -76,7 +77,7 @@ test('이양 메모: 이전 메인에게 인계되어 확인 전인 작업은 �
     const { execFileSync } = await import('node:child_process');
     execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@l', 'add', '--', 'src_a/w.txt'], { cwd: wt });
     execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@l', 'commit', '-qm', 'w'], { cwd: wt });
-    await env.ex.finishManual('task-a');
+    await finishManual(env.ex, 'task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     await verify(env, 'task-a');
     await handoffToMain(env.ex, 'task-a');

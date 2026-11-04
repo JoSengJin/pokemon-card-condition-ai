@@ -1,3 +1,4 @@
+import { finishManual } from '../src/executor/taskManual.ts';
 // 교대 후 연속 페어코딩: 새 메인이 인수 뒤 도착하는 구현 결과를 받아 검사→검토→통합→합성 원격 push까지 이어 처리하는지 확인한다.
 // 가짜 CLI·합성 bare 원격만 쓰며 실제 Codex/Claude 호출·실제 push는 없다(합성 계약/회귀 검사이지 실제 CLI 검증이 아니다).
 import assert from 'node:assert/strict';
@@ -51,7 +52,7 @@ async function manualResult(env: Env, name: string, dirName: string, extra: Reco
   const wt = env.fixture.worktrees[name].path;
   fs.appendFileSync(path.join(wt, dirName, 'work.txt'), content);
   git(wt, 'add', '--', `${dirName}/work.txt`); git(wt, 'commit', '-qm', `feat: ${name}`);
-  await env.ex.finishManual(name);
+  await finishManual(env.ex, name);
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
 }
 

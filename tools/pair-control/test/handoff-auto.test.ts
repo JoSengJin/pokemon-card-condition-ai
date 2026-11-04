@@ -1,3 +1,4 @@
+import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain, handoffToMainAuto } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // Codex 과금 가드(설정·로그인 방식)와 메인 인계 자동 확인. 가짜 codex만 쓰며 모델 요청·네트워크는 없다.
@@ -56,7 +57,7 @@ async function readyForHandoff(env: Env, name: string) {
   fs.mkdirSync(path.join(wt, 'src_a'), { recursive: true });
   fs.appendFileSync(path.join(wt, 'src_a/work.txt'), 'change\n');
   gitOut(wt, 'add', '--', 'src_a/work.txt'); gitOut(wt, 'commit', '-qm', 'feat: work');
-  await env.ex.finishManual(name);
+  await finishManual(env.ex, name);
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   await verify(env, name);
 }

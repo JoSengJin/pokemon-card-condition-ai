@@ -1,3 +1,4 @@
+import { collect as collectResult } from './executor/taskCollect.ts';
 import { createStep } from '@mastra/core/workflows';
 import { z } from 'zod';
 import { getExecutor } from './runtime.ts';
@@ -33,7 +34,7 @@ export const collect = createStep({
   id: 'collect', description: '전체 HEAD SHA·변경 파일·허용 범위·미커밋 변경 검사', inputSchema: Flow, outputSchema: Flow,
   execute: async ({ inputData, bail }) => {
     if (inputData.manual && inputData.cancelled) return bail({ taskId: inputData.taskId, outcome: 'cancelled', detail: '수동 작업 취소' });
-    const result = await getExecutor().collect(inputData.taskId, inputData.execId ?? null);
+    const result = await collectResult(getExecutor(), inputData.taskId, inputData.execId ?? null);
     if (inputData.cancelled) return bail({ taskId: inputData.taskId, outcome: 'cancelled', detail: '사용자 중단' });
     if (inputData.execId && inputData.exitCode !== 0) return bail({ taskId: inputData.taskId, outcome: 'failed', detail: `종료코드 ${inputData.exitCode}` });
     return { ...inputData, headSha: result.headSha, checksPassed: result.checksPassed };

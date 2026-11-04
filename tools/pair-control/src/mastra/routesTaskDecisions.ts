@@ -1,3 +1,4 @@
+import { acknowledgeUnknown } from '../executor/taskRecovery.ts';
 import { registerApiRoute } from '@mastra/core/server';
 import { UserError } from '../executor/executor.ts';
 import { resumeStep, startReview } from '../runtime.ts';
@@ -6,7 +7,7 @@ import { act, body, id } from './apiBase.ts';
 import { executor } from './serverContext.ts';
 
 export const taskDecisionRoutes = [
-  registerApiRoute('/pair/api/tasks/:id/ack-unknown', { method: 'POST', handler: act(async (c) => executor.acknowledgeUnknown(id(c))) }),
+  registerApiRoute('/pair/api/tasks/:id/ack-unknown', { method: 'POST', handler: act(async (c) => acknowledgeUnknown(executor, id(c))) }),
   registerApiRoute('/pair/api/tasks/:id/approve', { method: 'POST', handler: act(async (c) => {
     const task = executor.task(id(c)), { sha } = await body(c);
     const approval = await executor.approve(task.taskId, String(sha ?? ''), { requireHandoff: true });

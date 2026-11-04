@@ -1,3 +1,4 @@
+import { recheckEnv } from '../src/executor/taskEnvironment.ts';
 // 승인 취소·작업 보관. mock 프로세스 기반, 실제 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -72,7 +73,7 @@ test('환경 만들기: 고정 명령으로 .venv만 만들고 준비 완료, �
     await env.ex.assign(task(env, 'task-a', { env: 'python' }));
     const wt = env.ex.task('task-a').worktree;
     assert.equal(fs.existsSync(path.join(wt, '.venv')), false);
-    const before = await env.ex.recheckEnv('task-a');
+    const before = await recheckEnv(env.ex, 'task-a');
     assert.equal(before!.ready, false);
     assert.ok(before!.checks.some((c) => c.name === '자체 .venv' && !c.ok && c.detail === '없음'));
 

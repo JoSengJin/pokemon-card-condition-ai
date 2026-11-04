@@ -1,3 +1,4 @@
+import { recheckEnv } from './taskEnvironment.ts';
 // 작업 제어: 승인 취소(승인됨 → 검토 단계), 작업 보관(목록에서 숨기기), 실행 환경 만들기(.venv). 에이전트를 다시 실행하지 않는다.
 import fs from 'node:fs';
 import { isAllowed } from './contract.ts';
@@ -104,7 +105,7 @@ export async function createVenv(ex: Executor, taskId: string) {
   const r = await G.run('python3', ['-m', 'venv', '.venv'], real, 180_000, sanitizedChildEnv());
   record(ex, t, 'venv_created', { code: r.code, stderr: r.stderr.slice(0, 300) });
   if (r.code !== 0) throw new UserError(`python3 -m venv 실패(code ${r.code}): ${r.stderr.trim().slice(0, 300)}`);
-  return ex.recheckEnv(taskId);
+  return recheckEnv(ex, taskId);
 }
 
 /** 통합 후 검사 항목의 로그를 이어서 읽는다. 파일은 작업 상태에 기록된 항목에서만 찾는다(클라이언트가 경로를 주지 않음). */

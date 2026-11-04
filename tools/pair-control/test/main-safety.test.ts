@@ -1,3 +1,4 @@
+import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // 메인 교대 안전성 회귀: 검토(2026-10-29)에서 재현된 반례를 합성 fixture로 고정한다. 가짜 CLI·스텁만 쓰며 실제 모델 호출은 없다.
@@ -34,7 +35,7 @@ async function ready(env: Env, name: string, opts: { approved?: boolean; confirm
   const wt = env.fixture.worktrees[name].path;
   fs.appendFileSync(path.join(wt, 'src_a/work.txt'), 'change\n');
   git(wt, 'add', '--', 'src_a/work.txt'); git(wt, 'commit', '-qm', `feat: ${name}`);
-  await env.ex.finishManual(name);
+  await finishManual(env.ex, name);
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   await verify(env, name);
   await handoffToMain(env.ex, name);

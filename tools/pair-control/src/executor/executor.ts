@@ -1,3 +1,4 @@
+import { cancelManual } from './taskManual.ts';
 import { setStatus, releaseExecLocks } from './taskState.ts';
 import { spawnSupervised } from './processSupervisor.ts';
 import { runPostChecks } from './verificationPost.ts';
@@ -156,7 +157,7 @@ export class Executor {
   readonly probes: Partial<Record<'codex' | 'claude', Probe>> = {};
   private timer: NodeJS.Timeout | null = null;
   private logOffsets = new Map<string, number>();
-  private resumer: Resumer | null = null;
+  resumer: Resumer | null = null;
   private tripped: Alert | null = null;
   private ticking = false;
 
@@ -566,7 +567,7 @@ export class Executor {
   // ---------- 중단 ----------
   async cancel(taskId: string): Promise<{ ok: boolean; reason: string }> {
     const t = this.task(taskId);
-    if (t.status === 'manual_working') return this.cancelManual(taskId);
+    if (t.status === 'manual_working') return cancelManual(this, taskId);
     if (t.verification?.status === 'running' && !t.verification.items.some((item) => item.status === 'running')) {
       this.finishVerification(t, 'cancelled', '사용자 중단(검사 프로세스 시작 전)');
       return { ok: true, reason: '시작 전 작업 테스트 취소' };
@@ -624,101 +625,26 @@ export class Executor {
 
   // ---------- 수동 모드 ----------
   /** 사용자가 "작업 완료"를 눌렀다. 잠금을 풀고 workflow의 종료 대기 단계를 재개해 Git 계약 검사로 넘어간다. */
-  async finishManual(taskId: string) {
-    const t = this.task(taskId);
-    if (t.status !== 'manual_working' || !t.manual) throw new UserError(`수동 작업 중이 아님(${t.status})`);
-    if (!this.resumer || !t.runId) throw new UserError('workflow 연결 없음');
-    releaseExecLocks(this, t, t.manual.execId);
-    t.manual.endedAt = new Date().toISOString(); t.manual.ended = 'finished';
-    setStatus(this, t, 'collecting', '사용자가 작업 완료를 표시 · 결과 수집 중');
-    await this.resumer(t.runId, 'await-exit', { execId: 'manual', exitCode: 0, signal: null, cancelled: false });
-    return this.task(taskId);
-  }
 
-  async cancelManual(taskId: string): Promise<{ ok: boolean; reason: string }> {
-    const t = this.task(taskId);
-    if (t.status !== 'manual_working' || !t.manual) return { ok: false, reason: '수동 작업 중이 아님' };
-    releaseExecLocks(this, t, t.manual.execId);
-    t.manual.endedAt = new Date().toISOString(); t.manual.ended = 'cancelled';
-    setStatus(this, t, 'cancelled', '사용자가 수동 작업을 취소(에이전트 세션에서 진행한 변경은 worktree에 그대로 남음)');
-    if (this.resumer && t.runId) {
-      try { await this.resumer(t.runId, 'await-exit', { execId: 'manual', exitCode: null, signal: null, cancelled: true }); }
-      catch (err) { this.audit('resume_error', { taskId, error: (err as Error).message }); }
-    }
-    return { ok: true, reason: '수동 작업 취소 · 소유권 잠금 해제' };
-  }
+
+
 
   /** 검토 단계에서 에이전트가 커밋을 더 했을 때 결과를 다시 수집한다. 이전 SHA의 작업 테스트·리뷰는 자동으로 무효(SHA 불일치)가 된다. */
-  async recollect(taskId: string) {
-    const t = this.task(taskId);
-    if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 다시 수집(${t.status})`);
-    if (t.verification?.status === 'running' || t.review?.status === 'running') throw new UserError('작업 테스트나 리뷰가 실행 중');
-    return this.collect(taskId, t.result?.execId ?? null);
-  }
+
 
   /** 사용자가 가상환경 등을 준비한 뒤 실행 준비 상태를 다시 확인한다(설치는 하지 않음). */
-  async recheckEnv(taskId: string) {
-    const t = this.task(taskId);
-    t.preflight = await this.preflightChecks(t);
-    this.store.save();
-    return t.envReadiness;
-  }
+
 
   /** 결과 불명 확정: 프로세스 그룹이 없음을 확인한 뒤에만 잠금을 해제한다. */
-  acknowledgeUnknown(taskId: string) {
-    const t = this.task(taskId);
-    if (t.status !== 'unknown') throw new UserError('결과 불명 상태가 아님');
-    const ex = t.lastExecId ? this.state.executions[t.lastExecId] : null;
-    if (ex && this.groupAlive(ex.pgid)) throw new UserError(`프로세스 그룹 ${ex.pgid}가 아직 살아 있음`);
-    if (ex) { ex.status = 'abandoned'; releaseExecLocks(this, t, ex.execId); }
-    setStatus(this, t, 'abandoned', '사용자가 결과 불명을 확정(완료로 보지 않음)');
-  }
+
 
   /** 재시작 후 종료가 관찰된 실행을 사용자가 확인해 workflow await-exit 단계를 재개한다. */
-  async applyObservedExit(taskId: string) {
-    const t = this.task(taskId);
-    if (t.status !== 'exit_observed') throw new UserError('재시작 후 종료 관찰 상태가 아님');
-    const ex = this.state.executions[t.lastExecId!];
-    setStatus(this, t, 'collecting', '사용자 확인 후 결과 반영');
-    if (!this.resumer) throw new UserError('workflow 연결 없음');
-    await this.resumer(ex.runId, 'await-exit', { execId: ex.execId, exitCode: ex.exitCode ?? null, signal: ex.signal ?? null, cancelled: ex.status === 'cancelled' });
-  }
+
 
   // ---------- 결과 수집 ----------
-  async collect(taskId: string, execId: string | null) {
-    const t = this.task(taskId);
-    const ex = execId ? this.state.executions[execId] : null;
-    const checks: Check[] = [];
-    const add = (name: string, ok: boolean, detail: string) => checks.push({ name, ok, detail });
-    if (ex) add('종료코드', ex.exitCode === 0, `code=${ex.exitCode} signal=${ex.signal ?? '-'}${ex.spawnError ? ` spawn=${ex.spawnError}` : ''}`);
-    const branchHead = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
-    const head = await G.revParse(t.worktree, 'HEAD');
-    add('브랜치 HEAD 일치', !!head && head === branchHead, `HEAD ${head?.slice(0, 12)} / ${t.branch} ${branchHead?.slice(0, 12)}`);
-    const anc = !!head && (await G.isAncestor(t.worktree, t.contractSha, head));
-    add('계약 커밋 위의 작업', anc, anc ? `계약 ${t.contractSha.slice(0, 12)}..HEAD` : '계약 커밋의 후손이 아님');
-    const hashNow = head ? await contractHashAt(t.worktree, t.taskId, head) : null;
-    add('계약 파일 불변', hashNow === t.contractHash, hashNow === t.contractHash ? '등록 시 계약과 같음' : '계약 파일이 바뀌거나 사라짐(검사·승인 기준 무효)');
-    const commits = head && anc ? await G.commitsBetween(t.worktree, t.contractSha, head) : [];
-    add('전달 커밋 존재', commits.length > 0, `계약 이후 ${commits.length}개`);
-    const changed = head && anc ? await G.changedFiles(t.worktree, t.contractSha, head) : [];
-    const dirty = await G.dirtyFiles(t.worktree);
-    add('미커밋 변경 없음', dirty.length === 0, dirty.length ? dirty.join(', ') : '깨끗함');
-    const outOfScope = [...new Set([...changed, ...dirty])].filter((f) => !isAllowed(f, t.allowedFiles));
-    add('허용 파일 범위', outOfScope.length === 0, outOfScope.length ? `범위 밖: ${outOfScope.join(', ')}` : `${changed.length}개 모두 허용 목록 안`);
-    const checksPassed = checks.every((c) => c.ok);
-    t.result = { execId, headSha: head, commits, changedFiles: changed, dirtyFiles: dirty, outOfScope, checks, checksPassed, collectedAt: new Date().toISOString() };
-    const ok = !ex || (ex.exitCode === 0 && ex.status === 'exited');
-    setStatus(this, t, ok ? 'review_pending' : ex?.status === 'cancelled' ? 'cancelled' : 'failed',
-      ok ? (checksPassed ? '검토 대기' : '검토 대기(검사 실패 포함 — 승인 불가)') : ex?.status === 'cancelled' ? '사용자 중단' : `종료코드 ${ex?.exitCode ?? '없음'}${ex?.spawnError ? ` (${ex.spawnError})` : ''}`);
-    return t.result;
-  }
 
-  async diff(taskId: string) {
-    const t = this.task(taskId);
-    const head = t.result?.headSha;
-    if (!head) return '';
-    return G.diffText(t.worktree, t.baseSha, head);
-  }
+
+
 
   // ---------- 승인 ----------
   private async integrationState(t: Task, sha: string) {

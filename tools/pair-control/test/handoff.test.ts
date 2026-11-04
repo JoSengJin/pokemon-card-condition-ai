@@ -1,3 +1,5 @@
+import { recollect } from '../src/executor/taskCollect.ts';
+import { finishManual } from '../src/executor/taskManual.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { startPrompt } from '../src/executor/executorPrompt.ts';
 import { readHandoff, confirmHandoff, cancelHandoff } from '../src/executor/handoffRecords.ts';
@@ -23,7 +25,7 @@ async function manualDone(env: Env, name: string, file = 'src_a/work.txt', extra
   await env.ex.assign(task(env, name, { mode: 'manual', ...extra }));
   await startTask(name);
   const sha = file ? commit(env, name, file) : null;
-  await env.ex.finishManual(name);
+  await finishManual(env.ex, name);
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   return sha;
 }
@@ -37,7 +39,7 @@ test('누구 차례: 배정 → 에이전트 작업 → 사용자(검사·인계
     await startTask('task-a');
     assert.deepEqual([turn(env, 'task-a').who, turn(env, 'task-a').agent], ['implementer', 'claude']);
     const sha = commit(env, 'task-a', 'src_a/work.txt');
-    await env.ex.finishManual('task-a');
+    await finishManual(env.ex, 'task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     assert.match(turn(env, 'task-a').next, /메인에게 인계/);
     await verify(env, 'task-a');
@@ -83,7 +85,7 @@ test('인계 거절 조건: 커밋 없음·미커밋 변경·낡은 SHA·중복,
     fs.rmSync(path.join(env.fixture.worktrees['task-b'].path, 'src_b', 'wip.txt'));
     commit(env, 'task-b', 'src_b/more.txt');
     await assert.rejects(handoffToMain(env.ex, 'task-b'), /다시 수집/);
-    await env.ex.recollect('task-b');
+    await recollect(env.ex, 'task-b');
     const h = await handoffToMain(env.ex, 'task-b');
     assert.match(h.text, /작업 테스트: \*\*미실행 또는 이전 SHA 결과 — 통과가 아님\*\*/);
     await assert.rejects(handoffToMain(env.ex, 'task-b'), /이미 인계됨/);
@@ -94,7 +96,7 @@ test('인계 거절 조건: 커밋 없음·미커밋 변경·낡은 SHA·중복,
     await handoffToMain(env.ex, 'task-b');
     // 인계 후 코드가 바뀌면 낡은 인계: 확인 불가, 사용자가 다시 인계
     commit(env, 'task-b', 'src_b/after.txt');
-    await env.ex.recollect('task-b');
+    await recollect(env.ex, 'task-b');
     assert.match(turn(env, 'task-b').next, /다시 인계/);
     assert.throws(() => confirmHandoff(env.ex, 'task-b'), /코드가 바뀜/);
     await handoffToMain(env.ex, 'task-b');
