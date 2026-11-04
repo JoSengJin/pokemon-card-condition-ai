@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "edge-bb-ensemble-cv-20261104",
+  "reference_result": "artifacts/edge-bb-ensemble-cv-20261104/reference/result.json",
+  "acceptance": {
+    "max_fn": 18,
+    "max_fp": 59,
+    "no_new_errors": false,
+    "require_actual_point_guard": false
+  },
+  "code_changes": [
+    {
+      "path": "artifacts/edge-bb-ensemble-cv-20261104/worker.py",
+      "baseline": null
+    }
+  ],
+  "input_sha256": {
+    "artifacts/torch-cache/hub/checkpoints/dinov2_vitb14_pretrain.pth": "0b8b82f85de91b424aded121c7e1dcc2b7bc6d0adeea651bf73a13307fad8c73",
+    "artifacts/experiments/20261031T070156-6a9907df/oof_scores.json": "211a9eef2f8c7ba0d640b6306fcd56f17c8758e2795e6012bc56079d9b175004",
+    "tools/experiments/edge-back-grouped-cv-20261031/worker.py": "aa1aaea91277b54e0e02cd3a95c4a5785518dbc5d275d77c07fa75f9edaaeac3",
+    "tools/experiments/surface-vitb14-cv-20261104/worker.py": "dd5ed9141bdd3f5b8b90c9ee79aa1b0d5cd189c18c3e10d98ef4c8abf691a834",
+    "artifacts/inner-whitening-confounder-20261021/confounder_head.py": "c54864f7e0b51c5e05af9db44ef236f8976995ed68b48d749a3ce165bd919cef",
+    "card_condition/regions.py": "4d441c24f5ce11617a11f32fc03353241741d66c218bc98fe607583feb02c911",
+    "card_condition/local_wear_cnn.py": "91f0c875812baa947b7e4d5ae9d40de53427d1d94dc92d77e849d3f3c556005f",
+    "card_condition/side_experiment.py": "06162757d756525d70b4727a91bf435a16f768b2a9678eb57cd499bd37fbe87d",
+    "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+    "tools/experiments/edge-back-source-weight-20261030/worker.py": "b51abd8e4664fe5124f2b29528c59fe8bf1bf7ce0fad168ae31084146aadd017",
+    "tools/experiments/edge-back-pair-vs-control-m-20261031/worker.py": "a19628b8fc1c666afe9969ab6698284e1b4faa1da9c5858553c82d9819f92f55",
+    "artifacts/development-manifest-20261031o/coverage.json": "074d8e8f208de82de1ea9004744767d86116246d49a59f2fa757016832ef149c"
+  },
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "tracked_directory": "tools/experiments/edge-bb-ensemble-cv-20261104",
+  "coverage": "artifacts/development-manifest-20261031o/coverage.json",
+  "backbone_directory": "artifacts/torch-cache/hub/facebookresearch_dinov2_7764ea0f912e53c92e82eb78a2a1631e92725fc8",
+  "backbone_weights": "artifacts/torch-cache/hub/checkpoints/dinov2_vitb14_pretrain.pth",
+  "reference_note": "상수 0.5(행 대조용).",
+  "hypothesis": "표면(§87)·모서리(§90)에서 두 백본 평균이 약 +0.015의 일관된 소폭 개선을 냈다. 같은 방식이 후면 엣지(C1 후보 레시피, 개발 자료 788구역·137사진 그룹)에서도 AUC를 올리는지 본다.",
+  "change": "ViT-B/14 백본으로 같은 레시피(대조 head, 마지막 층 448px 토큰)를 같은 fold로 학습해 ViT-S/14 저장 out-of-fold 점수(20261031T070156-6a9907df)와 1:1 평균한다. 레시피·자료·fold·시드 불변, 한 번. §87·§90 결과를 본 뒤 정한 후속 가설.",
+  "success_criterion": "(결과 전 고정) 788구역 AUC가 ViT-S 대비 +0.03 이상이고 사진 그룹 짝지은 부트스트랩 차이 95% 하한 > 0.",
+  "failure_criterion": "미달이면 엣지에서 두 백본 평균의 이득 근거가 없다. 기준은 결과를 보고 바꾸지 않는다.",
+  "known_biases": "개발 교차검증, 독립 시험 아님. 표면·모서리 결과를 본 뒤 정한 후속 가설. 엣지 라벨의 카드·구역 불일치(§92). 추론 약 4배.",
+  "expected_limit": "진척 점수 반영 없음. 통과해도 독립 시험 전까지 일반화 개선 미확인.",
+  "status": "ready_to_run",
+  "criterion_min_delta_ci_lower": 0,
+  "rows": "artifacts/edge-bb-ensemble-cv-20261104/rows.json",
+  "expected_rows": 788,
+  "criterion_min_diff": 0.03,
+  "criterion_min_diff_lower": 0,
+  "expected_denominators": {
+    "train_val": [
+      788,
+      267
+    ]
+  },
+  "stored_oof": "artifacts/experiments/20261031T070156-6a9907df/oof_scores.json"
+}
