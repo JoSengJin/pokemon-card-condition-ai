@@ -1,3 +1,4 @@
+import { startReviewJob } from '../src/executor/reviewStart.ts';
 // 별도 리뷰 작업 연결(fake 리뷰 CLI). 모델 요청 없음.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -7,7 +8,7 @@ import { startTask } from '../src/runtime.ts';
 import { setup, task, verify, waitFor, type Env } from './helpers.ts';
 
 async function reviewed(env: Env, id: string, mockScenario: string) {
-  await env.ex.startReviewJob(id, { mockScenario: mockScenario as any });
+  await startReviewJob(env.ex, id, { mockScenario: mockScenario as any });
   return waitFor(() => { const r = env.ex.task(id).review; return r && r.status !== 'running' ? r : null; }, `${id} review`);
 }
 
@@ -19,7 +20,7 @@ test('Claude 결과를 고정 SHA 묶음으로 Codex 리뷰 작업에 등록, �
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     await verify(env, 'task-a');
     const t = env.ex.task('task-a');
-    await assert.rejects(env.ex.startReviewJob('task-a', { reviewer: 'claude' }), /다른 에이전트/);
+    await assert.rejects(startReviewJob(env.ex, 'task-a', { reviewer: 'claude' }), /다른 에이전트/);
     const r = await reviewed(env, 'task-a', 'approve');
     assert.equal(r.reviewer, 'codex');
     assert.equal(r.status, 'done'); assert.equal(r.verdict, 'approve'); assert.equal(r.sha, t.result!.headSha);
@@ -47,14 +48,14 @@ test('리뷰 출력 형식 오류·다른 SHA·실패·worktree 변경은 판정
     assert.equal((await reviewed(env, 'task-a', 'wrong-sha')).status, 'failed');
     assert.equal((await reviewed(env, 'task-a', 'fail')).status, 'failed');
     // 리뷰 도중 구현 worktree가 바뀌면 결과 무효
-    await env.ex.startReviewJob('task-a', { mockScenario: 'slow-approve' });
-    await assert.rejects(env.ex.startReviewJob('task-a', { mockScenario: 'approve' }), /이미 실행 중/);
+    await startReviewJob(env.ex, 'task-a', { mockScenario: 'slow-approve' });
+    await assert.rejects(startReviewJob(env.ex, 'task-a', { mockScenario: 'approve' }), /이미 실행 중/);
     fs.writeFileSync(path.join(env.fixture.worktrees['task-a'].path, 'src_a', 'stray.txt'), 'x');
     const moved = await waitFor(() => { const r = env.ex.task('task-a').review; return r && r.status !== 'running' ? r : null; }, 'slow');
     assert.equal(moved.status, 'failed'); assert.match(moved.note!, /worktree가 바뀜/);
     fs.rmSync(path.join(env.fixture.worktrees['task-a'].path, 'src_a', 'stray.txt'));
     // 중단
-    await env.ex.startReviewJob('task-a', { mockScenario: 'hang' });
+    await startReviewJob(env.ex, 'task-a', { mockScenario: 'hang' });
     assert.ok((await env.ex.cancel('task-a')).ok);
     await waitFor(() => env.ex.task('task-a').review?.status === 'cancelled', 'cancel');
     assert.equal(env.ex.locks.holder('review:task-a'), null);
@@ -67,7 +68,7 @@ test('실제 리뷰 모드는 차단 원인과 함께 거절(모델 요청 없�
     await env.ex.assign(task(env, 'task-a'));
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
-    await assert.rejects(env.ex.startReviewJob('task-a', { mode: 'real' }), /실제 codex 리뷰 차단: .*실제 모델 호출 차단/);
+    await assert.rejects(startReviewJob(env.ex, 'task-a', { mode: 'real' }), /실제 codex 리뷰 차단: .*실제 모델 호출 차단/);
     assert.equal(env.ex.locks.holder('review:task-a'), null);
     assert.equal(env.ex.task('task-a').review ?? null, null);
   } finally { env.cleanup(); }

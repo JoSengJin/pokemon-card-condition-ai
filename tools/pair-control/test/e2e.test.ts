@@ -1,3 +1,4 @@
+import { startReviewJob } from '../src/executor/reviewStart.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 // 실제 사용자 흐름 회귀(합성 저장소 + mock 에이전트 + fake 리뷰 CLI). 모델 요청 없음.
 import assert from 'node:assert/strict';
@@ -54,7 +55,7 @@ test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 �
     assert.match(log, /\[REDACTED\]/);
 
     // 4) 별도 리뷰(fake) — 판정은 기록만
-    await env.ex.startReviewJob(id, { mockScenario: 'approve' });
+    await startReviewJob(env.ex, id, { mockScenario: 'approve' });
     const rv = await waitFor(() => { const r = env.ex.task(id).review; return r && r.status !== 'running' ? r : null; }, 'review job');
     assert.equal(rv.reviewer, 'codex'); assert.equal(rv.verdict, 'approve');
     assert.equal(env.ex.task(id).status, 'review_pending', '리뷰가 승인을 대신하지 않음');

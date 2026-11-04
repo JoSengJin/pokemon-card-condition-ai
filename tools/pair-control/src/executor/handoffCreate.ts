@@ -1,3 +1,4 @@
+import { startReviewJob } from './reviewStart.ts';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as G from './git.ts';
@@ -32,7 +33,7 @@ export async function handoffToMain(ex: Executor, taskId: string) {
 export async function handoffToMainAuto(ex: Executor, taskId: string) {
   const handoff = await handoffToMain(ex, taskId);
   // 자동 확인은 구독 로그인 가드를 통과한 실제 CLI로만 한다. 막히면 인계는 유지하고 사람이 붙여 넣는 기존 방식으로 남긴다.
-  try { await ex.startReviewJob(taskId, { reviewer: ex.mainAgent, mode: 'real', forHandoff: true }); handoff.autoNote = `${ex.mainAgent} 자동 확인 시작(별도 프로세스, read-only)`; }
+  try { await startReviewJob(ex, taskId, { reviewer: ex.mainAgent, mode: 'real', forHandoff: true }); handoff.autoNote = `${ex.mainAgent} 자동 확인 시작(별도 프로세스, read-only)`; }
   catch (err) { handoff.autoNote = `자동 확인 안 함: ${(err as Error).message} — 안내문을 직접 전달하세요`; }
   return handoff;
 }
