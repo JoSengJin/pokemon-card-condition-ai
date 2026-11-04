@@ -1,3 +1,4 @@
+import { turnOf } from './executorView.ts';
 // 체크포인트 내용 구성: 저장된 작업 상태 + 실제 Git 헤드 + 진행 중 실행·푸시·승인·한도. 추정값은 넣지 않는다.
 import { execFileSync } from 'node:child_process';
 import { FULL_SHA } from './git.ts';
@@ -15,7 +16,7 @@ export async function buildCheckpoint(ex: Executor, why: string) {
     const result = t.result, handoff = t.handoff && !t.handoff.cancelledAt ? t.handoff : null;
     rows.push({
       taskId: t.taskId, agent: t.agent, mode: t.mode, status: t.status, worktree: t.worktree, branch: t.branch, baseSha: t.baseSha, headSha: result?.headSha ?? null, liveHead: sha,
-      contractSha: t.contractSha, contractHash: t.contractHash, allowedFiles: t.allowedFiles, occupying: OCCUPYING.includes(t.status), turn: ex.turnOf(t).label,
+      contractSha: t.contractSha, contractHash: t.contractHash, allowedFiles: t.allowedFiles, occupying: OCCUPYING.includes(t.status), turn: turnOf(t).label,
       doNotRetry: UNCERTAIN.includes(t.status) || t.verification?.status === 'unknown',
       handoff: handoff ? { to: handoff.to, headSha: handoff.headSha, confirmed: !!handoff.confirmedAt, auto: !!handoff.auto } : null,
       review: t.review ? { status: t.review.status, verdict: t.review.verdict ?? null } : null,

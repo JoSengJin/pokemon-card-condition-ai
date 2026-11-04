@@ -1,3 +1,4 @@
+import { logTail } from '../src/executor/executorView.ts';
 // 작업 계약 파일 커밋·불변 검사·재시도 멱등성. 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -26,7 +27,7 @@ test('계약은 작업 브랜치에만 커밋되고 개인 경로가 없으며 �
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     const ex = env.ex.state.executions[env.ex.task('task-a').lastExecId!];
-    assert.match(env.ex.logTail(ex.execId).text, /계약 읽음: # 작업 계약: task-a/);
+    assert.match(logTail(env.ex, ex.execId).text, /계약 읽음: # 작업 계약: task-a/);
     assert.ok(ex.display.join(' ').length < 400, 'CLI 인자는 계약 경로만(긴 지시는 파일)');
     const r = env.ex.task('task-a').result!;
     assert.ok(r.checksPassed, JSON.stringify(r.checks));

@@ -1,3 +1,4 @@
+import { logTail, groupsOf } from '../src/executor/executorView.ts';
 // mock 프로세스 기반 검증. 실제 Codex/Claude 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
@@ -80,7 +81,7 @@ test('파일 소유권·API 그룹·공용 설정 충돌과 중복 시작 차단
     const b = await env.ex.launch('task-b', 'manual');
     assert.equal(b.ok, false, '파일이 달라도 API 계약 그룹이 같으면 직렬화');
     assert.ok((b as any).conflicts.some((x: any) => x.kind === 'group' && x.detail === 'api:observation'));
-    assert.deepEqual(env.ex.groupsOf(env.ex.task('task-d')), ['shared-config']);
+    assert.deepEqual(groupsOf(env.ex.task('task-d')), ['shared-config']);
     assert.equal(invocations(env), 1, '거절된 시작은 프로세스를 만들지 않음');
 
     // 잠금 파일은 프로세스를 넘어 원자적(O_EXCL)
@@ -98,7 +99,7 @@ test('중단은 이 실행기가 만든 프로세스 그룹만 정리(손자 프
     await env.ex.assign(task(env, 'task-a', { mockScenario: 'spawn-child' }));
     await startTask('task-a');
     const ex = env.ex.state.executions[env.ex.task('task-a').lastExecId!];
-    const log = await waitFor(() => { const t = env.ex.logTail(ex.execId).text; return /grandchild pid=(\d+)/.exec(t); }, 'grandchild');
+    const log = await waitFor(() => { const t = logTail(env.ex, ex.execId).text; return /grandchild pid=(\d+)/.exec(t); }, 'grandchild');
     const grandchild = Number(log[1]);
     assert.ok(alive(grandchild));
     const r = await env.ex.cancel('task-a');
@@ -273,7 +274,7 @@ test('모델·worker 경로 작업은 worktree의 ./develop 잠금 안에서 실
     const ex = env.ex.state.executions[env.ex.task('task-a').lastExecId!];
     assert.deepEqual(ex.display.slice(0, 2), ['./develop', '--']);
     const wt = env.fixture.worktrees['task-a'].path;
-    await waitFor(() => /pid=/.test(env.ex.logTail(ex.execId).text), 'started');
+    await waitFor(() => /pid=/.test(logTail(env.ex, ex.execId).text), 'started');
     let code = 0;
     try { execFileSync(path.join(wt, 'develop'), ['--check'], { cwd: wt, stdio: 'pipe' }); } catch (e: any) { code = e.status; }
     assert.equal(code, 1, '실행 중에는 같은 worktree의 ./develop 잠금이 사용 중');

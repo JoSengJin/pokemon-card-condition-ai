@@ -1,3 +1,4 @@
+import { turnOf } from '../src/executor/executorView.ts';
 // 메인 에이전트 인계: 누구 차례 상태, 인계 문서(커밋하지 않음), 확인·취소, SHA 변경 시 낡은 인계.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -23,7 +24,7 @@ async function manualDone(env: Env, name: string, file = 'src_a/work.txt', extra
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   return sha;
 }
-const turn = (env: Env, id: string) => env.ex.turnOf(env.ex.task(id));
+const turn = (env: Env, id: string) => turnOf(env.ex.task(id));
 
 test('누구 차례: 배정 → 에이전트 작업 → 사용자(검사·인계) → 메인 확인 중 → 사용자(승인) → 통합', async () => {
   const env = setup();

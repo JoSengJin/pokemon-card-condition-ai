@@ -8,7 +8,7 @@ import type { PairConfig } from './config.ts';
 import { appendEvent, Store, writeJsonAtomic } from './store.ts';
 import { LockDir } from './locks.ts';
 import * as G from './git.ts';
-import { conflicts, effectiveGroups, isAllowed, needsDevelopLock, TaskInput, type ConflictReason, type TaskInputT } from './contract.ts';
+import { conflicts, isAllowed, needsDevelopLock, TaskInput, type ConflictReason, type TaskInputT } from './contract.ts';
 import { chargeRisks, mockPlan, probe, realPlan, realReadiness, type LaunchPlan, type Probe } from './adapters.ts';
 import { scanArgs } from './nocharge.ts';
 import { runLogged } from './logstream.ts';
@@ -26,6 +26,8 @@ import { pipelineTick } from './pipelineTick.ts';
 import { advanceSessionLaunch } from './mainSessionLaunch.ts';
 import { handoverAfterLimit } from './mainLimit.ts';
 import { onLimitHit } from './limitScope.ts';
+import { UserError } from './errors.ts';
+export { UserError } from './errors.ts';
 
 export type TaskStatus =
   | 'assigned' | 'blocked' | 'starting' | 'running' | 'collecting' | 'cancelling' | 'cancelled' | 'failed'
@@ -625,27 +627,7 @@ export class Executor {
 
   // ---------- 메인 에이전트 인계 ----------
   /** 지금 누구 차례인지. 상태에서 파생하며 저장하지 않는다. 에이전트를 자동으로 부르지 못하므로 전환은 사용자가 한다. */
-  turnOf(t: Task): { who: 'user' | 'implementer' | 'main' | 'tool'; agent?: 'codex' | 'claude'; label: string; next: string } {
-    const impl = { who: 'implementer' as const, agent: t.agent };
-    switch (t.status) {
-      case 'assigned': case 'blocked': case 'cancelled': case 'rejected': case 'abandoned': case 'failed':
-        return { who: 'user', label: '사용자', next: '시작(또는 사유 확인 후 다시 시작)' };
-      case 'manual_working': return { ...impl, label: `${t.agent} 세션에서 작업 중`, next: '에이전트가 끝나면 "작업 완료 — 결과 수집"' };
-      case 'starting': case 'running': case 'collecting': case 'cancelling': return { ...impl, label: `${t.agent} 실행 중(도구가 감독)`, next: '종료 확인을 기다림' };
-      case 'orphan_running': case 'exit_observed': case 'unknown': return { who: 'user', label: '사용자', next: '재시작 후 상태 확인' };
-      case 'review_pending': {
-        const h = t.handoff;
-        if (!h || h.cancelledAt) return { who: 'user', label: '사용자', next: '작업 테스트·diff 확인 후 "메인에게 인계"' };
-        if (h.headSha !== t.result?.headSha) return { who: 'user', label: '사용자', next: '인계 후 코드가 바뀜 — 다시 인계' };
-        if (!h.confirmedAt) return { who: 'main', agent: h.to, label: `${h.to} 확인 중`, next: '메인이 확인을 끝내면 "메인 확인 완료"' };
-        return { who: 'user', label: '사용자', next: '메인 확인 완료 — 승인 또는 거절' };
-      }
-      case 'approved': case 'integration_blocked': return { who: 'user', label: '사용자', next: '통합 실행' };
-      case 'integrating': return { who: 'tool', label: '도구가 통합 중', next: '완료를 기다림' };
-      case 'integrated': return { who: 'user', label: '사용자', next: '푸시 준비' };
-      default: return { who: 'user', label: '사용자', next: '상태 확인' };
-    }
-  }
+
 
   private async handoffText(t: Task, head: string, main: 'codex' | 'claude'): Promise<string> {
     const log = (await G.run('git', ['log', '--reverse', '--format=%H%x09%P%x09%s', `${t.contractSha}..${head}`], t.worktree)).stdout.trim().split('\n').filter(Boolean);
@@ -1220,29 +1202,8 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     this.store.save();
   }
 
-  // ---------- 화면용 ----------
-  logTail(execId: string, from = 0, max = 64_000) {
-    const ex = this.state.executions[execId];
-    if (!ex) throw new UserError('실행 없음');
-    try {
-      const size = fs.statSync(ex.logPath).size;
-      const start = Math.max(from, size - max);
-      const fd = fs.openSync(ex.logPath, 'r'); const buf = Buffer.alloc(size - start);
-      fs.readSync(fd, buf, 0, buf.length, start); fs.closeSync(fd);
-      return { text: buf.toString(), next: size };
-    } catch { return { text: '', next: from }; }
-  }
-
-  async refreshProbes() {
-    this.probes.codex = await probe('codex', this.cfg);
-    this.probes.claude = await probe('claude', this.cfg);
-    return this.probes;
-  }
-
-  groupsOf(t: Task) { return effectiveGroups(t); }
 }
 
-export class UserError extends Error {}
 
 const SECRET_PATTERNS = [/sk-ant-[A-Za-z0-9_-]{8,}/g, /sk-[A-Za-z0-9_-]{16,}/g, /gh[pousr]_[A-Za-z0-9]{20,}/g, /Bearer\s+[A-Za-z0-9._-]{16,}/g];
 function redact(s: string) { return SECRET_PATTERNS.reduce((acc, re) => acc.replace(re, '[REDACTED]'), s); }

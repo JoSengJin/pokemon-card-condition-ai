@@ -1,3 +1,4 @@
+import { logTail, refreshProbes } from '../src/executor/executorView.ts';
 // 실제 CLI 경로의 무과금 조건. 가짜 claude/codex 실행 파일만 사용하며 모델 요청·설치·로그인은 없다.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -23,7 +24,7 @@ const withEnv = async (k: string, v: string, fn: () => Promise<void>) => {
 test('차단 원인과 해결 조건: 기본값은 호출 차단·구독 미확인, 둘 다 켜야 실제 모드 가능', async () => {
   const env = setup({ cli: fakeCli });
   try {
-    await env.ex.refreshProbes();
+    await refreshProbes(env.ex);
     const r0 = realReadiness('claude', env.ex.probes.claude, env.cfg);
     assert.deepEqual(codes(r0), ['real_calls_disabled', 'subscription_unconfirmed']);
     assert.ok(r0.blockers.every((b) => b.fix.length > 5));
@@ -59,7 +60,7 @@ test('Claude 설정: apiKeyHelper·env의 API 키 이름·claudeai 아닌 로그
     assert.deepEqual(scanClaudeSettings({ home: env.cfg.homeDir }).map((r) => r.code), ['settings_unreadable']);
 
     writeSettings(env, userDir, { apiKeyHelper: 'x', env: { OPENAI_API_KEY: fakeSecret('zzzz') } });
-    await env.ex.refreshProbes();
+    await refreshProbes(env.ex);
     const rr = realReadiness('claude', env.ex.probes.claude, env.cfg);
     assert.ok(!rr.available);
     for (const tag of ['helper', 'envval', 'zzzz']) assert.ok(!JSON.stringify(rr).includes(fakeSecret(tag)), `설정의 값(${tag})은 어디에도 나오지 않음`);
@@ -78,7 +79,7 @@ test('API 키 환경변수가 있으면 실제 실행 시작 거부, 프로젝�
       await assert.rejects(startTask('task-a'), /무과금: paid_env/);
       assert.ok(!(env.ex.task('task-a').statusReason ?? '').includes(antKey), '환경변수 값은 사유에 나오지 않음');
       assert.match(env.ex.task('task-a').statusReason ?? '', /ANTHROPIC_API_KEY/);
-      await env.ex.refreshProbes();
+      await refreshProbes(env.ex);
       assert.ok(codes(realReadiness('claude', env.ex.probes.claude, env.cfg)).includes('paid_env'));
     });
     // 프로젝트 설정
@@ -89,7 +90,7 @@ test('API 키 환경변수가 있으면 실제 실행 시작 거부, 프로젝�
     await startTask('task-a');
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     const ex = env.ex.state.executions[env.ex.task('task-a').lastExecId!];
-    const log = env.ex.logTail(ex.execId).text;
+    const log = logTail(env.ex, ex.execId).text;
     assert.match(log, /ANTHROPIC_API_KEY: absent OPENAI_API_KEY: absent/);
   } finally { env.cleanup(); }
 });
@@ -102,7 +103,7 @@ test('가짜 claude로 실제 어댑터 경로: 문서 옵션만 사용, --bare 
     await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
     const t = env.ex.task('task-a');
     const ex = env.ex.state.executions[t.lastExecId!];
-    const log = env.ex.logTail(ex.execId).text;
+    const log = logTail(env.ex, ex.execId).text;
     assert.match(log, /args: --print --permission-mode acceptEdits --allowedTools=/);
     assert.ok(!/--bare|--max-budget-usd|--betas/.test(log));
     assert.ok(log.includes(CLAUDE_ALLOWED_TOOLS[0]) && log.includes('Bash(git commit *)'));
@@ -121,7 +122,7 @@ test('금지 옵션 검사와 계획 거절 조건', async () => {
   assert.equal(scanArgs(['--max-budget-usd=5', '--betas', 'x'])[0].code, 'forbidden_flag');
   const env = setup({ ...real });
   try {
-    await env.ex.refreshProbes();
+    await refreshProbes(env.ex);
     const t = await env.ex.assign(task(env, 'task-a', { mode: 'real' }));
     const plan = realPlan(t, env.ex.probes.claude!, env.cfg);
     assert.ok(!('refused' in plan));
@@ -147,7 +148,7 @@ test('한도 도달은 공급자별 정지: 그 공급자만 막고 다른 공�
     assert.equal(env.trips.length, 0, '"extra usage" 권유 문구가 섞여도 서비스를 끄지 않음');
     await waitFor(() => env.ex.task('task-a').status === 'failed', 'failed');
     await assert.rejects(startTask('task-c'), /구독 한도/); // 같은 공급자는 다른 작업으로도 시작 불가
-    await env.ex.refreshProbes();
+    await refreshProbes(env.ex);
     assert.ok(codes(realReadiness('claude', env.ex.probes.claude, env.cfg, { limit: env.ex.limitFor('claude') })).includes('limit_hit'));
     await startTask('task-b'); // 한도에 닿지 않은 codex는 계속 실행
     await waitFor(() => env.ex.task('task-b').status === 'review_pending', 'codex review');
@@ -188,7 +189,7 @@ test('가짜 codex로 실제 어댑터 경로: exec --cd --sandbox, API 키 미�
     await startTask('task-b');
     await waitFor(() => env.ex.task('task-b').status === 'review_pending', 'review');
     const ex = env.ex.state.executions[env.ex.task('task-b').lastExecId!];
-    const log = env.ex.logTail(ex.execId).text;
+    const log = logTail(env.ex, ex.execId).text;
     assert.match(log, /args: exec --cd .* --sandbox workspace-write/);
     assert.match(log, /OPENAI_API_KEY: absent CODEX_API_KEY: absent/);
     assert.ok(env.ex.task('task-b').result!.checksPassed);

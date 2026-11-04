@@ -1,3 +1,4 @@
+import { refreshProbes } from '../executor/executorView.ts';
 import { loadConfig } from '../executor/config.ts';
 import { Executor } from '../executor/executor.ts';
 import { notifyUser } from '../executor/freeGuard.ts';
@@ -14,4 +15,4 @@ export const executor = new Executor(cfg, {
   },
 });
 executor.guard.checkEnv();
-void executor.refreshProbes();
+void refreshProbes(executor);
