@@ -36,7 +36,7 @@ test('E. 실제 관제 화면(브라우저)이 연속 처리 영역을 그린다
     const send = (code: number, type: string, body: string) => { res.writeHead(code, { 'content-type': type }); res.end(body); };
     if (u.pathname === '/pair') return send(200, 'text/html; charset=utf-8', fs.readFileSync(path.join(toolRoot, 'src/ui/page.html'), 'utf8'));
     if (u.pathname.startsWith('/pair/static/')) return send(200, 'text/javascript; charset=utf-8', fs.readFileSync(path.join(toolRoot, 'src/ui/js', path.basename(u.pathname)), 'utf8'));
-    if (u.pathname === '/pair/api/state') return send(200, 'application/json', JSON.stringify({ ok: true, data: await snapshot() }));
+    if (u.pathname === '/pair/api/state') return send(200, 'application/json', JSON.stringify({ ok: true, data: await snapshot(pipelineView(e.ex)) }));
     return send(200, 'application/json', JSON.stringify({ ok: true, data: null }));
   });
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;

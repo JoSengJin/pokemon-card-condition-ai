@@ -3,9 +3,9 @@
   "edges": [
     {
       "from": "actionDispatch.ts:dispatchAction",
-      "to": "runtime.ts:approve",
+      "to": "runtimeBind.ts:approve",
       "weight": 1,
-      "evidence": "dispatchAction의 `ops = ex.mainOps` 직접 호출(ops.approve). mainOps는 runtime.ts bindRuntime이 ex.setMainOps({approve,...})로 넣은 객체",
+      "evidence": "dispatchAction의 `ops = ex.mainOps` 직접 호출(ops.approve). mainOps는 runtimeBind.ts bindRuntime이 ex.setMainOps({approve,...})로 넣은 객체",
       "via": "ops.approve",
       "resolves": [
         "ops.approve"
@@ -13,7 +13,7 @@
     },
     {
       "from": "actionDispatch.ts:dispatchAction",
-      "to": "runtime.ts:integrate",
+      "to": "runtimeBind.ts:integrate",
       "weight": 1,
       "evidence": "ops.integrate — 위와 같은 MainOps 연결",
       "via": "ops.integrate",
@@ -23,7 +23,7 @@
     },
     {
       "from": "actionDispatch.ts:dispatchAction",
-      "to": "runtime.ts:assign",
+      "to": "runtimeBind.ts:assign",
       "weight": 1,
       "evidence": "ops.assign — 위와 같은 MainOps 연결",
       "via": "ops.assign",
