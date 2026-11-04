@@ -54,3 +54,12 @@ goal: 로컬 main의 미통합 커밋 22개(`83965b5`~`d4cc08f`)를 Codex가 검
 - 미검증: 코드 구조 호출 깊이, `HTML_REPORTING.md` 요건 충족, 원격 push.
 - 리스크: 라벨 의미(표면 '화이트닝' 기준, §97 재정정), D1 봉인 규칙 위반(기술 분석), 사용자 결정 대기(worktree 전환).
 - 롤백: 커밋 단위 `git revert`. 전체 되돌리기는 `origin/main`(`9daa425`)으로의 reset이지만 force push 없이 로컬 reset은 별도 사용자 지시가 있을 때만.
+
+## Codex 검토·통합 기록 (2026-11-05)
+- 전달 최종 SHA `987480bf4bb3bf0008403d63317f33b1ebb6eea5`, 실제 범위 23커밋/32파일. main에 이미 포함.
+- 전체 테스트 정상 권한 재실행: 999개 OK, 136.730초. 검증 소스는 위 SHA, 이후 변경은 보고 문서/HTML/공백뿐.
+- worker 8함수는 사용자 “이번엔 그냥 둬”에 따라 과거 증거로 보존. CLI는 AST로 6전이 경로 확인(최대4 초과), 동적 경로 최대 미인증. 구조 통과 주장 없음.
+- 과거 성능 HTML 요건은 개선 성공 여부와 무관하게 적용되며 미충족으로 기록. 이번 합성/회귀 성과·진척 HTML: `docs/collaboration/reports/codex-integration-20261105.html`.
+- 상세 checks/변경파일/리스크/미검증/롤백: `docs/collaboration/reports/codex-integration-20261105.md`. 열기 및 원격 동기화 실제 결과는 로컬 `artifacts/codex-integration-20261105/{html-open,sync}.json`과 최종 인계 참조.
+
+HTML 열기 실제 결과: macOS 기본 앱은 -10661 오류로 실패. Codex 브라우저 패널 열기는 queued(요청 접수)이며 실제 표시/렌더는 미확인. 정적 HTML 파싱 및 점수/SHA/테스트/리스크 내용 대조는 통과.
