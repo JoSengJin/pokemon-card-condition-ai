@@ -1,3 +1,4 @@
+import { spawnSupervised } from '../src/executor/processSupervisor.ts';
 import { handoffToMain } from '../src/executor/handoffCreate.ts';
 import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // 연속 관제 통합 검토(2026-10-29) 반례 회귀: 공급자별 한도, 자동 push 커밋 범위, 조건 미확정 보류, selfReview 승인 선택, 정지·spawn 오류, 재시작 정책, 구조 기준.
@@ -342,7 +343,7 @@ test('G. stop() 뒤 연속 처리는 새 검사·모델 턴을 시작하지 않�
 test('G. 감독 프로세스 시작 실패는 예외를 던지고 프로세스 전체 예외로 번지지 않으며 감사 기록에 실행 ID가 남는다', { timeout: 30_000 }, async () => {
   const e = setup();
   try {
-    assert.throws(() => (e.ex as any).spawnSupervised({ taskId: 'x', agent: 'claude', mode: 'mock' }, { kind: 'agent', runId: 'r', cwd: path.join(e.dir, 'no-such-dir'), command: process.execPath, args: [], display: [] }), /감독 프로세스 시작 실패/);
+    assert.throws(() => spawnSupervised(e.ex, { taskId: 'x', agent: 'claude', mode: 'mock' }, { kind: 'agent', runId: 'r', cwd: path.join(e.dir, 'no-such-dir'), command: process.execPath, args: [], env: {}, display: [] }), /감독 프로세스 시작 실패/);
     const log = path.join(e.cfg.stateDir, 'events.jsonl');
     const row = await waitFor(() => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).find((x) => x.type === 'supervisor_spawn_error') : null), 'spawn 오류 감사 기록');
     assert.ok(row.execId, '실행 ID가 기록됨(undefined 아님)');

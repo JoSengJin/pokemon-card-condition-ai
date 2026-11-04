@@ -1,8 +1,10 @@
+import { setStatus, releaseExecLocks } from './taskState.ts';
+import { spawnSupervised } from './processSupervisor.ts';
 import { runPostChecks } from './verificationPost.ts';
 import { worktreeFingerprint } from './reviewFingerprint.ts';
 // Node 실행기: 작업 소유권·CLI 프로세스·Git 검사·취소·상태 저장·통합.
 // Mastra workflow는 단계·승인 대기를 맡고, 실제 프로세스와 Git 상태의 근거는 이 실행기가 가진다.
-import { spawn, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -164,7 +166,7 @@ export class Executor {
     this.locks = new LockDir(path.join(cfg.stateDir, 'locks'));
     this.guard = new FreeGuard(cfg.stateDir, (a) => {
       this.tripped = a;
-      this.event('free_guard_trip', { ...a });
+      this.audit('free_guard_trip', { ...a });
       this.cancelAll('무료 가드 발동');
       opts.onTrip?.(a);
     }, (a) => onLimitHit(this, a)); // 한도 출처의 공급자별 처리(limitScope.ts)
@@ -197,18 +199,13 @@ export class Executor {
   /** 사용자가 한도가 풀렸음을 확인했을 때만 호출한다. 재시도·크레딧 구매는 하지 않는다. */
   clearLimit() {
     if (!this.state.limit) throw new UserError('한도 도달 상태가 아님');
-    this.event('limit_cleared', { was: this.state.limit.at });
+    this.audit('limit_cleared', { was: this.state.limit.at });
     this.state.limit = null;
     this.store.save();
     return null;
   }
 
-  private event(type: string, data: Record<string, unknown>) { appendEvent(this.cfg.stateDir, { type, lifetime: this.lifetime, ...data }); }
-  private setStatus(t: Task, s: TaskStatus, reason?: string) {
-    t.status = s; t.statusReason = reason; t.updatedAt = new Date().toISOString();
-    appendEvent(this.cfg.stateDir, { type: 'task_status', lifetime: this.lifetime, taskId: t.taskId, status: s, reason });
-    this.store.save();
-  }
+
 
   task(id: string) {
     const t = this.state.tasks[id];
@@ -234,11 +231,11 @@ export class Executor {
     try {
       const cc = await commitContract(worktree, input);
       t.contractSha = cc.contractSha; t.contractHash = cc.contractHash;
-      this.event('contract_committed', { taskId: t.taskId, contractSha: cc.contractSha, reused: cc.reused });
+      this.audit('contract_committed', { taskId: t.taskId, contractSha: cc.contractSha, reused: cc.reused });
     } catch (err) { throw new UserError((err as Error).message); }
     t.preflight = await this.preflightChecks(t);
     this.state.tasks[t.taskId] = t;
-    this.event('task_assigned', { taskId: t.taskId, agent: t.agent, mode: t.mode, branch: t.branch, baseSha: t.baseSha });
+    this.audit('task_assigned', { taskId: t.taskId, agent: t.agent, mode: t.mode, branch: t.branch, baseSha: t.baseSha });
     this.store.save();
     return t;
   }
@@ -304,13 +301,11 @@ export class Executor {
       }
       got.push(n);
     }
-    this.setStatus(t, 'starting');
+    setStatus(this, t, 'starting');
     return { ok: true };
   }
 
-  private releaseExecLocks(t: Task, execId: string) {
-    for (const n of [`task:${t.taskId}`, `worktree:${t.worktree}`, `branch:${t.branch}`]) this.locks.release(n, 'execId', execId);
-  }
+
 
   async launch(taskId: string, runId: string): Promise<{ ok: true; execId: string; pid: number } | { ok: true; manual: true; execId: null } | { ok: false; reason: string; conflicts?: ConflictReason[]; checks?: Check[] }> {
     const t = this.task(taskId);
@@ -319,7 +314,7 @@ export class Executor {
     if (!r.ok) {
       const occupants = [...new Set((r.conflicts ?? []).map((c) => c.otherTask))].map((id) => `${id}[${this.state.tasks[id]?.status ?? '?'}]`).join(', ');
       const reason = r.conflicts?.length ? `${r.reason}: ${r.conflicts.map((c) => `${c.otherTask}(${c.kind} ${c.detail})`).join(', ')} — 점유 작업 ${occupants}. 필요 없으면 그 작업을 열어 "폐기"하세요` : r.reason;
-      this.event('start_refused', { taskId, reason });
+      this.audit('start_refused', { taskId, reason });
       // 실행 중 작업의 중복 시작이면 상태를 건드리지 않고, 시작 가능한 작업이면 거절 사유만 남긴다.
       if (STARTABLE.includes(t.status)) { t.statusReason = `시작 거절: ${reason}`; t.updatedAt = new Date().toISOString(); this.store.save(); }
       return { ...r, reason };
@@ -331,8 +326,8 @@ export class Executor {
       if (t.mode === 'manual') {
         if (failed.length) {
           const reason = `사전 검사 실패: ${failed.map((c) => `${c.name}(${c.detail})`).join(', ')}`;
-          this.releaseExecLocks(t, execId);
-          this.setStatus(t, 'blocked', reason);
+          releaseExecLocks(this, t, execId);
+          setStatus(this, t, 'blocked', reason);
           return { ok: false, reason, checks };
         }
         // 수동 모드: 프로세스를 띄우지 않는다. 같은 잠금과 충돌 검사로 파일 소유권만 유지한다.
@@ -340,8 +335,8 @@ export class Executor {
         t.runId = runId; t.runHistory = [...t.runHistory, runId]; t.lastExecId = null;
         t.result = null; t.approval = null; t.integration = null; t.verification = null; t.review = null; t.handoff = null;
         t.permission = '수동 모드: 도구는 에이전트를 실행하지 않음. 에이전트 세션이 worktree에서 작업하며, 허용 파일은 "작업 완료" 후 diff로만 검사(실행 중 쓰기를 막지 않음).';
-        this.setStatus(t, 'manual_working', '수동 작업 중 — 에이전트 세션에서 작업 후 "작업 완료"를 누르세요');
-        this.event('manual_started', { taskId, runId });
+        setStatus(this, t, 'manual_working', '수동 작업 중 — 에이전트 세션에서 작업 후 "작업 완료"를 누르세요');
+        this.audit('manual_started', { taskId, runId });
         return { ok: true as const, manual: true as const, execId: null };
       }
       let plan: LaunchPlan | { refused: string };
@@ -354,15 +349,15 @@ export class Executor {
       }
       if (failed.length || 'refused' in plan) {
         const reason = failed.length ? `사전 검사 실패: ${failed.map((c) => `${c.name}(${c.detail})`).join(', ')}` : (plan as { refused: string }).refused;
-        this.releaseExecLocks(t, execId);
-        this.setStatus(t, 'blocked', reason);
+        releaseExecLocks(this, t, execId);
+        setStatus(this, t, 'blocked', reason);
         return { ok: false, reason, checks };
       }
       t.permission = plan.permission;
       return this.spawnExec(t, runId, execId, plan);
     } catch (err) {
-      this.releaseExecLocks(t, execId);
-      this.setStatus(t, 'blocked', `시작 오류: ${(err as Error).message}`);
+      releaseExecLocks(this, t, execId);
+      setStatus(this, t, 'blocked', `시작 오류: ${(err as Error).message}`);
       return { ok: false, reason: (err as Error).message };
     }
   }
@@ -371,41 +366,16 @@ export class Executor {
     let command = plan.command, args = plan.args;
     if (t.mode === 'mock') args = [...args, '--counter', path.join(this.cfg.stateDir, 'mock-invocations.jsonl')];
     if (t.usesDevelopLock) { command = path.join(t.worktree, 'develop'); args = ['--', plan.command, ...args]; }
-    const ex = this.spawnSupervised(t, { kind: 'agent', execId, runId, cwd: t.worktree, command, args, env: sanitizedChildEnv(),
+    const ex = spawnSupervised(this, t, { kind: 'agent', execId, runId, cwd: t.worktree, command, args, env: sanitizedChildEnv(),
       display: t.usesDevelopLock ? ['./develop', '--', ...plan.display] : plan.display });
     t.lastExecId = execId; t.runId = runId; t.runHistory = [...t.runHistory, runId];
     t.result = null; t.approval = null; t.integration = null; t.verification = null; t.review = null; t.handoff = null;
-    this.setStatus(t, 'running');
+    setStatus(this, t, 'running');
     return { ok: true as const, execId, pid: ex.pid };
   }
 
   /** 감독 프로세스(새 프로세스 그룹)로 명령 하나를 실행한다. 에이전트·작업 테스트·리뷰가 같은 경로를 쓴다. */
-  private spawnSupervised(t: Pick<Task, 'taskId' | 'agent' | 'mode'>, o: { kind: ExecKind; execId?: string; runId: string; cwd: string; command: string; args: string[]; env: NodeJS.ProcessEnv; display: string[]; checkId?: string; sha?: string }) {
-    const execId = o.execId ?? crypto.randomUUID();
-    const dir = path.join(this.cfg.stateDir, 'runs', execId);
-    fs.mkdirSync(dir, { recursive: true });
-    const token = crypto.randomUUID();
-    const spec = { execId, token, cwd: o.cwd, command: o.command, args: o.args, env: o.env, logPath: path.join(dir, 'output.log'), exitPath: path.join(dir, 'exit.json') };
-    const specPath = path.join(dir, 'spec.json');
-    writeJsonAtomic(specPath, spec);
-    fs.writeFileSync(spec.logPath, '');
-    const sup = spawn(process.execPath, [this.supervisorPath, specPath], { cwd: o.cwd, detached: true, stdio: 'ignore', env: o.env });
-    sup.on('error', (e) => appendEvent(this.cfg.stateDir, { type: 'supervisor_spawn_error', lifetime: this.lifetime, execId, error: e.message })); // 정리 도중 등 시작 실패가 프로세스 전체 예외로 번지지 않게 기록만 한다
-    sup.unref();
-    if (!sup.pid) throw new Error('감독 프로세스 시작 실패');
-    const ex: Execution = {
-      kind: o.kind, checkId: o.checkId, sha: o.sha,
-      execId, taskId: t.taskId, runId: o.runId, token, agent: t.agent, mode: t.mode, display: o.display,
-      pid: sup.pid, pgid: sup.pid, startedAt: new Date().toISOString(), status: 'running', cancelRequested: false,
-      observedAfterRestart: false, serverLifetime: this.lifetime, logPath: spec.logPath, exitPath: spec.exitPath, specPath,
-      tokens: '미측정', cost: '미측정',
-    };
-    this.state.executions[execId] = ex;
-    appendEvent(this.cfg.stateDir, { type: 'exec_started', lifetime: this.lifetime, taskId: t.taskId, kind: o.kind, execId, runId: o.runId, pid: ex.pid, display: ex.display });
-    this.store.save();
-    this.ensureWatcher();
-    return ex;
-  }
+
 
   /**
    * 새 메인 세션 프로세스를 실행한다. 리뷰와 같은 방식(읽기 전용·입력 묶음 폴더만 받음)이며 구독 로그인 가드와 한도 차단을 그대로 거친다.
@@ -419,7 +389,7 @@ export class Executor {
     const argRisks = scanArgs(args);
     if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
     const shown = args.map((a) => (a === o.bundleDir ? '<입력 묶음>' : a === o.prompt ? '<prompt>' : a));
-    const ex = this.spawnSupervised({ taskId: '(main)', agent: o.agent, mode: 'real' }, { kind: 'main', runId: o.sessionId, cwd: o.bundleDir, command: this.probes[o.agent]!.binary!, args, env: sanitizedChildEnv(), display: [o.agent, ...shown] });
+    const ex = spawnSupervised(this, { taskId: '(main)', agent: o.agent, mode: 'real' }, { kind: 'main', runId: o.sessionId, cwd: o.bundleDir, command: this.probes[o.agent]!.binary!, args, env: sanitizedChildEnv(), display: [o.agent, ...shown] });
     return ex.execId;
   }
 
@@ -503,12 +473,12 @@ export class Executor {
         }
         if (ex.cancelRequested) {
           ex.status = 'cancelled'; ex.endedAt = new Date().toISOString();
-          this.releaseExecLocks(t, ex.execId);
-          this.setStatus(t, 'collecting', '사용자 중단(강제 종료로 종료 기록 없음) · 결과 수집 중');
+          releaseExecLocks(this, t, ex.execId);
+          setStatus(this, t, 'collecting', '사용자 중단(강제 종료로 종료 기록 없음) · 결과 수집 중');
           await this.resume(t, ex, { execId: ex.execId, exitCode: null, signal: 'SIGKILL', cancelled: true });
         } else {
           ex.status = 'unknown';
-          this.setStatus(t, 'unknown', '감독 프로세스가 종료 기록 없이 사라짐(결과 불명). 잠금 유지.');
+          setStatus(this, t, 'unknown', '감독 프로세스가 종료 기록 없이 사라짐(결과 불명). 잠금 유지.');
         }
       }
     }
@@ -542,7 +512,7 @@ export class Executor {
     if (res.token !== ex.token) {
       ex.status = 'unknown';
       if ((ex.kind ?? 'agent') !== 'agent') { ex.completion = { stage: 'observed', code: null, cancelled: false, unknown: true }; this.store.save(); }
-      else this.setStatus(t, 'unknown', 'exit.json 토큰 불일치');
+      else setStatus(this, t, 'unknown', 'exit.json 토큰 불일치');
       return;
     }
     if (this.groupAlive(ex.pgid)) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } } // 남은 손자 정리
@@ -550,22 +520,22 @@ export class Executor {
     ex.exitCode = res.code; ex.signal = res.signal; ex.spawnError = res.spawnError ?? null; ex.endedAt = res.endedAt;
     ex.status = cancelled ? 'cancelled' : 'exited';
     if ((ex.kind ?? 'agent') !== 'agent') { ex.completion = { stage: 'observed', code: res.code, cancelled, unknown: false }; this.store.save(); return; }
-    this.releaseExecLocks(t, ex.execId);
-    this.event('exec_ended', { execId: ex.execId, taskId: t.taskId, code: res.code, signal: res.signal, cancelled, afterRestart: ex.observedAfterRestart });
+    releaseExecLocks(this, t, ex.execId);
+    this.audit('exec_ended', { execId: ex.execId, taskId: t.taskId, code: res.code, signal: res.signal, cancelled, afterRestart: ex.observedAfterRestart });
     if (ex.observedAfterRestart) {
       // 서버 재시작 전후로 이어진 실행: 결과를 자동 반영하지 않고 사용자 확인을 기다린다.
-      this.setStatus(t, 'exit_observed', `재시작 후 종료 관찰(code ${res.code}). '결과 반영'으로 await-exit 단계를 재개`);
+      setStatus(this, t, 'exit_observed', `재시작 후 종료 관찰(code ${res.code}). '결과 반영'으로 await-exit 단계를 재개`);
       return;
     }
     // 최종 상태(검토 대기/실패/중단)는 workflow collect 단계가 정한다.
-    this.setStatus(t, 'collecting', `종료 확인(code ${res.code}${cancelled ? ', 중단' : ''}) · 결과 수집 중`);
+    setStatus(this, t, 'collecting', `종료 확인(code ${res.code}${cancelled ? ', 중단' : ''}) · 결과 수집 중`);
     await this.resume(t, ex, { execId: ex.execId, exitCode: res.code, signal: res.signal, cancelled });
   }
 
   private async resume(t: Task, ex: Execution, data: Record<string, unknown>) {
     if (!this.resumer || !ex.runId) return;
     try { await this.resumer(ex.runId, 'await-exit', data); }
-    catch (err) { this.event('resume_error', { taskId: t.taskId, error: (err as Error).message }); t.statusReason = `workflow 재개 실패: ${(err as Error).message}`; this.store.save(); }
+    catch (err) { this.audit('resume_error', { taskId: t.taskId, error: (err as Error).message }); t.statusReason = `workflow 재개 실패: ${(err as Error).message}`; this.store.save(); }
   }
 
   /** 서버 재시작 후 상태 복구. 살아 있는 프로세스·결과 불명 작업을 완료로 표시하거나 재실행하지 않는다. */
@@ -581,13 +551,13 @@ export class Executor {
         continue;
       }
       if (fs.existsSync(ex.exitPath)) { /* tick에서 exit_observed로 정리 */ }
-      else if (this.alive(ex.pid) && this.ownsLeader(ex)) this.setStatus(t, 'orphan_running', '서버 재시작 전 시작된 프로세스가 아직 실행 중(관찰만 함)');
-      else if (this.groupAlive(ex.pgid)) this.setStatus(t, 'orphan_running', '감독자는 없고 같은 그룹 자식 프로세스만 남음');
-      else { ex.status = 'unknown'; this.setStatus(t, 'unknown', '재시작 후 프로세스·종료 기록 모두 없음(결과 불명)'); }
+      else if (this.alive(ex.pid) && this.ownsLeader(ex)) setStatus(this, t, 'orphan_running', '서버 재시작 전 시작된 프로세스가 아직 실행 중(관찰만 함)');
+      else if (this.groupAlive(ex.pgid)) setStatus(this, t, 'orphan_running', '감독자는 없고 같은 그룹 자식 프로세스만 남음');
+      else { ex.status = 'unknown'; setStatus(this, t, 'unknown', '재시작 후 프로세스·종료 기록 모두 없음(결과 불명)'); }
     }
     for (const t of Object.values(this.state.tasks)) {
-      if (t.status === 'starting') this.setStatus(t, 'unknown', '시작 도중 서버 종료(결과 불명)');
-      if (t.status === 'integrating') this.setStatus(t, 'unknown', '통합 도중 서버 종료(통합 checkout을 직접 확인)');
+      if (t.status === 'starting') setStatus(this, t, 'unknown', '시작 도중 서버 종료(결과 불명)');
+      if (t.status === 'integrating') setStatus(this, t, 'unknown', '통합 도중 서버 종료(통합 checkout을 직접 확인)');
     }
     this.store.save();
     this.ensureWatcher();
@@ -613,8 +583,8 @@ export class Executor {
     if (leader === false) return { ok: false, reason: `PID ${ex.pid}가 이 실행기의 감독 프로세스가 아님(중단 거부)` };
     if (leader === null && !this.groupAlive(ex.pgid)) return { ok: false, reason: '프로세스 그룹이 이미 없음' };
     ex.cancelRequested = true; ex.status = 'cancelling';
-    if ((ex.kind ?? 'agent') === 'agent') this.setStatus(t, 'cancelling', `SIGTERM → 프로세스 그룹 ${ex.pgid}`);
-    else { this.event('aux_cancel', { taskId, kind: ex.kind, execId: ex.execId }); this.store.save(); }
+    if ((ex.kind ?? 'agent') === 'agent') setStatus(this, t, 'cancelling', `SIGTERM → 프로세스 그룹 ${ex.pgid}`);
+    else { this.audit('aux_cancel', { taskId, kind: ex.kind, execId: ex.execId }); this.store.save(); }
     try { process.kill(-ex.pgid, 'SIGTERM'); } catch { /* gone */ }
     setTimeout(() => { if (this.groupAlive(ex.pgid)) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } } }, 3000).unref?.();
     return { ok: true, reason: `${ex.kind ?? 'agent'} 프로세스 그룹 ${ex.pgid}에 SIGTERM (3초 후 남으면 SIGKILL)` };
@@ -624,7 +594,7 @@ export class Executor {
   cancelAll(reason: string, agent?: string) {
     const busy = new Set(Object.values(this.state.executions).filter((e) => ['running', 'cancelling'].includes(e.status) && (!agent || e.agent === agent)).map((e) => e.taskId));
     for (const t of Object.values(this.state.tasks)) {
-      if (busy.has(t.taskId)) void this.cancelRunning(t.taskId).then((r) => this.event("cancel_all", { taskId: t.taskId, trigger: reason, result: r.reason, ok: r.ok }));
+      if (busy.has(t.taskId)) void this.cancelRunning(t.taskId).then((r) => this.audit("cancel_all", { taskId: t.taskId, trigger: reason, result: r.reason, ok: r.ok }));
     }
   }
 
@@ -658,9 +628,9 @@ export class Executor {
     const t = this.task(taskId);
     if (t.status !== 'manual_working' || !t.manual) throw new UserError(`수동 작업 중이 아님(${t.status})`);
     if (!this.resumer || !t.runId) throw new UserError('workflow 연결 없음');
-    this.releaseExecLocks(t, t.manual.execId);
+    releaseExecLocks(this, t, t.manual.execId);
     t.manual.endedAt = new Date().toISOString(); t.manual.ended = 'finished';
-    this.setStatus(t, 'collecting', '사용자가 작업 완료를 표시 · 결과 수집 중');
+    setStatus(this, t, 'collecting', '사용자가 작업 완료를 표시 · 결과 수집 중');
     await this.resumer(t.runId, 'await-exit', { execId: 'manual', exitCode: 0, signal: null, cancelled: false });
     return this.task(taskId);
   }
@@ -668,12 +638,12 @@ export class Executor {
   async cancelManual(taskId: string): Promise<{ ok: boolean; reason: string }> {
     const t = this.task(taskId);
     if (t.status !== 'manual_working' || !t.manual) return { ok: false, reason: '수동 작업 중이 아님' };
-    this.releaseExecLocks(t, t.manual.execId);
+    releaseExecLocks(this, t, t.manual.execId);
     t.manual.endedAt = new Date().toISOString(); t.manual.ended = 'cancelled';
-    this.setStatus(t, 'cancelled', '사용자가 수동 작업을 취소(에이전트 세션에서 진행한 변경은 worktree에 그대로 남음)');
+    setStatus(this, t, 'cancelled', '사용자가 수동 작업을 취소(에이전트 세션에서 진행한 변경은 worktree에 그대로 남음)');
     if (this.resumer && t.runId) {
       try { await this.resumer(t.runId, 'await-exit', { execId: 'manual', exitCode: null, signal: null, cancelled: true }); }
-      catch (err) { this.event('resume_error', { taskId, error: (err as Error).message }); }
+      catch (err) { this.audit('resume_error', { taskId, error: (err as Error).message }); }
     }
     return { ok: true, reason: '수동 작업 취소 · 소유권 잠금 해제' };
   }
@@ -700,8 +670,8 @@ export class Executor {
     if (t.status !== 'unknown') throw new UserError('결과 불명 상태가 아님');
     const ex = t.lastExecId ? this.state.executions[t.lastExecId] : null;
     if (ex && this.groupAlive(ex.pgid)) throw new UserError(`프로세스 그룹 ${ex.pgid}가 아직 살아 있음`);
-    if (ex) { ex.status = 'abandoned'; this.releaseExecLocks(t, ex.execId); }
-    this.setStatus(t, 'abandoned', '사용자가 결과 불명을 확정(완료로 보지 않음)');
+    if (ex) { ex.status = 'abandoned'; releaseExecLocks(this, t, ex.execId); }
+    setStatus(this, t, 'abandoned', '사용자가 결과 불명을 확정(완료로 보지 않음)');
   }
 
   /** 재시작 후 종료가 관찰된 실행을 사용자가 확인해 workflow await-exit 단계를 재개한다. */
@@ -709,7 +679,7 @@ export class Executor {
     const t = this.task(taskId);
     if (t.status !== 'exit_observed') throw new UserError('재시작 후 종료 관찰 상태가 아님');
     const ex = this.state.executions[t.lastExecId!];
-    this.setStatus(t, 'collecting', '사용자 확인 후 결과 반영');
+    setStatus(this, t, 'collecting', '사용자 확인 후 결과 반영');
     if (!this.resumer) throw new UserError('workflow 연결 없음');
     await this.resumer(ex.runId, 'await-exit', { execId: ex.execId, exitCode: ex.exitCode ?? null, signal: ex.signal ?? null, cancelled: ex.status === 'cancelled' });
   }
@@ -738,7 +708,7 @@ export class Executor {
     const checksPassed = checks.every((c) => c.ok);
     t.result = { execId, headSha: head, commits, changedFiles: changed, dirtyFiles: dirty, outOfScope, checks, checksPassed, collectedAt: new Date().toISOString() };
     const ok = !ex || (ex.exitCode === 0 && ex.status === 'exited');
-    this.setStatus(t, ok ? 'review_pending' : ex?.status === 'cancelled' ? 'cancelled' : 'failed',
+    setStatus(this, t, ok ? 'review_pending' : ex?.status === 'cancelled' ? 'cancelled' : 'failed',
       ok ? (checksPassed ? '검토 대기' : '검토 대기(검사 실패 포함 — 승인 불가)') : ex?.status === 'cancelled' ? '사용자 중단' : `종료코드 ${ex?.exitCode ?? '없음'}${ex?.spawnError ? ` (${ex.spawnError})` : ''}`);
     return t.result;
   }
@@ -804,7 +774,7 @@ export class Executor {
     const t = this.task(taskId);
     if (!['review_pending', 'approved', 'integration_refused', 'integration_blocked'].includes(t.status)) throw new UserError(`거절할 수 없는 상태(${t.status})`);
     t.approval = null;
-    this.setStatus(t, 'rejected', reason || '사용자 거절');
+    setStatus(this, t, 'rejected', reason || '사용자 거절');
   }
 
   // ---------- 통합 ----------
@@ -818,7 +788,7 @@ export class Executor {
       return this.endIntegration(t, 'integration_blocked', `다른 통합 진행 중: ${JSON.stringify(this.locks.holder('integration'))}`, true);
     }
     try {
-      this.setStatus(t, 'integrating');
+      setStatus(this, t, 'integrating');
       const a = t.approval;
       const checkout = this.cfg.integration.checkout;
       const head = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
@@ -870,7 +840,7 @@ export class Executor {
   private endIntegration(t: Task, s: TaskStatus, detail: string, keepApproval = false) {
     if (!keepApproval && s !== 'integrated' && s !== 'integrated_check_failed') t.approval = null;
     if (s !== 'integrated' && s !== 'integrated_check_failed') t.integration = { ...(t.integration ?? {}), at: new Date().toISOString(), outcome: s, detail };
-    this.setStatus(t, keepApproval && s === 'integration_blocked' ? 'approved' : s, detail);
+    setStatus(this, t, keepApproval && s === 'integration_blocked' ? 'approved' : s, detail);
     return { outcome: s, detail };
   }
 
@@ -903,7 +873,7 @@ export class Executor {
       got.push(n);
     }
     t.verification = { runId, sha: head, contractHash: t.contractHash, status: 'running', items, startedAt: new Date().toISOString() };
-    this.event('checks_started', { taskId, runId, sha: head });
+    this.audit('checks_started', { taskId, runId, sha: head });
     this.store.save();
     this.ensureWatcher();
     return t.verification;
@@ -916,7 +886,7 @@ export class Executor {
     const spec = t.checks.find((c) => c.id === item.id)!;
     const r = resolveCheck(t.worktree, spec, { base: t.baseSha, contract: t.contractSha, head: v.sha });
     try {
-      const ex = this.spawnSupervised(t, { kind: 'check', runId: v.runId, cwd: r.cwd, command: r.command, args: r.args, env: sanitizedChildEnv(), display: r.display, checkId: item.id, sha: v.sha });
+      const ex = spawnSupervised(this, t, { kind: 'check', runId: v.runId, cwd: r.cwd, command: r.command, args: r.args, env: sanitizedChildEnv(), display: r.display, checkId: item.id, sha: v.sha });
       item.status = 'running'; item.execId = ex.execId; item.logPath = ex.logPath; item.startedAt = ex.startedAt;
       this.store.save();
     } catch (err) {
@@ -932,7 +902,7 @@ export class Executor {
     if (note) v.note = note;
     v.endedAt = new Date().toISOString();
     for (const n of [`task:${t.taskId}`, `worktree:${t.worktree}`]) this.locks.release(n, 'execId', v.runId);
-    this.event('checks_finished', { taskId: t.taskId, runId: v.runId, status: v.status, sha: v.sha });
+    this.audit('checks_finished', { taskId: t.taskId, runId: v.runId, status: v.status, sha: v.sha });
     this.store.save();
   }
 
@@ -1018,9 +988,9 @@ export class Executor {
         command = this.probes[reviewer]!.binary!; display = [reviewer, ...args.slice(0, -1).map((a) => (a === bundleDir ? '<리뷰 묶음>' : a)), '<prompt>'];
       }
       t.review = { reviewId, reviewer, mode, sha, contractHash: t.contractHash, bundleDir, worktreeFingerprint: await worktreeFingerprint(t), status: 'running', startedAt: new Date().toISOString(), ...(o.forHandoff ? { forHandoff: true } : {}) };
-      const ex = this.spawnSupervised(t, { kind: 'review', runId: reviewId, cwd: bundleDir, command, args, env: sanitizedChildEnv(), display, sha });
+      const ex = spawnSupervised(this, t, { kind: 'review', runId: reviewId, cwd: bundleDir, command, args, env: sanitizedChildEnv(), display, sha });
       t.review.execId = ex.execId;
-      this.event('review_started', { taskId, reviewId, reviewer, mode, sha });
+      this.audit('review_started', { taskId, reviewId, reviewer, mode, sha });
       this.store.save();
       return t.review;
     } catch (err) {
@@ -1053,7 +1023,7 @@ export class Executor {
       else { status = 'done'; note = ex.observedAfterRestart ? '서버 재시작 후 종료 관찰' : undefined; verdict = parsed.verdict; summary = String(parsed.summary ?? '').slice(0, 2000); }
     }
     rv.status = status; rv.note = note; rv.verdict = verdict; rv.summary = summary;
-    this.event('review_finished', { taskId: t.taskId, reviewId: rv.reviewId, status, verdict });
+    this.audit('review_finished', { taskId: t.taskId, reviewId: rv.reviewId, status, verdict });
     this.store.save();
     this.settleHandoffReview(t, rv);
   }
@@ -1069,10 +1039,10 @@ export class Executor {
     if (rv.status === 'done' && rv.verdict === 'approve' && h.headSha === t.result?.headSha) {
       h.confirmedAt = at; h.auto = true; delete h.autoResult;
       h.note = `자동 확인: 별도 ${rv.reviewer} 프로세스(리뷰 ${rv.reviewId.slice(0, 8)})의 approve — 대화 중인 메인 세션의 확인이 아님`;
-      this.event('handoff_confirmed', { taskId: t.taskId, headSha: h.headSha, auto: true });
+      this.audit('handoff_confirmed', { taskId: t.taskId, headSha: h.headSha, auto: true });
     } else {
       h.autoResult = { at, status: rv.status, verdict: rv.verdict ?? null, summary: (rv.summary ?? rv.note ?? '').slice(0, 600) };
-      this.event('handoff_auto_result', { taskId: t.taskId, headSha: h.headSha, status: rv.status, verdict: rv.verdict ?? null });
+      this.audit('handoff_auto_result', { taskId: t.taskId, headSha: h.headSha, status: rv.status, verdict: rv.verdict ?? null });
     }
     this.store.save();
   }
