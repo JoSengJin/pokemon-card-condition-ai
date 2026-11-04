@@ -1,6 +1,6 @@
 task_id: f2-pilot-preparation-20261105
 owner: Codex
-status: implementing (계획/준비 상태 감사만, 실제 사용 경로 선택 대기)
+status: integrated (준비 문서 검토/통합; 실제 경로·기준안 방향은 사용자 선택 대기)
 base_sha: ecd21b3452f9ce6318f0c0d571ed532ae400b95d
 branch: main (직렬 문서 준비/통합)
 goal: 실제 소비경로 후보와 F1 선행 수용검사/F2 계측 공백을 근거로 정리하고 사용자 결정 두 가지만 분리한다.
@@ -29,3 +29,11 @@ goal: 실제 소비경로 후보와 F1 선행 수용검사/F2 계측 공백을 �
 - F2_PILOT_PREPARATION.md에 변경 목록/근거/실측/미검증/선행 검사/결정/위험/롤백 기록.
 - 새 화면·기준 개정·F1 성공은 사용자 방향 결정 뒤 별도 구현·검증해야 한다.
 - rollback: 이번 문서 커밋만 ./develop -- git revert <SHA>, 기준/코드/데이터 복구 불필요.
+
+## 실제 준비 결과
+- 0.6.0 무결성 확인, 0.6.1은 설치 버전 불일치(예상 보류), checkout 내 0.6.x wheel 미발견. 합성 12 tests OK/0.695초.
+- 실제 소비경로/F1 선행 6조건, 현행 F2와 후면 순위 도구의 불일치, 계측 공백/자료 분모/실행 순서를 F2_PILOT_PREPARATION.md에 명시. 새 코드/기준/시범 없음.
+- 사용자 질문 2개 제출: PC 브라우저 독립 도구 vs 기존 별도 도구 연결, 후면 지원 기준안 준비 vs 현행 F2 완료 보류. 답변 전 제안안을 승인된 경로/기준으로 표시하지 않음.
+
+- HTML: Codex 브라우저 패널 queued(요청 접수), 정적 파싱/내용 대조 통과. 실제 렌더·클릭 미확인.
+- 최종 체크: 제품/도구/테스트/진척 기준 JSON/Markdown diff 0, 78점·v1.13·F1/F2 pending 보존, diff-check 통과.
