@@ -1,6 +1,6 @@
 task_id: claude-handoff-20261104
 owner: Claude (구현·실험 worker 전달) → Codex (통합·push)
-status: ready_for_review
+status: integrated
 base_sha: 9daa425f06aa8c70415f0a72565cfc7a45ec835b (origin/main)
 branch: claude/handoff-20261104 (tip = 이 문서를 추가한 바로 다음 커밋, 코드·실험 마지막 커밋은 d4cc08f19ea82053e771091249a739039d1c3bc4)
 worktree: 없음. 이 작업은 기본 checkout의 로컬 main에서 직접 커밋했다(절차 위반, 아래 참고). 브랜치는 같은 커밋을 가리키는 전달용 ref다.
@@ -63,3 +63,5 @@ goal: 로컬 main의 미통합 커밋 22개(`83965b5`~`d4cc08f`)를 Codex가 검
 - 상세 checks/변경파일/리스크/미검증/롤백: `docs/collaboration/reports/codex-integration-20261105.md`. 열기 및 원격 동기화 실제 결과는 로컬 `artifacts/codex-integration-20261105/{html-open,sync}.json`과 최종 인계 참조.
 
 HTML 열기 실제 결과: macOS 기본 앱은 -10661 오류로 실패. Codex 브라우저 패널 열기는 queued(요청 접수)이며 실제 표시/렌더는 미확인. 정적 HTML 파싱 및 점수/SHA/테스트/리스크 내용 대조는 통과.
+
+원격 반영 확인: 일반 push 성공 후 `git ls-remote origin refs/heads/main`과 로컬 HEAD/origin/main 모두 `32626432fafa55571ae4f4210ed3edc9e4a97999`로 일치했다. 이 상태 갱신은 문서만 변경하며, 최종 문서 커밋도 일반 push 후 SHA를 재확인한다.
