@@ -3,16 +3,15 @@
 import { ACTION_TYPES } from './mainTypes.ts';
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const optStr = (v: unknown) => v === undefined || typeof v === 'string';
-
 function badAction(a: unknown, i: number): string | null {
-  if (!isObj(a)) return `행동[${i}]이 객체가 아님`;
-  if (typeof a.id !== 'string' || !a.id.trim()) return `행동[${i}].id가 비어 있거나 문자열이 아님`;
-  if (typeof a.type !== 'string' || !(ACTION_TYPES as readonly string[]).includes(a.type)) return `행동[${i}].type을 지원하지 않음: ${String(a.type)}`;
-  if (!optStr(a.taskId) || !optStr(a.sha) || !optStr(a.target)) return `행동[${i}]의 taskId·sha·target은 문자열이어야 함`;
-  if (a.input !== undefined && !isObj(a.input)) return `행동[${i}].input이 객체가 아님`;
-  if (!optStr(a.diffHash) || !optStr(a.note)) return `행동[${i}]의 diffHash·note는 문자열이어야 함`;
-  if (a.reviewedFiles !== undefined && (!Array.isArray(a.reviewedFiles) || a.reviewedFiles.some((f) => typeof f !== 'string'))) return `행동[${i}].reviewedFiles가 문자열 배열이 아님`;
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return `행동[${i}]이 객체가 아님`;
+  const row = a as Record<string, unknown>;
+  if (typeof row.id !== 'string' || !row.id.trim()) return `행동[${i}].id가 비어 있거나 문자열이 아님`;
+  if (typeof row.type !== 'string' || !(ACTION_TYPES as readonly string[]).includes(row.type)) return `행동[${i}].type을 지원하지 않음: ${String(row.type)}`;
+  if ([row.taskId, row.sha, row.target].some((v) => v !== undefined && typeof v !== 'string')) return `행동[${i}]의 taskId·sha·target은 문자열이어야 함`;
+  if (row.input !== undefined && (!row.input || typeof row.input !== 'object' || Array.isArray(row.input))) return `행동[${i}].input이 객체가 아님`;
+  if ([row.diffHash, row.note].some((v) => v !== undefined && typeof v !== 'string')) return `행동[${i}]의 diffHash·note는 문자열이어야 함`;
+  if (row.reviewedFiles !== undefined && (!Array.isArray(row.reviewedFiles) || row.reviewedFiles.some((f) => typeof f !== 'string'))) return `행동[${i}].reviewedFiles가 문자열 배열이 아님`;
   return null;
 }
 

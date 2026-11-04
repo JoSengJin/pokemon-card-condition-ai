@@ -1,6 +1,7 @@
 // 교대 뒤 연속 처리의 저장 장부 접근. 이벤트는 키(종류+작업+SHA)가 같으면 한 번만 등록되며, 상태 전이는 여기서만 한다.
 import type { Executor } from './executor.ts';
 import type { EventKind, EventState, MainTurn, PipelineEvent, PipelineState } from './mainTypes.ts';
+import { appendEvent } from './store.ts';
 
 export const pipe = (ex: Executor): PipelineState => (ex.runtime.pipeline ??= { events: {}, turns: {}, steps: {} });
 
@@ -16,7 +17,10 @@ export function register(ex: Executor, kind: EventKind, taskId: string, sha: str
 /** 이벤트 묶음의 상태를 바꾼다(감사 기록 포함). */
 export function mark(ex: Executor, keys: string[], state: EventState, extra: Partial<PipelineEvent> = {}) {
   const ev = pipe(ex).events;
-  for (const k of keys) if (ev[k]) { Object.assign(ev[k], extra, { state }); ex.audit('pipeline_event_state', { key: k, state, reason: extra.reason }); }
+  for (const k of keys) if (ev[k]) {
+    Object.assign(ev[k], extra, { state });
+    appendEvent(ex.cfg.stateDir, { type: 'pipeline_event_state', lifetime: ex.lifetime, key: k, state, reason: extra.reason });
+  }
   ex.store.save();
 }
 

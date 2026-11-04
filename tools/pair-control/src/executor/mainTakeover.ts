@@ -62,7 +62,9 @@ export async function verifyAck(ex: Executor, s: MainSession, r: TakeoverResult,
   const seen = r.observed?.heads ?? {};
   for (const { taskId } of tasks) {
     const t = ex.state.tasks[taskId];
-    const actual = t ? await G.revParse(t.worktree, `refs/heads/${t.branch}`) : null;
+    const result = t ? await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${t.branch}^{commit}`], t.worktree) : null;
+    const sha = result?.stdout.trim() ?? '';
+    const actual = result?.code === 0 && G.FULL_SHA.test(sha) ? sha : null;
     if (!seen[taskId]) bad.push(`${taskId}: 관찰한 헤드 없음`);
     else if (seen[taskId] !== actual) bad.push(`${taskId}: 관찰한 헤드가 실제 Git과 다름`);
   }
