@@ -51,17 +51,13 @@ export async function probe(agent: 'codex' | 'claude', cfg: PairConfig): Promise
   const text = help.stdout + help.stderr;
   const seen = (f: string) => new RegExp(`(^|[\\s,])${f.replace(/-/g, '\\-')}(?=[\\s=,]|$)`, 'm').test(text);
   const verified = REQUIRED[agent].flags.filter(seen);
+  const login = agent === 'codex' ? await run(binary, ['login', 'status'], cfg.toolRoot, 10_000) : null;
   return {
     ...base, installed: true, version: ver.stdout.trim().slice(0, 80), verifiedFlags: verified,
     missingFlags: REQUIRED[agent].flags.filter((f) => !verified.includes(f)), stream: STREAM_FLAGS[agent].every(seen),
     note: help.code === 0 ? '--help 확인 완료(모델 요청 없음)' : `--help 실패(code ${help.code})`,
-    ...(agent === 'codex' ? { loginStatus: await codexLoginStatus(binary, cfg) } : {}),
+    ...(login ? { loginStatus: (login.stdout + login.stderr).trim().split('\n')[0].slice(0, 120) } : {}),
   };
-}
-
-async function codexLoginStatus(binary: string, cfg: PairConfig): Promise<string> {
-  const r = await run(binary, ['login', 'status'], cfg.toolRoot, 10_000);
-  return (r.stdout + r.stderr).trim().split('\n')[0].slice(0, 120);
 }
 
 export function mockPlan(task: TaskInputT, cfg: PairConfig): LaunchPlan {
@@ -137,7 +133,12 @@ export function realReadiness(agent: 'codex' | 'claude', p: Probe | undefined, c
   }
   if (!cfg.allowRealModelCalls) b.push({ code: 'real_calls_disabled', message: '실제 모델 호출 차단(기본값)', fix: '별도 승인 작업에서 config.allowRealModelCalls=true' });
   if (!cfg.confirmedSubscriptionAuth) b.push({ code: 'subscription_unconfirmed', message: '구독 로그인·추가 크레딧 꺼짐 미확인', fix: '계정에서 구독 로그인(API 키 아님)과 추가 사용 크레딧이 꺼져 있음을 직접 확인한 뒤 config.confirmedSubscriptionAuth=true' });
-  for (const r of chargeRisks(agent, cfg, { worktree: ctx.worktree, env: ctx.env })) b.push({ code: r.code, message: r.message, fix: r.fix });
+  const home = cfg.homeDir;
+  const risks = [
+    ...scanEnv(ctx.env ?? process.env),
+    ...(agent === 'claude' ? scanClaudeSettings({ worktree: ctx.worktree, env: ctx.env, home }) : scanCodexConfig({ env: ctx.env, home })),
+  ];
+  for (const r of risks) b.push({ code: r.code, message: r.message, fix: r.fix });
   if (ctx.limit) b.push({ code: 'limit_hit', message: `구독 사용 한도 도달 상태: ${ctx.limit.detail}`, fix: '한도가 풀린 것을 확인한 뒤 "한도 해제 확인"(재시도·크레딧 구매는 하지 않음)' });
   return { available: b.length === 0, blockers: b };
 }

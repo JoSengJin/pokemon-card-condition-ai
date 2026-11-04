@@ -12,9 +12,9 @@ import type { Agent, MainSession } from './mainTypes.ts';
 
 export { clearAgentLimit } from './limitScope.ts';
 
-/** 일반 교대를 막는 상태. 기존 이양 차단 조건에서 "진행 중인 구현 에이전트"만 뺀다(중단하지 않고 담당·결과를 인수하므로). */
+/** UI에 일반 교대 차단 사유를 보여 준다. 진행 중 구현 에이전트는 인수 대상이므로 제외한다. */
 export async function handoverBlockers(ex: Executor): Promise<string[]> {
-  return (await swapBlockers(ex)).filter((b) => !b.startsWith('프로세스 실행 중: agent '));
+  return (await swapBlockers(ex)).filter((reason) => !reason.startsWith('프로세스 실행 중: agent '));
 }
 
 export function failSession(ex: Executor, s: MainSession, reason: string) {
@@ -45,7 +45,10 @@ async function handoverGate(ex: Executor, toRaw: string, opts: { reason?: string
     ex.store.save();
     return { ok: false as const, status: rt.limited[from] && rt.limited[to] ? 'blocked_both_limited' as const : 'blocked_target_limited' as const, detail: lim.detail };
   }
-  if (!opts.limit) { const b = await handoverBlockers(ex); if (b.length) throw new UserError(`교대할 수 없음: ${b.join(' / ')}`); }
+  if (!opts.limit) {
+    const b = (await swapBlockers(ex)).filter((reason) => !reason.startsWith('프로세스 실행 중: agent '));
+    if (b.length) throw new UserError(`교대할 수 없음: ${b.join(' / ')}`);
+  }
   return { to, from };
 }
 

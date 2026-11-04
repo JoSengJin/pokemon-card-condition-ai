@@ -382,7 +382,7 @@ export class Executor {
     writeJsonAtomic(specPath, spec);
     fs.writeFileSync(spec.logPath, '');
     const sup = spawn(process.execPath, [this.supervisorPath, specPath], { cwd: o.cwd, detached: true, stdio: 'ignore', env: sanitizedChildEnv() });
-    sup.on('error', (e) => this.event('supervisor_spawn_error', { execId, error: e.message })); // 정리 도중 등 시작 실패가 프로세스 전체 예외로 번지지 않게 기록만 한다
+    sup.on('error', (e) => appendEvent(this.cfg.stateDir, { type: 'supervisor_spawn_error', lifetime: this.lifetime, execId, error: e.message })); // 정리 도중 등 시작 실패가 프로세스 전체 예외로 번지지 않게 기록만 한다
     sup.unref();
     if (!sup.pid) throw new Error('감독 프로세스 시작 실패');
     const ex: Execution = {
@@ -393,7 +393,7 @@ export class Executor {
       tokens: '미측정', cost: '미측정',
     };
     this.state.executions[execId] = ex;
-    this.event('exec_started', { taskId: t.taskId, kind: o.kind, execId, runId: o.runId, pid: ex.pid, display: ex.display });
+    appendEvent(this.cfg.stateDir, { type: 'exec_started', lifetime: this.lifetime, taskId: t.taskId, kind: o.kind, execId, runId: o.runId, pid: ex.pid, display: ex.display });
     this.store.save();
     this.ensureWatcher();
     return ex;

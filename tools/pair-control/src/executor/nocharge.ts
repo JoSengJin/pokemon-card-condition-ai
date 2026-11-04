@@ -25,28 +25,20 @@ export function scanArgs(args: string[]): ChargeRisk[] {
   return bad.length ? [{ code: 'forbidden_flag', message: `구독 로그인을 쓰지 않는 옵션: ${[...new Set(bad)].join(', ')}`, fix: '어댑터 인자에서 제거(코드 변경 필요)' }] : [];
 }
 
-const tilde = (p: string, home: string) => (p.startsWith(home + path.sep) ? `~${p.slice(home.length)}` : p);
-
-/** Claude Code 설정 파일 위치: 사용자 ~/.claude/settings.json(CLAUDE_CONFIG_DIR가 있으면 그 폴더), 프로젝트 .claude/settings(.local).json */
-export function claudeSettingsFiles(opts: { worktree?: string; env?: NodeJS.ProcessEnv; home?: string } = {}) {
-  const env = opts.env ?? process.env;
-  const home = opts.home ?? os.homedir();
-  const userDir = env.CLAUDE_CONFIG_DIR || path.join(home, '.claude');
-  const files = [path.join(userDir, 'settings.json')];
-  if (opts.worktree) files.push(path.join(opts.worktree, '.claude', 'settings.json'), path.join(opts.worktree, '.claude', 'settings.local.json'));
-  return { files, home };
-}
-
 /**
  * apiKeyHelper(명령으로 API 자격을 만듦), env(모든 세션에 환경변수 주입 — API 키를 넣을 수 있음), forceLoginMethod(claude.ai 외 로그인)를 찾는다.
  * 읽을 수 없는 설정 파일은 확인할 수 없으므로 막는다.
  */
 export function scanClaudeSettings(opts: { worktree?: string; env?: NodeJS.ProcessEnv; home?: string } = {}): ChargeRisk[] {
-  const { files, home } = claudeSettingsFiles(opts);
+  const env = opts.env ?? process.env;
+  const home = opts.home ?? os.homedir();
+  const userDir = env.CLAUDE_CONFIG_DIR || path.join(home, '.claude');
+  const files = [path.join(userDir, 'settings.json')];
+  if (opts.worktree) files.push(path.join(opts.worktree, '.claude', 'settings.json'), path.join(opts.worktree, '.claude', 'settings.local.json'));
   const risks: ChargeRisk[] = [];
   for (const file of files) {
     if (!fs.existsSync(file)) continue;
-    const label = tilde(file, home);
+    const label = file.startsWith(home + path.sep) ? `~${file.slice(home.length)}` : file;
     let json: any;
     try { json = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {
       risks.push({ code: 'settings_unreadable', message: `Claude 설정을 읽지 못해 API 키 설정 여부를 확인할 수 없음: ${label}`, fix: '파일을 직접 확인하고 JSON 오류를 고치거나, apiKeyHelper·API 키가 없음을 확인' });
@@ -66,22 +58,17 @@ export function scanClaudeSettings(opts: { worktree?: string; env?: NodeJS.Proce
   return risks;
 }
 
-/** Codex 설정 위치: $CODEX_HOME/config.toml(없으면 ~/.codex). 프로젝트 .codex/config.toml은 공급자 키를 무시한다(공식 문서). */
-export function codexConfigFile(opts: { env?: NodeJS.ProcessEnv; home?: string } = {}) {
-  const env = opts.env ?? process.env;
-  const home = opts.home ?? os.homedir();
-  return { file: path.join(env.CODEX_HOME || path.join(home, '.codex'), 'config.toml'), home };
-}
-
 /**
  * TOML 파서 없이 줄 단위로 최상위 키만 본다(표 아래 키는 무시). 값은 forced_login_method·model_provider의 문자열만 읽고 나머지는 존재만 본다.
  * 막는 것: forced_login_method가 chatgpt가 아님(api면 API 요금), model_provider가 openai가 아님(다른 공급자·키), openai_base_url(기본 엔드포인트 변경).
  * 설정 파일에 키가 없으면 통과이며 실제 로그인 방식은 `codex login status`로 따로 확인한다(adapters.ts).
  */
 export function scanCodexConfig(opts: { env?: NodeJS.ProcessEnv; home?: string } = {}): ChargeRisk[] {
-  const { file, home } = codexConfigFile(opts);
+  const env = opts.env ?? process.env;
+  const home = opts.home ?? os.homedir();
+  const file = path.join(env.CODEX_HOME || path.join(home, '.codex'), 'config.toml');
   if (!fs.existsSync(file)) return [];
-  const label = tilde(file, home);
+  const label = file.startsWith(home + path.sep) ? `~${file.slice(home.length)}` : file;
   let text: string;
   try { text = fs.readFileSync(file, 'utf8'); } catch {
     return [{ code: 'settings_unreadable', message: `Codex 설정을 읽지 못해 과금 경로 설정을 확인할 수 없음: ${label}`, fix: '파일 권한을 확인하거나 설정을 직접 점검' }];
