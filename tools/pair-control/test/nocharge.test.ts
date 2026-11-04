@@ -1,3 +1,4 @@
+import { limitFor, clearLimit } from '../src/executor/executorPolicy.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { logTail, refreshProbes } from '../src/executor/executorView.ts';
 // 실제 CLI 경로의 무과금 조건. 가짜 claude/codex 실행 파일만 사용하며 모델 요청·설치·로그인은 없다.
@@ -142,30 +143,30 @@ test('한도 도달은 공급자별 정지: 그 공급자만 막고 다른 공�
     await assign(env.ex, task(env, 'task-b', { mode: 'real', allowedFiles: ['src_b/'], goal: 'ok' })); // codex worker(영향 없음)
     await assign(env.ex, task(env, 'task-d', { allowedFiles: ['src_a/'], mode: 'mock' }));
     await startTask('task-a');
-    await waitFor(() => env.ex.limitFor('claude') !== null, 'claude limit');
-    assert.match(env.ex.limitFor('claude')!.detail, /한도 도달/);
+    await waitFor(() => limitFor(env.ex, 'claude') !== null, 'claude limit');
+    assert.match(limitFor(env.ex, 'claude')!.detail, /한도 도달/);
     assert.equal(env.ex.limit, null, '공급자 실행이 낸 한도는 전역 한도가 아님');
-    assert.equal(env.ex.limitFor('codex'), null, '다른 공급자는 막히지 않음');
+    assert.equal(limitFor(env.ex, 'codex'), null, '다른 공급자는 막히지 않음');
     assert.equal(env.trips.length, 0, '"extra usage" 권유 문구가 섞여도 서비스를 끄지 않음');
     await waitFor(() => env.ex.task('task-a').status === 'failed', 'failed');
     await assert.rejects(startTask('task-c'), /구독 한도/); // 같은 공급자는 다른 작업으로도 시작 불가
     await refreshProbes(env.ex);
-    assert.ok(codes(realReadiness('claude', env.ex.probes.claude, env.cfg, { limit: env.ex.limitFor('claude') })).includes('limit_hit'));
+    assert.ok(codes(realReadiness('claude', env.ex.probes.claude, env.cfg, { limit: limitFor(env.ex, 'claude') })).includes('limit_hit'));
     await startTask('task-b'); // 한도에 닿지 않은 codex는 계속 실행
     await waitFor(() => env.ex.task('task-b').status === 'review_pending', 'codex review');
     await startTask('task-d'); // mock은 한도와 무관
     await waitFor(() => env.ex.task('task-d').status === 'review_pending', 'mock review');
     env = env.restart();
-    assert.ok(env.ex.limitFor('claude'), '한도 상태는 재시작 후에도 유지');
+    assert.ok(limitFor(env.ex, 'claude'), '한도 상태는 재시작 후에도 유지');
     clearAgentLimit(env.ex, 'claude');
     await startTask('task-c');
     await waitFor(() => env.ex.task('task-c').status === 'review_pending', 'c review');
     assert.throws(() => clearAgentLimit(env.ex, 'claude'), /한도 상태가 아님/);
     // 출처를 알 수 없는 한도는 어느 공급자 것인지 모르므로 보수적으로 전역 정지한다
     env.ex.guard.scanLog("You've hit your usage limit. Try again later.", 'exec:no-such-execution');
-    assert.ok(env.ex.limit && env.ex.limitFor('claude') && env.ex.limitFor('codex'));
-    env.ex.clearLimit();
-    assert.throws(() => env.ex.clearLimit(), /한도 도달 상태가 아님/);
+    assert.ok(env.ex.limit && limitFor(env.ex, 'claude') && limitFor(env.ex, 'codex'));
+    clearLimit(env.ex, );
+    assert.throws(() => clearLimit(env.ex, ), /한도 도달 상태가 아님/);
   } finally { env.cleanup(); }
 });
 
@@ -196,7 +197,7 @@ test('가짜 codex로 실제 어댑터 경로: exec --cd --sandbox, API 키 미�
     assert.ok(env.ex.task('task-b').result!.checksPassed);
     await assign(env.ex, task(env, 'task-d', { mode: 'real', allowedFiles: ['src_c/'], goal: '[fake:limit] x' }));
     await startTask('task-d');
-    await waitFor(() => env.ex.limitFor('codex') !== null, 'codex limit');
+    await waitFor(() => limitFor(env.ex, 'codex') !== null, 'codex limit');
     assert.equal(env.ex.limit, null, 'codex 한도는 전역 한도가 아님');
   } finally { env.cleanup(); }
 });

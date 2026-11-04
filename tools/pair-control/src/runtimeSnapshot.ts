@@ -1,3 +1,4 @@
+import { limitFor } from './executor/executorPolicy.ts';
 import { groupAlive } from './executor/processIdentity.ts';
 import { turnOf } from './executor/executorView.ts';
 import { groupsOf } from './executor/executorView.ts';
@@ -40,7 +41,7 @@ export function connection(ex: Executor) {
   const kind = !repo ? 'unconfigured' : real(repo).startsWith(real(demoRoot) + path.sep) ? 'demo' : 'real';
   return {
     kind, repo, integrationBranch: ex.cfg.integration.branch, integrationCheckout: ex.cfg.integration.checkout,
-    realRun: { codex: realReadiness('codex', ex.probes.codex, ex.cfg, { limit: ex.limitFor('codex') }), claude: realReadiness('claude', ex.probes.claude, ex.cfg, { limit: ex.limitFor('claude') }) },
+    realRun: { codex: realReadiness('codex', ex.probes.codex, ex.cfg, { limit: limitFor(ex, 'codex') }), claude: realReadiness('claude', ex.probes.claude, ex.cfg, { limit: limitFor(ex, 'claude') }) },
     mockRun: { available: true, note: '모델 요청 없는 mock 프로세스. 실제 코드 품질을 검증하지 않음.' },
   };
 }

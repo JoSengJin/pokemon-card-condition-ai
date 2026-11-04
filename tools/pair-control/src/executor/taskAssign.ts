@@ -1,3 +1,4 @@
+import { assertMainActive } from './executorPolicy.ts';
 import { preflightChecks } from './taskPreflight.ts';
 import fs from 'node:fs';
 import { needsDevelopLock, TaskInput } from './contract.ts';
@@ -6,7 +7,7 @@ import { UserError } from './errors.ts';
 import type { Executor, Task } from './executor.ts';
 
 export async function assign(taskExecutor: Executor, raw: unknown): Promise<Task> {
-  taskExecutor.assertMainActive('작업 배정');
+  assertMainActive(taskExecutor, '작업 배정');
   const parsed = TaskInput.safeParse(raw);
   if (!parsed.success) throw new UserError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(' / '));
   const input = parsed.data;

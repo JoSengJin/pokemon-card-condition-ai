@@ -1,3 +1,4 @@
+import { limitFor } from './executorPolicy.ts';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as G from './git.ts';
@@ -39,7 +40,7 @@ export async function preflightChecks(taskExecutor: Executor, t: Task): Promise<
     for (const r of risks) add(`무과금: ${r.code}`, false, `${r.message} → ${r.fix}`);
     if (!risks.length) add('무과금 검사', true, '환경변수·설정에서 API 과금 경로 없음(로그인 방식은 확인 불가 — 사용자 확인 표시에 의존)');
     add('구독 확인 표시', taskExecutor.cfg.confirmedSubscriptionAuth, taskExecutor.cfg.confirmedSubscriptionAuth ? '사용자가 구독 로그인·추가 크레딧 꺼짐을 확인함' : 'config.confirmedSubscriptionAuth=false');
-    const lim = taskExecutor.limitFor(t.agent);
+    const lim = limitFor(taskExecutor, t.agent);
     add('구독 한도', !lim, lim ? lim.detail : '한도 도달 없음');
   }
   return c;

@@ -1,3 +1,4 @@
+import { stop } from '../src/executor/monitorSchedule.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve, reject } from '../src/executor/taskApproval.ts';
 import { recheckEnv } from '../src/executor/taskEnvironment.ts';
@@ -65,7 +66,7 @@ test('승인 취소는 승인됨 상태에서만, 보관은 진행 중·결정 �
     try {
       assert.ok(again.ex.task('task-a').archivedAt, '재시작 후에도 보관 유지');
       assert.equal(setArchived(again.ex, 'task-a', false).archivedAt, null);
-    } finally { again.ex.stop(); }
+    } finally { stop(again.ex); }
   } finally { env.cleanup(); }
 });
 

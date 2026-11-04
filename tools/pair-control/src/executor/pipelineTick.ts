@@ -1,3 +1,4 @@
+import { limitFor } from './executorPolicy.ts';
 // 감시 틱(기존 300ms 감시 루프)이 부르는 연속 처리 진입점. 상태를 읽을 뿐이며, 새 이벤트가 있을 때만 현재 메인에게 턴 한 번을 준다.
 // 폴링으로 모델을 부르지 않는다: 같은 이벤트·같은 세대에는 턴이 한 번뿐이고, 진행 중 턴·교대 중·한도 중에는 아무것도 하지 않는다.
 import { applyVerified, finishApplied } from './pipelineApply.ts';
@@ -73,7 +74,7 @@ export async function pipelineTick(ex: Executor): Promise<void> {
     scanEvents(ex);
     const due = Object.values(pipe(ex).events).filter((e) => e.state === 'pending' && e.kind !== 'blocked' && !e.tried.includes(s.generation));
     if (!due.length) return;
-    if (ex.limitFor(s.agent)) {
+    if (limitFor(ex, s.agent)) {
       const key = `limit-${s.generation}-${s.agent}`;
       pipe(ex).turns[key] = { id: key, sessionId: s.id, generation: s.generation, agent: s.agent, status: 'limited', eventKeys: due.map((e) => e.key), startedAt: new Date().toISOString(), lifetime: ex.lifetime, tokenHash: '', checkpointFile: '', checkpointHash: '', actionResults: [], limitHandledAt: new Date().toISOString() };
       ex.store.save();

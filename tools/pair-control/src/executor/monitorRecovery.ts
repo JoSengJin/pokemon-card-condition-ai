@@ -1,3 +1,4 @@
+import { ensureWatcher } from './monitorSchedule.ts';
 import { alive, groupAlive, ownsLeader } from './processIdentity.ts';
 import fs from 'node:fs';
 import { setStatus, releaseExecLocks } from './taskState.ts';
@@ -24,7 +25,7 @@ export function recover(taskExecutor: Executor, ) {
     if (t.status === 'integrating') setStatus(taskExecutor, t, 'unknown', '통합 도중 서버 종료(통합 checkout을 직접 확인)');
   }
   taskExecutor.store.save();
-  taskExecutor.ensureWatcher();
+  ensureWatcher(taskExecutor, );
 }
 
 export async function observeExit(taskExecutor: Executor, ex: Execution) {

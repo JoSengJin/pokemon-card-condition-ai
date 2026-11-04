@@ -1,3 +1,4 @@
+import { assertMainActive } from './executorPolicy.ts';
 import crypto from 'node:crypto';
 import * as G from './git.ts';
 import { appendEvent } from './store.ts';
@@ -6,7 +7,7 @@ import { UserError } from './errors.ts';
 import type { Executor, Approval } from './executor.ts';
 
 export async function approve(taskExecutor: Executor, taskId: string, sha: string, o: { requireHandoff?: boolean } = {}): Promise<Approval> {
-  taskExecutor.assertMainActive('승인');
+  assertMainActive(taskExecutor, '승인');
   const t = taskExecutor.task(taskId);
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태가 아님(${t.status})`);
   if (o.requireHandoff) {
@@ -42,7 +43,7 @@ export async function approve(taskExecutor: Executor, taskId: string, sha: strin
 }
 
 export function reject(taskExecutor: Executor, taskId: string, reason: string) {
-  taskExecutor.assertMainActive('거절');
+  assertMainActive(taskExecutor, '거절');
   const t = taskExecutor.task(taskId);
   if (!['review_pending', 'approved', 'integration_refused', 'integration_blocked'].includes(t.status)) throw new UserError(`거절할 수 없는 상태(${t.status})`);
   t.approval = null;

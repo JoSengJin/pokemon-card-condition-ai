@@ -1,3 +1,4 @@
+import { limitFor, assertMainActive } from './executorPolicy.ts';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,7 +13,7 @@ import { UserError } from './errors.ts';
 import { REVIEW_MOCK_SCENARIOS, type Executor } from './executor.ts';
 
 export async function startReviewJob(taskExecutor: Executor, taskId: string, o: { reviewer?: 'codex' | 'claude'; mode?: 'mock' | 'real'; mockScenario?: (typeof REVIEW_MOCK_SCENARIOS)[number]; forHandoff?: boolean } = {}) {
-  taskExecutor.assertMainActive('리뷰 시작');
+  assertMainActive(taskExecutor, '리뷰 시작');
   const t = taskExecutor.task(taskId);
   if (taskExecutor.guardAlert) throw new UserError('과금 신호 감지 상태 — 실행하지 않음');
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 리뷰를 등록(${t.status})`);
@@ -56,7 +57,7 @@ export async function startReviewJob(taskExecutor: Executor, taskId: string, o: 
       display = ['node', 'mock/fake-reviewer.mjs', '--scenario', o.mockScenario ?? 'approve', '--bundle', '<리뷰 묶음>'];
     } else {
       taskExecutor.probes[reviewer] = await probe(reviewer, taskExecutor.cfg);
-      const rr = realReadiness(reviewer, taskExecutor.probes[reviewer], taskExecutor.cfg, { limit: taskExecutor.limitFor(reviewer) });
+      const rr = realReadiness(reviewer, taskExecutor.probes[reviewer], taskExecutor.cfg, { limit: limitFor(taskExecutor, reviewer) });
       if (!rr.available) throw new UserError(`실제 ${reviewer} 리뷰 차단: ${rr.blockers.map((b) => b.message).join(', ')}`);
       const prompt = 'REVIEW_REQUEST.md를 읽고 판정 JSON을 마지막 줄에 출력하세요. 파일을 수정하지 마세요.';
       // 옵션 이름은 --help로 확인하지만 값(read-only, plan)은 실제 CLI에서 별도 확인 필요.

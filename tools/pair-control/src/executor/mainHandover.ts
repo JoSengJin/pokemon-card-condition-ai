@@ -1,3 +1,4 @@
+import { ensureWatcher } from './monitorSchedule.ts';
 // 메인 역할 교대: 새 배정·상태 변경 정지 → 체크포인트 저장 → 새 메인 프로세스 실행 → 인수 확인(체크포인트·실제 Git 대조, mainAck.ts) → 승인 범위 안의 다음 행동.
 // "교대 완료"는 인수 확인과 다음 행동 수행 근거가 있을 때만 표시한다(completed). 표시 이름 변경이나 프로세스 시작만으로는 완료가 아니다.
 // 실패(실행 불가·한도·확인 불일치·결과 불명)는 상태와 복구 지점(체크포인트)을 남기고 끝낸다. 자동 재시도 루프는 없다.
@@ -39,7 +40,7 @@ export function prepareSession(ex: Executor, who: { to: Agent; from: Agent }, cp
   const b = writeBundle(ex, s, token, modelActions(ex, s.id));
   s.bundleDir = b.bundleDir; s.launchPrompt = b.prompt;
   ex.store.save();
-  ex.ensureWatcher();
+  ensureWatcher(ex, );
   return { ok: true as const, status: 'launching' as const, sessionId: s.id, generation: s.generation, checkpointFile: cp.file };
 }
 

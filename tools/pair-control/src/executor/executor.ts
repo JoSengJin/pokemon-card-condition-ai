@@ -1,3 +1,4 @@
+import { limitFor } from './executorPolicy.ts';
 import { cancelAll } from './taskCancel.ts';
 import { recover } from './monitorRecovery.ts';
 import { tick } from './monitorTick.ts';
@@ -160,7 +161,7 @@ export class Executor {
   readonly guard: FreeGuard;
   readonly lifetime = crypto.randomUUID();
   readonly probes: Partial<Record<'codex' | 'claude', Probe>> = {};
-  private timer: NodeJS.Timeout | null = null;
+  timer: NodeJS.Timeout | null = null;
   readonly logOffsets = new Map<string, number>();
   resumer: Resumer | null = null;
   private tripped: Alert | null = null;
@@ -188,9 +189,7 @@ export class Executor {
   audit(type: string, data: Record<string, unknown>) { appendEvent(this.cfg.stateDir, { type, lifetime: this.lifetime, ...data }); }
   get limit() { return this.state.limit ?? null; }
   /** 이 에이전트를 막는 한도: 전체 한도(구현 에이전트 한도) 또는 메인 세션이 낸 그 에이전트의 한도. */
-  limitFor(agent: Agent): { at: string; detail: string } | null {
-    return this.state.limit ?? this.runtime.limited[agent] ?? null;
-  }
+
   /** 메인 교대 실행 상태. 처음 쓸 때 만든다. 세대는 인수 확인이 끝날 때만 올라간다. */
   get runtime(): MainRuntime {
     return (this.state.mainRuntime ??= { generation: this.state.main?.generation ?? 0, frozen: false, session: null, history: [], approvals: [], processed: {}, limited: {}, failures: [] });
@@ -198,18 +197,10 @@ export class Executor {
   mainOps: MainOps = {};
   setMainOps(ops: MainOps) { this.mainOps = ops; }
   /** 메인 교대 중에는 메인이 하는 상태 변경(배정·승인·통합 등)을 받지 않는다. */
-  assertMainActive(op: string) {
-    if (this.runtime.frozen) throw new UserError(`메인 교대 중 — ${op}을(를) 지금 할 수 없음(인수 확인 후 새 메인만 진행)`);
-  }
+
   get mainAgent(): 'codex' | 'claude' { return this.state.main?.agent ?? 'codex'; }
   /** 사용자가 한도가 풀렸음을 확인했을 때만 호출한다. 재시도·크레딧 구매는 하지 않는다. */
-  clearLimit() {
-    if (!this.state.limit) throw new UserError('한도 도달 상태가 아님');
-    this.audit('limit_cleared', { was: this.state.limit.at });
-    this.state.limit = null;
-    this.store.save();
-    return null;
-  }
+
 
 
 
@@ -244,7 +235,7 @@ export class Executor {
    */
   async launchMainProcess(o: { agent: Agent; bundleDir: string; prompt: string; sessionId: string }): Promise<string> {
     if (this.tripped) throw new UserError('과금 신호 감지 상태 — 새 메인을 실행하지 않음');
-    const readiness = realReadiness(o.agent, this.probes[o.agent], this.cfg, { limit: this.limitFor(o.agent) });
+    const readiness = realReadiness(o.agent, this.probes[o.agent], this.cfg, { limit: limitFor(this, o.agent) });
     if (!readiness.available) throw new UserError(`실제 ${o.agent} 메인 실행 차단: ${readiness.blockers.map((blocker) => blocker.message).join(', ')}`);
     const args = o.agent === 'codex' ? ['exec', '--cd', o.bundleDir, '--sandbox', 'read-only', o.prompt] : ['--print', '--permission-mode', 'plan', o.prompt];
     const argRisks = scanArgs(args);
@@ -255,12 +246,10 @@ export class Executor {
   }
 
   // ---------- 감시 ----------
-  ensureWatcher() {
-    if (!this.timer) { this.timer = setInterval(() => void tick(this, ), 300); this.timer.unref?.(); }
-  }
+
   /** stop() 뒤에는 연속 처리가 새 검사·턴을 시작하지 않는다(정리 도중 비동기 시작 방지). */
   stopped = false;
-  stop() { this.stopped = true; if (this.timer) clearInterval(this.timer); this.timer = null; }
+
 
 
 

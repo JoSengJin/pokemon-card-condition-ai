@@ -1,3 +1,4 @@
+import { assertMainActive } from './executorPolicy.ts';
 import { startReviewJob } from './reviewStart.ts';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,7 +9,7 @@ import { handoffMessage } from './handoffRecords.ts';
 import type { Executor } from './executor.ts';
 
 export async function handoffToMain(ex: Executor, taskId: string) {
-  ex.assertMainActive('메인 인계');
+  assertMainActive(ex, '메인 인계');
   const t = ex.task(taskId);
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 인계(${t.status})`);
   const r = t.result;

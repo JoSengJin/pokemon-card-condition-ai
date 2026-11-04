@@ -1,3 +1,4 @@
+import { limitFor } from './executorPolicy.ts';
 // 저장된 메인 세션 실행을 probe→exec 한 단계씩 진행한다. exec 진입 뒤 재시작은 결과 불명으로 보존하고 재실행하지 않는다.
 import { failSession } from './mainHandover.ts';
 import { probe, realReadiness } from './adapters.ts';
@@ -15,7 +16,7 @@ export async function advanceSessionLaunch(ex: Executor, s: MainSession) {
       s.launchStage = 'ready'; ex.store.save(); return;
     }
     if (s.launchStage === 'ready') {
-      const readiness = realReadiness(s.agent, ex.probes[s.agent], ex.cfg, { limit: ex.limitFor(s.agent) });
+      const readiness = realReadiness(s.agent, ex.probes[s.agent], ex.cfg, { limit: limitFor(ex, s.agent) });
       if (!readiness.available) throw new Error(`실제 ${s.agent} 메인 실행 차단: ${readiness.blockers.map((blocker) => blocker.message).join(', ')}`);
       s.launchStage = 'exec'; ex.store.save(); return;
     }

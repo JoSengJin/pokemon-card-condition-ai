@@ -1,3 +1,4 @@
+import { ensureWatcher } from './monitorSchedule.ts';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -28,6 +29,6 @@ export function spawnSupervised(ex: Executor, t: Pick<Task, 'taskId' | 'agent' |
   ex.state.executions[execId] = execution;
   appendEvent(ex.cfg.stateDir, { type: 'exec_started', lifetime: ex.lifetime, taskId: t.taskId, kind: o.kind, execId, runId: o.runId, pid: execution.pid, display: execution.display });
   ex.store.save();
-  ex.ensureWatcher();
+  ensureWatcher(ex, );
   return execution;
 }

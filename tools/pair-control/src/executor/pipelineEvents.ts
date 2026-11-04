@@ -1,3 +1,4 @@
+import { limitFor } from './executorPolicy.ts';
 // 작업 상태를 읽어 의미 있는 변화만 이벤트로 등록한다(모델 호출 없음, 상태 읽기뿐).
 // 다음 행동의 승인이 열려 있지 않거나(범위 밖·검증할 수 없는 조건) 멈춘 작업은 턴을 일으키지 않고 보류로 남긴다. 승인이 열리거나 한도가 풀리면 보류가 풀린다.
 import { turnHold } from './approvalScope.ts';
@@ -27,7 +28,7 @@ export function scanEvents(ex: Executor) {
     if (e.state !== 'held' || e.kind === 'blocked') continue;
     const t = ex.state.tasks[e.taskId];
     const scope = e.reason?.startsWith('승인') && !!t && !turnHold(ex, sid, t, e.kind);
-    const limit = e.reason?.startsWith('한도') && !ex.limitFor(ex.mainAgent);
+    const limit = e.reason?.startsWith('한도') && !limitFor(ex, ex.mainAgent);
     if (!scope && !limit) continue;
     e.state = 'pending'; delete e.reason;
     if (limit) e.tried = e.tried.filter((g) => g !== ex.runtime.generation);

@@ -1,3 +1,5 @@
+import { stop } from '../src/executor/monitorSchedule.ts';
+import { limitFor } from '../src/executor/executorPolicy.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
@@ -63,8 +65,8 @@ for (const [workerName, workerDir, limitedAgent, otherAgent] of [['task-b', 'src
       const ex = await slowWorker(e, workerName, workerDir);
       hit(e, ex.execId);
       assert.equal(e.ex.limit, null, '공급자 실행이 낸 한도는 전역 한도가 아님');
-      assert.ok(e.ex.limitFor(limitedAgent), '한도에 닿은 공급자는 막힘');
-      assert.equal(e.ex.limitFor(otherAgent), null, '다른 공급자는 막히지 않음');
+      assert.ok(limitFor(e.ex, limitedAgent), '한도에 닿은 공급자는 막힘');
+      assert.equal(limitFor(e.ex, otherAgent), null, '다른 공급자는 막히지 않음');
       stubLaunch(e);
       const r = await handoverAfterLimit(e.ex, otherAgent, [], '합성: worker 한도 복구');
       assert.equal(r.status, 'launching');
@@ -81,7 +83,7 @@ test('A. 같은 공급자 한도는 다른 세션(새 메인·새 worker)으로 
     stubLaunch(e);
     const r = await handoverMain(e.ex, 'codex', { reason: '합성: 한도 우회 시도' });
     assert.equal(r.status, 'blocked_target_limited');
-    assert.ok(e.ex.limitFor('codex'));
+    assert.ok(limitFor(e.ex, 'codex'));
   } finally { e.cleanup(); }
 });
 
@@ -99,7 +101,7 @@ test('A. 양쪽 공급자 한도는 blocked_both_limited, 출처를 알 수 없�
     owner(u, 'codex');
     u.ex.guard.scanLog(LIMIT, 'exec:no-such-execution');
     assert.ok(u.ex.limit, '출처 불명 → 보수적 전역 한도');
-    assert.ok(u.ex.limitFor('claude'));
+    assert.ok(limitFor(u.ex, 'claude'));
     stubLaunch(u);
     assert.equal((await handoverAfterLimit(u.ex, 'claude', [], '메인 한도 소진 보고(사용자)')).status, 'blocked_target_limited');
   } finally { u.cleanup(); }
@@ -337,7 +339,7 @@ test('G. stop() 뒤 연속 처리는 새 검사·모델 턴을 시작하지 않�
     owner(e, 'codex'); await unverifiedResult(e);
     const checks = countChecks(e), launches = stubLaunch(e);
     grantApproval(e.ex, { basis: '합성: 열린 승인', actions: ['prepare_checks', 'confirm_handoff'], targets: '*' });
-    e.ex.stop();
+    stop(e.ex, );
     for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
     assert.equal(checks.length, 0); assert.equal(launches.length, 0);
   } finally { e.cleanup(); }

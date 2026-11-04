@@ -1,3 +1,4 @@
+import { ensureWatcher } from './monitorSchedule.ts';
 import crypto from 'node:crypto';
 import * as G from './git.ts';
 import { checkVenv, neededEnv } from './envcheck.ts';
@@ -32,6 +33,6 @@ export async function runChecks(taskExecutor: Executor, taskId: string) {
   t.verification = { runId, sha: head, contractHash: t.contractHash, status: 'running', items, startedAt: new Date().toISOString() };
   taskExecutor.audit('checks_started', { taskId, runId, sha: head });
   taskExecutor.store.save();
-  taskExecutor.ensureWatcher();
+  ensureWatcher(taskExecutor, );
   return t.verification;
 }

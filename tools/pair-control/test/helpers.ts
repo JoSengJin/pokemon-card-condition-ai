@@ -1,3 +1,4 @@
+import { stop } from '../src/executor/monitorSchedule.ts';
 import { runChecks } from '../src/executor/verificationStart.ts';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -60,9 +61,9 @@ function boot(dir: string, cfg: PairConfig, fixture: any, trips: Alert[]): Env {
   const env: Env = {
     dir, cfg, ex, fixture, trips,
     // 서버 비정상 종료 흉내: 자식 프로세스는 건드리지 않고 감시만 멈춘 뒤 같은 상태 폴더로 새 실행기를 띄운다.
-    restart() { ex.stop(); return boot(dir, cfg, fixture, trips); },
+    restart() { stop(ex, ); return boot(dir, cfg, fixture, trips); },
     cleanup() {
-      ex.stop();
+      stop(ex, );
       for (const e of Object.values(ex.state.executions)) { try { process.kill(-e.pgid, 'SIGKILL'); } catch { /* gone */ } }
       fs.rmSync(dir, { recursive: true, force: true });
     },
