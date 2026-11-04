@@ -486,6 +486,12 @@ export class Executor {
         }
       }
     }
+    for (const t of Object.values(this.state.tasks)) {
+      const v = t.verification;
+      if (v?.status !== 'running' || v.items.some((item) => item.status === 'running')) continue;
+      await this.startNextCheck(t);
+      return;
+    }
     await pipelineTick(this); // 교대 뒤 연속 처리: 상태를 읽고 새 이벤트가 있을 때만 현재 메인에게 턴을 준다
   }
 
@@ -552,6 +558,15 @@ export class Executor {
   async cancel(taskId: string): Promise<{ ok: boolean; reason: string }> {
     const t = this.task(taskId);
     if (t.status === 'manual_working') return this.cancelManual(taskId);
+    if (t.verification?.status === 'running' && !t.verification.items.some((item) => item.status === 'running')) {
+      this.finishVerification(t, 'cancelled', '사용자 중단(검사 프로세스 시작 전)');
+      return { ok: true, reason: '시작 전 작업 테스트 취소' };
+    }
+    return this.cancelRunning(taskId);
+  }
+
+  private async cancelRunning(taskId: string): Promise<{ ok: boolean; reason: string }> {
+    const t = this.task(taskId);
     const ex = Object.values(this.state.executions).filter((e) => e.taskId === taskId && ['running', 'cancelling'].includes(e.status))
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
     if (!ex) return { ok: false, reason: '이 실행기가 시작한 실행 중 프로세스가 없음' };
@@ -570,7 +585,7 @@ export class Executor {
   cancelAll(reason: string, agent?: string) {
     const busy = new Set(Object.values(this.state.executions).filter((e) => ['running', 'cancelling'].includes(e.status) && (!agent || e.agent === agent)).map((e) => e.taskId));
     for (const t of Object.values(this.state.tasks)) {
-      if (busy.has(t.taskId)) void this.cancel(t.taskId).then((r) => this.event("cancel_all", { taskId: t.taskId, trigger: reason, result: r.reason, ok: r.ok }));
+      if (busy.has(t.taskId)) void this.cancelRunning(t.taskId).then((r) => this.event("cancel_all", { taskId: t.taskId, trigger: reason, result: r.reason, ok: r.ok }));
     }
   }
 
@@ -578,29 +593,28 @@ export class Executor {
   /** 지금 누구 차례인지. 상태에서 파생하며 저장하지 않는다. 에이전트를 자동으로 부르지 못하므로 전환은 사용자가 한다. */
   turnOf(t: Task): { who: 'user' | 'implementer' | 'main' | 'tool'; agent?: 'codex' | 'claude'; label: string; next: string } {
     const impl = { who: 'implementer' as const, agent: t.agent };
-    const user = (label: string, next: string) => ({ who: 'user' as const, label, next });
     switch (t.status) {
       case 'assigned': case 'blocked': case 'cancelled': case 'rejected': case 'abandoned': case 'failed':
-        return user('사용자', '시작(또는 사유 확인 후 다시 시작)');
+        return { who: 'user', label: '사용자', next: '시작(또는 사유 확인 후 다시 시작)' };
       case 'manual_working': return { ...impl, label: `${t.agent} 세션에서 작업 중`, next: '에이전트가 끝나면 "작업 완료 — 결과 수집"' };
       case 'starting': case 'running': case 'collecting': case 'cancelling': return { ...impl, label: `${t.agent} 실행 중(도구가 감독)`, next: '종료 확인을 기다림' };
-      case 'orphan_running': case 'exit_observed': case 'unknown': return user('사용자', '재시작 후 상태 확인');
+      case 'orphan_running': case 'exit_observed': case 'unknown': return { who: 'user', label: '사용자', next: '재시작 후 상태 확인' };
       case 'review_pending': {
         const h = t.handoff;
-        if (!h || h.cancelledAt) return user('사용자', '작업 테스트·diff 확인 후 "메인에게 인계"');
-        if (h.headSha !== t.result?.headSha) return user('사용자', '인계 후 코드가 바뀜 — 다시 인계');
+        if (!h || h.cancelledAt) return { who: 'user', label: '사용자', next: '작업 테스트·diff 확인 후 "메인에게 인계"' };
+        if (h.headSha !== t.result?.headSha) return { who: 'user', label: '사용자', next: '인계 후 코드가 바뀜 — 다시 인계' };
         if (!h.confirmedAt) return { who: 'main', agent: h.to, label: `${h.to} 확인 중`, next: '메인이 확인을 끝내면 "메인 확인 완료"' };
-        return user('사용자', '메인 확인 완료 — 승인 또는 거절');
+        return { who: 'user', label: '사용자', next: '메인 확인 완료 — 승인 또는 거절' };
       }
-      case 'approved': case 'integration_blocked': return user('사용자', '통합 실행');
+      case 'approved': case 'integration_blocked': return { who: 'user', label: '사용자', next: '통합 실행' };
       case 'integrating': return { who: 'tool', label: '도구가 통합 중', next: '완료를 기다림' };
-      case 'integrated': return user('사용자', '푸시 준비');
-      default: return user('사용자', '상태 확인');
+      case 'integrated': return { who: 'user', label: '사용자', next: '푸시 준비' };
+      default: return { who: 'user', label: '사용자', next: '상태 확인' };
     }
   }
 
   private async handoffText(t: Task, head: string, main: 'codex' | 'claude'): Promise<string> {
-    const log = (await G.git(t.worktree, 'log', '--reverse', '--format=%H%x09%P%x09%s', `${t.contractSha}..${head}`)).stdout.trim().split('\n').filter(Boolean);
+    const log = (await G.run('git', ['log', '--reverse', '--format=%H%x09%P%x09%s', `${t.contractSha}..${head}`], t.worktree)).stdout.trim().split('\n').filter(Boolean);
     const rows = log.map((l, i) => { const [sha, parents, subject] = l.split('\t'); return `${i + 1}. \`${sha}\` ← \`${parents || '-'}\` ${subject}`; });
     const r = t.result!;
     const v = t.verification && t.verification.sha === head && t.verification.contractHash === t.contractHash ? t.verification : null;
@@ -649,13 +663,14 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
   }
 
   /** 구현이 끝났음을 메인에게 넘긴다. 도구가 Git으로 교차 확인하며(커밋 없음·미커밋 변경·SHA 변경은 거절) 인계 문서는 상태 폴더에만 저장한다. */
-  async handoffToMain(taskId: string, o: { auto?: boolean } = {}) {
+  async handoffToMain(taskId: string) {
     this.assertMainActive('메인 인계');
     const t = this.task(taskId);
     if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 인계(${t.status})`);
     const r = t.result;
     if (!r?.headSha || !r.commits.length) throw new UserError('인계할 커밋이 없음 — 에이전트가 커밋하지 않았습니다');
-    const head = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
+    const headResult = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${t.branch}^{commit}`], t.worktree);
+    const head = headResult.code === 0 && G.FULL_SHA.test(headResult.stdout.trim()) ? headResult.stdout.trim() : null;
     if (head !== r.headSha) throw new UserError('Git 계약 검사 이후 코드 SHA가 바뀜 — "결과 다시 수집" 후 인계');
     const dirty = await G.dirtyFiles(t.worktree);
     if (dirty.length) throw new UserError(`worktree에 미커밋 변경이 있음: ${dirty.slice(0, 5).join(', ')}`);
@@ -668,13 +683,15 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     t.handoff = { at: new Date().toISOString(), to: this.mainAgent, headSha: head, file };
     this.event('handoff', { taskId, to: t.handoff.to, headSha: head });
     this.store.save();
-    let autoNote: string | undefined;
-    if (o.auto) {
-      // 자동 확인은 구독 로그인 가드를 통과한 실제 CLI로만 한다. 막히면 인계는 유지하고 사람이 붙여 넣는 기존 방식으로 남긴다.
-      try { await this.startReviewJob(taskId, { reviewer: this.mainAgent, mode: 'real', forHandoff: true }); autoNote = `${this.mainAgent} 자동 확인 시작(별도 프로세스, read-only)`; }
-      catch (err) { autoNote = `자동 확인 안 함: ${(err as Error).message} — 안내문을 직접 전달하세요`; }
-    }
-    return { handoff: t.handoff, text, message: this.handoffMessage(t), autoNote };
+    return { handoff: t.handoff, text, message: this.handoffMessage(t), autoNote: undefined as string | undefined };
+  }
+
+  async handoffToMainAuto(taskId: string) {
+    const handoff = await this.handoffToMain(taskId);
+    // 자동 확인은 구독 로그인 가드를 통과한 실제 CLI로만 한다. 막히면 인계는 유지하고 사람이 붙여 넣는 기존 방식으로 남긴다.
+    try { await this.startReviewJob(taskId, { reviewer: this.mainAgent, mode: 'real', forHandoff: true }); handoff.autoNote = `${this.mainAgent} 자동 확인 시작(별도 프로세스, read-only)`; }
+    catch (err) { handoff.autoNote = `자동 확인 안 함: ${(err as Error).message} — 안내문을 직접 전달하세요`; }
+    return handoff;
   }
 
   /** 메인 에이전트 세션에 붙여 넣을 한 줄 안내. */
@@ -695,7 +712,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     if (t.status !== 'review_pending' || !h || h.cancelledAt) throw new UserError('유효한 인계가 없음');
     if (h.headSha !== t.result?.headSha) throw new UserError('인계 이후 코드가 바뀜 — 다시 인계');
     h.confirmedAt = new Date().toISOString(); h.note = note.slice(0, 500);
-    this.event('handoff_confirmed', { taskId, headSha: h.headSha });
+    appendEvent(this.cfg.stateDir, { type: 'handoff_confirmed', lifetime: this.lifetime, taskId, headSha: h.headSha });
     this.store.save();
     return h;
   }
@@ -845,7 +862,8 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     const v = t.verification;
     if (!v || v.status !== 'passed') throw new UserError(`작업 테스트가 통과하지 않음(${v ? v.status : '미실행'}) — 미실행·실패·중단·결과 불명은 통과가 아님`);
     if (v.sha !== sha || v.contractHash !== t.contractHash) throw new UserError('작업 테스트 결과가 현재 SHA·계약과 다름 — 다시 실행');
-    const head = await G.revParse(t.worktree, `refs/heads/${t.branch}`);
+    const headResult = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${t.branch}^{commit}`], t.worktree);
+    const head = headResult.code === 0 && G.FULL_SHA.test(headResult.stdout.trim()) ? headResult.stdout.trim() : null;
     if (head !== sha || t.result.headSha !== sha) throw new UserError(`승인 SHA가 현재 결과와 다름(현재 ${head})`);
     if (!this.cfg.integration.checkout) throw new UserError('config.integration.checkout 미설정');
     const s = await this.integrationState(t, sha);
@@ -971,7 +989,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     t.verification = { runId, sha: head, contractHash: t.contractHash, status: 'running', items, startedAt: new Date().toISOString() };
     this.event('checks_started', { taskId, runId, sha: head });
     this.store.save();
-    await this.startNextCheck(t);
+    this.ensureWatcher();
     return t.verification;
   }
 
@@ -987,7 +1005,7 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
       this.store.save();
     } catch (err) {
       item.status = 'failed'; item.endedAt = new Date().toISOString(); v.note = `시작 실패: ${(err as Error).message}`;
-      return this.startNextCheck(t);
+      this.store.save();
     }
   }
 
@@ -1018,7 +1036,6 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     if (r.cancelled) return this.finishVerification(t, 'cancelled', '사용자 중단');
     if (ex.observedAfterRestart) return this.finishVerification(t, 'interrupted', '서버 재시작으로 검사 순서가 끊김 — 남은 검사는 실행하지 않음. 다시 실행 필요');
     this.store.save();
-    await this.startNextCheck(t);
   }
 
   /** 통합 checkout에서 ./develop 잠금 안으로 통합 후 검사를 실행한다. */

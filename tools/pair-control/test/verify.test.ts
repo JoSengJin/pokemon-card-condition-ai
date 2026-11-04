@@ -90,7 +90,8 @@ test('작업 테스트 중단·중복 실행 차단·재시작 시 이어서 실
     // 재시작: 진행 중이던 첫 검사가 끝나도 두 번째 검사를 자동 실행하지 않음
     await env.ex.runChecks('task-a');
     await env.ex.runChecks('task-c');
-    const cExec = checkExecs(env, 'task-c')[0];
+    await waitFor(() => checkExecs(env, 'task-a')[0], 'task-a first check started');
+    const cExec = await waitFor(() => checkExecs(env, 'task-c')[0], 'task-c check started');
     env = env.restart();
     process.kill(-cExec.pgid, 'SIGKILL'); // 서버가 없는 동안 기록 없이 사라짐
     await waitFor(() => !env.ex.groupAlive(cExec.pgid), 'c gone');

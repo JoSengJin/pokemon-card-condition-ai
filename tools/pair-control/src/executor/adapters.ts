@@ -32,17 +32,15 @@ const REQUIRED: Record<'codex' | 'claude', { help: string[]; flags: string[] }> 
 
 const STREAM_FLAGS = { codex: ['--json'], claude: ['--output-format', '--verbose'] };
 
-function findOnPath(name: string): string | null {
-  for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
-    const p = path.join(dir, name);
-    try { fs.accessSync(p, fs.constants.X_OK); return p; } catch { /* next */ }
-  }
-  return null;
-}
-
 export async function probe(agent: 'codex' | 'claude', cfg: PairConfig): Promise<Probe> {
   const checkedAt = new Date().toISOString();
-  const binary = cfg.cli[agent] || findOnPath(agent);
+  let binary = cfg.cli[agent] || null;
+  if (!binary) {
+    for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
+      const candidate = path.join(dir, agent);
+      try { fs.accessSync(candidate, fs.constants.X_OK); binary = candidate; break; } catch { /* next */ }
+    }
+  }
   const base = { agent, binary, checkedAt, verifiedFlags: [] as string[], missingFlags: REQUIRED[agent].flags };
   if (!binary) return { ...base, installed: false, version: null, note: 'PATH/설정에서 실행 파일을 찾지 못함(미설치)' };
   const ver = await run(binary, ['--version'], cfg.toolRoot, 10_000);

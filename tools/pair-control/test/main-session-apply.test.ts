@@ -3,10 +3,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ackSession } from '../src/executor/mainAck.ts';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
-import { applyTakenOver } from '../src/executor/mainSessionApply.ts';
-import { advanceActions } from '../src/executor/mainActions.ts';
+import { applyTakenOver, finishSession } from '../src/executor/mainSessionApply.ts';
 import type { MainSession } from '../src/executor/mainTypes.ts';
-import { setup } from './helpers.ts';
+import { advanceActions, setup } from './helpers.ts';
 
 function launching(): MainSession {
   return { id: 'next', agent: 'claude', from: 'codex', generation: 1, status: 'launching', startedAt: new Date().toISOString(), limitRecovery: false, checkpointFile: 'checkpoint.json', checkpointHash: 'hash', tokenHash: 'token', actionResults: [] };
@@ -28,16 +27,16 @@ test('다음 진입점이 저장 행동을 한 번만 적용하고, applying 재
   try {
     const s = launching(); e.ex.runtime.session = s; e.ex.runtime.generation = 1;
     ackSession(e.ex, s, { actions: [{ id: 'n1', type: 'note' }] });
-    await applyTakenOver(e.ex, s);
+    applyTakenOver(e.ex, s);
     assert.equal(s.status, 'applying', '첫 진입은 accepted 상태만 저장');
-    await applyTakenOver(e.ex, s);
+    if (await advanceActions(e.ex, s, s)) finishSession(e.ex, s);
     assert.equal(s.status, 'idle'); assert.equal(s.pendingActions, undefined); assert.equal(s.actionResults.length, 1);
-    await applyTakenOver(e.ex, s);
+    applyTakenOver(e.ex, s);
     assert.equal(s.actionResults.length, 1, '완료 상태는 다시 적용하지 않음');
 
     const crashed = { ...launching(), id: 'crashed', status: 'applying' as const, pendingActions: undefined, actionLifetime: 'previous-server' };
     e.ex.runtime.session = crashed;
-    await applyTakenOver(e.ex, crashed);
+    applyTakenOver(e.ex, crashed);
     assert.equal(crashed.status, 'idle'); assert.match(crashed.failure ?? '', /결과 불명/);
     assert.equal(e.ex.runtime.processed.crashed, undefined, '적용 중 상태는 재실행하지 않음');
   } finally { e.cleanup(); }
@@ -51,12 +50,12 @@ test('accepted→authorized 사이 승인 철회는 dispatch 직전 재검사에
     const approval = grantApproval(e.ex, { basis: '합성 승인', actions: ['approve_task'], targets: ['t1'] });
     let calls = 0; e.ex.setMainOps({ approve: async () => { calls++; } });
     ackSession(e.ex, s, { actions: [{ id: 'a1', type: 'approve_task', taskId: 't1', sha: 'a'.repeat(40) }] });
-    await applyTakenOver(e.ex, s);
+    applyTakenOver(e.ex, s);
     assert.equal(s.actionWork?.[0].status, 'accepted');
-    await applyTakenOver(e.ex, s);
+    await advanceActions(e.ex, s, s);
     assert.equal(s.actionWork?.[0].status, 'authorized');
     approval.revokedAt = new Date().toISOString();
-    await applyTakenOver(e.ex, s);
+    if (await advanceActions(e.ex, s, s)) finishSession(e.ex, s);
     assert.equal(calls, 0); assert.equal(s.status, 'idle');
     assert.match(s.actionResults[0].detail, /승인 범위 밖/);
   } finally { e.cleanup(); }

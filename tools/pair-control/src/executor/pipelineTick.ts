@@ -1,13 +1,17 @@
 // 감시 틱(기존 300ms 감시 루프)이 부르는 연속 처리 진입점. 상태를 읽을 뿐이며, 새 이벤트가 있을 때만 현재 메인에게 턴 한 번을 준다.
 // 폴링으로 모델을 부르지 않는다: 같은 이벤트·같은 세대에는 턴이 한 번뿐이고, 진행 중 턴·교대 중·한도 중에는 아무것도 하지 않는다.
-import { applyVerified } from './pipelineApply.ts';
+import { applyVerified, finishApplied } from './pipelineApply.ts';
+import { authorizeAction } from './actionAuthorize.ts';
+import { dispatchAction } from './actionDispatch.ts';
+import { advancePushAction } from './actionPush.ts';
+import { actionsDone, finishAction, type ActionOwner } from './actionState.ts';
 import { autoSteps } from './pipelineSteps.ts';
 import { scanEvents } from './pipelineEvents.ts';
 import { mark, pipe } from './pipelineState.ts';
 import { handoverAfterLimit } from './mainLimit.ts';
 import { launchTurn } from './pipelineTurn.ts';
-import { applyTakenOver } from './mainSessionApply.ts';
-import { TURN_IN_FLIGHT } from './mainTypes.ts';
+import { applyTakenOver, finishSession } from './mainSessionApply.ts';
+import { TURN_IN_FLIGHT, type MainTurn } from './mainTypes.ts';
 import type { Executor } from './executor.ts';
 
 const RESTART_UNKNOWN = ['launching', 'launched', 'applying']; // 재시작 때 결과 불명으로 남기는 상태(verified는 검증된 저장 응답이라 최초 1회 적용 대상)
@@ -42,10 +46,29 @@ export async function pipelineTick(ex: Executor): Promise<void> {
       const other = limited.agent === 'codex' ? 'claude' : 'codex';
       await handoverAfterLimit(ex, other, limited.eventKeys, `${limited.agent} 메인 한도 — 승인된 교대 절차 연결`); return;
     }
-    await applyTakenOver(ex, s);
-    if (!['completed', 'idle'].includes(s.status)) return;
-    recoverTurns(ex);
-    await applyVerified(ex);
+    applyTakenOver(ex, s);
+    let owner: ActionOwner | undefined, applying: MainTurn | undefined;
+    if (s.status === 'applying' && s.actionLifetime === ex.lifetime) owner = s;
+    else {
+      if (!['completed', 'idle'].includes(s.status)) return;
+      recoverTurns(ex);
+      applying = Object.values(pipe(ex).turns).find((t) => t.status === 'applying' && t.lifetime === ex.lifetime);
+      owner = applying;
+    }
+    if (owner) {
+      let work;
+      for (const row of owner.actionWork ?? []) if (row.status !== 'done') { work = row; break; }
+      if (work?.status === 'dispatching') {
+        if (work.action.type === 'push_main' && work.dispatchLifetime === ex.lifetime && work.pushStage) await advancePushAction(ex, s, work);
+        else finishAction(ex, work, false, '서버 재시작 전 수행을 시작한 행동 — 결과 불명, 재시도하지 않음');
+      } else if (work?.status === 'accepted') await authorizeAction(ex, s, owner, work);
+      else if (work?.status === 'authorized') await dispatchAction(ex, s, work);
+      if (actionsDone(owner)) {
+        if (owner === s) finishSession(ex, s); else finishApplied(ex, applying!);
+      }
+      return;
+    }
+    applyVerified(ex);
     if (Object.values(pipe(ex).turns).some((t) => TURN_IN_FLIGHT.includes(t.status))) return;
     await autoSteps(ex, s.id);
     if (ex.stopped) return;

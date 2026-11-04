@@ -29,9 +29,13 @@ function candidates(rows: ReturnType<typeof taskRow>[]) {
 }
 
 export async function buildCheckpoint(ex: Executor, why: string) {
-  // 헤드는 revParse 한 번(git 래퍼 없이 직접 실행)으로 읽는다: launchTurn → saveCheckpoint → buildCheckpoint → revParse → run (4회)
+  // 체크포인트 구성 서비스가 Git 원시 결과를 직접 검증해 상위 교대 경로의 프레임 예산을 지킨다.
   const rows = [], running = [], rt = ex.runtime, unverified = ['실제 CLI의 세션 재개·도구 동작', '이전 메인의 대화 기억(승계되지 않음)'];
-  for (const t of Object.values(ex.state.tasks)) rows.push(taskRow(t, await G.revParse(t.worktree, `refs/heads/${t.branch}`), ex.turnOf(t).label));
+  for (const t of Object.values(ex.state.tasks)) {
+    const result = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${t.branch}^{commit}`], t.worktree);
+    const sha = result.code === 0 && G.FULL_SHA.test(result.stdout.trim()) ? result.stdout.trim() : null;
+    rows.push(taskRow(t, sha, ex.turnOf(t).label));
+  }
   for (const e of Object.values(ex.state.executions)) {
     if (e.status === 'running' || e.status === 'cancelling') running.push({ execId: e.execId, kind: e.kind ?? 'agent', taskId: e.taskId, pid: e.pid, note: '중단하지 않고 새 메인이 담당·결과를 인수' });
   }

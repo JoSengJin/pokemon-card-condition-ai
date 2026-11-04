@@ -75,7 +75,8 @@ export async function preflight(ex: Executor): Promise<PushPlan> {
   const plan: PushPlan = { id: crypto.randomUUID(), remote, remoteUrl: '', branch, localHead: '', remoteHead: null, commits: [], files: [], tasks: [], findings: [], blockers, warnings, dryRun: null, revertOf: null, checkedAt: new Date().toISOString() };
   const done = () => { ex.state.pushPlan = plan; ex.store.save(); return plan; };
 
-  const cur = await G.currentBranch(cwd);
+  const branchResult = await G.run('git', ['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd);
+  const cur = branchResult.code === 0 ? branchResult.stdout.trim() : null;
   if (cur !== branch) blockers.push(`통합 checkout의 브랜치가 ${branch}가 아님(현재 ${cur ?? 'detached'})`);
   const op = await G.operationInProgress(cwd);
   if (op) blockers.push(`통합 checkout에 진행 중인 Git 작업이 있음: ${op}`);
@@ -163,13 +164,17 @@ export async function preflight(ex: Executor): Promise<PushPlan> {
   return done();
 }
 
-/** 저장 가능한 push 계획을 만들고 확인 SHA를 대조한다. */
-export async function preparePush(ex: Executor, confirm: string): Promise<PushPlan> {
+/** 점검 결과의 차단 사유와 확인 SHA를 대조한다. 자동·수동 경로가 같은 판정을 쓴다. */
+export function confirmPushPlan(plan: PushPlan, confirm: string): PushPlan {
   const typed = String(confirm ?? '').trim().toLowerCase();
-  const plan = await preflight(ex);
   if (plan.blockers.length) throw new UserError(`푸시할 수 없음: ${plan.blockers.join(' / ')}`);
   if (typed.length < 12 || !plan.localHead.startsWith(typed)) throw new UserError(`확인 입력이 대상 SHA(${plan.localHead.slice(0, 12)}…)의 앞 12자와 다름 — 점검 이후 로컬이 바뀌었을 수 있음`);
   return plan;
+}
+
+/** 저장 가능한 push 계획을 만들고 확인 SHA를 대조한다. */
+export async function preparePush(ex: Executor, confirm: string): Promise<PushPlan> {
+  return confirmPushPlan(await preflight(ex), confirm);
 }
 
 /** 자동 push 범위와 현재 승인을 대조한다. scope 단계와 실제 push 직전에 같은 구현을 호출한다. */
@@ -188,9 +193,13 @@ export async function executePush(ex: Executor, plan: PushPlan, sessionId?: stri
   const owner = crypto.randomUUID();
   if (!ex.locks.acquire('integration', { owner, kind: 'push' })) throw new UserError(`다른 통합·푸시가 진행 중: ${JSON.stringify(ex.locks.holder('integration'))}`);
   try {
-    const now = await lsRemote(cwd, plan.remote, plan.branch);
-    if (!now.ok) throw new UserError(`원격 확인 실패: ${now.detail}`);
-    if (now.sha !== plan.remoteHead) throw new UserError('점검 이후 원격이 바뀜 — 다시 점검');
+    const env = sanitizedChildEnv();
+    env.GIT_TERMINAL_PROMPT = '0';
+    if (process.env.SSH_AUTH_SOCK) env.SSH_AUTH_SOCK = process.env.SSH_AUTH_SOCK;
+    const before = await G.run('git', ['ls-remote', plan.remote, `refs/heads/${plan.branch}`], cwd, 60_000, env);
+    const beforeSha = before.code === 0 ? before.stdout.trim().split(/\s+/)[0] : null;
+    if (before.code !== 0) throw new UserError(`원격 확인 실패: ${redactText(before.stderr.trim().slice(0, 300))}`);
+    if (beforeSha !== plan.remoteHead) throw new UserError('점검 이후 원격이 바뀜 — 다시 점검');
     if (sessionId) {
       for (const id of tasks) authorize(ex, sessionId, 'integrate_task', id);
       authorize(ex, sessionId, 'push_main', plan.branch);
@@ -205,18 +214,19 @@ export async function executePush(ex: Executor, plan: PushPlan, sessionId?: stri
     ex.state.pushPlan = null;
     ex.audit('push_started', { id: rec.id, sha: rec.pushedSha, kind: rec.kind });
     ex.store.save();
-    const r = await git(cwd, command.slice(1), 120_000);
+    const r = await G.run('git', command.slice(1), cwd, 120_000, env);
     const out = redactText((r.stdout + (r.stderr ? `\n${r.stderr}` : '')).trim().slice(-600));
+    const after = await G.run('git', ['ls-remote', plan.remote, `refs/heads/${plan.branch}`], cwd, 60_000, env);
+    const afterSha = after.code === 0 ? after.stdout.trim().split(/\s+/)[0] : null;
+    const afterDetail = redactText(after.stderr.trim().slice(0, 300));
     if (r.code !== 0) {
       // 실패해도 원격 상태를 한 번 확인해 기록한다(성공했는데 응답만 실패한 경우 대비). 자동 재시도는 없다.
-      const after = await lsRemote(cwd, plan.remote, plan.branch);
-      rec.status = after.ok && after.sha === rec.pushedSha ? 'push_unverified' : 'push_failed';
+      rec.status = after.code === 0 && afterSha === rec.pushedSha ? 'push_unverified' : 'push_failed';
       rec.detail = rec.status === 'push_failed' ? `push 실패(code ${r.code}): ${out}` : `push가 오류를 냈지만 원격이 대상 SHA와 같음 — 결과를 직접 확인하세요: ${out}`;
     } else {
-      const after = await lsRemote(cwd, plan.remote, plan.branch);
-      if (after.ok && after.sha === rec.pushedSha) { rec.status = 'pushed_verified'; rec.verifiedAt = new Date().toISOString(); rec.detail = '푸시 후 원격 SHA가 대상 SHA와 일치'; }
-      else if (after.ok) { rec.status = 'remote_mismatch'; rec.detail = `푸시는 성공했지만 원격 SHA(${after.sha?.slice(0, 12) ?? '없음'})가 대상과 다름 — 다른 푸시가 있었는지 확인`; }
-      else { rec.status = 'push_unverified'; rec.detail = `푸시는 성공했지만 사후 확인 실패: ${after.detail}`; }
+      if (after.code === 0 && afterSha === rec.pushedSha) { rec.status = 'pushed_verified'; rec.verifiedAt = new Date().toISOString(); rec.detail = '푸시 후 원격 SHA가 대상 SHA와 일치'; }
+      else if (after.code === 0) { rec.status = 'remote_mismatch'; rec.detail = `푸시는 성공했지만 원격 SHA(${afterSha?.slice(0, 12) ?? '없음'})가 대상과 다름 — 다른 푸시가 있었는지 확인`; }
+      else { rec.status = 'push_unverified'; rec.detail = `푸시는 성공했지만 사후 확인 실패: ${afterDetail}`; }
     }
     if (rec.revertOf && rec.status === 'pushed_verified') { const o = ex.state.pushes![rec.revertOf]; if (o?.revert) o.revert.pushedAs = rec.id; }
     ex.audit('push_finished', { id: rec.id, status: rec.status });

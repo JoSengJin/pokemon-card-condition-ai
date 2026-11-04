@@ -59,7 +59,8 @@ export async function suggestTaskId(ex: Executor, agent: string) {
   const stamp = `${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   for (let n = 1; n < 1000; n++) {
     const id = `task-${stamp}-${n}`;
-    if (!ex.state.tasks[id] && !(await branchExists(ex.cfg.repo, `${agent}/${id}`))) return id;
+    const exists = await G.run('git', ['show-ref', '--verify', '--quiet', `refs/heads/${agent}/${id}`], ex.cfg.repo);
+    if (!ex.state.tasks[id] && exists.code !== 0) return id;
   }
   throw new Error('task ID 자동 생성 실패');
 }

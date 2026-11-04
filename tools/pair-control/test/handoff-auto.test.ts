@@ -63,7 +63,7 @@ test('인계 자동 확인: 가드를 통과하면 별도 codex 리뷰가 approv
   const env = setup(real);
   try {
     await readyForHandoff(env, 'task-a');
-    const r = await env.ex.handoffToMain('task-a', { auto: true });
+    const r = await env.ex.handoffToMainAuto('task-a');
     assert.match(r.autoNote!, /자동 확인 시작/);
     await waitFor(() => !!env.ex.task('task-a').handoff?.confirmedAt, '자동 확인');
     const h = env.ex.task('task-a').handoff!;
@@ -80,7 +80,7 @@ test('인계 자동 확인: changes_requested면 확인하지 않고 사람 차�
   fs.writeFileSync(flag, 'changes_requested');
   try {
     await readyForHandoff(env, 'task-a');
-    await env.ex.handoffToMain('task-a', { auto: true });
+    await env.ex.handoffToMainAuto('task-a');
     await waitFor(() => env.ex.task('task-a').review?.status === 'done', '리뷰 종료');
     assert.equal(env.ex.task('task-a').review!.verdict, 'changes_requested');
     assert.equal(env.ex.task('task-a').handoff!.confirmedAt, undefined);
@@ -91,7 +91,7 @@ test('인계 자동 확인: 과금 가드가 막으면 인계만 하고 사유�
   const env = setup(); // 실제 모델 호출 차단 기본값
   try {
     await readyForHandoff(env, 'task-a');
-    const r = await env.ex.handoffToMain('task-a', { auto: true });
+    const r = await env.ex.handoffToMainAuto('task-a');
     assert.match(r.autoNote!, /^자동 확인 안 함: .*실제 모델 호출 차단/);
     assert.ok(env.ex.task('task-a').handoff && !env.ex.task('task-a').handoff!.confirmedAt);
     assert.equal(env.ex.task('task-a').review, null);
@@ -106,7 +106,7 @@ test('자동 확인이 approve가 아니면 인계는 확인되지 않고 결과
     await readyForHandoff(env, 'task-a');
     const sha = env.ex.task('task-a').result!.headSha!;
     await assert.rejects(env.ex.approve('task-a', sha, { requireHandoff: true }), /메인 인계가 끝나지 않음/);
-    await env.ex.handoffToMain('task-a', { auto: true });
+    await env.ex.handoffToMainAuto('task-a');
     await waitFor(() => env.ex.task('task-a').review?.status === 'done', '리뷰 종료');
     const h = env.ex.task('task-a').handoff!;
     assert.equal(h.confirmedAt, undefined, 'approve가 아니면 자동 확인하지 않음');

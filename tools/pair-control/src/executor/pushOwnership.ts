@@ -14,7 +14,8 @@ export async function pushScope(ex: Executor, plan: PushPlan): Promise<{ unowned
   for (const t of Object.values(ex.state.tasks)) {
     const i = t.integration;
     if (t.status !== 'integrated' || i?.outcome !== 'integrated' || !i.preHead || !i.newHead || !t.approval) continue;
-    for (const sha of await G.commitsBetween(ex.cfg.integration.checkout, i.preHead, i.newHead)) owner.set(sha, t.taskId);
+    const commits = await G.run('git', ['rev-list', '--reverse', `${i.preHead}..${i.newHead}`], ex.cfg.integration.checkout);
+    for (const sha of commits.stdout.split('\n').map((s) => s.trim()).filter((s) => G.FULL_SHA.test(s))) owner.set(sha, t.taskId);
   }
   const unowned: string[] = [], tasks = new Set<string>();
   for (const c of plan.commits) {

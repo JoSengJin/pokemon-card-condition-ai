@@ -5,8 +5,10 @@ import { Mastra } from '@mastra/core/mastra';
 import { LibSQLStore } from '@mastra/libsql';
 import { loadConfig, type PairConfig } from '../src/executor/config.ts';
 import { Executor } from '../src/executor/executor.ts';
-import { advanceActions } from '../src/executor/mainActions.ts';
-import { acceptActions, actionResults } from '../src/executor/actionState.ts';
+import { authorizeAction } from '../src/executor/actionAuthorize.ts';
+import { dispatchAction } from '../src/executor/actionDispatch.ts';
+import { advancePushAction } from '../src/executor/actionPush.ts';
+import { acceptActions, actionResults, actionsDone, finishAction, type ActionOwner } from '../src/executor/actionState.ts';
 import type { MainAction, MainSession } from '../src/executor/mainTypes.ts';
 import type { Alert } from '../src/executor/freeGuard.ts';
 import { bindRuntime } from '../src/runtime.ts';
@@ -22,7 +24,21 @@ export interface Env {
   restart(): Env; cleanup(): void;
 }
 
-/** 직접 행동 회귀용 호환 도우미. 운영 경로는 감시 틱마다 advanceActions를 한 번만 호출한다. */
+/** 테스트가 영속 행동 상태를 한 단계 진행한다. 운영 경로는 pipelineTick이 저장 상태를 직접 라우팅한다. */
+export async function advanceActions(ex: Executor, s: MainSession, owner: ActionOwner): Promise<boolean> {
+  for (const work of owner.actionWork ?? []) {
+    if (work.status === 'done') continue;
+    if (work.status === 'dispatching') {
+      if (work.action.type === 'push_main' && work.dispatchLifetime === ex.lifetime && work.pushStage) await advancePushAction(ex, s, work);
+      else finishAction(ex, work, false, '서버 재시작 전 수행을 시작한 행동 — 결과 불명, 재시도하지 않음');
+    } else if (work.status === 'accepted') await authorizeAction(ex, s, owner, work);
+    else if (work.status === 'authorized') await dispatchAction(ex, s, work);
+    return actionsDone(owner);
+  }
+  return true;
+}
+
+/** 직접 행동 회귀용 호환 도우미. */
 export async function applyActions(ex: Executor, s: MainSession, actions: MainAction[]) {
   const owner: { actionWork?: MainSession['actionWork'] } = {};
   acceptActions(ex, owner, actions);
