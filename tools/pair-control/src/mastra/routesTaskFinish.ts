@@ -1,11 +1,12 @@
+import { confirmHandoff, cancelHandoff } from '../executor/handoffRecords.ts';
 import { registerApiRoute } from '@mastra/core/server';
 import { createVenv, tailPostLog } from '../executor/taskControl.ts';
 import { act, body, id } from './apiBase.ts';
 import { executor } from './serverContext.ts';
 
 export const taskFinishRoutes = [
-  registerApiRoute('/pair/api/tasks/:id/handoff-confirm', { method: 'POST', handler: act(async (c) => executor.confirmHandoff(id(c), String((await body(c)).note ?? ''))) }),
-  registerApiRoute('/pair/api/tasks/:id/handoff-cancel', { method: 'POST', handler: act(async (c) => executor.cancelHandoff(id(c))) }),
+  registerApiRoute('/pair/api/tasks/:id/handoff-confirm', { method: 'POST', handler: act(async (c) => confirmHandoff(executor, id(c), String((await body(c)).note ?? ''))) }),
+  registerApiRoute('/pair/api/tasks/:id/handoff-cancel', { method: 'POST', handler: act(async (c) => cancelHandoff(executor, id(c))) }),
   registerApiRoute('/pair/api/tasks/:id/finish-manual', { method: 'POST', handler: act(async (c) => executor.finishManual(id(c))) }),
   registerApiRoute('/pair/api/tasks/:id/recollect', { method: 'POST', handler: act(async (c) => executor.recollect(id(c))) }),
   registerApiRoute('/pair/api/tasks/:id/create-venv', { method: 'POST', handler: act(async (c) => createVenv(executor, id(c))) }),

@@ -1,3 +1,4 @@
+import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // 연속 관제 통합 검토(2026-10-29) 반례 회귀: 공급자별 한도, 자동 push 커밋 범위, 조건 미확정 보류, selfReview 승인 선택, 정지·spawn 오류, 재시작 정책, 구조 기준.
 // 가짜 CLI·임시 bare 원격·스텁만 쓰며 실제 Codex/Claude/Gemini 호출·운영 push는 없다. 합성 계약/회귀 검사이지 실제 CLI 검증이 아니다.
 import assert from 'node:assert/strict';
@@ -123,7 +124,7 @@ async function integratedTaskA(e: Env) {
   await waitFor(() => e.ex.task('task-a').status === 'review_pending', 'review');
   await verify(e, 'task-a'); await e.ex.handoffToMain('task-a');
   const sha = e.ex.task('task-a').result!.headSha!;
-  e.ex.confirmHandoff('task-a', '합성 검토');
+  confirmHandoff(e.ex, 'task-a', '합성 검토');
   const a = await e.ex.approve('task-a', sha, { requireHandoff: true });
   await resumeStep(e.ex.task('task-a').runId!, 'review-gate', { decision: 'approve', sha: a.sha });
   await resumeStep(e.ex.task('task-a').runId!, 'integrate-gate', { action: 'integrate' });
@@ -246,7 +247,7 @@ test('C. approve_task 조건부 승인은 준비 권한을 주지 않는다: pre
     for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
     assert.equal(checks.length, 1, '검사는 한 번'); assert.equal(launches.length, 0, '확인(confirm_handoff) 승인이 없으면 모델 턴 없음');
     assert.ok(Object.values(pipe(e.ex).events).some((ev) => ev.state === 'held' && /confirm_handoff/.test(ev.reason ?? '')));
-    e.ex.confirmHandoff('task-a', '사용자가 직접 확인(합성)'); // 사람이 확인하면 다음 행동은 approve_task → 이미 열린 승인
+    confirmHandoff(e.ex, 'task-a', '사용자가 직접 확인(합성)'); // 사람이 확인하면 다음 행동은 approve_task → 이미 열린 승인
     await tickUntil(e, () => launches.length === 1, '모델 턴 시작');
     for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
     assert.equal(launches.length, 1, '턴은 한 번');

@@ -1,3 +1,5 @@
+import { handoffMessage } from './handoffRecords.ts';
+import { handoffText } from './handoffDocument.ts';
 // Node 실행기: 작업 소유권·CLI 프로세스·Git 검사·취소·상태 저장·통합.
 // Mastra workflow는 단계·승인 대기를 맡고, 실제 프로세스와 Git 상태의 근거는 이 실행기가 가진다.
 import { spawn, execFileSync } from 'node:child_process';
@@ -17,7 +19,7 @@ import { FreeGuard, sanitizedChildEnv, type Alert } from './freeGuard.ts';
 import { commitContract, contractHashAt, contractPath } from './contractFile.ts';
 import { checkVenv, neededEnv, type EnvReadiness } from './envcheck.ts';
 import { resolveCheck } from './checkCommand.ts';
-import { buildStartPrompt, type PromptOptions } from './startPrompt.ts';
+import { buildStartPrompt } from './startPrompt.ts';
 import type { Agent, MainOps, MainRuntime } from './mainTypes.ts';
 import { onMainEnd } from './mainEnd.ts';
 import { onTurnEnd } from './pipelineEnd.ts';
@@ -412,6 +414,8 @@ export class Executor {
    */
   async launchMainProcess(o: { agent: Agent; bundleDir: string; prompt: string; sessionId: string }): Promise<string> {
     if (this.tripped) throw new UserError('과금 신호 감지 상태 — 새 메인을 실행하지 않음');
+    const readiness = realReadiness(o.agent, this.probes[o.agent], this.cfg, { limit: this.limitFor(o.agent) });
+    if (!readiness.available) throw new UserError(`실제 ${o.agent} 메인 실행 차단: ${readiness.blockers.map((blocker) => blocker.message).join(', ')}`);
     const args = o.agent === 'codex' ? ['exec', '--cd', o.bundleDir, '--sandbox', 'read-only', o.prompt] : ['--print', '--permission-mode', 'plan', o.prompt];
     const argRisks = scanArgs(args);
     if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
@@ -629,54 +633,7 @@ export class Executor {
   /** 지금 누구 차례인지. 상태에서 파생하며 저장하지 않는다. 에이전트를 자동으로 부르지 못하므로 전환은 사용자가 한다. */
 
 
-  private async handoffText(t: Task, head: string, main: 'codex' | 'claude'): Promise<string> {
-    const log = (await G.run('git', ['log', '--reverse', '--format=%H%x09%P%x09%s', `${t.contractSha}..${head}`], t.worktree)).stdout.trim().split('\n').filter(Boolean);
-    const rows = log.map((l, i) => { const [sha, parents, subject] = l.split('\t'); return `${i + 1}. \`${sha}\` ← \`${parents || '-'}\` ${subject}`; });
-    const r = t.result!;
-    const v = t.verification && t.verification.sha === head && t.verification.contractHash === t.contractHash ? t.verification : null;
-    const rv = t.review && t.review.sha === head ? t.review : null;
-    return `# 인계: ${t.taskId}
 
-- 구현 담당: ${t.agent} → 메인(확인·통합·푸시 담당): ${main}
-- 브랜치: \`${t.branch}\`
-- 작업 위치(로컬 경로, 커밋하지 않음): ${t.worktree}
-- 기준 SHA: \`${t.baseSha}\`
-- 계약: \`${t.contractPath}\` @ \`${t.contractSha}\` (해시 \`${t.contractHash.slice(0, 16)}…\`)
-- 인계 대상 전체 SHA: \`${head}\`
-
-## 커밋 순서 (전체 SHA ← 부모, 계약 커밋 이후)
-
-${rows.join('\n') || '(없음)'}
-
-## 변경 파일 (계약 커밋 이후)
-
-${r.changedFiles.map((f) => `- ${f}`).join('\n') || '- (없음)'}
-
-## 검사 결과
-
-- Git 계약 검사: ${r.checksPassed ? '통과' : '**실패**'} — 형식(브랜치·계약 불변·허용 파일·미커밋 없음)만 확인하며 코드의 정확성을 뜻하지 않음
-${r.checks.map((c) => `  - ${c.ok ? '✓' : '✗'} ${c.name}: ${c.detail}`).join('\n')}
-- 작업 테스트: ${v ? `${v.status} (SHA ${v.sha.slice(0, 12)})` : '**미실행 또는 이전 SHA 결과 — 통과가 아님**'}
-${v ? v.items.map((i) => `  - ${i.name}: ${i.status} code ${i.exitCode ?? '-'}`).join('\n') : ''}
-- 독립 리뷰: ${rv ? `${rv.status}${rv.verdict ? ` / ${rv.verdict}` : ''} (${rv.reviewer}, ${rv.mode})` : '미실행'}
-
-## 미검증·한계
-
-${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 이 확인은 독립 확인이 아니다.**\n' : ''}- 이 문서는 도구가 만든 상태 요약이다. 에이전트의 서술 보고서(있다면 \`docs/collaboration/reports/\` 아래)는 읽지 않았다.
-- 실제 학습·추론·성능 평가는 이 단계에서 하지 않았다.
-
-## 롤백
-
-- 통합 전: 작업 브랜치는 그대로 두고 거절하면 된다(삭제하지 않음).
-- 통합 후: \`./develop -- git revert <통합 커밋 SHA>\` (PAIR_CODING §5).
-
-## 메인(${main})이 할 일
-
-1. \`git diff ${t.baseSha}..${head}\` 로 계약 대조(허용 파일, 완료 조건).
-2. 이 SHA·계약 해시가 바뀌면 이 인계는 낡은 것이다. 새 인계를 받는다.
-3. 통합·푸시는 사용자가 /pair 화면에서 승인한 SHA만 진행한다.
-`;
-  }
 
   /** 구현이 끝났음을 메인에게 넘긴다. 도구가 Git으로 교차 확인하며(커밋 없음·미커밋 변경·SHA 변경은 거절) 인계 문서는 상태 폴더에만 저장한다. */
   async handoffToMain(taskId: string) {
@@ -692,14 +649,14 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
     if (dirty.length) throw new UserError(`worktree에 미커밋 변경이 있음: ${dirty.slice(0, 5).join(', ')}`);
     if (t.verification?.status === 'running' || t.review?.status === 'running') throw new UserError('작업 테스트나 리뷰가 실행 중');
     if (t.handoff && !t.handoff.cancelledAt && t.handoff.headSha === head) throw new UserError('이미 인계됨(취소 후 다시 인계 가능)');
-    const text = await this.handoffText(t, head, this.mainAgent);
+    const text = await handoffText(t, head, this.mainAgent);
     const file = path.join(this.cfg.stateDir, 'handoffs', `${t.taskId}-${head.slice(0, 12)}.md`);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, text);
     t.handoff = { at: new Date().toISOString(), to: this.mainAgent, headSha: head, file };
     this.event('handoff', { taskId, to: t.handoff.to, headSha: head });
     this.store.save();
-    return { handoff: t.handoff, text, message: this.handoffMessage(t), autoNote: undefined as string | undefined };
+    return { handoff: t.handoff, text, message: handoffMessage(t), autoNote: undefined as string | undefined };
   }
 
   async handoffToMainAuto(taskId: string) {
@@ -711,45 +668,17 @@ ${t.agent === main ? '- **구현 담당과 메인이 같은 에이전트다 — 
   }
 
   /** 메인 에이전트 세션에 붙여 넣을 한 줄 안내. */
-  handoffMessage(t: Task) {
-    const h = t.handoff!;
-    return `인계됨: ${t.taskId} — 브랜치 ${t.branch}, 전체 SHA ${h.headSha}. 인계 문서: ${h.file} . 작업 위치: ${t.worktree}`;
-  }
 
-  readHandoff(taskId: string) {
-    const t = this.task(taskId);
-    if (!t.handoff) throw new UserError('인계 기록 없음');
-    return { text: fs.existsSync(t.handoff.file) ? fs.readFileSync(t.handoff.file, 'utf8') : '', message: this.handoffMessage(t), handoff: t.handoff };
-  }
 
-  confirmHandoff(taskId: string, note = '') {
-    const t = this.task(taskId);
-    const h = t.handoff;
-    if (t.status !== 'review_pending' || !h || h.cancelledAt) throw new UserError('유효한 인계가 없음');
-    if (h.headSha !== t.result?.headSha) throw new UserError('인계 이후 코드가 바뀜 — 다시 인계');
-    h.confirmedAt = new Date().toISOString(); h.note = note.slice(0, 500);
-    appendEvent(this.cfg.stateDir, { type: 'handoff_confirmed', lifetime: this.lifetime, taskId, headSha: h.headSha });
-    this.store.save();
-    return h;
-  }
+
+
+
 
   /** 잘못 누른 인계를 되돌린다. 코드·승인은 건드리지 않고 차례만 사용자에게 돌아온다. */
-  cancelHandoff(taskId: string) {
-    const t = this.task(taskId);
-    const h = t.handoff;
-    if (!h || h.cancelledAt) throw new UserError('취소할 인계가 없음');
-    if (t.status === 'approved' || t.approval) throw new UserError('승인 후에는 인계를 취소할 수 없음(거절 후 다시 진행)');
-    h.cancelledAt = new Date().toISOString();
-    this.event('handoff_cancelled', { taskId });
-    this.store.save();
-    return h;
-  }
+
 
   // ---------- 에이전트에게 줄 시작 프롬프트 ----------
-  async startPrompt(taskId: string, o: PromptOptions = {}) {
-    const t = this.task(taskId);
-    try { return await buildStartPrompt(t, this.mainAgent, o); } catch (err) { throw new UserError((err as Error).message); }
-  }
+
 
   // ---------- 수동 모드 ----------
   /** 사용자가 "작업 완료"를 눌렀다. 잠금을 풀고 workflow의 종료 대기 단계를 재개해 Git 계약 검사로 넘어간다. */

@@ -1,3 +1,4 @@
+import { startPrompt } from '../src/executor/executorPrompt.ts';
 // 수동 모드(에이전트 세션에서 작업)와 시작 프롬프트. 에이전트 세션은 테스트가 worktree에 직접 커밋해 흉내낸다.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -131,7 +132,7 @@ test('시작 프롬프트: 작업 위치·브랜치·시작 HEAD·읽을 문서�
   try {
     const t = await manual(env, 'task-a', { doneCriteria: ['src_a 결과 파일 추가'], goal: '시작 프롬프트 확인', prompt: '상세 지시 본문' });
     const wt = env.fixture.worktrees['task-a'].path;
-    const p = await env.ex.startPrompt('task-a', { unattended: true, extraDocs: ['README.md'] });
+    const p = await startPrompt(env.ex, 'task-a', { unattended: true, extraDocs: ['README.md'] });
     assert.equal(p.head, gitOut(wt, 'rev-parse', 'HEAD'));
     assert.ok(p.text.startsWith(`작업 위치:\n${t.worktree}\n`));
     for (const needle of [`브랜치: ${t.branch}`, `시작 HEAD: ${p.head}`, `기준 SHA: ${t.baseSha}`, 'AGENTS.md와 PAIR_CODING.md', t.contractPath, '및 README.md',
@@ -140,12 +141,12 @@ test('시작 프롬프트: 작업 위치·브랜치·시작 HEAD·읽을 문서�
       assert.ok(p.text.includes(needle), `없음: ${needle}`);
     }
     assert.ok(!p.text.includes('./develop'), 'develop 경로 작업이 아니면 안내하지 않음');
-    assert.ok(!(await env.ex.startPrompt('task-a')).text.includes('자리에 없습니다'), '무인 문구는 옵션');
+    assert.ok(!(await startPrompt(env.ex, 'task-a')).text.includes('자리에 없습니다'), '무인 문구는 옵션');
     assert.ok(!fs.readFileSync(path.join(wt, t.contractPath), 'utf8').includes(wt), '계약 파일에는 로컬 경로 없음');
-    await assert.rejects(env.ex.startPrompt('task-a', { extraDocs: ['nope/missing.md'] }), /시작 HEAD에 없는 문서/);
-    await assert.rejects(env.ex.startPrompt('task-a', { extraDocs: ['../etc/passwd'] }), /올바르지 않음/);
-    await assert.rejects(env.ex.startPrompt('task-a', { extraDocs: ['/etc/passwd'] }), /올바르지 않음/);
+    await assert.rejects(startPrompt(env.ex, 'task-a', { extraDocs: ['nope/missing.md'] }), /시작 HEAD에 없는 문서/);
+    await assert.rejects(startPrompt(env.ex, 'task-a', { extraDocs: ['../etc/passwd'] }), /올바르지 않음/);
+    await assert.rejects(startPrompt(env.ex, 'task-a', { extraDocs: ['/etc/passwd'] }), /올바르지 않음/);
     const dev = await manual(env, 'task-b', { allowedFiles: ['card_condition/x.py'] });
-    assert.ok((await env.ex.startPrompt(dev.taskId)).text.includes('`./develop -- <수정 명령>`'));
+    assert.ok((await startPrompt(env.ex, dev.taskId)).text.includes('`./develop -- <수정 명령>`'));
   } finally { env.cleanup(); }
 });

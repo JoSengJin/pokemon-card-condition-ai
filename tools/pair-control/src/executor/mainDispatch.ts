@@ -1,3 +1,4 @@
+import { confirmHandoff } from './handoffRecords.ts';
 // 확인 행동의 마지막 증거를 검사하고 기존 연결 서비스로 직접 넘긴다. 승인 범위 검사는 행동 상태 기계가 먼저 한다.
 // 확인(confirm_handoff)은 모델이 diff를 실제로 본 증거(현재 SHA·변경 파일 전체·도구가 계산한 diff 해시·메모)가 맞을 때만 받는다. 그래도 의미 검토 자체를 증명하지는 못한다.
 import crypto from 'node:crypto';
@@ -16,5 +17,5 @@ export async function confirmAction(ex: Executor, a: MainAction, taskId: string,
   const seen = [...new Set(a.reviewedFiles ?? [])].sort().join('\n');
   if (!String(a.note ?? '').trim() || seen !== [...r.changedFiles].sort().join('\n')) throw new UserError(`${taskId}: 검토 메모가 없거나 검토한 파일 목록이 변경 파일 전체와 다름`);
   if (a.diffHash !== crypto.createHash('sha256').update((await G.git(t.worktree, 'diff', '--binary', t.baseSha, r.headSha)).stdout).digest('hex')) throw new UserError(`${taskId}: diff 해시가 도구 계산값과 다름 — 실제 diff를 읽은 증거 없음`);
-  ex.confirmHandoff(taskId, `${t.agent === ex.mainAgent ? '[자기 확인 — 독립 확인 아님] ' : ''}${String(a.note)}`.slice(0, 500));
+  confirmHandoff(ex, taskId, `${t.agent === ex.mainAgent ? '[자기 확인 — 독립 확인 아님] ' : ''}${String(a.note)}`.slice(0, 500));
 }

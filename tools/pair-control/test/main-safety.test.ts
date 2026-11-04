@@ -1,3 +1,4 @@
+import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // 메인 교대 안전성 회귀: 검토(2026-10-29)에서 재현된 반례를 합성 fixture로 고정한다. 가짜 CLI·스텁만 쓰며 실제 모델 호출은 없다.
 // 합성 검사이므로 실제 Codex/Claude CLI 검증이 아니다.
 import assert from 'node:assert/strict';
@@ -36,7 +37,7 @@ async function ready(env: Env, name: string, opts: { approved?: boolean; confirm
   await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
   await verify(env, name);
   await env.ex.handoffToMain(name);
-  if (opts.confirm !== false) env.ex.confirmHandoff(name, '합성 확인');
+  if (opts.confirm !== false) confirmHandoff(env.ex, name, '합성 확인');
   const sha = env.ex.task(name).result!.headSha!;
   if (opts.approved) { const a = await env.ex.approve(name, sha, { requireHandoff: true }); await resumeStep(env.ex.task(name).runId!, 'review-gate', { decision: 'approve', sha: a.sha }); }
   return sha;
@@ -95,7 +96,7 @@ test('조건부 승인: 자유 문장 조건은 자동 수행을 보류하고, �
     assert.equal(r1[0].ok, false);
     assert.match(r1[0].detail, /조건 미충족.*메인 확인/);
     assert.deepEqual(calls, [], '조건 미충족이면 실행하지 않음');
-    env2.ex.confirmHandoff('task-a', '합성 확인');
+    confirmHandoff(env2.ex, 'task-a', '합성 확인');
     const r2 = await applyActions(env2.ex, s, [{ id: 'c2', type: 'approve_task', taskId: 'task-a', sha: 'f'.repeat(40) }]);
     assert.equal(r2[0].ok, false, '확인된 SHA와 다른 SHA는 조건 미충족');
   } finally { env2.cleanup(); }

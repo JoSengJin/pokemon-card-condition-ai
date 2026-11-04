@@ -1,3 +1,5 @@
+import { startPrompt } from '../src/executor/executorPrompt.ts';
+import { readHandoff, confirmHandoff, cancelHandoff } from '../src/executor/handoffRecords.ts';
 import { turnOf } from '../src/executor/executorView.ts';
 // 메인 에이전트 인계: 누구 차례 상태, 인계 문서(커밋하지 않음), 확인·취소, SHA 변경 시 낡은 인계.
 import assert from 'node:assert/strict';
@@ -54,17 +56,17 @@ test('누구 차례: 배정 → 에이전트 작업 → 사용자(검사·인계
     assert.equal(gitOut(wt, 'rev-parse', 'HEAD'), sha, '인계가 브랜치에 커밋을 만들지 않음');
     assert.equal(gitOut(wt, 'status', '--porcelain'), '');
     assert.ok(h.message.includes(sha) && h.message.includes(h.handoff.file));
-    assert.equal(env.ex.readHandoff('task-a').text, h.text);
+    assert.equal(readHandoff(env.ex, 'task-a').text, h.text);
 
     // 메인 확인 → 사용자 차례, 승인에 기록
-    env.ex.confirmHandoff('task-a', '계약 대조 완료');
+    confirmHandoff(env.ex, 'task-a', '계약 대조 완료');
     assert.equal(turn(env, 'task-a').who, 'user');
     assert.match(turn(env, 'task-a').next, /승인 또는 거절/);
     const a = await env.ex.approve('task-a', t.result!.headSha!);
     assert.ok(a.mainConfirmedAt);
     await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     assert.equal(turn(env, 'task-a').next, '통합 실행');
-    await assert.rejects(async () => env.ex.cancelHandoff('task-a'), /승인 후에는 인계를 취소할 수 없음/);
+    await assert.rejects(async () => cancelHandoff(env.ex, 'task-a'), /승인 후에는 인계를 취소할 수 없음/);
   } finally { env.cleanup(); }
 });
 
@@ -85,15 +87,15 @@ test('인계 거절 조건: 커밋 없음·미커밋 변경·낡은 SHA·중복,
     assert.match(h.text, /작업 테스트: \*\*미실행 또는 이전 SHA 결과 — 통과가 아님\*\*/);
     await assert.rejects(env.ex.handoffToMain('task-b'), /이미 인계됨/);
     // 취소하면 사용자 차례로 돌아오고 다시 인계 가능
-    env.ex.cancelHandoff('task-b');
+    cancelHandoff(env.ex, 'task-b');
     assert.equal(turn(env, 'task-b').who, 'user');
-    await assert.rejects(async () => env.ex.confirmHandoff('task-b'), /유효한 인계가 없음/);
+    await assert.rejects(async () => confirmHandoff(env.ex, 'task-b'), /유효한 인계가 없음/);
     await env.ex.handoffToMain('task-b');
     // 인계 후 코드가 바뀌면 낡은 인계: 확인 불가, 사용자가 다시 인계
     commit(env, 'task-b', 'src_b/after.txt');
     await env.ex.recollect('task-b');
     assert.match(turn(env, 'task-b').next, /다시 인계/);
-    assert.throws(() => env.ex.confirmHandoff('task-b'), /코드가 바뀜/);
+    assert.throws(() => confirmHandoff(env.ex, 'task-b'), /코드가 바뀜/);
     await env.ex.handoffToMain('task-b');
     assert.equal(turn(env, 'task-b').who, 'main');
   } finally { env.cleanup(); }
@@ -108,7 +110,7 @@ test('메인 에이전트 기본값은 codex, 인계 대상은 인계 시점의 
     const h = await env.ex.handoffToMain('task-a');
     assert.equal(h.handoff.to, 'claude');
     assert.match(h.text, /메인\(확인·통합·푸시 담당\): claude/);
-    const p = await env.ex.startPrompt('task-a');
+    const p = await startPrompt(env.ex, 'task-a');
     assert.match(p.text, /main 통합과 push는 Claude가 담당/);
   } finally { env.cleanup(); }
 });

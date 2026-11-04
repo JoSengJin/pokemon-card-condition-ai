@@ -12,6 +12,21 @@ function launching(): MainSession {
   return { id: 'next', agent: 'claude', from: 'codex', generation: 1, status: 'launching', startedAt: new Date().toISOString(), limitRecovery: false, checkpointFile: 'checkpoint.json', checkpointHash: 'hash', tokenHash: 'token', actionResults: [] };
 }
 
+test('메인 ready 이후 exec 직전 공급자 한도가 생기면 CLI를 시작하지 않는다', async () => {
+  const e = setup({ allowRealModelCalls: true, confirmedSubscriptionAuth: true });
+  try {
+    const s = launching();
+    Object.assign(s, { launchStage: 'exec', launchLifetime: e.ex.lifetime, bundleDir: e.dir, launchPrompt: 'synthetic' });
+    e.ex.runtime.session = s; e.ex.runtime.frozen = true;
+    e.ex.probes.claude = { installed: true, binary: '/nonexistent/synthetic-cli', missingFlags: [] } as any;
+    e.ex.runtime.limited.claude = { at: new Date().toISOString(), detail: 'ready 이후 한도' };
+    await e.ex.tick();
+    assert.equal(Object.keys(e.ex.state.executions).length, 0);
+    assert.equal(e.ex.runtime.session, null);
+    assert.match(e.ex.runtime.history.at(-1)?.failure ?? '', /구독 사용 한도 도달 상태/);
+  } finally { e.cleanup(); }
+});
+
 test('인수 확인은 행동을 실행하지 않고 taken_over + pendingActions까지만 저장한다', () => {
   const e = setup();
   try {

@@ -1,3 +1,4 @@
+import { confirmHandoff } from '../src/executor/handoffRecords.ts';
 // Codex 과금 가드(설정·로그인 방식)와 메인 인계 자동 확인. 가짜 codex만 쓰며 모델 요청·네트워크는 없다.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -113,7 +114,7 @@ test('자동 확인이 approve가 아니면 인계는 확인되지 않고 결과
     assert.equal(h.autoResult!.verdict, 'insufficient_evidence');
     assert.match(h.autoResult!.summary!, /fake codex review/);
     await assert.rejects(env.ex.approve('task-a', sha, { requireHandoff: true }), /메인 확인이 끝나지 않음/);
-    env.ex.confirmHandoff('task-a', '사람이 결과를 보고 확인');
+    confirmHandoff(env.ex, 'task-a', '사람이 결과를 보고 확인');
     const a = await env.ex.approve('task-a', sha, { requireHandoff: true });
     assert.equal(a.sha, sha);
     assert.ok(a.mainConfirmedAt, '확인 완료 기록이 승인에 남음');
@@ -126,7 +127,7 @@ test('승인 전제조건: 리뷰가 실행 중이면 승인할 수 없다', asy
     await readyForHandoff(env, 'task-a');
     const t = env.ex.task('task-a'), sha = t.result!.headSha!;
     await env.ex.handoffToMain('task-a');
-    env.ex.confirmHandoff('task-a');
+    confirmHandoff(env.ex, 'task-a');
     t.review = { reviewId: 'r', reviewer: 'codex', mode: 'real', sha, contractHash: t.contractHash, bundleDir: '', worktreeFingerprint: '', status: 'running', startedAt: 'x' };
     await assert.rejects(env.ex.approve('task-a', sha, { requireHandoff: true }), /리뷰가 실행 중/);
   } finally { env.cleanup(); }

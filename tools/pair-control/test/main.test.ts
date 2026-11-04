@@ -1,3 +1,5 @@
+import { startPrompt } from '../src/executor/executorPrompt.ts';
+import { cancelHandoff } from '../src/executor/handoffRecords.ts';
 // 메인 역할 이양: 안전 확인·기록·인계 메모. 권한을 강제하지 않는다.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -23,7 +25,7 @@ test('이양: 안전 확인 통과 시 메인 변경·이력·인계 메모, 이
     assert.deepEqual(role.history!.map((h) => h.agent), ['codex']);
     assert.ok(fs.existsSync(role.memoFile!) && role.memoFile!.startsWith(env.cfg.stateDir));
     for (const needle of ['메인 역할 이양: codex → claude', '사유: Codex 토큰 부족', '권한을 강제하지 않는다', '`task-a`', 'claude 세션에서 작업 중', '실행 중인 것이 없음을 도구가 확인']) assert.ok(memo.includes(needle), needle);
-    assert.match((await env.ex.startPrompt('task-a')).text, /main 통합과 push는 Claude가 담당/);
+    assert.match((await startPrompt(env.ex, 'task-a')).text, /main 통합과 push는 Claude가 담당/);
     env = env.restart();
     assert.equal(env.ex.mainAgent, 'claude', '재시작 후에도 유지');
     await setMain(env.ex, 'codex', '복귀');
@@ -80,7 +82,7 @@ test('이양 메모: 이전 메인에게 인계되어 확인 전인 작업은 �
     const { memo } = await setMain(env.ex, 'claude', '토큰');
     assert.match(memo, /`task-a`: 이전 메인\(codex\)에게 인계됨 → claude에게 인계 안내문을 다시 전달/);
     // 구현 담당(claude)이 곧 메인(claude)일 때
-    env.ex.cancelHandoff('task-a');
+    cancelHandoff(env.ex, 'task-a');
     const h = await env.ex.handoffToMain('task-a');
     assert.match(h.text, /구현 담당과 메인이 같은 에이전트다 — 이 확인은 독립 확인이 아니다/);
   } finally { env.cleanup(); }
