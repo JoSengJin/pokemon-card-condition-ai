@@ -1,6 +1,6 @@
 task_id: label-protocol-20261105
 owner: Codex
-status: implementing
+status: integrated (직렬 main 구현/검증 완료; 일반 push·원격 SHA 확인은 최종 인계 참조)
 base_sha: 643382cd159453924cdb394f296e5ab5b6cf27f6
 branch: main (serialized implementation/integration; no parallel worker)
 goal: 앞으로 생성하는 표면 안내에서 잘못된 제외 문구를 없애고 기존 사람 판단·종류별 범위를 일치시킨다.
@@ -38,3 +38,16 @@ goal: 앞으로 생성하는 표면 안내에서 잘못된 제외 문구를 없�
 - 새 실험/추론/외부 AI 0. 점수 78/100 v1.12 기준에서 작업 시작.
 - 성과·진척 HTML: docs/collaboration/reports/label-protocol-20261105.html. 생성/내용 대조/열기 실제 결과를 handoff에 기록.
 - rollback: 작업 커밋 git revert, 과거 자료는 불변이라 데이터 복구 불필요.
+
+## handoff
+- 검증 소스 de3ce08, 4종 합성 생성/문단 외 byte 불변/JS 동일/함수 수 확인, 과거 104파일 해시 불변, direct CLI 1면 생성/py_compile/diff-check 성공.
+- 상세 변경·미검증·위험·롤백: docs/collaboration/reports/label-protocol-20261105.md.
+- 성과·진척 HTML: docs/collaboration/reports/label-protocol-20261105.html. 실제 열기 결과는 아래에 기록.
+- 사람 의존 해결: 사용자 선택대로 과거 평가 영향을 먼저 감사한 뒤 v1.13 설명 정정. 128개 기존 안내에는 오류 문구 없음, 후속 16개에만 존재/기존 점수 입력 편입 없음. 손상 세부유형의 부재로 개별 화이트닝 수치 영향은 미확인. 새 학습/추론/실라벨 저장 없음.
+
+## 사용자 선택 반영·허용 산출물 추가
+- 사용자: “과거 평가 영향까지 확인한 뒤 확정”. 안내 128개/후속 16개, 고정 평가 plan·입력 SHA·답 스키마를 읽기 전용 감사한 뒤 정정. 새 학습/평가/라벨 요청 없음.
+- 추가 ignored 산출물: artifacts/progress-baseline-20261105/criteria-v1.13.json (신규 정정 관리 snapshot, v1.12 불변). 배점·수치/earned/status/기존 증거 전부 보존, C3 설명만 정정.
+
+- 최종 검증: v1.12 snapshot 해시 재현/v1.13 해시 대조, C3 설명·assessment 외 모든 milestone 동일, 기존 104파일 해시 불변, 학습/C3/D2 4개 cohort의 모든 그룹이 검사한 안내 HTML에 포함됨 확인. 기존 안내 128개 오류 문구 0, 후속 재판정 16개 오류 문구 16.
+- HTML 열기: Codex 브라우저 패널 queued(요청 접수), 정적 내용 검사 통과. 실제 렌더/클릭은 미확인. 새 모델 성능 검증/전체 테스트 재실행 없음.
