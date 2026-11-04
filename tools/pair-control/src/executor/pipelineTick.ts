@@ -4,7 +4,8 @@ import { applyVerified } from './pipelineApply.ts';
 import { autoSteps } from './pipelineSteps.ts';
 import { scanEvents } from './pipelineEvents.ts';
 import { mark, pipe } from './pipelineState.ts';
-import { handleLimit, launchTurn } from './pipelineTurn.ts';
+import { handoverAfterLimit } from './mainLimit.ts';
+import { launchTurn } from './pipelineTurn.ts';
 import { applyTakenOver } from './mainSessionApply.ts';
 import { TURN_IN_FLIGHT } from './mainTypes.ts';
 import type { Executor } from './executor.ts';
@@ -38,7 +39,8 @@ export async function pipelineTick(ex: Executor): Promise<void> {
     const limited = Object.values(pipe(ex).turns).find((t) => t.status === 'limited' && !t.limitHandledAt);
     if (limited) {
       limited.limitHandledAt = new Date().toISOString(); ex.store.save();
-      await handleLimit(ex, limited.agent, limited.eventKeys); return;
+      const other = limited.agent === 'codex' ? 'claude' : 'codex';
+      await handoverAfterLimit(ex, other, limited.eventKeys, `${limited.agent} 메인 한도 — 승인된 교대 절차 연결`); return;
     }
     await applyTakenOver(ex, s);
     if (!['completed', 'idle'].includes(s.status)) return;
@@ -50,7 +52,11 @@ export async function pipelineTick(ex: Executor): Promise<void> {
     scanEvents(ex);
     const due = Object.values(pipe(ex).events).filter((e) => e.state === 'pending' && e.kind !== 'blocked' && !e.tried.includes(s.generation));
     if (!due.length) return;
-    if (ex.limitFor(s.agent)) return await handleLimit(ex, s.agent, due.map((e) => e.key));
+    if (ex.limitFor(s.agent)) {
+      const other = s.agent === 'codex' ? 'claude' : 'codex';
+      await handoverAfterLimit(ex, other, due.map((e) => e.key), `${s.agent} 메인 한도 — 승인된 교대 절차 연결`);
+      return;
+    }
     await launchTurn(ex, s, due);
   } catch (e) { ex.audit('pipeline_tick_error', { error: (e as Error).message }); } finally { busy.delete(ex); }
 }

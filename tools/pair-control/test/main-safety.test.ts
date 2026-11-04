@@ -9,6 +9,7 @@ import { authorize, grantApproval } from '../src/executor/mainApprovals.ts';
 import { saveCheckpoint } from '../src/executor/mainCheckpoint.ts';
 import { onMainEnd } from '../src/executor/mainEnd.ts';
 import { handoverMain } from '../src/executor/mainHandover.ts';
+import { handoverAfterLimit } from '../src/executor/mainLimit.ts';
 import { hashOf } from '../src/executor/mainCheckpoint.ts';
 import { tokenHash } from '../src/executor/mainTakeover.ts';
 import { resumeStep, startTask } from '../src/runtime.ts';
@@ -221,7 +222,7 @@ test('소유권: 행동 실행 중 시작된 교대는 그 행동이 끝난 뒤�
   env.ex.launchMainProcess = async () => 'synthetic-exec';
   const p = applyActions(env.ex, s, [{ id: 'one', type: 'approve_task', taskId: 'task-a' }, { id: 'two', type: 'approve_task', taskId: 'task-b' }]);
   await tick();
-  const h = handoverMain(env.ex, 'claude', { limit: true });
+  const h = handoverAfterLimit(env.ex, 'claude', [], '메인 한도 소진 보고(사용자)');
   await tick();
   assert.equal(env.ex.runtime.frozen, false, '진행 중인 행동이 끝나기 전에는 교대가 정지를 걸지 않음');
   g.open();

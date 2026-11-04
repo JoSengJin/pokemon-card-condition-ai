@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
 import { onMainEnd } from '../src/executor/mainEnd.ts';
 import { handoverMain } from '../src/executor/mainHandover.ts';
+import { handoverAfterLimit } from '../src/executor/mainLimit.ts';
 import { resumeStep, startTask } from '../src/runtime.ts';
 import { applyActions, fakeCli, setup, task, verify, waitFor, type Env } from './helpers.ts';
 
@@ -152,7 +153,7 @@ test('한도 오류 직후 복구: 마지막 인계문 없이 저장된 상태�
     await startTask('task-c');
     await waitFor(() => env.ex.task('task-c').status === 'running', 'running');
     script({ actions: [] });
-    const r = await handoverMain(env.ex, 'claude', { limit: true, reason: 'codex 한도 소진' });
+    const r = await handoverAfterLimit(env.ex, 'claude', [], 'codex 한도 소진');
     assert.equal(r.status, 'launching', '한도 복구는 진행 중인 실행을 기다리지 않음');
     assert.ok(env.ex.runtime.limited.codex, '한도에 닿은 쪽이 기록됨');
     const cp = JSON.parse(fs.readFileSync(env.ex.runtime.lastCheckpoint!, 'utf8'));
@@ -182,7 +183,7 @@ test('결과 불명 대상은 확인 전에 다시 수행하지 않는다(작업
     env.ex.task('task-a').status = 'unknown';
     env.ex.state.pushes = { p1: { id: 'p1', status: 'push_unverified', tasks: ['task-p'], at: new Date().toISOString(), preRemoteHead: 'a'.repeat(40), pushedSha: 'b'.repeat(40) } as any };
     script({ actions: [{ id: 'u1', type: 'approve_task', taskId: 'task-a', sha: shaA }, { id: 'p1', type: 'integrate_task', taskId: 'task-p' }] });
-    await handoverMain(env.ex, 'claude', { limit: true }); // 일반 교대는 push 결과 불명을 막는다 → 한도 복구 경로로 확인
+    await handoverAfterLimit(env.ex, 'claude', [], '메인 한도 소진 보고(사용자)'); // 일반 교대는 push 결과 불명을 막는다 → 한도 복구 경로로 확인
     const s = await finished(env);
     assert.match(s.actionResults[0].detail, /결과 불명·진행 중\(unknown\)/);
     assert.match(s.actionResults[1].detail, /push 결과 불명.*원격 확인 전 재수행하지 않음/);
@@ -233,7 +234,7 @@ test('교대 실패는 상태와 복구 지점을 보존하고 재시도하지 �
     assert.match(lf.failure!, /한도 소진.*재시도하지 않음/);
     assert.ok(env.ex.runtime.limited.claude);
     const n1 = execs();
-    const both = await handoverMain(env.ex, 'claude', { limit: true, reason: 'codex도 한도' });
+    const both = await handoverAfterLimit(env.ex, 'claude', [], 'codex도 한도');
     assert.equal(both.status, 'blocked_both_limited', '양쪽 한도 소진');
     assert.equal(execs(), n1, '새 프로세스를 시작하지 않음');
     assert.equal(env.ex.mainAgent, 'codex');

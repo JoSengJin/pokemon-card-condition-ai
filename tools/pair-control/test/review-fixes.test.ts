@@ -10,6 +10,7 @@ import { advanceActions } from '../src/executor/mainActions.ts';
 import { acceptActions } from '../src/executor/actionState.ts';
 import { authorize, grantApproval, revokeApproval } from '../src/executor/mainApprovals.ts';
 import { handoverMain } from '../src/executor/mainHandover.ts';
+import { handoverAfterLimit } from '../src/executor/mainLimit.ts';
 import { pipelineTick } from '../src/executor/pipelineTick.ts';
 import { pipe } from '../src/executor/pipelineState.ts';
 import { runPush } from '../src/executor/push.ts';
@@ -60,7 +61,7 @@ for (const [workerName, workerDir, limitedAgent, otherAgent] of [['task-b', 'src
       assert.ok(e.ex.limitFor(limitedAgent), '한도에 닿은 공급자는 막힘');
       assert.equal(e.ex.limitFor(otherAgent), null, '다른 공급자는 막히지 않음');
       stubLaunch(e);
-      const r = await handoverMain(e.ex, otherAgent, { limit: true, reason: '합성: worker 한도 복구' });
+      const r = await handoverAfterLimit(e.ex, otherAgent, [], '합성: worker 한도 복구');
       assert.equal(r.status, 'launching');
     } finally { e.cleanup(); }
   });
@@ -86,7 +87,7 @@ test('A. 양쪽 공급자 한도는 blocked_both_limited, 출처를 알 수 없�
     const b = await slowWorker(e, 'task-b', 'src_b'), a = await slowWorker(e, 'task-a', 'src_a');
     hit(e, b.execId); hit(e, a.execId);
     stubLaunch(e);
-    assert.equal((await handoverMain(e.ex, 'claude', { limit: true })).status, 'blocked_both_limited');
+    assert.equal((await handoverAfterLimit(e.ex, 'claude', [], '메인 한도 소진 보고(사용자)')).status, 'blocked_both_limited');
   } finally { e.cleanup(); }
   const u = setup();
   try {
@@ -95,7 +96,7 @@ test('A. 양쪽 공급자 한도는 blocked_both_limited, 출처를 알 수 없�
     assert.ok(u.ex.limit, '출처 불명 → 보수적 전역 한도');
     assert.ok(u.ex.limitFor('claude'));
     stubLaunch(u);
-    assert.equal((await handoverMain(u.ex, 'claude', { limit: true })).status, 'blocked_target_limited');
+    assert.equal((await handoverAfterLimit(u.ex, 'claude', [], '메인 한도 소진 보고(사용자)')).status, 'blocked_target_limited');
   } finally { u.cleanup(); }
 });
 

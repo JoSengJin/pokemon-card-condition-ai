@@ -4,12 +4,11 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { modelActions } from './mainApprovals.ts';
 import { saveCheckpoint } from './mainCheckpoint.ts';
-import { handoverMain } from './mainHandover.ts';
 import { tokenHash } from './mainTakeover.ts';
 import { mark, pipe } from './pipelineState.ts';
 import { eventRow, turnDir, writeTurnBundle } from './turnBundle.ts';
 import type { Executor } from './executor.ts';
-import type { Agent, MainSession, MainTurn, PipelineEvent } from './mainTypes.ts';
+import type { MainSession, MainTurn, PipelineEvent } from './mainTypes.ts';
 
 export async function launchTurn(ex: Executor, s: MainSession, events: PipelineEvent[]) {
   const cp = await saveCheckpoint(ex, 'turn'), token = crypto.randomUUID(), keys = events.map((e) => e.key);
@@ -28,13 +27,4 @@ export async function launchTurn(ex: Executor, s: MainSession, events: PipelineE
     t.status = 'launched';
   } catch (e) { t.status = 'failed'; t.failure = `턴 실행 실패: ${(e as Error).message}`; mark(ex, keys, 'held', { reason: `실행 실패: ${t.failure}` }); }
   ex.store.save();
-}
-
-/** 한도: 그 에이전트는 기록돼 있고, 상대 에이전트로 기존 한도 교대를 연결한다. 양쪽이 막히면 의존 이벤트를 보류하고 복구 지점을 남긴다. */
-export async function handleLimit(ex: Executor, agent: Agent, keys: string[]) {
-  const other: Agent = agent === 'codex' ? 'claude' : 'codex';
-  const r = await handoverMain(ex, other, { limit: true, reason: `${agent} 메인 한도 — 승인된 교대 절차 연결` });
-  if (r.status === 'launching') return;
-  mark(ex, keys, 'held', { reason: `한도: ${r.status}` });
-  await saveCheckpoint(ex, 'both-limited');
 }

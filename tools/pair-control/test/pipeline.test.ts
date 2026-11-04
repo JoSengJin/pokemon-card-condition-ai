@@ -7,6 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
 import { clearAgentLimit, handoverMain } from '../src/executor/mainHandover.ts';
+import { handoverAfterLimit } from '../src/executor/mainLimit.ts';
 import { pipelineTick } from '../src/executor/pipelineTick.ts';
 import { pipe, register } from '../src/executor/pipelineState.ts';
 import { pipelineView } from '../src/executor/pipelineView.ts';
@@ -253,7 +254,7 @@ test('실행 중 재교대: 이전 세대 턴의 늦은 응답은 상태를 바�
   await waitFor(() => turns().length === 1, '첫 턴 시작', T);
   const first = Object.values(pipe(env.ex).turns)[0];
   script({ forceConfirm: true }); // 새 세대의 턴은 즉시 응답
-  const r = await handoverMain(env.ex, 'claude', { limit: true, reason: '합성: 턴 진행 중 재교대' });
+  const r = await handoverAfterLimit(env.ex, 'claude', [], '합성: 턴 진행 중 재교대');
   assert.equal(r.status, 'launching');
   await waitFor(() => pipe(env.ex).turns[first.id].status === 'stale', '늦은 응답 거부', T);
   assert.equal(env.ex.task('task-c').status, 'review_pending', '늦은 응답의 행동은 수행되지 않음');
