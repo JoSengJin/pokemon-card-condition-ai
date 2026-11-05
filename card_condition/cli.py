@@ -28,6 +28,10 @@ def main():
     heldout.add_argument('output')
     heldout.add_argument('--expected-model-sha256', required=True)
     heldout.add_argument('--device', choices=('auto','cpu','mps'), default='auto')
+    heldout.add_argument('--test-seal')
+    heldout.add_argument('--test-seal-sha256')
+    heldout.add_argument('--test-candidate')
+    heldout.add_argument('--test-candidate-sha256')
     crossfit = commands.add_parser('visibility-crossfit')
     crossfit.add_argument('manifest')
     crossfit.add_argument('output')
@@ -61,12 +65,25 @@ def main():
     listing.add_argument('--observation-checkpoint', help='Optional frozen observation model; evidence only, no routing changes')
     listing.add_argument('--device', choices=('auto', 'cpu', 'mps'), default='auto')
     listing_predict = commands.add_parser('listing-predict')
-    listing_predict.add_argument('checkpoint')
+    listing_predict.add_argument('checkpoint', nargs='?', help='Direct checkpoint; omit when --release is used')
     listing_predict.add_argument('request', help='JSON with id and optional front/back photo inputs; no labels or split')
+    listing_predict.add_argument('--release', help='Pinned release manifest; verifies package version and checkpoint SHA256 before inference')
     listing_predict.add_argument('--batch-views', action='store_true')
     listing_predict.add_argument('--recall-checkpoint', help='Optional additional defect review model; no final verdict')
     listing_predict.add_argument('--observation-checkpoint', help='Optional face-level evidence; no routing changes')
     listing_predict.add_argument('--device', choices=('auto', 'cpu', 'mps'), default='auto')
+    listing_predict.add_argument('--usage-log', help='Append one JSON usage record per request (timings, outcome, hold counts, release); a record that cannot be written fails the request')
+    pilot_summary = commands.add_parser('pilot-summary', help='Measured F2 pilot conditions from a usage log; never certifies a pilot')
+    pilot_summary.add_argument('log')
+    pilot_summary.add_argument('--reviews', nargs='*', default=[], help='listing-review-record files linked by exact report SHA')
+    listing_review = commands.add_parser('listing-review', help='Static page to review one listing-predict result')
+    listing_review.add_argument('report', help='listing-predict JSON output')
+    listing_review.add_argument('request', help='The same request JSON given to listing-predict')
+    listing_review.add_argument('--output', required=True)
+    review_record = commands.add_parser('listing-review-record', help='Validate exported review decisions; never a label')
+    review_record.add_argument('report')
+    review_record.add_argument('decisions')
+    review_record.add_argument('--output', required=True)
     input_check = commands.add_parser('input-review')
     input_check.add_argument('manifest')
     input_check.add_argument('output')
@@ -116,6 +133,10 @@ def main():
     region_eval.add_argument("output")
     region_eval.add_argument("--history", action="append", required=True)
     region_eval.add_argument("--device", choices=("auto", "cpu", "mps"), default="auto")
+    region_eval.add_argument('--test-seal')
+    region_eval.add_argument('--test-seal-sha256')
+    region_eval.add_argument('--test-candidate')
+    region_eval.add_argument('--test-candidate-sha256')
     region_predict = commands.add_parser("region-predict")
     region_predict.add_argument("checkpoint")
     region_predict.add_argument("image")
@@ -200,6 +221,10 @@ def main():
     side_eval.add_argument("--kind", choices=("regression", "final"), required=True)
     side_eval.add_argument("--history", action="append", default=[], help="Prior development manifest; repeat for all historical datasets")
     side_eval.add_argument("--device", choices=("auto", "cpu", "mps"), default="auto")
+    side_eval.add_argument('--test-seal')
+    side_eval.add_argument('--test-seal-sha256')
+    side_eval.add_argument('--test-candidate')
+    side_eval.add_argument('--test-candidate-sha256')
     snap = commands.add_parser("snapshot")
     snap.add_argument("inventory")
     snap.add_argument("output")
@@ -239,7 +264,7 @@ def main():
             result = experiment(args.manifest, args.output, args.epochs, args.device, tiles=args.tiles, centroid=args.centroid, interior=args.interior, backbone_name=args.backbone, local_signals=args.local_signals, standardize=args.standardize, side_aware=args.side_aware)
         elif args.command == 'visibility-heldout':
             from .observation_heldout import evaluate_heldout
-            result = evaluate_heldout(args.checkpoint,args.manifest,args.output,args.expected_model_sha256,args.device)
+            result = evaluate_heldout(args.checkpoint,args.manifest,args.output,args.expected_model_sha256,args.device, test_seal=args.test_seal, test_seal_sha256=args.test_seal_sha256, test_candidate=args.test_candidate, test_candidate_sha256=args.test_candidate_sha256)
         elif args.command == 'visibility-crossfit':
             from .observation_crossfit import group_crossfit
             result = group_crossfit(args.manifest,args.output,args.device,compare_ridge=args.compare_ridge, compare_context=args.compare_context, compare_logistic=args.compare_logistic, compare_glare_only=args.compare_glare_only)
@@ -260,8 +285,29 @@ def main():
             result = infer_listings(args.manifest, args.checkpoint, args.output, args.device, args.observation_checkpoint, args.batch_views, args.profile_memory)
         elif args.command == 'listing-predict':
             from .listing_model import ListingAnalyzer
-            request = json.loads(Path(args.request).read_text())
-            result = ListingAnalyzer(args.checkpoint, args.device, observation_checkpoint=args.observation_checkpoint, recall_checkpoint=args.recall_checkpoint).analyze(request, batch_views=args.batch_views)
+            from .pilot_record import UsageRecorder
+            usage = UsageRecorder(args.usage_log, args.release)
+            try:
+                request = json.loads(Path(args.request).read_text())
+                usage.start(request)
+                if (args.checkpoint is None) == (args.release is None):
+                    raise ValueError('listing-predict requires exactly one of CHECKPOINT or --release')
+                analyzer = ListingAnalyzer(args.checkpoint, args.device, observation_checkpoint=args.observation_checkpoint, recall_checkpoint=args.recall_checkpoint, release=args.release)
+                usage.loaded()
+                result = analyzer.analyze(request, batch_views=args.batch_views)
+                usage.finish(result)
+            except Exception as exc:
+                usage.fail(exc)
+                raise
+        elif args.command == 'pilot-summary':
+            from .pilot_summary import summarize
+            result = summarize(args.log, args.reviews)
+        elif args.command == 'listing-review':
+            from .listing_review import review_page
+            result = review_page(args.report, args.request, args.output)
+        elif args.command == 'listing-review-record':
+            from .listing_review import review_record
+            result = review_record(args.report, args.decisions, args.output)
         elif args.command == 'input-review':
             from .input_review import input_review
             result = input_review(args.manifest, args.output, args.card)
@@ -285,7 +331,7 @@ def main():
             result = point_audit(args.manifest, args.output)
         elif args.command == "region-evaluate":
             from .region_evaluation import evaluate_regions
-            result = evaluate_regions(args.manifest, args.checkpoint, args.output, args.history, args.device)
+            result = evaluate_regions(args.manifest, args.checkpoint, args.output, args.history, args.device, test_seal=args.test_seal, test_seal_sha256=args.test_seal_sha256, test_candidate=args.test_candidate, test_candidate_sha256=args.test_candidate_sha256)
         elif args.command == "region-predict":
             from .region_model import RegionAnalyzer
             result = RegionAnalyzer(args.checkpoint, args.device).analyze(args.image, args.card_box, args.area, args.unknown, args.batch_views)
@@ -331,7 +377,7 @@ def main():
             result = SideAnalyzer(args.checkpoint, args.device).analyze(args.front, args.back, args.front_box, args.back_box)
         elif args.command == "side-evaluate":
             from .side_evaluation import evaluate_sides
-            result = evaluate_sides(args.manifest, args.checkpoint, args.output, args.kind, args.history, args.device)
+            result = evaluate_sides(args.manifest, args.checkpoint, args.output, args.kind, args.history, args.device, test_seal=args.test_seal, test_seal_sha256=args.test_seal_sha256, test_candidate=args.test_candidate, test_candidate_sha256=args.test_candidate_sha256)
         elif args.command == "snapshot":
             from .snapshot import snapshot
             result = snapshot(args.inventory, args.output, args.reference, args.unassigned)

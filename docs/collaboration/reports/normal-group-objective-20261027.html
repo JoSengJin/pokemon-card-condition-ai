@@ -1,0 +1,58 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>정상 실물 손실 집계: 수렴 실패</title><style>body{max-width:1000px;margin:28px auto;padding:0 18px;color:#213043;background:#f4f6fa;font:16px/1.65 system-ui}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;padding:22px;border-radius:12px}h1{line-height:1.35}</style><h1>정상 실물 손실 집계: 수렴 실패</h1><p>개발 진척30/100 · +0%p · 실제 모델 성능 개선 미확인<br>검증소스 ad3ea94e0a3f5954fb7247d65803c4735ac7bed1 · usable-card-analysis-v1.0</p><pre># 정상 실물 손실 집계 비교 — 2026-10-27
+
+개발 진척률 **30/100 (usable-card-analysis-v1.0, +0%p)**. 새목적식을구현하고실제실험했으나 **첫fold학습수렴검사실패로미채택**. 후보FN/FP/실제점성능은미측정이다.
+
+## 사전가설·최소변경
+
+H3진단에서정상C/D상호제외가FP+3/9,+4/9였다.어려운정상실물손실이평균에희석될가능성을새가설로삼아,정상실물간기존가중평균집계만temperature0.1의가중log-mean-exp로바꿨다.0.1은사전고정이며튜닝하지않았다.기존mass를실물별합산해양성/정상혼합실물의가중치도보존했다.양성항.5/정상항.5,L2=1,point/presence구분,RGB153캐시,4fold,threshold.5,뒷면maps는고정.
+
+성공기준: 같은147행 FN&lt;=16,FP&lt;=18,새오답0,적어도1오류복구,typed51새누락0,기존11cohort전부통과. 결과를보기전에task/plan커밋으로고정했다.
+
+## 실제 실패 기록
+
+- record: artifacts/experiments/20261027T133213-807fae2a/record.json
+- status=failed, stage=execute, return_code=1, error_kind=child_exit,7.685초.
+- objective.py53행 ValueError: Detail head did not converge.첫fold의max-gradient수렴보호를통과하지못했다.실제gradient수치는저장되지않아원인/수치를추정하지않는다.
+- observations.json/result.json/fold-heads.pt/모델예측사진없음.후보누락률/오탐률/변화%p/acceptance는산출불가.기존성공기록으로실패를대체하지않았다.
+- 반복실행·온도/iteration/허용gradient변경0.4fit완료로세지않는다.
+- baseline은122011공동제외의개발147구역FN16/94·FP18/53,typedFN21/51.새목적식과비교할after가없으므로개선/악화주장불가.
+- 사용모델/사진/캐시/사람정답을변경하지않아운영복구가필요하지않다.미채택코드는명시적실험전용경로에만있고제품실행경로에연결하지않았다.
+
+## 변경 파일·실행 검증
+
+- tools/experiments/surface-normal-group-objective-20261027/objective.py: 기존detailhead검증/초기화/중심화/optimizer/수렴조건을보존하고정상실물손실집계만변경.새파일baseline=null.
+- 같은폴더 worker.py: 기존coex입력재생·front고정fold/사진출력재사용,누수검사후fold별단일후보fit.새파일baseline=null.
+- 같은폴더 plan.json: 가설/사전기준/두code_changes/입력SHA/11cohort동결.외부호출0.
+- tests/test_normal_group_objective.py: 정상1그룹시기존학습동치,불균등질량수렴,잘못된그룹/질량거절3검사.
+- docs/collaboration/tasks/normal-group-objective-20261027.md, 이MD/동명HTML: 범위/실행실패/미채택기록.
+- 격리합성3검사OK.정상1그룹은기존coef/bias2e-6이내/목적값1e-8일치.이는단순경계계약검증이며실제fit수렴보증이아님을이번실행으로확인했다.
+- main관련12검사OK,실제실험실패.새소스함수objective2/worker1,검사3;학습전이3.
+- 명령: ./experiment --plan tools/experiments/surface-normal-group-objective-20261027/plan.json -- .venv/bin/python artifacts/surface-normal-group-objective-20261027/worker.py
+- sourceSHA ad3ea94e0a3f5954fb7247d65803c4735ac7bed1.실행snapshot의workerSHAe535f16508ee529cfeef860de2cf238883817f2a0d8de24b0ea024da64db1d15,objectiveSHAb60447e8809742c94063bdf306a007c96ad2d498619c06f1c03cf9d560c7e88d.
+
+## 리스크·롤백
+
+이목적식의실제자료수렴은확인되지않았으므로개선후보로사용하지않는다.수렴실패는성능악화나가설반증이아니다.연구구현제거는 ./develop -- git revert ad3ea94 후관련검사/일반push.미채택전용신규파일이므로운영모델snapshot복원불필요.실패record/계획/snapshot/diff는보존한다.
+
+## 에튜 포인트
+
+log-mean-exp는손실이큰그룹에더큰gradient비중을준다.예를들어정상두그룹손실이0.1/1.0이면산술평균보다1.0그룹을강하게줄이도록학습한다.기존가중치를보존하고집계만바꿔원인을분리했지만,실제최적화가수렴해야성능비교도가능하다.
+
+## 보존·운영·협업 경계
+
+Claude 데이터 보완 checkout·신규 라벨/manifest/사진·coverage 구현·소비서비스는 변경하지 않았다. 기본 checkout에서 공통 실행기로만 직렬 실행했다. 기존 입력11개와 사람응답 파일의 전후 SHA 일치 확인. 외부 Gemini/Codex 모델 호출0, 새 backbone forward0, 운영모델 채택0. 새head는실험폴더전용이거나수렴실패로저장되지않았고 card_condition 모델 소스 수정0이다.
+
+자동검토 정책의 session_id와 현재 세션이 달라 자동 handoff는 생성되지 않았다. artifacts/development-cycle/latest.json은 과거 세션 기록이며 이번 성공/실패 기록을 대신하지 않는다. 이번 next_steps/token_report 자동산출물도 없다. 실제record경로를직접사용한다.
+
+코드 검증은 main `ad3ea94e0a3f5954fb7247d65803c4735ac7bed1` 기준 관련12개 검사 OK(0.968초), git diff --check 통과. 12개는 수식/계약 검사이며 성능 수치가 아니다. 문서와 HTML 내용 대조 및 외부스크립트/개인경로 없음 검사. 전체회귀/독립평가/실사용 검증은실행하지않았다.
+
+원격: 코드 main/origin ad3ea94 일치 확인 후 보고 문서를 추가한다. 최종 문서까지 일반 push한다. force push 없음.
+
+정리: 통합 대응2커밋·clean·개발잠금·고유lock 증거SHA 보존을 확인한 이전 Codex typed-point-assessment checkout만 일반 worktree remove로 정리했다. 브랜치/이력은 보존했고 최근 normal-group-objective checkout을 롤백용으로 유지한다. Claude 데이터/미통합/부분통합 작업과 다른 Codex checkout은 보존. 감사는 artifacts/normal-coexclusion-run-20261027/worktree-cleanup/audit.json.
+
+HTML: 실제 사진 보고서는 Codex 열기도구 queued 및 탭 목록 존재 확인. Browser Use URL policy가 file URL 접근을 차단해 HTML 실제렌더 미확인이다. 서버/터널/다른브라우저로우회하지않았다. 생성PNG1개는이미지뷰어로직접확인했고 GT=0과점수·색상구역표시를확인했다. 이것을 HTML 렌더 검증으로 대체하지 않는다.
+
+## 다음 의존과 중단 근거
+
+성능을 올렸다는 근거는 아직 없다. 공동제외 진단은 정상 실물 쌍 민감도를 좁혔으나 원인을 확정하지 못했고, 후속 단일 목적식은 수렴하지 않았다. 기존 색특징결합·양성손실조정도이미시도된이력이있다. 이번실행의온도/반복수/수렴허용치변경·동일가설재학습은사전기준위반이므로하지않는다. 추가모델변경을정당화할새근거는현재없다. 다음성능평가는Claude소유데이터보완에서오는다양한정상실물의명시적정답과고정geometry/분리감사에의존한다. 이자료를우회해unknown을정상으로채우거나독립자료를개발에편입하지않는다.
+</pre></html>

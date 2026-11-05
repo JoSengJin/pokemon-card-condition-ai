@@ -1,0 +1,8 @@
+{
+ "seed": 20261103,
+ "available": 772,
+ "holdout": 90,
+ "train": 150,
+ "pool_sha256": "e42e08387a73b4e56bb39b21e41c7baed81a1af44c9f8f39c9fdf6b296db839e",
+ "rule": "holdout is label-only and must not be marked, viewed for tuning or used in development until the measurer is frozen"
+}

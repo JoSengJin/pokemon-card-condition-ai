@@ -1,0 +1,15 @@
+ebay-pair-3989e53701dcfc=1,2
+ebay-pair-b3b5d75cbfc800=1,2
+ebay-pair-5e0b1f5ba4b600=1,2
+ebay-pair-63de947e5f5458=1,4
+ebay-pair-14f279cba5f8b8=1,6
+ebay-pair-054bdacf48e0c9=1,2
+ebay-pair-964757019a9807=1,2
+ebay-pair-56c7c3e87c95e4=1,2
+ebay-pair-bad0de95abb00c=1,2
+ebay-pair-421549d6e89213=1,2
+ebay-pair-c137f2a13b0e32=1,2
+ebay-pair-a6f746af0061ed=1,2
+ebay-pair-ef62bb58747507=제외
+ebay-pair-adb7c562e28c99=제외
+ebay-pair-b0bdf8c951fc17=1,3

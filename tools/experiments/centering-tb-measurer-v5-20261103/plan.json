@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "centering-tb-measurer-v5-20261103",
+  "reference_result": "artifacts/centering-tb-measurer-v5-20261103/reference/result.json",
+  "acceptance": {
+    "max_fn": 999,
+    "max_fp": 999,
+    "no_new_errors": false,
+    "require_actual_point_guard": false
+  },
+  "code_changes": [
+    {
+      "path": "artifacts/centering-tb-measurer-v5-20261103/worker.py",
+      "baseline": "artifacts/centering-tb-measurer-v3-20261103/worker.py"
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "tracked_directory": "tools/experiments/centering-tb-measurer-v5-20261103",
+  "expected_denominators": {
+    "train_val": [
+      0,
+      36
+    ]
+  },
+  "reference_note": "상수 0.5(행 대조용).",
+  "hypothesis": "규칙 기반 개선 3건(v2 창 축소, v3 바깥 기준 교체, v4 약한 봉우리 보류)이 모두 실패했다(기록 5d5c93aa, 88d88c9e, 40b98e09). v3는 창 한계 붙음을 줄이고 폭 중앙값을 사람과 맞췄지만(0.030 vs 0.027) 상하 비대칭 순위는 맞지 않았다. 최대 그래디언트 1개를 고르는 규칙이 문제라는 가설: 후보 봉우리를 강도·위치·띠 균일성·색/밝기 전이로 학습한 순위기가 사람이 표시한 경계를 더 잘 고르면 비대칭이 맞는다.",
+  "change": "안쪽 틀 선택 규칙만 변경: v3의 최대 그래디언트 선택 → 같은 창 안 후보 봉우리에 대한 로지스틱 순위기(numpy, L2). 학습은 개발 36장 사람 표시만 사용하고 한 그룹씩 제외한 36겹 교차검증(각 행은 자기 그룹을 못 본 모델로 점수)으로 평가. 바깥 기준·창·점수식은 v3와 동일, 보류 없음. 상수(TOL=0.006, L2=1.0, 반복 300)는 결과 전 고정.",
+  "success_criterion": "(결과 전 고정, 개발 36장 전용, 그룹 제외 교차검증 점수) 사람 표시 비대칭과 순위상관 ≥0.50, 센터링 라벨 AUC ≥0.70, 측정 보류 0%(≤20%), 창 한계 붙은 경계 비율 < 22/72. 모두 충족.",
+  "failure_criterion": "하나라도 미충족이면 실패. 상수·특징을 결과에 맞춰 바꾸지 않는다(새 가설 ID로만).",
+  "known_biases": "같은 36장에서 다섯 번째 가설(다중비교). 학습·평가가 모두 36장(36그룹) 안이며 교차검증은 그룹 누수만 막고 개발 자료 선택 편향은 못 막는다. 사람 표시 폭이 카드 외곽 기준이라는 가정. 개발 평가이며 독립 시험이 아니다. 라벨이 모호하면 순위기가 사람 표시를 따라 하며 센터링 라벨과의 관계는 간접.",
+  "expected_limit": "통과해도 v1.9 충족이 아니다. 동결(코드 SHA·학습 데이터·상수) 후 새 독립 보류 앞면에서만 판정한다. 동결 시 최종 모델은 36장 전체로 한 번 학습한다.",
+  "status": "approved_ready_to_run",
+  "rows": "artifacts/centering-tb-measurer-v5-20261103/rows.json",
+  "expected_rows": 36,
+  "criterion_min_spearman": 0.5,
+  "criterion_min_auc": 0.7,
+  "input_sha256": {
+    "artifacts/centering-tb-measurer-v5-20261103/rows.json": "cb8e536f9d0fa1b95b80ae613eddbd43d7f56a89876f98af1b5b2a351df5c767",
+    "artifacts/centering-tb-diagnosis-20261103/diag.json": "36540b5d5b7b4c839d77b03348d3a4e31248045dd7e37bc77fa292e58e46cbf0"
+  },
+  "criterion_max_hold": 0.2,
+  "criterion_pinned_below": 0.3055555555555556,
+  "valid_indices_file": "artifacts/centering-tb-diagnosis-20261103/diag.json"
+}

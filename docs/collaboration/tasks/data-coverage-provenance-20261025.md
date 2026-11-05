@@ -2,7 +2,7 @@
 
 - task_id: `data-coverage-provenance-20261025`
 - owner: Claude
-- status: assigned
+- status: integrated
 - base_sha: `bdc8fa616d3da756524927c6a4bd6637a8f38b08`
 - branch: `claude/data-coverage-provenance-20261025`
 - worktree: 로컬 경로는 Codex의 전달 메시지를 사용한다. 개인 절대경로를 커밋하지 않는다.
@@ -64,4 +64,42 @@
 
 ## Claude 실행 결과
 
-미실행. Claude가 배정 worktree에서 확인한 결과만 이 절에 추가한다.
+2026-10-25, 배정 worktree에서 실행. 보고서: `docs/collaboration/reports/data-coverage-provenance-20261025.md`.
+
+- check 1: 브랜치 `claude/data-coverage-provenance-20261025`, HEAD=dispatch `91252d77b60e6de31b91a504daca5fadceaa9641`. `merge-base --is-ancestor bdc8fa6… HEAD` 종료코드 0. 시작 시 `git status --short`가 깨끗했고, base 이후 변경은 이 문서뿐이었다.
+- check 2: 이 worktree의 `.venv`에 `requirements-tested.txt`와 `pip install --no-deps -e .`를 설치했다. `card_condition.__file__`가 이 worktree를 가리킨다.
+- check 3: index 46개 SHA가 모두 일치했고, 누락 0, 미등재 0이었다. 사진은 열지 않았다.
+- check 4: `PYTHONPATH=tests .venv/bin/python -m unittest test_data_coverage test_point_dataset test_region_dataset test_regions test_data_coverage_provenance -q` → 31개 중 29개 통과, 2개 실패, 종료코드 1. 기존 4모듈 29개는 신규 테스트 추가 전후 모두 통과했다.
+- check 5: 실패 2개는 의도한 반례 재현이다. 의존성·권한 오류는 없었다.
+  - `test_off_target_typed_point_is_projected_or_traced`: 발견 1. 대상 구역 밖 점이 skip 기록 없이 빠진다.
+  - `test_one_decoded_photo_counts_on_one_side_only`: 발견 3. 한 사진이 앞·뒤 두 단위로 집계된다.
+- check 6: `git diff --check` 통과. base 이후 변경은 allowed_files 3개뿐이다. 보고서에 홈 절대경로·비밀값·실제 정답값·사진을 넣지 않았다.
+- 미실행: `test_review`(Codex 인계 후 검사), 기본 checkout 재감사, `./experiment`, `./review --auto`.
+- 발견 요약:
+  1. 대상 밖 typed point 추적 누락(실제 1건, 수량 영향 0).
+  2. 최신 보완 6행 `side=front`의 사람 근거가 snapshot에 없음(면미확인).
+  3. 동일 사진 양면 이중 집계(실제 0건).
+- 다음 수정 1개: 발견 1의 skip reason `point_outside_target_area`를 기록한다.
+
+### 재검증 — Codex 리뷰 반영 (후속 커밋, 부모 `7c24c0924575753dd3b0f6f41d568e89a1361c7b`)
+
+위 절은 최초 감사 커밋의 기록이며 수정하지 않았다. 이번 후속 커밋은 같은 allowed_files 3개만 바꾸고, 운영 코드는 바꾸지 않는다.
+
+- 발견 1 테스트: 무엇이든 skip이 있으면 통과하던 조건을, 다섯 필드가 모두 일치하는 skip이 정확히 1개 있어야 하는 조건으로 바꿨다. 다섯 필드는 card_id, `side='front'`, `label='corner_defect'`, `area='middle_right'`, `reason='point_outside_target_area'`이다. typed point 1점/1실물과 양성 구역 0단위 단언은 유지했다.
+- 발견 3 테스트: `test_one_decoded_photo_counts_on_one_side_only`의 앞뒤 합계 1 단언을 삭제했다. 대신 `test_one_decoded_photo_assigned_to_both_sides_is_rejected`를 넣었다. 서로 다른 앞뒤 사진의 대조 입력이 정상 처리된 뒤, 같은 디코딩 사진을 양면에 지정하면 `ValueError`가 나야 한다는 계약이다.
+- 보고서: photo-4 행은 "면만 back으로 확인, 구역 대응 등 나머지 조건 미검증, primary 채택 불가"로 범위를 고쳤다. 발견 3의 계약·판정 기준·후속 설명을 거절 계약에 맞췄고, 최초/재검증 이력 절을 추가했다.
+- 실행 결과:
+  - `PYTHONPATH=tests .venv/bin/python -m unittest test_data_coverage test_point_dataset test_region_dataset test_regions test_data_coverage_provenance -v` → 31개 중 29개 통과, 2개 실패, 종료코드 1.
+    - 실패 1: `test_off_target_typed_point_is_projected_or_traced` `AssertionError: 1 != 0`. 정확한 skip 기록이 없다.
+    - 실패 2: `test_one_decoded_photo_assigned_to_both_sides_is_rejected` `AssertionError: ValueError not raised`. 대조 입력은 통과했다.
+    - 둘 다 의도한 단언 실패이고, 의존성·권한 오류는 없었다.
+  - `... test_data_coverage test_point_dataset test_region_dataset test_regions -q` → 29개 통과, 종료코드 0.
+  - 메모리 안에서 `coverage_report`를 감싼 대조 실행(운영 코드 변경 없음): 무관한 `surface_defect` skip, 다른 reason, 다른 area → 실패. 정확한 기록 → 통과.
+  - `git diff --check` 통과. 변경 파일은 allowed_files 3개 안이다.
+- skip이나 expectedFailure는 추가하지 않았다.
+- 미실행: `test_review`, 기본 checkout 재감사, `./experiment`, `./review --auto`.
+
+
+## Codex 인수 결과
+
+보완 커밋 e90a9aa를 재검토하고 두 결함을 수정했다. 통합 검사 42개 통과, 개발/live 집계 불변과 manifest SHA 불변을 검증했다. 세부 근거·리스크·롤백은 감사 보고서의 Codex 통합 검증 절을 따른다. Claude 브랜치의 과거 실패 재현 이력은 보존한다.

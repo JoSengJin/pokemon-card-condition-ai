@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "surface-normal-group-objective-20261027",
+  "hypothesis": "H3 공동제외 실측에서 정상 카드 c/ㄴ을 서로 빼면 FP가 각각3/9,4/9 증가했다. 평균 정상 손실이 어려운 정상 실물 손실을 희석할 가능성에 대해, 정상 실물별 손실의 고정 log-mean-exp 집계가 공동제외 성능을 개선하는지 검증한다.",
+  "change": "앞면 정상 실물간 집계 하나만 기존가중평균→temperature0.1 log-mean-exp. 양성항0.5,정상항0.5,L2=1,max_bound,153RGB캐시,실제점,4fold분할,threshold.5,뒷면은고정. 추가라벨/백본forward/외부호출 없음.",
+  "success_criterion": "동일147행 FN<=16,FP<=18,새오답0,적어도1오류복구,typed51새누락0,기존11cohort모두통과. 수치변화없음은성공아님. 모든fold수렴/분리/SHA/입력보존.",
+  "failure_criterion": "성능기준미달/변화없음은미채택. 수렴/분리/SHA/재현실패는failed이며성능으로해석하지않고자동재시도/온도탐색금지.",
+  "reference_result": "artifacts/experiments/20261025T122011-647b0e9c/result.json",
+  "acceptance": {
+    "max_fn": 16,
+    "max_fp": 18,
+    "no_new_errors": true,
+    "require_actual_point_guard": false
+  },
+  "required_cohorts": [
+    {
+      "id": "surface-original-regression",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-frozen-original-baseline",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-original-fixed-for-local",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface51-human-click-guard",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "surface51-existing-kind-corrected",
+      "reference_result": "artifacts/experiments/20261024T063834-3536c642/typed-point-reference.json",
+      "acceptance": {
+        "max_fn": 18,
+        "max_fp": 0,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    }
+  ],
+  "code_changes": [
+    {
+      "path": "artifacts/surface-normal-group-objective-20261027/worker.py",
+      "baseline": null
+    },
+    {
+      "path": "artifacts/surface-normal-group-objective-20261027/objective.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "new_evidence": "artifacts/experiments/20261027T132418-8a5aa6ae/diagnostics.json: H3 only; cFP1→4/9,ㄴFP4→8/9; 이전 mean group objective와독립된사전변경.",
+  "human_truth": "artifacts/misdreavus-same-photo-normal-20261024/human-response.json",
+  "cache_source": "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt",
+  "tracked_source": "tools/experiments/surface-normal-group-objective-20261027/worker.py",
+  "contract": "docs/collaboration/tasks/normal-group-objective-20261027.md",
+  "input_sha256": {
+    "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt": "8061e7ed4814a038930d5ba8611d85f3194ffdfe5f4e9082062272ed820eb84f",
+    "artifacts/experiments/20261024T060419-45e72d0a/training-tokens.pt": "2cc268945d5d909040ff3e7492d83a42862d4daeb4c466db91a0228af7e63e2f",
+    "artifacts/experiments/20261024T093945-04a7e5e8/local-heads.pt": "cdf8eeb7f576ae475d607beafce592fcb9c71a66601062b1d8d3131e04d5d872",
+    "card_condition/detail_bag.py": "21ec78db0570f8ca3a0b8181de801a48ce715d5aa51bb065224caa974e0e53b3",
+    "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+    "artifacts/experiments/20261025T122011-647b0e9c/fold-heads.pt": "4e31b43433d8c6d06115387dea97d0d401a2e0655a1df34c6258ebb716715fa0",
+    "artifacts/experiments/20261025T122011-647b0e9c/result.json": "eb73931a73eb7bfd7c2dd9ed104caeea76a91f9990fa337fcc09e30521bd977e",
+    "artifacts/experiments/20261025T122011-647b0e9c/observations.json": "f7e317a2aa7e8ec6c4aa85fcd1135554b95933d89660c40b2aed4c519c306419",
+    "artifacts/experiments/20261025T122011-647b0e9c/reference.json": "c7e6c1e163191744c168a661f0ba848aa5d79a6dd6e294f7dcc60daf1f116ca9",
+    "artifacts/experiments/20261025T122011-647b0e9c/plan.json": "18f5fa1169f773c3ec6a7be1002af6df8bcdb9ce6a025e76aa8ea624af6fd4a1",
+    "artifacts/experiments/20261025T122011-647b0e9c/diagnostics.json": "744254cdedca586f3c757f7cc880bdc1baa003d450042a1ace45a70411eabb4d",
+    "tools/experiments/surface-normal-coexclusion-20261025/worker.py": "5c2f573f110042b8695170755d95e52af26367f363ed013e6591e68ec47c6a59",
+    "tools/experiments/surface-front-joint-holdout-baseline-20261025/worker.py": "5db79c3d20743fa7cae0c355f81f80be592dcf92a3d674187fe8e07a5b94094b",
+    "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17",
+    "artifacts/experiments/20261027T132418-8a5aa6ae/diagnostics.json": "072a514fb541ad56d56959c3d6f0d6bd6d8bf8222ab90d0fee3182df5b855a82",
+    "tools/experiments/surface-normal-group-objective-20261027/objective.py": "b60447e8809742c94063bdf306a007c96ad2d498619c06f1c03cf9d560c7e88d",
+    "tools/experiments/surface-normal-group-objective-20261027/worker.py": "e535f16508ee529cfeef860de2cf238883817f2a0d8de24b0ea024da64db1d15"
+  },
+  "training_only_ids": [
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-1",
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-2",
+    "ebay-pair-ff69b8955593fc/photo3-first-attack-surface-confirmed-normal",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-1",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-2",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-3"
+  ],
+  "objective": {
+    "temperature": 0.1,
+    "positive_mass": 0.5,
+    "normal_mass": 0.5,
+    "penalty": 1.0
+  },
+  "proposal": "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json",
+  "proposal_sha256": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17"
+}

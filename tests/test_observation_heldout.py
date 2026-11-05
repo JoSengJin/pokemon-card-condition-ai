@@ -63,6 +63,7 @@ class HeldoutTest(unittest.TestCase):
             manifest.write_text('\n'.join(json.dumps(r) for r in rows+[third]))
             scores=iter([.9,.9,.1,.1,.1])
             with patch('card_condition.observation_heldout.VisibilityAnalyzer') as model:
+                model.return_value.model_sha256 = digest(checkpoint)
                 model.return_value.analyze.side_effect=lambda *a,**kw:dict(observation_limit_score=next(scores))
                 report=evaluate_heldout(checkpoint,manifest,root/'report',digest(checkpoint),'cpu')
             self.assertEqual(2,report['by_group']['new-0']['observation_limited']['fp'])

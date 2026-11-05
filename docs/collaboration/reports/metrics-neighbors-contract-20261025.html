@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>지표 이웃 모듈 계약 검증 · 성과와 진척</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#e7edf8;background:#0e1524}
+body{max-width:1000px;margin:auto;padding:38px 22px;line-height:1.65}
+h1{font-size:28px;line-height:1.3}h2{font-size:20px;margin:30px 0 10px}
+.sub{color:#9fb0cc;font-size:14px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:20px 0}
+.card{background:#16213a;border:1px solid #2c3c5f;border-radius:12px;padding:16px}
+.big{font-size:32px;font-weight:700}progress{width:100%;height:12px}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+th,td{border:1px solid #2c3c5f;padding:8px 10px;text-align:left}th{background:#16213a}
+code{background:#16213a;padding:1px 5px;border-radius:4px;font-size:13px;word-break:break-all}
+.warn{border-left:4px solid #e0a43a;background:#2a2314;padding:10px 14px;margin:14px 0}
+</style>
+<header>
+<p class="sub">2026-10-25 · 합성 계약 검사 · Codex 공백 중 Claude 임시 수행</p>
+<h1>임계값 스윕과 쌍별 누락 전이를 손계산 테스트로 고정했습니다</h1>
+<p>소스 결함은 없었고 회귀 검사만 추가했습니다. 모델 학습·추론·성능 평가는 하지 않았습니다.</p>
+</header>
+<div class="cards">
+<div class="card"><div class="sub">전체 개발 진척</div><div class="big">30 / 100</div><progress value="30" max="100"></progress><div>고정 기준 <code>usable-card-analysis-v1.0</code> · 변화 없음</div></div>
+<div class="card"><div class="sub">이번 성과</div><div class="big">새 검사 7개</div><div>소스 변경 0 · 결함 재현 없음</div></div>
+<div class="card"><div class="sub">검증 코드 기준</div><div><code>a29943b02a2a35c9e6b608e78596ec4ade38db70</code></div><div class="sub">이후 커밋은 문서만</div></div>
+<div class="card"><div class="sub">모델 성능</div><div class="big">평가 안 함</div><div>정확도·누락률 비교 그래프 없음</div></div>
+</div>
+<div class="warn">합성 입력의 계약 검증입니다. 모델 품질 개선이나 진척률 상승이 아닙니다. 테스트 통과 수는 전체 진척률과 섞지 않습니다.</div>
+<section>
+<h2>손계산 예시 (임계값별 혼동행렬)</h2>
+<table><thead><tr><th>임계값</th><th>tp</th><th>fp</th><th>tn</th><th>fn</th></tr></thead><tbody>
+<tr><td>.1 · .2 · .3</td><td>2</td><td>1</td><td>1</td><td>0</td></tr>
+<tr><td>.4</td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+<tr><td>.5 ~ .9</td><td>1</td><td>0</td><td>2</td><td>1</td></tr>
+</tbody></table>
+<p class="sub">정답 없는 행은 어떤 칸에도 세지 않고, 실물별 평균은 실물마다 같은 비중입니다(예: (.25 + 1) / 2 = .625, 합산 비율 2/5와 다름).</p>
+</section>
+<section>
+<h2>실제 검사</h2>
+<table><thead><tr><th>검사</th><th>결과</th></tr></thead><tbody>
+<tr><td><code>unittest test_threshold_contract test_paired_miss_contract test_region_thresholds test_defect_regressions</code></td><td>12개 통과 (신규 7 + 기존 5)</td></tr>
+<tr><td>mutation 대조 8가지 (임시 복사본)</td><td>모두 검출 (1건은 검사 보강 후)</td></tr>
+<tr><td>함수 정의 수</td><td>신규 테스트 5 · 5 (제한 7 이하), 소스 변경 없음</td></tr>
+</tbody></table>
+<h2>미실행·미검증</h2>
+<ul><li><code>listing_readiness</code>: torch가 필요해 확인하지 못했습니다.</li><li>실제 학습·모델 평가, 기존 ML 의존 통합 검사: 실행하지 않았습니다.</li></ul>
+<h2>리스크와 롤백</h2>
+<p>합성 입력 범위의 결과입니다. 롤백은 이 브랜치 커밋을 revert하면 됩니다(테스트·문서만 추가). 복귀 시 해야 할 확인은 <code>docs/collaboration/prompts/codex-resume-20261025.md</code>에 있습니다.</p>
+</section>
+<section style="border:1px solid #2c3c5f;padding:20px;margin-top:24px"><h2>Codex 복귀 · 실제 인수 확인</h2><p class="big">지표12개 + listing_readiness5개 통과</p><p>검증 SHA <code>318362a81aacda4a2966b7a7039f656b3d7b4df1</code>. 로컬 main 통합 완료 · 원격 push 안 함 · 전체 진척30/100 유지. source 변경0개.</p><p>잠금 파일 PID4844는 실행 중이 아니고 flock도 비어 있었습니다. 파일은 삭제하지 않았습니다. latest.json 포인터는 가장 최근 실험 기록과 다르며 AI 호출 금지 상태를 유지합니다.</p><h2>현재 개발 자료와 채택 대기</h2><p>채택본4604d1ef… 유지. 수량 충족2/20셀. 표면뒤 양성52단위/20실물, 표면앞52/13, 엣지뒤72/30은 기존 부족표 기록입니다. 모델 성능 수치가 아닙니다.</p><div class="warn">z 앞면의 후보 둘은 카드 영역이 같고 기존 정답9개를 복원했는지만 다릅니다. 이후 사용자 위임 결정으로 아래 부분 채택을 완료했습니다. 두 후보를 그대로 채택한 것은 아닙니다. 저장되지 않은 정상 판단25개는 미확인으로 두고 다시 묻지 않습니다.</div><p>원본d971dbca…·직전5b2f3f9e…·채택본4604d1ef…의 정답은 서로 달라 개선 비교에 사용할 수 없습니다.</p><h2>결정·미실행·롤백</h2><ul><li>0600결과 권한 유지. ABA snapshot과 sidecar 정책은 새 구현 없이 보류합니다.</li><li>listing_readiness5검사는 합성 계약 확인입니다. E2실사용 완주나 실제 모델 성능을 입증하지 않습니다.</li><li>실제 학습·추론·외부 AI0회. 기존 전체 통합검사와 mutation은 재실행하지 않았습니다.</li><li>롤백은 인수 문서와 통합7개 커밋을 역순 revert. SHA 목록은 Markdown 보고서에 있습니다.</li></ul><p>근거: <code>artifacts/codex-resume-20261025/metrics-tests.log</code>, <code>listing-tests.log</code>, <code>verification.json</code> (기본 checkout 로컬 산출물).</p></section>
+<section style="border:1px solid #2c3c5f;padding:20px;margin-top:24px"><h2>위임 결정 완료: 정답과 좌표를 함께 보존</h2><p class="big">확인완료3개 반영 · 정답9개 보존</p><p>z앞면은 기존9개 구역정답과 기존box를 함께 유지합니다. 새box의 3×3칸은 옛칸과 다르므로 정답을 일괄 이전하지 않습니다. 새box와 두 후보는 원본에 보존합니다.</p><p>f앞/뒤·h뒤의 box/정답/점이 같음을 확인하고 box_reviewed=true만 반영했습니다. 저장되지 않은 정상25개는 미확인으로 유지합니다.</p><p>현재 개발본 <code>artifacts/development-manifest-20261025c/combined-reviewed.jsonl</code><br>SHA <code>360f11cfdaaa61db103dd3f51e3c7e321ea3c0e5a69906cf872b10756dfaa932</code></p><p>정상·결함·미확인 개수/실물 분모는 이전b와 동일, 수량충족2/20. 전체진척30/100 유지. 모델 학습·추론·외부AI0회.</p><p>검증: z행전체 동일, units/typed_points는 확인표시를 제외한 모든 값 동일, cells는 영역미확인표시 개수를 제외한 모든 값 동일. 원본·이전채택본·두후보·기존ADOPTION SHA불변.</p><p>리스크: z새영역의 확인 사실을 옛영역에 적용하지 않습니다. 실제 모델 품질/일반화는 미평가입니다. 롤백은 이전b4604d1ef…를 다시 기준으로 선택하면 됩니다.</p></section>
+</html>

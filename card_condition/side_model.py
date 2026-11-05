@@ -1,5 +1,6 @@
 """Independent single-side inference; no automatic production bypass."""
 import hashlib
+import io
 import math
 from pathlib import Path
 import time
@@ -29,7 +30,8 @@ def backbone_for(name, pretrained=False):
 class SideAnalyzer:
     def __init__(self, checkpoint, device='auto'):
         self.device = device_for(device)
-        self.meta = torch.load(checkpoint, map_location='cpu', weights_only=True)
+        checkpoint_bytes = Path(checkpoint).read_bytes()
+        self.meta = torch.load(io.BytesIO(checkpoint_bytes), map_location='cpu', weights_only=True)
         if not isinstance(self.meta, dict):
             raise ValueError('Unsupported single-side checkpoint')
         name = self.meta.get('backbone_name', 'mobilenet_v3_small')
@@ -49,7 +51,7 @@ class SideAnalyzer:
         self.backbone.to(self.device).load_state_dict(self.meta['backbone'], strict=True)
         self.head = nn.Linear(dimension * (5 if self.meta.get('tiles', False) else 1), len(LABELS)).to(self.device).eval()
         self.head.load_state_dict(self.meta['head'], strict=True)
-        self.model_sha256 = hashlib.sha256(Path(checkpoint).read_bytes()).hexdigest()
+        self.model_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
 
     def predict(self, image, box=None):
         from .side_experiment import side_views

@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "surface-ranking-regression-cause-20261028",
+  "hypothesis": "고정ranking후새누락2/오탐2의max-logit변화는공통training-center절편/coef방향/peak이동으로정확히분해된다. 기존same-photo학습항의국소방향과학습margin도검사해원인후보를구분하되인과나성능개선으로확정하지않는다.",
+  "change": "readout만: 저장된baseline/ranking4foldhead와153cache를재생,91앞면전체의가산분해와고정counterfactual·training쌍margin/분석gradient검산. 학습/계수/threshold/정답/分母/독립성변경없음.",
+  "success_criterion": "양쪽savedmaps/147score재생<=2e-5,4fold학습실물·raw/decoded누수없음,가산오차<=1e-8,rankgradient분석/autograd오차<=1e-8·biasgradient<=1e-10,11cohortidentity/기준/score보존,inputSHA보존,diagnostic_evidence<=4000바이트. completed는진단실행성공이지모델통과아님.",
+  "failure_criterion": "재생/분리/SHA/수학검산/출력실패는failed로종료하고해석/자동재시도안함. 대응training쌍의인과기여나그림/촬영원인은새학습제외대조없이는확정하지않는다.",
+  "reference_result": "artifacts/experiments/20261027T145641-21c22382/result.json",
+  "acceptance": {
+    "max_fn": 15,
+    "max_fp": 18,
+    "no_new_errors": true,
+    "require_actual_point_guard": false
+  },
+  "required_cohorts": [
+    {
+      "id": "surface-original-regression",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-frozen-original-baseline",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-original-fixed-for-local",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface51-human-click-guard",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "surface51-existing-kind-corrected",
+      "reference_result": "artifacts/experiments/20261024T063834-3536c642/typed-point-reference.json",
+      "acceptance": {
+        "max_fn": 18,
+        "max_fp": 0,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    }
+  ],
+  "code_changes": [
+    {
+      "path": "artifacts/surface-ranking-regression-cause-20261028/worker.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "diagnostic",
+  "threshold": 0.5,
+  "new_evidence": "145641의사전기준미통과:새FN[58,72],새FP[9,21],복구5,typed51판정변경0. 임계값을맞추는대신고정head의가산원인부터분해한다.",
+  "human_truth": "artifacts/misdreavus-same-photo-normal-20261024/human-response.json",
+  "cache_source": "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt",
+  "tracked_source": "tools/experiments/surface-ranking-regression-cause-20261028/worker.py",
+  "contract": "docs/collaboration/tasks/surface-ranking-regression-cause-20261028.md",
+  "input_sha256": {
+    "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt": "8061e7ed4814a038930d5ba8611d85f3194ffdfe5f4e9082062272ed820eb84f",
+    "artifacts/experiments/20261024T060419-45e72d0a/training-tokens.pt": "2cc268945d5d909040ff3e7492d83a42862d4daeb4c466db91a0228af7e63e2f",
+    "artifacts/experiments/20261024T093945-04a7e5e8/local-heads.pt": "cdf8eeb7f576ae475d607beafce592fcb9c71a66601062b1d8d3131e04d5d872",
+    "card_condition/detail_bag.py": "21ec78db0570f8ca3a0b8181de801a48ce715d5aa51bb065224caa974e0e53b3",
+    "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+    "artifacts/experiments/20261025T122011-647b0e9c/fold-heads.pt": "4e31b43433d8c6d06115387dea97d0d401a2e0655a1df34c6258ebb716715fa0",
+    "artifacts/experiments/20261025T122011-647b0e9c/result.json": "eb73931a73eb7bfd7c2dd9ed104caeea76a91f9990fa337fcc09e30521bd977e",
+    "artifacts/experiments/20261025T122011-647b0e9c/observations.json": "f7e317a2aa7e8ec6c4aa85fcd1135554b95933d89660c40b2aed4c519c306419",
+    "artifacts/experiments/20261025T122011-647b0e9c/reference.json": "c7e6c1e163191744c168a661f0ba848aa5d79a6dd6e294f7dcc60daf1f116ca9",
+    "artifacts/experiments/20261025T122011-647b0e9c/plan.json": "18f5fa1169f773c3ec6a7be1002af6df8bcdb9ce6a025e76aa8ea624af6fd4a1",
+    "artifacts/experiments/20261025T122011-647b0e9c/diagnostics.json": "744254cdedca586f3c757f7cc880bdc1baa003d450042a1ace45a70411eabb4d",
+    "tools/experiments/surface-normal-coexclusion-20261025/worker.py": "5c2f573f110042b8695170755d95e52af26367f363ed013e6591e68ec47c6a59",
+    "tools/experiments/surface-front-joint-holdout-baseline-20261025/worker.py": "5db79c3d20743fa7cae0c355f81f80be592dcf92a3d674187fe8e07a5b94094b",
+    "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17",
+    "artifacts/experiments/20261027T132418-8a5aa6ae/diagnostics.json": "072a514fb541ad56d56959c3d6f0d6bd6d8bf8222ab90d0fee3182df5b855a82",
+    "artifacts/experiments/20261024T062258-2932de20/diagnostics.json": "314eccc6f99fe2cf72665d8aa011580149f37e7bb06df7f57459191ee6558e5f",
+    "artifacts/experiments/20261024T062428-8e82e9ed/result.json": "4d98114ec6478a19d525893bedafb4f71e914a716f232d5a511d9c8823b2bef9",
+    "artifacts/experiments/20261027T133213-807fae2a/record.json": "a95bf15019e59e075c146915dc25219dde1fae1a2c094a7f6062380908877d5b",
+    "artifacts/experiments/20261024T061542-a90ac171/diagnostics.json": "3d462d178c995d59f7a2669e26c593af70f96b088e36562c05dbee63512b4fbb",
+    "artifacts/misdreavus-same-photo-normal-20261024/human-response.json": "c733369c8efdc7f52321580d6964bfb28dd0674c427d90072fd0febeb2e32c6d",
+    "artifacts/experiments/20261027T144107-8f7674cd/record.json": "24933bdfbe6e1196fe63e01aabf7466ad48b0310abf5779efa234da2aa74d3e0",
+    "artifacts/experiments/20261027T144107-8f7674cd/failure-diagnostics.json": "b220d874c4250dfa6bd1c897aef355cca469ae11771273614b1cdae470a3213c",
+    "tools/experiments/surface-same-photo-ranking-20261027/objective.py": "0029aed04c8d75828b830dac29695616c9631aa8613e46025e3d3a78bc1375ca",
+    "artifacts/experiments/20261025T122011-647b0e9c/record.json": "0eaf820e89e228e10feb3722609bcbdd9d032a5aaf4cfc2a2bc063780e9486aa",
+    "artifacts/experiments/20261027T145641-21c22382/record.json": "b1fd23c1ab2b6970e3e2445d2b45c2716f104408a3bc4f5a77f49c8c0ac25afc",
+    "artifacts/experiments/20261027T145641-21c22382/observations.json": "beb7bd0906cd52957567088a0b013cb2a59261ed811532ac0b84eab45f99c494",
+    "artifacts/experiments/20261027T145641-21c22382/result.json": "58b2a2978b5f17223bfbf5974a3cd0078b07302f6b99dee1510a4e4e8d5f4892",
+    "artifacts/experiments/20261027T145641-21c22382/diagnostics.json": "1304964d4f747e5aee87bfdf1452c4c6c538fa4c3f352205e6b3b0b7be8d03c2",
+    "artifacts/experiments/20261027T145641-21c22382/fold-heads.pt": "37680bf31628b01b700008adde9d5740ddf01ab9dedf6f4d19bd2c67c76d0051",
+    "artifacts/experiments/20261027T145641-21c22382/images/9.png": "2b24776aac5a50b56789cea60439e8780b871cb1407bec033394be0deeea619e",
+    "artifacts/experiments/20261027T145641-21c22382/images/21.png": "d8ad29c70fe6fa850f7fc7459e35dd209766b439e2ed14fd6c73537b56860961",
+    "artifacts/experiments/20261027T145641-21c22382/images/58.png": "ed08acd45233806f33f3144b4417b72d5234bd25eeeb59a9614cd5039e771125",
+    "artifacts/experiments/20261027T145641-21c22382/images/72.png": "e0ac1b408fce775a72360108dafd95742cbd78cba0cfbd3a74eeb0c5dfc48e9f",
+    "artifacts/experiments/20261027T145641-21c22382/images/10.png": "45da0177585aff24aa406c2d84755df4ff36f0c7aef36aeae0541c8fa10902bc",
+    "artifacts/experiments/20261027T145641-21c22382/images/42.png": "f7b67aae3ce76cdfbb8a31fba273902b409aa7dc221ca36b18ed7e1adc7d7154",
+    "artifacts/experiments/20261027T145641-21c22382/images/46.png": "6fc32b36ba94ca0466b2c1a36fe6db19318dbb507e814ce3dc857f304999c5db",
+    "artifacts/experiments/20261027T145641-21c22382/images/53.png": "9d159b5b9a93261daff799bc5e1cf82e871a35f40fee8e679ec2760f0d570fef",
+    "artifacts/experiments/20261027T145641-21c22382/images/69.png": "50adf4dbee40f53a51df924ffa44171465333560dc9edf2d6e03e079dc4eff16",
+    "tools/experiments/surface-ranking-regression-cause-20261028/worker.py": "e0e50d1f16340eeddb5353d45287bb939b59cd725464c6c3daffefab4dbf6a4c"
+  },
+  "training_only_ids": [
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-1",
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-2",
+    "ebay-pair-ff69b8955593fc/photo3-first-attack-surface-confirmed-normal",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-1",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-2",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-3"
+  ],
+  "proposal": "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json",
+  "proposal_sha256": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17"
+}

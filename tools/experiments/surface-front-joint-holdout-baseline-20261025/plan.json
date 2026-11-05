@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "surface-front-joint-holdout-baseline-20261025",
+  "hypothesis": "현재 후보의 앞면 표면 오류(147구역 중 앞면 91행)는 실물 하나씩 제외한 저장 head로 계산됐다. 학습 실물과 평가 실물이 fold마다 많이 겹치므로, 103800에서 검증한 고정 4-fold(각 fold 클릭 2실물·정상 2실물 이상 공동 제외)로 같은 설정의 head를 다시 학습하면 다른 실물로 전이되는 오류가 드러난다. 이 값이 이후 앞면 개선을 판정할 기준선이다.",
+  "change": "앞면 평가 분할 하나만 바꾼다: 실물 단독 제외 저장 head → 103800 joint-fold-proposal.json(SHA 고정)의 4-fold 공동 제외 head. 특징 캐시·학습 행·사람 점 토큰·가중치(실물·클래스 균형)·max_bound·L2=1·threshold 0.5·뒷면 head는 현재 후보 그대로. 새 라벨·백본 forward·threshold·외부 호출 없음.",
+  "success_criterion": "공통 판정: 같은 147구역에서 FN<=12, FP<=13, 새 오답 없음, 기존 required_cohorts 기준 유지. 충족하면 현재 단독 제외 추정이 공동 제외에서도 유지된다는 뜻이며 모델 채택이 아니다. 진단 출력: 앞면 FN/FP를 양성·정상 분모와 실물 수와 함께 전후 기록, fold별 수렴, 학습/평가 실물·원본·디코딩 사진 분리.",
+  "failure_criterion": "FN>12 또는 FP>13 또는 새 오답 발생이면 현재 추정이 공유 학습 실물 덕분에 낙관적이었다는 근거이며, joint holdout 수치를 앞면 기준선으로 쓴다. 분할 누수·학습 미수렴·출처 SHA 변경·현재 후보 재생 불일치는 실행 실패이다. 어느 결과든 독립 시험·일반화·운영 채택을 주장하지 않는다.",
+  "reference_result": "artifacts/experiments/20261024T103800-512a2260/result.json",
+  "acceptance": {
+    "max_fn": 12,
+    "max_fp": 13,
+    "no_new_errors": true,
+    "require_actual_point_guard": false
+  },
+  "required_cohorts": [
+    {
+      "id": "surface-original-regression",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-frozen-original-baseline",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-original-fixed-for-local",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface51-human-click-guard",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "surface51-existing-kind-corrected",
+      "reference_result": "artifacts/experiments/20261024T063834-3536c642/typed-point-reference.json",
+      "acceptance": {
+        "max_fn": 18,
+        "max_fp": 0,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    }
+  ],
+  "code_changes": [
+    {
+      "path": "artifacts/surface-front-joint-holdout-baseline-20261025/worker.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "evaluation_protocol",
+  "threshold": 0.5,
+  "new_evidence": "103800에서 고정 4-fold 분할의 실행 가능성(각 fold 클릭 2실물·정상 2실물 이상, 누수 없음)을 확인했지만 predictions=null로 학습하지 않았다. 101432 공간 감사에서 같은 head의 독립 정상 대조가 1실물뿐이었다.",
+  "human_truth": "artifacts/misdreavus-same-photo-normal-20261024/human-response.json",
+  "cache_source": "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt",
+  "tracked_source": "tools/experiments/surface-front-joint-holdout-baseline-20261025/worker.py",
+  "protocol_contract": {
+    "proposal": "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json",
+    "proposal_sha256": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17",
+    "folds": 4,
+    "front_only": true,
+    "back_heads": "current candidate 20261024T093945-04a7e5e8 local-heads.pt unchanged",
+    "fit": {
+      "penalty": 1.0,
+      "normal_reduction": "max_bound",
+      "weights": "1/group count, positive mass scaled to normal mass"
+    }
+  }
+}

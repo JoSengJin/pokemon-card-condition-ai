@@ -1,0 +1,64 @@
+{
+ "schema_version": 1,
+ "hypothesis_id": "edge-back-pair-vs-control-m-o-20261031",
+ "hypothesis": "직전 실험(§16)은 상자 미확인 10면이 학습에서 빠진 상태였다. 상자 확인이 남아 있던 10면까지 확정된 최종 자료(513단위, 양성 150·정상 363, eBay 420, 혼합 사진 34장·358쌍)에서 직전 실험(433단위, +0.112)의 재현을 본다: 쌍 순위 항이 대조보다 복원추출 평균 AUC를 0.10 이상 올리는지.",
+ "change": "바꾸는 것: 학습 manifest 20261031n(433단위) → 20261031o(상자 확인 완료 10면 추가, 513단위). 비교는 같은 자료에서 쌍 항 유무 두 팔이고, 쌍 항 설정(계수 1.0, 온도 0.1)·복원추출 20회·시드는 이전과 같다. 전체 자료 head 둘과 복원추출 head 20개씩을 같은 실행에서 만든다.",
+ "success_criterion": "쌍 항 복원추출 단일 head AUC 평균이 같은 자료 대조 평균보다 0.10 이상 높다(delta >= 0.10, evaluation.json criterion_met). 기준은 이전 확인과 같은 마진이며 결과 후 변경 안 함.",
+ "failure_criterion": "delta < 0.10이면 쌍 항을 채택하지 않는다. 보조(판정 안 함): 표준편차·범위·0.5 미만 head 수·같은 사진 AUC 평균, 전체 자료 head 둘의 AUC·누락·오탐, 3차 head 대비. 러너 acceptance(누락 18·오탐 59)는 전체 자료 쌍 항 head의 참고용이다.",
+ "criterion_min_delta": 0.1,
+ "reference_result": "artifacts/edge-back-pair-vs-control-m-o-20261031/reference/result.json",
+ "reference_note": "3차 head 검증 점수.",
+ "acceptance": {
+  "max_fn": 18,
+  "max_fp": 59,
+  "no_new_errors": false,
+  "require_actual_point_guard": false
+ },
+ "code_changes": [
+  {
+   "path": "artifacts/edge-back-pair-vs-control-m-o-20261031/worker.py",
+   "baseline": null
+  }
+ ],
+ "input_sha256": {
+  "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+  "artifacts/inner-whitening-confounder-20261021/confounder_head.py": "c54864f7e0b51c5e05af9db44ef236f8976995ed68b48d749a3ce165bd919cef",
+  "card_condition/regions.py": "4d441c24f5ce11617a11f32fc03353241741d66c218bc98fe607583feb02c911",
+  "card_condition/local_wear_cnn.py": "91f0c875812baa947b7e4d5ae9d40de53427d1d94dc92d77e849d3f3c556005f",
+  "card_condition/side_experiment.py": "06162757d756525d70b4727a91bf435a16f768b2a9678eb57cd499bd37fbe87d",
+  "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+  "artifacts/train-geometry-review-20261030/answers-1.txt": "322c006788c7779ac211394e788a0ebcc79b8f678f94de0a31cc785e87289d6a",
+  "artifacts/train-geometry-review-20261030/answers-2-4.txt": "594ebc994c3c21fb2ad6b69140d233b0e3d4d0fce034c3e009b22b261b5ee7f8",
+  "artifacts/train-geometry-review-20261030/human-response-2-4.json": "0b87c34092315ac2620ad78d1ef6c3c8fcf60ab628a05abe8a4c9d0c2b24d216",
+  "tools/experiments/edge-back-source-weight-20261030/worker.py": "b51abd8e4664fe5124f2b29528c59fe8bf1bf7ce0fad168ae31084146aadd017",
+  "artifacts/experiments/20261030T113857-2deb9558/observations.json": "530cf9004b939298e606f150eda5f3fa47a505b32285ef6c561bae16d4935ff6",
+  "artifacts/experiments/20261030T113857-2deb9558/evaluation.json": "5b7cc6679922cf3b903bc7e2636f6db0fea7edf80cf4bd6c3e65f53220ac57c2",
+  "tools/experiments/edge-back-bagging-20261031/worker.py": "bc2b72e5e1605cf17857045e4e82c3badf835037f4c6902068e6415a52a04aaa",
+  "artifacts/experiments/20261031T004002-d7de0427/observations.json": "82d2bdffda0c9b4ca17b90f40b75dfc03c933006f87d45ac5be26e66558823e4",
+  "artifacts/experiments/20261031T004002-d7de0427/evaluation.json": "de8752e0e17106d3c991cc2c1d3548e30c0c8d69a9b82c358c2b0c47b80a85e1",
+  "tools/experiments/edge-back-same-photo-pair-20261031/worker.py": "be78eedbe55a558a4af657af153c2bcd8f5b8d76fd5e345b0734a2a3e34eb47e",
+  "artifacts/experiments/20261031T005005-bfe3cd6d/evaluation.json": "f23024d7d50b5ee2bf28e9414ecb5a5dc3151353db6061413dc709d79c85c3cd",
+  "tools/experiments/edge-back-pair-bagging-20261031/worker.py": "34c9709ec85e24de024cc319520aaf88a9bc45d646a8e04dab99709da1e3010a",
+  "artifacts/experiments/20261031T005144-c7306f17/evaluation.json": "739e15ecbe99be701ed602e9e8cb9071099aeec288ebbb0facb5791bc4dd4ac2",
+  "artifacts/development-manifest-20261031o/combined-reviewed.jsonl": "f21c69c15c9a4f8b3b24599f878e2a2bc4789bfcb5d4f8a11823d7edb7ae2df1",
+  "artifacts/development-manifest-20261031o/coverage.json": "074d8e8f208de82de1ea9004744767d86116246d49a59f2fa757016832ef149c"
+ },
+ "gemini_calls_allowed": 0,
+ "independent": false,
+ "production_adopted": false,
+ "experiment_kind": "model_comparison",
+ "threshold": 0.5,
+ "tracked_directory": "tools/experiments/edge-back-pair-vs-control-m-o-20261031",
+ "coverage": "artifacts/development-manifest-20261031o/coverage.json",
+ "backbone_directory": "artifacts/torch-cache/hub/facebookresearch_dinov2_7764ea0f912e53c92e82eb78a2a1631e92725fc8",
+ "backbone_weights": "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth",
+ "expected_denominators": {
+  "train_val": [
+   513,
+   275
+  ]
+ },
+ "known_biases": "개발 검증이며 독립 시험 아님. 검증 275구역은 여러 head 평가에 반복 사용. 추가 라벨은 한 사람의 폰 입력. 복원추출은 학습 그룹 안에서만 변동을 본다.",
+ "expected_limit": "혼합 사진은 늘었지만 같은 eBay 계열이라 사진 단서의 분포가 학습·검증에서 반대 방향일 수 있다.",
+ "status": "ready_to_run"
+}

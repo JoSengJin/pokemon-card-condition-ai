@@ -1,0 +1,86 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>기존 fold 초기화 · 새오류4 소거 / 성능 원복·미채택</title><style>body{max-width:1060px;margin:28px auto;padding:0 18px;color:#213043;background:#f4f6fa;font:16px/1.7 system-ui}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;padding:24px;border-radius:12px}h1{line-height:1.3}</style><h1>기존 fold 초기화 · 새오류4 소거 / 성능 원복·미채택</h1><p>2026-10-28 KST · 진척30/100(usable-card-analysis-v1.0,+0%p)<br>source aedfd16ad944fd516df4c98e3560f30d4e732e38 · 전체성능개선/독립검증/운영채택 없음</p><pre># 원인에 따른 기존 fold 초기화 비교 — 2026-10-28 KST
+
+개발 진척률 **30/100(+0%p)**. 같은 손실에서 초기값만 기존 학습 fold 모델로 바꾸자 이전 새 오류 4개는 모두 사라졌다. 하지만 0 초기화 후보가 복구했던 5개도 다시 틀렸고, 전체 성능은 기존 수준이어서 **미채택**이다.
+
+## 실제 record·수용 판정
+
+- record: `artifacts/experiments/20261027T212933-6784927d/record.json` (UTC폴더명, 실행KST2026-10-28).
+- status=completed,4fit수렴. primary_acceptance_passed=true는기존대비새오류없음/수치보호통과다. acceptance_passed=false,개선없음/최소1복구조건미충족,기존11cohort품질미통과로미채택.
+
+| 같은147개발구역 | 기존4fold | cold ranking | 기존fold초기화ranking |
+|---|---:|---:|---:|
+| 구역FN |16/94 (17.02%)|15/94 (15.96%)|16/94 (17.02%)|
+| 구역FP |18/53 (33.96%)|18/53 (33.96%)|18/53 (33.96%)|
+| 실제점FN |21/51 (41.18%)|21/51 (41.18%)|21/51 (41.18%)|
+
+기존대비FN/FP/실제점변화는각0.00%p다. cold대비구역FN은+1.06%p이며FP/실제점은동일하다. cold새오류4수정만보고전체성능개선이라고하지않는다. 원래정답/분모/임계값/수용기준은유지했다.
+
+## 요청한 4개 사례의 전후
+
+| 고정사례 | 사람정답 | 기존모델 | cold후보 | 기존fold초기화후보 |
+|---|---:|---:|---:|---:|
+| 새누락58 |1|0.589061|0.463751|0.580319|
+| 새누락72 |1|0.500826|0.382428|0.500950|
+| 새오탐9 |0|0.482266|0.547792|0.475779|
+| 새오탐21 |0|0.483492|0.503122|0.482765|
+
+4case는기존의맞은판정으로돌아왔다. 반대로cold에서복구됐던5case는원래오답으로돌아왔다. 147개모든이진판정이기존모델과동일하며,실제점51도추가복구/누락0이다. 이결과는같은loss의출발점에따른최적화경로의영향을지지하지만,어느human쌍/그림/촬영조건이진짜원인인지는입증하지못한다.
+
+## 모델 변경 하나와 안전 조건
+
+진단에서기존모델의같은augmented목적이cold첫fold보다낮음을확인했다. 기존ranking/base손실·mass·margin1/계수1/T.1·L2=1·LBFGS100·허용gradient1e-5·153RGB/mask/token·4fold·뒷면map·threshold.5를보존하고,초기coef/rawbias만그fold의122011저장모델로바꿨다.
+
+기존모델은train_ids/사진분리/재생을검증한모델이지품질통과릴리스가아니다. 각teacher가같은train_ids로학습됐는지확인하고centeredbias를복원했다. 현재heldlabel로teacher를선택하거나cold/warm의좋은fold만골라혼합하지않았다. teacher정규화추가·계수/초기seed탐색도없다.
+
+실제초기logit최대복원오차2.6645352591003757e-15,4fold모두동일목적값비증가보호통과다. 첫fold는초기0.2700849013→최종0.2697930455로cold0.2714126737보다낮았다. 다른fold까지warm이cold보다낮은것은아니며,학습loss가좋아지는것과평가성능은별개다.
+
+## 변경 파일·검증
+
+- `tools/experiments/surface-ranking-warm-start-20261028/objective.py`: rank손실은그대로,초기headclone/centered절편복원·초기logit/목적값·최종비증가검사만추가.
+- 같은폴더 `worker.py`: 기존teacher4개의train_ids일치검사후각fold초기화,기존원본/decoded분리·same-photo쌍·11cohort·사진출력보존.
+- 같은폴더 `plan.json`: 초기값하나의가설과고정기준/입력SHA/신규code_changes2개 baseline=null.
+- `tests/test_ranking_warm_start.py`: zero면기존coldfit동치,정지점재시작/teacher입력보존,초기raw목적함수/gradient동일,잘못된초기shape·비유한값거절.
+- `docs/collaboration/tasks/surface-ranking-warm-start-20261028.md`, 이MD/동명HTML: 사전계약·실제결과·미채택·리스크/롤백.
+
+격리관련11검사OK(3.769초),main관련11검사OK(0.842초),git diff --check통과. sourcehelper4/worker2/test4함수,주요fit경로최대3전이. 실제4fit gradient는모두1e-5이하이며시작목적값보다높아지지않았다. warm head/maps의147점수와observations는최대차0(추가학습/forward없음)으로일치했다.
+
+실행source aedfd16ad944fd516df4c98e3560f30d4e732e38. 명령: `./experiment --plan tools/experiments/surface-ranking-warm-start-20261028/plan.json -- .venv/bin/python artifacts/surface-ranking-warm-start-20261028/worker.py`.
+
+## 실제 사진·비교 HTML
+
+- 모든91앞면구역: `artifacts/experiments/20261027T212933-6784927d/index.html`
+- 4회귀수정/5복구재상실의3모델전후: `artifacts/experiments/20261027T212933-6784927d/comparison.html`
+- 원인분해: `artifacts/experiments/20261027T211902-7ae1cc41/index.html`
+
+같은human정답/사진과기존/cold/warm의score·.5판정·전체분모/%p를표시했다. 기존사람점이있을때만빨강표시,파랑은modelpeak이지위치정답이아니다. 실제점51에정상대조가없으므로위치IoU/점FP를주장하지않는다. 추가학습없이확정된수치만HTML로정리했으며source/record/score/snapshot은수정하지않았다.
+
+HTML열기도구는queued를반환했다. 열기요청은전달됐고실제렌더는미확인이다. MD/HTML수치대조·파일존재와record/source SHA를확인했다.
+
+## 리스크·롤백
+
+새초기화로4오류를없앴지만현재의3쌍/2실물감독은이미기존모델에서margin을충족했다. 같은자료의다른초기값/계수/온도탐색으로평가정답에맞추지않는다. 실제성능개선없음/기존전체품질미통과이므로연구전용미채택상태다.
+
+코드제거는 `./develop -- git revert aedfd16` 후관련검사/일반push. 운영모델/정답미변경이라snapshot복구불필요. 기존·새실험과head/사진은실패포함보존한다.
+
+## 에튜 포인트
+
+비볼록손실에서는시작점이달라지면같은손실과정답이어도다른해로갈수있다. 이번에는다른seed를탐색하지않고이미존재하는같은training-fold모델한종류로만시작점을바꿨다. 학습loss는낮아졌지만평가정답은개선되지않아,수렴과성능을분리해판정했다.
+
+## 고정 기준·보존·호출·원격
+
+진척은 PROGRESS_CRITERIA.md와 development-progress.json의 usable-card-analysis-v1.0 **30/100(+0%p)** 유지다. 같은 개발 자료의 분해/수렴/수치 보호가 전 범위 품질·독립 검증·실사용 완료를 뜻하지 않는다. C의 정답·분모·threshold.5와 기존11cohort의 정답/기준을 그대로 보존했다.
+
+Claude 데이터 보완 checkout·새 사진/정답/manifest·기존 cache/head/실험 기록·card_condition 운영source·PokeCollector·Gemini fallback을 수정하지 않았다. 기존 source/사진/사람응답과 각record.files의 SHA를 최종 대조했다. 모든 source편집은 ./develop, 실제진단/학습은 canonical ./experiment로 직렬 실행했다. 외부 Gemini/Codex 호출0·새 backbone forward0·새라벨0·운영채택0이다.
+
+development-review policy의 session_id가 현재 세션과 달라 자동 handoff/next_steps/token_report는 생성되지 않았다. artifacts/development-cycle/latest.json은 이전 세션 기록이며 이번 결과를 대체하지 않는다.
+
+검증한 코드 main/origin aedfd16ad944fd516df4c98e3560f30d4e732e38 일치를 확인했고 이 결과 문서는 후속 커밋으로 일반 push한다. force push와이력재작성 없음.
+
+통합·push 뒤 이전 Codex ranking·원인진단 checkout은 고유커밋의main대응·clean·Git작업없음·비차단개발잠금·고유lock증거SHA보존 후 일반 worktree remove로 정리했다. 브랜치/이력과실험은보존하고최신warm-start checkout만롤백용으로유지했다. Claude 데이터/작성중/미통합/부분통합 및 다른 Codex checkout은 건드리지 않았다. 감사: artifacts/surface-ranking-warm-start-20261028/worktree-cleanup/audit.json.
+
+## 다음 실제 성능 개선의 의존
+
+현재 같은사진 대조 감독의 유일한 원본은3쌍/2실물이고, 기존모델이 이미 그순위요구를모두충족했다. 같은 계수·margin·온도·초기값을 더 탐색하거나 평가 정답을 고치는 방식으로 진행하지 않는다. 새오류4개 사례를 학습에 집어넣지도 않았다.
+
+다음 근거있는 학습에는 다른 실물에서 명시적으로 확인한 실제점–같은사진정상 대조와 올바른종류의 실제점 검증 자료가 필요하다. 이는 Claude 데이터 보완의 인계 의존이며 이 턴에서 대신 수집/라벨링하거나 완료 라벨을 재요청하지 않았다. 촬영/그림/진짜손상 혼동의 의미상 원인과 특정 training쌍의 인과기여는 아직 미확정이다. 근거 없이 원인을 사용자 라벨 오류로 돌리지 않는다.
+</pre></html>

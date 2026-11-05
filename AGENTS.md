@@ -10,6 +10,8 @@
 
 ## Codex · Claude Git 협업
 - 동시 작업은 `PAIR_CODING.md`를 따른다. 에이전트별 브랜치·worktree와 작업별 소유 파일을 분리하며, `main` 통합은 현재 메인(기본 Codex, 교대 시 Claude)이 담당한다. 메인 교대와 승인 승계는 `PAIR_CODING.md` §7을 따른다.
+- 검증·원격 반영이 끝난 페어코딩 worktree는 `PAIR_CODING.md`의 정리 절차를 통합 마무리에 실행한다. 통합 완료 작업 중 가장 최근 1개만 롤백용 checkout으로 유지하며, 미통합·작성 중·사용 중 작업과 고유 증거는 보존한다.
+- 페어코딩 코드 구조 기준은 `PAIR_CODING.md`의 함수 수·호출 깊이 제한을 따른다. 이 요청 기준은 Ponytail보다 우선하며, 최소 변경 원칙은 두 제한 안에서 적용한다.
 - checkout별 `./develop` 잠금은 전역 잠금이 아니다. 실제 학습·모델 비교·사진 추론·라벨 수정·자동 검토는 기본 checkout의 단일 담당자에게 모으고, 구현 worktree에서는 실행하지 않는다.
 - 날짜별 인계 문서의 과거 역할·실험 상태보다 현재 배정 task와 실제 최신 기록을 우선한다. 이 규칙은 새 개발·학습·외부 호출 승인을 뜻하지 않는다.
 
@@ -57,3 +59,13 @@
 - 독립 심판 없이 토론이 끝나면 `automation.json`의 `unjudged_candidate`와 `next_steps.md`에 Codex 수정안이 남는다. 심판 미승인이므로 자동 실행하지 않았고, Codex가 직접 대조해 채택 여부를 정한다.
 - Codex 응답의 실패 가설·완료 진단 ID는 `failed_N`/`completed_diagnostic_N` 별칭이어도 프로그램이 실제 가설 ID로 정규화한다(`automation.json`의 `normalizations`에 기록, 원문은 호출 기록에 보존). 사람 정답·실험 내용·수치 기준은 정규화하지 않는다.
 - 변경 근거·롤백: `artifacts/claude-review-loop-fix-20261024/REPORT.md`.
+
+
+## 성과·진척 HTML 보고
+
+- 다음 개발 작업부터 Codex와 Claude 모두 docs/collaboration/HTML_REPORTING.md를 따른다. 실제 성과·고정 기준 진척률 HTML을 갱신하고 사용자에게 열며, 합성 검사와 모델 성능을 구분한다. 새 task의 산출물·checks·handoff에 HTML 경로와 열기/렌더 확인 결과를 포함한다.
+
+
+## 검증한 main 통합과 원격 동기화
+
+- 사용자 상시 승인(2026-10-26 확대): Codex가 직접 개발·검증한 변경과 Claude 페어코딩 결과를 검증해 main에 통합한 변경 모두, 매번 재확인하지 않고 일반 git push로 origin/main까지 반영한다. 로컬 통합만으로 완료 처리하지 않는다. PAIR_CODING.md의 원격 동기화 절차를 따른다. force push·이력 재작성은 별도 명시 요청 없이는 금지한다.

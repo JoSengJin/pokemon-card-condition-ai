@@ -3,15 +3,18 @@ import json
 from pathlib import Path
 import torch
 from .point_probe import digest
-from .evaluation_inputs import development_sets
+from .evaluation_inputs import development_sets, matched_model
 from .visibility_model import TARGET,VisibilityAnalyzer,visibility_rows
 from .observation_crossfit import crossfit_summary,reject_duplicate_groups
 from .score_diagnostics import score_diagnostics
 from .regions import VISIBILITY_ISSUES
 from .region_thresholds import group_error_rates
+from .physical_uncertainty import physical_uncertainty
+from .frozen_test import claim_test
 
 
-def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto'):
+def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto', *, test_seal=None, test_seal_sha256=None,
+                     test_candidate=None, test_candidate_sha256=None):
     output=Path(output); checkpoint=Path(checkpoint)
     if output.exists():raise ValueError('Output exists: choose a new heldout report directory')
     if not isinstance(expected_sha256,str) or len(expected_sha256)!=64 or any(c not in '0123456789abcdef' for c in expected_sha256):
@@ -31,7 +34,14 @@ def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto
         hashes[row['image']]=digest(row['image'])
     if {r['labels'][TARGET] for r in rows}!={0,1}:
         raise ValueError('Both explicit heldout observation classes required')
+    claim = claim_test(test_seal, test_seal_sha256, manifest, checkpoint, 'observation_final',
+                       candidate_path=test_candidate, candidate_sha256=test_candidate_sha256, device=device)
+    if claim is not None:
+        if any(name in hashes and hashes[name] != sha for name, sha in claim['input_hashes'].items()):
+            raise ValueError('Frozen test inputs differ from the evaluation inputs')
+        hashes.update(claim['input_hashes'])
     analyzer=VisibilityAnalyzer(checkpoint,device)
+    matched_model(analyzer, hashes, checkpoint)
     predictions=[]
     for row in rows:
         result=analyzer.analyze(row['image'],row['box'],side=row['side'])
@@ -55,6 +65,7 @@ def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto
         model_sha256=expected_sha256,summary=summary,by_side=by_side,
         reason_coverage=reasons,by_group=groups,
         group_error_rates_at_05=group_error_rates(groups,[TARGET]),
+        physical_card_uncertainty=physical_uncertainty(predictions,[TARGET]),
         predictions=predictions,skipped=skipped,
         input_hashes=hashes,development_overlap=False,fitted_model=False,selected_model=False,
         production_ready=False,requires_gemini=True,actual_calls_saved=0,
@@ -63,6 +74,8 @@ def evaluate_heldout(checkpoint, manifest, output, expected_sha256, device='auto
             'Small test sets cannot establish generalization; report reason and side coverage.',
             'No threshold tuning or checkpoint selection; do not repeatedly optimize against this test.',
             'Observation restriction is not card damage or a purchase rejection.'])
+    if claim is not None:
+        report['test_seal'] = {k: v for k, v in claim.items() if k != 'input_hashes'}
     output.mkdir(parents=True,exist_ok=False)
     (output/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2,allow_nan=False))
     return report

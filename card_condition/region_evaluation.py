@@ -1,20 +1,24 @@
 """Evaluate a frozen region model on unseen test cards; never fit or tune here."""
-import json
 from pathlib import Path
 
 import torch
 
-from .evaluation_inputs import track_photos, reject_copied_test_groups, unchanged_inputs, development_sets
+from .evaluation_inputs import track_photos, reject_copied_test_groups, unchanged_inputs, development_sets, matched_model
+from .evaluation_output import write_new_report
 from .point_probe import digest
 from .quality_rates import error_rates
+from .physical_uncertainty import physical_uncertainty
+from .frozen_test import claim_test
 from .data import load_manifest
 from .region_dataset import region_rows
+from .regions import REGION_TARGET_AREAS
 from .point_dataset import point_rows
 from .region_model import RegionAnalyzer
 from .region_thresholds import group_error_rates
 
 
-def evaluate_regions(manifest, checkpoint, output, history, device='auto'):
+def evaluate_regions(manifest, checkpoint, output, history, device='auto', *, test_seal=None, test_seal_sha256=None,
+                     test_candidate=None, test_candidate_sha256=None):
     if not history:
         raise ValueError('최종평가에는 모든 이전 개발 manifest를 --history로 제공하세요.')
     output = Path(output)
@@ -53,7 +57,14 @@ def evaluate_regions(manifest, checkpoint, output, history, device='auto'):
         rows, missing = region_rows(manifest, splits={'test'})
     if not rows:
         raise ValueError('No explicitly annotated test regions')
+    claim = claim_test(test_seal, test_seal_sha256, manifest, checkpoint, 'region_final',
+                       candidate_path=test_candidate, candidate_sha256=test_candidate_sha256, device=device)
+    if claim is not None:
+        if any(name in input_hashes and input_hashes[name] != sha for name, sha in claim['input_hashes'].items()):
+            raise ValueError('Frozen test inputs differ from the evaluation inputs')
+        input_hashes.update(claim['input_hashes'])
     analyzer = RegionAnalyzer(checkpoint, device)
+    matched_model(analyzer, input_hashes, checkpoint)
     metrics = {key:dict(tp=0, tn=0, fp=0, fn=0) for key in meta['supported']}
     predictions, by_group, by_group_side = [], {}, {}
     for row in rows:
@@ -83,10 +94,12 @@ def evaluate_regions(manifest, checkpoint, output, history, device='auto'):
               'predictions':predictions, 'positive_faces_without_region_labels':missing,
               'history':receipts, 'model_sha256':input_hashes[str(Path(checkpoint).resolve())],
               'manifest_sha256':input_hashes[str(Path(manifest).resolve())],
+              'physical_card_uncertainty':physical_uncertainty(predictions, meta['supported'], question_areas=REGION_TARGET_AREAS),
               'requires_gemini':True, 'production_ready':False, 'actual_calls_saved':0,
               'limitations':['Caller must supply complete development history and group other photos of the same physical card.',
                              'Unknown labels are unscored; this measures labeled patches, not whole-card condition.',
                              'Do not reuse these test results for model selection or threshold tuning.']}
-    with output.open('x', encoding='utf-8') as stream:
-        json.dump(report, stream, ensure_ascii=False, indent=2, allow_nan=False)
+    if claim is not None:
+        report['test_seal'] = {k: v for k, v in claim.items() if k != 'input_hashes'}
+    write_new_report(output, report)
     return report

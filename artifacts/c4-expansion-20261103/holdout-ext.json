@@ -1,0 +1,242 @@
+[
+ {
+  "id": "ebay-pair-f4499441855da0",
+  "intake": "ebay-intake-20261102-ak",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-ak/ebay-pair-f4499441855da0/photo-1.jpg",
+  "image_sha256": "3000317b45f491497e2dd64d48184d54f7a359af4fa473f4f4a0b54716adce93",
+  "size": [
+   1600,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-87aea4f5d7612b",
+  "intake": "ebay-intake-20261102-ah",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-ah/ebay-pair-87aea4f5d7612b/photo-1.jpg",
+  "image_sha256": "c29bace0f2a7c3139bab92fe0f859c1bf8b95b2b3072d030d837f45019f22bb6",
+  "size": [
+   1200,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-a072d10ca5a50b",
+  "intake": "ebay-intake-20261031-l",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261031-l/ebay-pair-a072d10ca5a50b/photo-1.jpg",
+  "image_sha256": "a0334c611358c3487730df7b237f58176a2a41001b9a73a84b6c4db1fe172f7d",
+  "size": [
+   1199,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-0bc1ecbeb8d0ff",
+  "intake": "ebay-intake-20261102-ad",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-ad/ebay-pair-0bc1ecbeb8d0ff/photo-1.jpg",
+  "image_sha256": "7ee3ed1d0b0e8c1dc4378e7deca0e8dbd45c12160ba9c83220c165c4d1e3f9ab",
+  "size": [
+   1200,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-7f2893caf3451c",
+  "intake": "ebay-intake-20261102-an",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-an/ebay-pair-7f2893caf3451c/photo-3.jpg",
+  "image_sha256": "38bbce4032c9644f977e38cdffd8013d1e4dc4f469c1b3ed3c1f6f4a8f6a3bb0",
+  "size": [
+   883,
+   1246
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-d9cbd7f31d4159",
+  "intake": "ebay-intake-20261031-y",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261031-y/ebay-pair-d9cbd7f31d4159/photo-1.jpg",
+  "image_sha256": "bee634fb2d7369c66e0c8d040e05fb8260a3f3427d600735de59b8d9762b7517",
+  "size": [
+   1200,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-e11d2619f64536",
+  "intake": "ebay-intake-20261102-ag",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-ag/ebay-pair-e11d2619f64536/photo-1.jpg",
+  "image_sha256": "d517d8a366154490b51d02efafb36bb4a1c15334e66a97d3efd74f7c4248f73f",
+  "size": [
+   1219,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-355005dcc73ff8",
+  "intake": "ebay-intake-20261031-v",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261031-v/ebay-pair-355005dcc73ff8/photo-2.jpg",
+  "image_sha256": "e2af8f06c0f0b10c813479e854ee7474dcf9dea8a12c0202b318c8fee4ff55b3",
+  "size": [
+   1600,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-058173116d1eb4",
+  "intake": "ebay-intake-20261026-a",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261026-a/ebay-pair-058173116d1eb4/photo-1.jpg",
+  "image_sha256": "e9d4bdcedc34cb331d7d0b6ab1e45c864b21209c4268efb479e4a2f1f329aaef",
+  "size": [
+   1200,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-03be29eb65f6e2",
+  "intake": "ebay-intake-20261102-ae",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-ae/ebay-pair-03be29eb65f6e2/photo-1.jpg",
+  "image_sha256": "db17d5fd9432ddc412cbddca8ce44bb510da900d348c1408ba5cfa76b92f7e51",
+  "size": [
+   1200,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-60f29423341817",
+  "intake": "ebay-intake-20261102-ak",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-ak/ebay-pair-60f29423341817/photo-1.jpg",
+  "image_sha256": "cca57d6fffa7a529fc52ada20d24bd6fb2c200540444d77f74ea045d9dd10fcc",
+  "size": [
+   1200,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-487daa77ff0913",
+  "intake": "ebay-intake-20261102-al",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-al/ebay-pair-487daa77ff0913/photo-1.jpg",
+  "image_sha256": "8b1f54961155ac992e03592d6ad969324325c8648c6a85880efb86fb2a606959",
+  "size": [
+   974,
+   1260
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-fe17b7ad4af026",
+  "intake": "ebay-intake-20261030-g",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261030-g/ebay-pair-fe17b7ad4af026/photo-1.jpg",
+  "image_sha256": "162bd2dd523865bf74b976f827e52605cefa39d22f410648f59ae840978499d2",
+  "size": [
+   739,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-7b43c06a3f89a7",
+  "intake": "ebay-intake-20261031-h",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261031-h/ebay-pair-7b43c06a3f89a7/photo-1.jpg",
+  "image_sha256": "6d4693f20e5a525cbeee698a3159b934aa780e3718468bc90e26cfe0fc5173e8",
+  "size": [
+   1200,
+   1200
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-21ea0ba197b927",
+  "intake": "ebay-intake-20261102-af",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-af/ebay-pair-21ea0ba197b927/photo-1.jpg",
+  "image_sha256": "397edb376b046b5ddaa3843786a015b6440015407e6ec9f3bbfac92e0a11038e",
+  "size": [
+   1600,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-8f97f0a96f61f4",
+  "intake": "ebay-intake-20261026-a",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261026-a/ebay-pair-8f97f0a96f61f4/photo-1.jpg",
+  "image_sha256": "57af50658370b2ee9e60794ad7c06e138713708a6f97994865b3a785377763e1",
+  "size": [
+   1600,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-54e8af7d55e168",
+  "intake": "ebay-intake-20261031-h",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261031-h/ebay-pair-54e8af7d55e168/photo-1.jpg",
+  "image_sha256": "f92a0f8fcfe00fa483cc8a721ba14d064d363b57034d20d0003ed90139b67316",
+  "size": [
+   811,
+   1080
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-e9e4dfa50185cd",
+  "intake": "ebay-intake-20261102-am",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261102-am/ebay-pair-e9e4dfa50185cd/photo-1.jpg",
+  "image_sha256": "27af600744bb36167ee06f5cf5b2bc94869212175c192189ff5971be6fdd90ba",
+  "size": [
+   1054,
+   1443
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-73c73a9f928bee",
+  "intake": "ebay-intake-20261101-ac",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261101-ac/ebay-pair-73c73a9f928bee/photo-1.jpg",
+  "image_sha256": "bbaf6473ed85baa12dd3527f1efb9da2cc5bcd3f2fb4ad8326b03de5d6b90f96",
+  "size": [
+   900,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ },
+ {
+  "id": "ebay-pair-ba1c588f1093ca",
+  "intake": "ebay-intake-20261031-z",
+  "image": "/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/ebay-intake-20261031-z/ebay-pair-ba1c588f1093ca/photo-1.jpg",
+  "image_sha256": "4cdc6780b74a5c16e91a00ecfc73812fb162bf981ba558d3d62d3194a90baf6d",
+  "size": [
+   1035,
+   1600
+  ],
+  "role": "holdout_ext",
+  "side": "front"
+ }
+]

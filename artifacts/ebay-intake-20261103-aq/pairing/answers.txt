@@ -1,0 +1,13 @@
+ebay-pair-9f78eed1596e16=제외
+ebay-pair-d4390f960fc13a=1,2
+ebay-pair-caf6be3c0662ba=1,2
+ebay-pair-7fb49d95e27f73=1,2
+ebay-pair-b9bf21cd4ed352=제외
+ebay-pair-c5383aaf0ad544=1,2
+ebay-pair-7bcae1c43bcb44=제외
+ebay-pair-f15f6a896006b0=1,2
+ebay-pair-ccdb53244919db=1,8
+ebay-pair-138c7995017e62=1,2
+ebay-pair-000639c6c4bc30=1,2
+ebay-pair-3c607a111bcef9=제외
+ebay-pair-2340e53e534dea=제외

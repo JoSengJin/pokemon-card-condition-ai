@@ -1,0 +1,47 @@
+{
+ "schema_version": 1,
+ "hypothesis_id": "edge-back-area-presence-head-20261030",
+ "hypothesis": "Back edge has no head over the frozen A3 scope; confirming 8 more train card boxes raises usable train back-edge units to 118 (65 normal/53 positive). A single linear head with the existing weak-presence recipe on 448 DINOv2 area crops may reach the C1 back-edge FN/FP ceilings.",
+ "change": "New back-edge area head only: fixed DINOv2 vits14 448 area crops, fit_detail_head max_bound normal bags, weak presence positives (no points), L2=1, group and class mass, threshold .5, one fit on train units, no tuning. Control is the degenerate all-normal reference (score 0).",
+ "success_criterion": "Val back edge (117 positive, 158 normal units): FN<=6 and FP<=15 at threshold .5 (C1 5% and 10% ceilings). Typed point response and front are not evaluated.",
+ "failure_criterion": "FN>6 or FP>15 means not adopted; no threshold, scale or crop tuning after seeing scores; separation, hash or convergence failure stops before any val score.",
+ "reference_result": "artifacts/edge-back-area-20261030/reference/result.json",
+ "acceptance": {
+  "max_fn": 6,
+  "max_fp": 15,
+  "no_new_errors": false,
+  "require_actual_point_guard": false
+ },
+ "code_changes": [
+  {
+   "path": "artifacts/edge-back-area-20261030/worker.py",
+   "baseline": null
+  }
+ ],
+ "input_sha256": {
+  "artifacts/development-manifest-20261030b/combined-reviewed.jsonl": "682602f7aad399a78f745f039626a2b67fa56c980d65c4a2e2b94183aa9a294c",
+  "artifacts/development-manifest-20261030b/coverage.json": "dc48d8fec9825297d75ab333597b9b3e717254ba78415e88a1852cb7fa06c5f6",
+  "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+  "artifacts/inner-whitening-confounder-20261021/confounder_head.py": "c54864f7e0b51c5e05af9db44ef236f8976995ed68b48d749a3ce165bd919cef",
+  "card_condition/regions.py": "4d441c24f5ce11617a11f32fc03353241741d66c218bc98fe607583feb02c911",
+  "card_condition/local_wear_cnn.py": "91f0c875812baa947b7e4d5ae9d40de53427d1d94dc92d77e849d3f3c556005f",
+  "card_condition/side_experiment.py": "06162757d756525d70b4727a91bf435a16f768b2a9678eb57cd499bd37fbe87d",
+  "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+  "artifacts/train-geometry-review-20261030/answers-1.txt": "322c006788c7779ac211394e788a0ebcc79b8f678f94de0a31cc785e87289d6a"
+ },
+ "gemini_calls_allowed": 0,
+ "independent": false,
+ "production_adopted": false,
+ "experiment_kind": "model_comparison",
+ "threshold": 0.5,
+ "tracked_directory": "tools/experiments/edge-back-area-20261030",
+ "coverage": "artifacts/development-manifest-20261030b/coverage.json",
+ "backbone_directory": "artifacts/torch-cache/hub/facebookresearch_dinov2_7764ea0f912e53c92e82eb78a2a1631e92725fc8",
+ "backbone_weights": "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth",
+ "expected_denominators": {
+  "train_val": [
+   118,
+   275
+  ]
+ }
+}

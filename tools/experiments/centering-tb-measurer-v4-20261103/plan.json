@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "centering-tb-measurer-v4-20261103",
+  "reference_result": "artifacts/centering-tb-measurer-v4-20261103/reference/result.json",
+  "acceptance": {
+    "max_fn": 999,
+    "max_fp": 999,
+    "no_new_errors": false,
+    "require_actual_point_guard": false
+  },
+  "code_changes": [
+    {
+      "path": "artifacts/centering-tb-measurer-v4-20261103/worker.py",
+      "baseline": "artifacts/centering-tb-measurer-v3-20261103/worker.py"
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "tracked_directory": "tools/experiments/centering-tb-measurer-v4-20261103",
+  "expected_denominators": {
+    "train_val": [
+      0,
+      36
+    ]
+  },
+  "reference_note": "상수 0.5(행 대조용).",
+  "hypothesis": "v3(기록 20261103T071212-88d88c9e)는 창 한계 붙음을 22/72→9/72로 줄이고 폭 중앙값을 사람과 맞췄지만(상 0.030 vs 0.027) 비대칭 순위상관 −0.091, AUC 0.494로 실패했다. 진단 분류의 남은 원인(창 끝 붙음 9/22: 균일한 띠·그림·글자 때문에 안쪽 틀 봉우리가 없음)은 약한 봉우리를 억지로 고른 측정이 비대칭 신호를 덮는다는 가설: 봉우리가 약한 장을 측정 보류로 내면 남은 장의 비대칭이 사람 표시와 맞는다.",
+  "change": "v3에 보류 규칙 하나만 추가: 상·하 중 하나라도 안쪽 틀 봉우리 그래디언트가 창 내 |그래디언트| 중앙값의 2.5배 미만이면 그 장은 보류(점수 없음). 2.5는 결과 전 고정, 이후 변경 안 함. 나머지는 v3와 동일.",
+  "success_criterion": "(결과 전 고정, 개발 36장 전용, 보류하지 않은 장에서 계산) 순위상관 ≥0.50, 센터링 AUC ≥0.70, 보류 ≤20%(≤7장), 창 한계 붙은 경계 비율 < 22/72. 네 조건 모두 충족. 보류로 AUC가 오르는 방식이므로 보류 비율·분모를 항상 함께 보고하고 36장 전체 점수는 주장하지 않는다.",
+  "failure_criterion": "하나라도 미충족이면 실패. 임계 2.5를 결과에 맞춰 바꾸지 않는다. 기록 전용: 유효 19장 중 보류되지 않은 부분집합 지표.",
+  "known_biases": "v1~v3에 이어 같은 36장에서 네 번째 가설(다중비교). 보류는 분모를 줄여 AUC를 올릴 수 있다(보류 장 수·결함 수 병기). 개발 평가이며 독립 시험이 아니다. observations.json의 보류 장 점수 0.0은 자리표시자이고 판정에 쓰지 않는다.",
+  "expected_limit": "통과해도 v1.9 충족이 아니다. 동결 후 새 독립 보류 앞면에서만 판정한다.",
+  "status": "approved_ready_to_run",
+  "rows": "artifacts/centering-tb-measurer-v4-20261103/rows.json",
+  "expected_rows": 36,
+  "criterion_min_spearman": 0.5,
+  "criterion_min_auc": 0.7,
+  "input_sha256": {
+    "artifacts/centering-tb-measurer-v4-20261103/rows.json": "cb8e536f9d0fa1b95b80ae613eddbd43d7f56a89876f98af1b5b2a351df5c767",
+    "artifacts/centering-tb-diagnosis-20261103/diag.json": "36540b5d5b7b4c839d77b03348d3a4e31248045dd7e37bc77fa292e58e46cbf0"
+  },
+  "criterion_max_hold": 0.2,
+  "criterion_pinned_below": 0.3055555555555556,
+  "valid_indices_file": "artifacts/centering-tb-diagnosis-20261103/diag.json"
+}

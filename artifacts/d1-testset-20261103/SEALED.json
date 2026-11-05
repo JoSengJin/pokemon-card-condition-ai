@@ -1,0 +1,3739 @@
+{
+ "version": "d1-testset-20261103",
+ "cells": {
+  "edge": {
+   "결함": 78,
+   "제외": 20,
+   "정상": 40
+  },
+  "corner": {
+   "결함": 74,
+   "제외": 8,
+   "정상": 56
+  },
+  "surface": {
+   "정상": 97,
+   "결함": 31,
+   "제외": 10
+  },
+  "observation_limit": {
+   "정상": 100,
+   "결함": 37,
+   "미확인": 1
+  },
+  "centering": {
+   "미확인": 36,
+   "정상": 55,
+   "결함": 47
+  }
+ },
+ "n_cards": 138,
+ "meaning": {
+  "edge": "box 맞음 + 결함/정상만 (불가·미확인·잘림 제외)",
+  "corner": "4칸 중 결함 있으면 결함, 4칸 모두 정상이면 정상, 그 외 제외",
+  "surface": "9칸 중 결함 있으면 결함, 9칸 모두 정상이면 정상, 그 외 제외",
+  "observation_limit": "제한=양성, 정상, 미확인 제외",
+  "centering": "앞면 결함/정상, 미확인 제외"
+ },
+ "label_file_sha256": {
+  "edge-answers.txt": "3fc19ad834a8ec9c263e18d7af3d3d4144b78722219b00f2f28e9a724c2f1550",
+  "cor-answers.txt": "a22512b021ce28c03dfa2af65dcace96c9958f7df82c4ba5c685422e01b33980",
+  "sur-answers.txt": "529fe5229793564696b4b21bed248a68cc89881301f710579f8d887381d359ba",
+  "obs-answers.txt": "dc65c85046ad5af22fdcf35c38222731d10854afc95fbd88544dfb5af37e1555",
+  "cen-answers.txt": "02d5b5454645b54093ff50f065346cee7aa9da79d9c252fb1681f3e557022302"
+ },
+ "group_sha256": "92ec596f3d50fa5dcf8c720f9dd385d1fb537ca16fb66989659d93f8fc699a40",
+ "photo_sha256_all": "4f0237ae0e454b44479a240c8a6a0c22ddaec3d01e25b5a441f8c619c60ca994",
+ "use_history": {
+  "training": false,
+  "tuning": false,
+  "model_selection": false,
+  "threshold": false,
+  "prefill_predictions": false,
+  "note": "사람 라벨러(J)가 라벨 페이지에서 한 번 본 것 외 사용 없음. 봉인 후 개발·선택·임계·원인 분석 금지, 한 번 평가한 후보에 재사용 금지."
+ },
+ "subtype_table_by_search_query": {
+  "pokemon card expedition raw": {
+   "edge:결함": 4,
+   "corner:결함": 4,
+   "surface:정상": 2,
+   "observation_limit:정상": 2,
+   "centering:미확인": 4,
+   "observation_limit:결함": 2,
+   "surface:결함": 2
+  },
+  "pokemon card legendary collection raw": {
+   "edge:결함": 6,
+   "corner:결함": 7,
+   "surface:정상": 6,
+   "observation_limit:결함": 3,
+   "centering:정상": 3,
+   "observation_limit:정상": 4,
+   "centering:결함": 1,
+   "edge:정상": 1,
+   "centering:미확인": 3,
+   "surface:결함": 1
+  },
+  "pokemon card evolutions raw": {
+   "edge:결함": 2,
+   "corner:결함": 2,
+   "surface:결함": 1,
+   "observation_limit:결함": 1,
+   "centering:정상": 1,
+   "surface:정상": 2,
+   "observation_limit:정상": 2,
+   "centering:결함": 1,
+   "edge:정상": 1,
+   "corner:정상": 1,
+   "centering:미확인": 1
+  },
+  "pokemon card hidden fates raw": {
+   "edge:결함": 4,
+   "corner:결함": 4,
+   "surface:결함": 3,
+   "observation_limit:정상": 5,
+   "centering:정상": 3,
+   "observation_limit:결함": 1,
+   "centering:미확인": 3,
+   "edge:정상": 1,
+   "corner:정상": 1,
+   "surface:정상": 3,
+   "corner:제외": 1,
+   "edge:제외": 1
+  },
+  "pokemon card base set 2 raw": {
+   "edge:제외": 2,
+   "corner:제외": 1,
+   "surface:제외": 2,
+   "observation_limit:결함": 3,
+   "centering:결함": 3,
+   "edge:결함": 2,
+   "corner:결함": 3,
+   "observation_limit:정상": 1,
+   "surface:정상": 1,
+   "surface:결함": 1,
+   "centering:정상": 1
+  },
+  "pokemon card blastoise raw": {
+   "edge:정상": 1,
+   "corner:정상": 3,
+   "surface:정상": 5,
+   "observation_limit:결함": 1,
+   "centering:미확인": 2,
+   "edge:결함": 5,
+   "corner:결함": 3,
+   "observation_limit:정상": 5,
+   "centering:정상": 3,
+   "surface:결함": 1,
+   "centering:결함": 1
+  },
+  "pokemon card venusaur raw": {
+   "edge:결함": 7,
+   "corner:결함": 5,
+   "surface:결함": 3,
+   "observation_limit:정상": 8,
+   "centering:미확인": 2,
+   "surface:정상": 7,
+   "observation_limit:결함": 2,
+   "centering:정상": 5,
+   "edge:정상": 3,
+   "corner:정상": 5,
+   "centering:결함": 3
+  },
+  "pokemon card charizard raw": {
+   "edge:결함": 1,
+   "corner:정상": 2,
+   "surface:정상": 1,
+   "observation_limit:정상": 1,
+   "centering:정상": 1,
+   "edge:제외": 1,
+   "surface:제외": 1,
+   "observation_limit:결함": 1,
+   "centering:미확인": 1
+  },
+  "pokemon card pikachu raw": {
+   "edge:정상": 1,
+   "corner:결함": 3,
+   "surface:정상": 2,
+   "observation_limit:정상": 2,
+   "centering:결함": 2,
+   "edge:결함": 1,
+   "edge:제외": 1,
+   "surface:제외": 1,
+   "observation_limit:결함": 1,
+   "centering:미확인": 1
+  },
+  "pokemon card mewtwo raw": {
+   "edge:제외": 1,
+   "corner:제외": 1,
+   "surface:정상": 2,
+   "observation_limit:결함": 1,
+   "centering:미확인": 1,
+   "edge:결함": 1,
+   "corner:결함": 1,
+   "observation_limit:정상": 1,
+   "centering:정상": 1
+  },
+  "pokemon card dragonite raw": {
+   "edge:결함": 4,
+   "corner:정상": 3,
+   "surface:결함": 2,
+   "observation_limit:정상": 6,
+   "centering:결함": 2,
+   "corner:결함": 3,
+   "surface:정상": 4,
+   "centering:정상": 3,
+   "edge:정상": 2,
+   "centering:미확인": 1
+  },
+  "pokemon card lugia raw": {
+   "edge:정상": 6,
+   "corner:정상": 7,
+   "surface:정상": 6,
+   "observation_limit:정상": 6,
+   "centering:정상": 2,
+   "surface:제외": 1,
+   "observation_limit:결함": 2,
+   "centering:결함": 1,
+   "edge:결함": 2,
+   "corner:결함": 1,
+   "surface:결함": 1,
+   "centering:미확인": 5
+  },
+  "pokemon card mew raw": {
+   "edge:결함": 3,
+   "corner:결함": 4,
+   "surface:정상": 6,
+   "observation_limit:정상": 6,
+   "centering:결함": 4,
+   "edge:정상": 4,
+   "corner:정상": 4,
+   "centering:미확인": 1,
+   "centering:정상": 3,
+   "edge:제외": 1,
+   "surface:제외": 1,
+   "observation_limit:결함": 2,
+   "surface:결함": 1
+  },
+  "pokemon card eevee raw": {
+   "edge:정상": 1,
+   "corner:결함": 1,
+   "surface:정상": 1,
+   "observation_limit:결함": 1,
+   "centering:정상": 1
+  },
+  "pokemon card gengar raw": {
+   "edge:정상": 1,
+   "corner:정상": 1,
+   "surface:정상": 1,
+   "observation_limit:정상": 1,
+   "centering:미확인": 1
+  },
+  "pokemon card rayquaza raw": {
+   "edge:결함": 6,
+   "corner:결함": 2,
+   "surface:정상": 7,
+   "observation_limit:결함": 3,
+   "centering:미확인": 3,
+   "corner:정상": 5,
+   "centering:결함": 3,
+   "corner:제외": 1,
+   "surface:제외": 1,
+   "observation_limit:정상": 5,
+   "edge:정상": 2,
+   "centering:정상": 2
+  },
+  "pokemon card alakazam raw": {
+   "edge:결함": 3,
+   "corner:결함": 3,
+   "surface:정상": 4,
+   "observation_limit:정상": 4,
+   "centering:정상": 2,
+   "edge:정상": 1,
+   "corner:정상": 1,
+   "centering:결함": 1,
+   "surface:결함": 1,
+   "centering:미확인": 2,
+   "edge:제외": 1,
+   "corner:제외": 1,
+   "observation_limit:결함": 1
+  },
+  "pokemon card umbreon raw": {
+   "edge:정상": 1,
+   "corner:정상": 1,
+   "surface:정상": 1,
+   "observation_limit:정상": 1,
+   "centering:정상": 1
+  },
+  "pokemon card gyarados raw": {
+   "edge:결함": 4,
+   "corner:결함": 4,
+   "surface:정상": 3,
+   "observation_limit:정상": 4,
+   "centering:정상": 2,
+   "centering:결함": 2,
+   "surface:결함": 1
+  },
+  "pokemon card snorlax raw": {
+   "edge:제외": 1,
+   "corner:제외": 1,
+   "surface:제외": 1,
+   "observation_limit:결함": 1,
+   "centering:결함": 1
+  },
+  "pokemon card machamp raw": {
+   "edge:결함": 4,
+   "corner:정상": 3,
+   "surface:결함": 3,
+   "observation_limit:정상": 5,
+   "centering:정상": 2,
+   "edge:정상": 1,
+   "surface:정상": 3,
+   "centering:결함": 3,
+   "corner:결함": 2,
+   "edge:제외": 1,
+   "corner:제외": 1,
+   "observation_limit:결함": 1,
+   "centering:미확인": 1
+  },
+  "pokemon card arcanine raw": {
+   "edge:정상": 1,
+   "corner:결함": 3,
+   "surface:정상": 3,
+   "observation_limit:결함": 1,
+   "centering:결함": 2,
+   "edge:결함": 3,
+   "corner:정상": 2,
+   "observation_limit:정상": 4,
+   "centering:정상": 3,
+   "edge:제외": 1,
+   "surface:결함": 2
+  },
+  "pokemon card ninetales raw": {
+   "edge:제외": 1,
+   "corner:결함": 3,
+   "surface:정상": 3,
+   "observation_limit:결함": 1,
+   "centering:결함": 2,
+   "edge:정상": 1,
+   "corner:정상": 1,
+   "observation_limit:정상": 3,
+   "centering:정상": 2,
+   "edge:결함": 2,
+   "surface:결함": 1
+  },
+  "pokemon card raichu raw": {
+   "edge:결함": 2,
+   "corner:정상": 2,
+   "surface:결함": 1,
+   "observation_limit:정상": 2,
+   "centering:결함": 2,
+   "edge:정상": 1,
+   "surface:정상": 2,
+   "corner:결함": 1,
+   "observation_limit:결함": 1,
+   "centering:정상": 1
+  },
+  "pokemon card lapras raw": {
+   "edge:정상": 2,
+   "corner:정상": 3,
+   "surface:정상": 6,
+   "observation_limit:정상": 6,
+   "centering:결함": 2,
+   "edge:결함": 4,
+   "corner:결함": 4,
+   "surface:결함": 1,
+   "centering:정상": 4,
+   "edge:제외": 1,
+   "centering:미확인": 1,
+   "observation_limit:결함": 1
+  },
+  "pokemon card celebi raw": {
+   "edge:제외": 3,
+   "corner:정상": 3,
+   "surface:정상": 3,
+   "observation_limit:결함": 5,
+   "centering:결함": 3,
+   "corner:결함": 3,
+   "edge:결함": 2,
+   "observation_limit:미확인": 1,
+   "centering:정상": 2,
+   "surface:결함": 2,
+   "surface:제외": 1,
+   "centering:미확인": 1,
+   "edge:정상": 1
+  },
+  "pokemon card suicune raw": {
+   "edge:제외": 2,
+   "corner:정상": 2,
+   "surface:정상": 1,
+   "observation_limit:정상": 3,
+   "centering:결함": 3,
+   "corner:결함": 2,
+   "surface:제외": 1,
+   "observation_limit:결함": 1,
+   "edge:결함": 2,
+   "surface:결함": 2,
+   "centering:정상": 1
+  },
+  "pokemon card entei raw": {
+   "edge:제외": 2,
+   "corner:결함": 4,
+   "surface:정상": 6,
+   "observation_limit:정상": 7,
+   "centering:정상": 5,
+   "corner:정상": 2,
+   "centering:결함": 2,
+   "edge:정상": 3,
+   "edge:결함": 2,
+   "corner:제외": 1,
+   "surface:결함": 1
+  },
+  "pokemon card ho-oh raw": {
+   "edge:정상": 1,
+   "corner:정상": 2,
+   "surface:정상": 2,
+   "observation_limit:정상": 2,
+   "centering:결함": 1,
+   "edge:결함": 1,
+   "centering:미확인": 1
+  },
+  "pokemon card tyranitar raw": {
+   "edge:결함": 1,
+   "corner:결함": 2,
+   "surface:정상": 4,
+   "observation_limit:정상": 4,
+   "centering:정상": 1,
+   "edge:정상": 3,
+   "centering:미확인": 1,
+   "corner:정상": 2,
+   "centering:결함": 2
+  }
+ },
+ "shooting_condition_table_back_short_side_px": {
+  "back_short_side<1500": 99,
+  "back_short_side<99999": 16,
+  "back_short_side<1000": 23
+ },
+ "limits": [
+  "세부유형은 카드 종류 라벨이 아니라 eBay 검색어(시대 프록시)로만 구분한다. 카드 종류·희귀도 라벨은 없다.",
+  "라벨러 한 명, 같은 eBay 계열이라 일반화 한계가 있다.",
+  "변조는 코드로 막지 못하고 SHA와 커밋으로 감지한다.",
+  "표면 결함 카드 수가 기준 30에 근접한다(칸 수는 counts 참고).",
+  "센터링 칸은 C4 미충족이라 후보 없음으로 보고한다."
+ ],
+ "cards": [
+  {
+   "id": "ebay-pair-8c763af3ed2ba0",
+   "group": "ebay-pair-8c763af3ed2ba0",
+   "intake": "ax",
+   "query": "pokemon card expedition raw",
+   "title": "Pokemon TCG Magmar 86/165 Expedition Reverse Foil MP",
+   "front_sha256": "0570f1767e32c3b5d33f255f0d0c2455cb4d12e118a50b53b74a01434ae44d5b",
+   "back_sha256": "205bbc384acffca2a8b5eb085c99cbaf1468666027145366f22c6450c42f2e84",
+   "front_size": [
+    1209,
+    1600
+   ],
+   "back_size": [
+    1259,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-86bf2e503b6385",
+   "group": "ebay-pair-86bf2e503b6385",
+   "intake": "ax",
+   "query": "pokemon card legendary collection raw",
+   "title": "RAW Machamp Holo Rare Legendary Collection 015/110 ",
+   "front_sha256": "6da2de43b11ab763c158c26233c98848f7ccec553ff43aae5751194a872476ae",
+   "back_sha256": "8b1bd90f634f57dea522a1af6186491b35d64b14efe9f3a27d5de6cb16fe858c",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-ebb1c98eebab60",
+   "group": "ebay-pair-ebb1c98eebab60",
+   "intake": "ax",
+   "query": "pokemon card expedition raw",
+   "title": "Squirtle 132/165 Pokémon Expedition Single Raw Card",
+   "front_sha256": "15c4661fddc30149e0dc3b0a488e62c2574cc42b7c74bc495c9a70846a8b0503",
+   "back_sha256": "d1c8179dcdfc10a3134514f52cf3ad4d2632575303fe95c97d94150384681fbc",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-6698591376d52a",
+   "group": "ebay-pair-6698591376d52a",
+   "intake": "ax",
+   "query": "pokemon card evolutions raw",
+   "title": "Scream Tail 042/131 Prismatic Evolutions Ancient Psychic Pokemon Card NM Raw",
+   "front_sha256": "6e6d780db3dd2471a02311a5738451c513a275aec897fb432ce0c267943ad5b5",
+   "back_sha256": "f9270a980885dc3a96ede26ba49a3cddc53bb7ff652139cf5a6de9afc081edcb",
+   "front_size": [
+    1128,
+    1486
+   ],
+   "back_size": [
+    1091,
+    1464
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-d341692db01b0e",
+   "group": "ebay-pair-d341692db01b0e",
+   "intake": "ax",
+   "query": "pokemon card hidden fates raw",
+   "title": "Pikachu - Hidden Fates #19/68",
+   "front_sha256": "bd799659af5d37ac25e061f76ae4285b383a134379db39a888deb79c24c79fd5",
+   "back_sha256": "201888af3ccddb789876de00d55a9ff41991bfd41207884872c18f1c2300cb29",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-aff250ee0b9e8b",
+   "group": "ebay-pair-aff250ee0b9e8b",
+   "intake": "ax",
+   "query": "pokemon card legendary collection raw",
+   "title": "Kirlia RC9/RC25 Legendary Treasures Radiant Collection Holo Pokemon Card RAW",
+   "front_sha256": "01a6f36c35582c78d02719a647cc3268eb07e2a3f6232f63283a6b931158008e",
+   "back_sha256": "9657af1afbb401f4735b4fa1d80aa8ffbb4110551185dd9d7abf271a1f801ec2",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-c7eb7bd83dbbcc",
+   "group": "ebay-pair-c7eb7bd83dbbcc",
+   "intake": "ax",
+   "query": "pokemon card legendary collection raw",
+   "title": "2013 Pokemon Snivy Legendary Treasures: Radiant Collection RC1/RC25 Common NM",
+   "front_sha256": "30edcbef1501cbcb03e1c224321c5315d256d9555c031d04b05bde316a0f0c2e",
+   "back_sha256": "607fb0b4d1e87073a544dac68da3b19b0795cb158a7ada58d4c1de90855edbfe",
+   "front_size": [
+    1216,
+    1600
+   ],
+   "back_size": [
+    1210,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-4f89da8bf6bcbe",
+   "group": "ebay-pair-4f89da8bf6bcbe",
+   "intake": "ax",
+   "query": "pokemon card expedition raw",
+   "title": "Pokémon TCG Kadabra Reverse Holo 84/165 Expedition Raw",
+   "front_sha256": "a7f212a3de2b865587fb30e2c9894138c1219a9bfb396908544a8c2091514b3c",
+   "back_sha256": "1dfa762981b2fdc8e688ada9d3385ab9878328dd51843e239eb66dc420347afd",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-b6428bcadc69f2",
+   "group": "ebay-pair-b6428bcadc69f2",
+   "intake": "ax",
+   "query": "pokemon card hidden fates raw",
+   "title": "Pokemon TCG Charizard GX Hidden Fates Ultra Rare 009/068 Raw Card",
+   "front_sha256": "3f06a4c84fa6195d72c87a0f440ca3439737358e7254000476c8307fe95a2865",
+   "back_sha256": "9a24cf35aef0d59b87c88d9f7ac249255c1c5f3b822ab5cf5317b821254798d5",
+   "front_size": [
+    1073,
+    1600
+   ],
+   "back_size": [
+    1021,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-b5a488c9dddfbe",
+   "group": "ebay-pair-b5a488c9dddfbe",
+   "intake": "ax",
+   "query": "pokemon card evolutions raw",
+   "title": "Ninetales 15/108 XY Evolutions Holo Rare Reverse Holo Raw",
+   "front_sha256": "83fee311a8adef9d72681ab2213f775ccb327dce010092cbb15ed70d97276557",
+   "back_sha256": "945aa4014653d5c514ca807e8aeb7e34c7b159de457eeccb79fb5aa174995206",
+   "front_size": [
+    1207,
+    1600
+   ],
+   "back_size": [
+    1286,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-0d26b82150d3ff",
+   "group": "ebay-pair-0d26b82150d3ff",
+   "intake": "ax",
+   "query": "pokemon card base set 2 raw",
+   "title": "Alakazam Base Set 2 Raw LP/MP #1/130 Holo Rare FART SWIRL",
+   "front_sha256": "e10c28caf1ae78cc785efe85e2cc076925aaca2b0bd3fd94e0525b89d29ca3ac",
+   "back_sha256": "7023c829caeb6ff11f5969acfce31b6acb29fa6df6eb8fc5ec1417e33d5e48d9",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "제외",
+    "surface": "제외",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-ec07a1aba786ee",
+   "group": "ebay-pair-ec07a1aba786ee",
+   "intake": "ax",
+   "query": "pokemon card expedition raw",
+   "title": "Poliwrath | 24/165 | Expedition | Holo Rare w/ Swirl Loose Ungraded Original",
+   "front_sha256": "fe56aee7097244a1b37b480eeaacccbf4df0aff50b731e3a1b140a10120380bd",
+   "back_sha256": "a5a7725e8ce8ff776b256c36c96bdcbe700f4bec3d8e0ba1b37e0b7d0cf5247d",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-066d1abfa0515f",
+   "group": "ebay-pair-066d1abfa0515f",
+   "intake": "ax",
+   "query": "pokemon card base set 2 raw",
+   "title": "Scyther (2000) 17/130. Base Set 2. English. Raw.",
+   "front_sha256": "9a9b6011f6c122c3343bda644a8030a59651b3012faffccb2c56a9601ad81921",
+   "back_sha256": "9fed9cc246a0218d22210c89f192546611505e44ebdb81aaa854dbce4b318c7a",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "제외",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-1ccfdefedda267",
+   "group": "ebay-pair-1ccfdefedda267",
+   "intake": "ax",
+   "query": "pokemon card legendary collection raw",
+   "title": "Reshiram 022/142 Pokemon TCG Stellar Crown Fire Basic Legendary Heat Blast",
+   "front_sha256": "71332edfbdb4c7fb45d7cc49213723a24a457ce1a88c3e22a091e95c098da251",
+   "back_sha256": "6911a0bb43e5bb09dde5a630be496aa4659e6add58607f9a8cccef42bbc5f4d9",
+   "front_size": [
+    1198,
+    1600
+   ],
+   "back_size": [
+    1188,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-96d2da3fc3103a",
+   "group": "ebay-pair-96d2da3fc3103a",
+   "intake": "ax",
+   "query": "pokemon card hidden fates raw",
+   "title": "Charizard GX 9/68 Hidden Fates Battle Academy Stamp Holo Pokemon 2019",
+   "front_sha256": "50723d6cf3c464c63108b8dc03b0a1e3c637af301694115ebd04830dafa0dc1a",
+   "back_sha256": "d2f23123f3bd4d91c932585d9acca3d2b4610909221b53f2b8075a3889254e29",
+   "front_size": [
+    1223,
+    1600
+   ],
+   "back_size": [
+    1228,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-0f8544e3082095",
+   "group": "ebay-pair-0f8544e3082095",
+   "intake": "ax",
+   "query": "pokemon card evolutions raw",
+   "title": "2016 Pokemon Evolutions M Charizard ex Ultra Rare Holo #101/108 Raw LP",
+   "front_sha256": "2aa82c9bea7a1044f21baa8cc4fd9d9f81bc04f2421cc545551057933af5f0e2",
+   "back_sha256": "0383c6e3140e069a07329edabc942bce1e703a849de1bff4dcd182e78ee7f856",
+   "front_size": [
+    1189,
+    1600
+   ],
+   "back_size": [
+    1171,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-ad656e21f2a451",
+   "group": "ebay-pair-ad656e21f2a451",
+   "intake": "ax",
+   "query": "pokemon card legendary collection raw",
+   "title": "Nidoran Female 82/110 Reverse Holo Legendary Collection 2002 Pokemon WOTC LP",
+   "front_sha256": "5b224dc44d6414e4accfaa28343c347e5ad5c6402e8ea0c985b1a167fbca0e24",
+   "back_sha256": "fda521879793233a1a6087312daca4b03ffb1e767cc80e969cd06f162d68a0e1",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-5d4c4dbb77d060",
+   "group": "ebay-pair-5d4c4dbb77d060",
+   "intake": "ax",
+   "query": "pokemon card legendary collection raw",
+   "title": "Graveler 44/110 Legendary Collection Reverse Holo Pokemon low pop vintage",
+   "front_sha256": "7ff9a24c33f1655f08e740407d36c6fb4031bd65cedeaf6ba74c1b8547636f56",
+   "back_sha256": "bb10e72b24d080945dc3b637fa46216fa2fe95d6a09afbe424dd71f22237e620",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-8ffdbd122f0355",
+   "group": "ebay-pair-8ffdbd122f0355",
+   "intake": "ax",
+   "query": "pokemon card hidden fates raw",
+   "title": "Articuno GX sv54/sv94 - English Rare Shiny GX Holo - Hidden Fates - Near mint (",
+   "front_sha256": "a58d7ae213095b2275a256230cd6b31e25709da9ced3266449b6aa08606c93e2",
+   "back_sha256": "10940b058f584a834b2f5a57aaff69038f3f9c7871c6afadf154ecd1c6dca01c",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-e547855f761caa",
+   "group": "ebay-pair-e547855f761caa",
+   "intake": "ax",
+   "query": "pokemon card base set 2 raw",
+   "title": "Poliwrath (2000) 15/130. Base Set 2. English. Raw.",
+   "front_sha256": "58000a87ea1f443f448de14ea2876aa015b19b944e83eaad68b68a451bdbf948",
+   "back_sha256": "8a5fe398656748a0425210b741119b14390e0c0a071d9afc3ead552efe1cb1b3",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-4425de7707c587",
+   "group": "ebay-pair-4425de7707c587",
+   "intake": "ax",
+   "query": "pokemon card legendary collection raw",
+   "title": "Meloetta ex RC11/RC25. Legendary Treasures (2013). English. Raw. Pokemon TCG",
+   "front_sha256": "9b090ae304f22932821308e1ca9a025e277c9723e3baf2fb6306033e9870adc8",
+   "back_sha256": "cf337beb18b778a95aa839687c6e292b30f419d0150b33d5e2ab93e68b5f512d",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-5614537206a885",
+   "group": "ebay-pair-5614537206a885",
+   "intake": "ax",
+   "query": "pokemon card hidden fates raw",
+   "title": "2019 Pokémon Eevee 48/68 Hidden Fates English Holo Common NM Raw Card",
+   "front_sha256": "e0a670b53e1c75f6c4886eb58a17ede74b50165a2e3a325ba8f1fb877d239dc8",
+   "back_sha256": "1d211250d814443a10454718f9561ddda5f21a9cf72444a87ae9eb6331f83b8d",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "제외",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-8265c3b22098a8",
+   "group": "ebay-pair-8265c3b22098a8",
+   "intake": "ax",
+   "query": "pokemon card base set 2 raw",
+   "title": "Vintage 1999 Charizard 4/102 Base Set Holographic WOTC Original RAW",
+   "front_sha256": "82f4674760ecd8a5d97d902d3a32fb426f195a0f27234d2e68680082a6dbf027",
+   "back_sha256": "11ca09af439342ba6b3e5a464a1223ec06e33a81a6578f7721a7ffdf2ffb5d6b",
+   "front_size": [
+    1204,
+    1600
+   ],
+   "back_size": [
+    1204,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-8300100000a9e6",
+   "group": "ebay-pair-8300100000a9e6",
+   "intake": "ax",
+   "query": "pokemon card hidden fates raw",
+   "title": "Pokemon Mew 32/68 Hidden Fates Reverse Holo Rare English Raw LP",
+   "front_sha256": "536991d3f883f909cb2fa78eaccfd456f456a06ab75384648815bda8ef33a8e5",
+   "back_sha256": "7a6b7caa99a80861331b7f1a436443de3e74e18acfce105493e4cf0a53290b53",
+   "front_size": [
+    1020,
+    1370
+   ],
+   "back_size": [
+    1030,
+    1350
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-faf62d0f8e1c19",
+   "group": "ebay-pair-faf62d0f8e1c19",
+   "intake": "az",
+   "query": "pokemon card blastoise raw",
+   "title": "Blastoise EX 29/146 XY Base Set Ultra Rare Holo Pokemon Card RAW",
+   "front_sha256": "bd3b40ff714e226ccc59d985ca957861adff1a2e787eb9df078c7c853a3bebe7",
+   "back_sha256": "79e8bed83cbc9cbc2f51eccaa9bff7016597645412607bf36f71a2989f3e92ef",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-15b7688c8f3f14",
+   "group": "ebay-pair-15b7688c8f3f14",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "Venusaur 30/165 - Holo Rare -  Expedition Pokemon Card WOTC 2002",
+   "front_sha256": "88dfa5cbf78f9fe793eade95831ec8fc5de870a35d2404bbb4d97bf71fc6df81",
+   "back_sha256": "b95f91e8b9e2af860444d9e9a51377ce9c9049087157982cce87d50f65c0b066",
+   "front_size": [
+    1132,
+    1598
+   ],
+   "back_size": [
+    1160,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-b849c8ca572c7c",
+   "group": "ebay-pair-b849c8ca572c7c",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "Venusaur 15/102 Base Set Unlimited Holo Rare Pokemon Card WOTC 1999 LP",
+   "front_sha256": "86d729c4c8a7317865dda2366ade4b5d17d4c2c6e961b83f2670e8ea9da238ee",
+   "back_sha256": "7f0cbf7afc168708e8dc4433104ee8841aec77994f41c9c1d8b29d7cbfdf747c",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-1b214cc3ec640a",
+   "group": "ebay-pair-1b214cc3ec640a",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "Venusaur 15/102 - Celebrations (2021). Raw. Pokemon TCG.",
+   "front_sha256": "6a7fd9f995c53d4ebac96eae02bd6a37fc868b83a728b7c8b92919763382d28c",
+   "back_sha256": "b1c5b4590b6fdd4ce5fd0205e5ce778d012446fc2f077d085c2ed22eef96f372",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-0296084501b231",
+   "group": "ebay-pair-0296084501b231",
+   "intake": "az",
+   "query": "pokemon card blastoise raw",
+   "title": "M Blastoise Ex 22/108 Ultra Rare Raw Pokemon Evolutions Card Lp ",
+   "front_sha256": "8e7a27de4073e2fb2ff79a9439da990d5ee50da49e444b14387eda13c80646cc",
+   "back_sha256": "7bdaff9c7fd104bdb4f2029a8d9c3869d60fa0e17dfbefd2022a1d5baed9d238",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-4aa59d23c7617e",
+   "group": "ebay-pair-4aa59d23c7617e",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "2020 Pokemon Venusaur V Champion's Path 01/73 Holo Ultra Rare NM",
+   "front_sha256": "61246af55b319f782de4c5cc5243e8a363d09cd51bf738bb0fda8ff26d19e090",
+   "back_sha256": "8b53a557b4c90ec151cec8bf37605966a1cb143eb529187a17cae83e5d54319f",
+   "front_size": [
+    1216,
+    1600
+   ],
+   "back_size": [
+    1206,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-51ac2beb344b95",
+   "group": "ebay-pair-51ac2beb344b95",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "Pokemon Venusaur ex 001/142 Stellar Crown Double Rare Raw NM 2024",
+   "front_sha256": "9cf4fad0f7b3d35e569fc599fd96b1bb63fb5ddef475f9e610a584e62177f835",
+   "back_sha256": "9776fc075990a220bfa81da98e63085fb6d3d5ff9fb76bbdff375b631db18505",
+   "front_size": [
+    789,
+    1096
+   ],
+   "back_size": [
+    785,
+    1077
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-0bbc78101f8bd9",
+   "group": "ebay-pair-0bbc78101f8bd9",
+   "intake": "az",
+   "query": "pokemon card blastoise raw",
+   "title": "Pokemon TCG Blastoise ex 200/165 SV Scarlet & Violet 151 SPECIAL SIR Holo RAW",
+   "front_sha256": "70bb0c42a357eaf2965966d94f61664344cb26fe00520eb55f8c5f49bdc49e90",
+   "back_sha256": "73547986a319ecedc84a6dfda2b87d69b12ed992371207c14ec85691a4e2d90f",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-53977bbb326fd0",
+   "group": "ebay-pair-53977bbb326fd0",
+   "intake": "az",
+   "query": "pokemon card charizard raw",
+   "title": "Pokemon TCG Charizard 4/102 Celebrations Classic Collection SWSH NM",
+   "front_sha256": "2e3adb8786e4a18fa0974736d4496cbef1d00b82910f1c32c1adec39b50db728",
+   "back_sha256": "2bab2a905151e71d8373d9a312b370d589cbc55d9f0945a40b9b6b7715402e18",
+   "front_size": [
+    1269,
+    1600
+   ],
+   "back_size": [
+    1292,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-624bd00f600573",
+   "group": "ebay-pair-624bd00f600573",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "Pokemon Venusaur EX Scarlet & Violet 151 Double Rare Holo #003 2023 RAW NM",
+   "front_sha256": "cf7fcf00c30a08beb950f082b125c106cc766893b4952ed5b1f176b045073bc9",
+   "back_sha256": "8dbc1de2df86628dfab0ff7291dfa6daca915c647acb664bf10e41d993c3d879",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-2730a465e0f07b",
+   "group": "ebay-pair-2730a465e0f07b",
+   "intake": "az",
+   "query": "pokemon card blastoise raw",
+   "title": "Blastoise Unlimited 2/102 Pokemon Card NM Never Played",
+   "front_sha256": "03b1e04fdf05895c1cc5cba8f27105a17520212520109831f8c6fcaf5f23a1ec",
+   "back_sha256": "fd7659ad888e16fa67d1d7a80109a902c353715a217d7acf8a47eed91850c4eb",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-fe5e16ed44de5f",
+   "group": "ebay-pair-fe5e16ed44de5f",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "Venusaur 15/102 Holo Rare Base Set Unlimited Pokemon Card",
+   "front_sha256": "d4980519373ede6a44b4381a4fbebdac6c0146dd3b5887008163b00c34a1c33f",
+   "back_sha256": "72d9b8374f5b1f541bb3fa833ff6d888ac74de6755cddb72c57679d91ff466e4",
+   "front_size": [
+    1109,
+    1289
+   ],
+   "back_size": [
+    968,
+    1232
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-2dc6f0d04959b3",
+   "group": "ebay-pair-2dc6f0d04959b3",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "XY Venusaur-EX",
+   "front_sha256": "f1729917c4ea7b498c86b2a991b2cdf62d41f6bdcccb1ac49463a172a2939e2b",
+   "back_sha256": "f8a56c2a6375988032f1385b2d9d53b1308e626479d82faad7bf2cc03caddb13",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-10dddf5ab6ff49",
+   "group": "ebay-pair-10dddf5ab6ff49",
+   "intake": "az",
+   "query": "pokemon card charizard raw",
+   "title": "Charizard V #18. Crown Zenith (2023). Pokemon TCG. Raw",
+   "front_sha256": "70e75987b572a40946fedab1881c9e72d0e06021170611387429907f588b38a8",
+   "back_sha256": "8249a4f0d472f533321271d3f83f369165ef70c228223f9891871ad4801711fa",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "정상",
+    "surface": "제외",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-c3026e35356c91",
+   "group": "ebay-pair-c3026e35356c91",
+   "intake": "az",
+   "query": "pokemon card pikachu raw",
+   "title": "Pikachu : Celebrations #005/025 Raw",
+   "front_sha256": "593e459045d9bb35dd9e980150b5c146df43b8016c1798c50a153780046bd2af",
+   "back_sha256": "deaae5a44593dc38f9c478aef1ea606eff988e4215e5f52ab01731a8a0188843",
+   "front_size": [
+    964,
+    1152
+   ],
+   "back_size": [
+    964,
+    1152
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-2f681af84b8ba7",
+   "group": "ebay-pair-2f681af84b8ba7",
+   "intake": "az",
+   "query": "pokemon card mewtwo raw",
+   "title": "MEWTWO EX - Classic 54/99 Celebrations - Raw Pokemon Card - NM/M",
+   "front_sha256": "6e5a8fa0dc57565155e0708c3f5a5efb9648046fa9a3e8ed59b9a9834f233d9f",
+   "back_sha256": "539b6d210b48fc5c96bd1cbee3fa0674aa157473a235ac6ea521c6600babbecb",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "제외",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-250b12946db70b",
+   "group": "ebay-pair-250b12946db70b",
+   "intake": "az",
+   "query": "pokemon card pikachu raw",
+   "title": "Pikachu : Celebrations #005/025 Raw",
+   "front_sha256": "9b145a1be600e50ec8eb3792e2d09cfc1a37d765df1193b8553c66f23dde7071",
+   "back_sha256": "be29589250d7f15723c76eb0313a0b2cbe6804f5336893c0ada51e254ce64b93",
+   "front_size": [
+    966,
+    1268
+   ],
+   "back_size": [
+    973,
+    1272
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-358157a7c43a86",
+   "group": "ebay-pair-358157a7c43a86",
+   "intake": "az",
+   "query": "pokemon card mewtwo raw",
+   "title": "Mewtwo #3 Black Star Promo 1999 Pokemon First Movie WB Vintage LP",
+   "front_sha256": "399445edf79afac53ac3419941c6fbf85e609a8ef883ae630a6bb87e7e4b890a",
+   "back_sha256": "9fa1c5413ffc6320e2d47ef48a5e25125044e30bb4aea159a602f1be4e9a2286",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-5825c36160f9c7",
+   "group": "ebay-pair-5825c36160f9c7",
+   "intake": "az",
+   "query": "pokemon card blastoise raw",
+   "title": "Blastoise 2/102 WOTC Base Set Shadowless Unlimited Holo Rare Pokemon Card - MP",
+   "front_sha256": "0a5f2410b71a0e8183f5df74201fd31a5e40bbffc0ee74df2cf66b7cc07c706d",
+   "back_sha256": "b5002cf540dc154b0f975c64e859bfbd4ed1b14287556cda76f39e84296e389e",
+   "front_size": [
+    1056,
+    1455
+   ],
+   "back_size": [
+    1051,
+    1458
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-aea8db40a40099",
+   "group": "ebay-pair-aea8db40a40099",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "Venusaur 18/130 Base Set 2 Holo English Pokemon Card LP",
+   "front_sha256": "a4e5f4e83f5913374d4834badfb7806a8ecfd14464620cf27111ba56c296cdfd",
+   "back_sha256": "00a24f55c616e63bbf99dac820429e83b7ea5febdcd025863d3d5a729f813e0c",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-566c7ea161ee59",
+   "group": "ebay-pair-566c7ea161ee59",
+   "intake": "az",
+   "query": "pokemon card blastoise raw",
+   "title": "Blastoise Holo Expansion Pack Japanese Base Set NM - US Seller Pokemon Card",
+   "front_sha256": "049391e8ba1560295621b59e61cfb34a89765b797ba4ec376b1fb3ca43452bd4",
+   "back_sha256": "c9a4ac223f67c438cadadbeb0e96c915ae660d2af4b37947f885d8956a6e94e3",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-418f6afe364f0b",
+   "group": "ebay-pair-418f6afe364f0b",
+   "intake": "az",
+   "query": "pokemon card venusaur raw",
+   "title": "WoTC 1999 Pokémon Base Set Venusaur Holo Rare Card 15/102 EASY GRADE N PROFIT!!",
+   "front_sha256": "98ca239cad26aec00f7eda4de8d176647f430d94b1bfc64254913cb6fa24c23c",
+   "back_sha256": "06c8655af311a6dad4804e1d57b15c9e1e12af176faabff1398d4cda6e5cf9c1",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-af77d64dc84558",
+   "group": "ebay-pair-af77d64dc84558",
+   "intake": "az",
+   "query": "pokemon card pikachu raw",
+   "title": "Pokemon TCG Pikachu 60 HP Holo Promo SWSH Sword & Shield SWSH039 English",
+   "front_sha256": "d2a2be811754fa3206269870e6243d00e0f1d26f17a359896afe88527b081968",
+   "back_sha256": "a0d3cbf8b12176028392ff4da9926710d7bf4ad5509ebb2c9f8327b62602ec0a",
+   "front_size": [
+    1457,
+    1539
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "결함",
+    "surface": "제외",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-4b80065af0e5f7",
+   "group": "ebay-pair-4b80065af0e5f7",
+   "intake": "ba",
+   "query": "pokemon card dragonite raw",
+   "title": "Dragonite VSTAR : Pokemon GO #050/078 Raw",
+   "front_sha256": "1b104641530b9072ff390923b4170eccfa2136165d8a34719f02471aa460a25a",
+   "back_sha256": "201c9f431d30759dd311fb09da4d62e3c4c53bd24de6bcafe8c1185f63071048",
+   "front_size": [
+    970,
+    1265
+   ],
+   "back_size": [
+    972,
+    1152
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-93136ec61a97e2",
+   "group": "ebay-pair-93136ec61a97e2",
+   "intake": "ba",
+   "query": "pokemon card lugia raw",
+   "title": "Lugia V #138. Silver Tempest. ENG. Raw. Pokemon TCG.",
+   "front_sha256": "49f05826501c7bb20346ced80dfc6fe9ce105392b8f678b66cba96cf5bf2a657",
+   "back_sha256": "3160b81c271078471d7e16a721bc6b9a8ca7d8bc663fc87c360eaab8e838a9c3",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-f89462148ba974",
+   "group": "ebay-pair-f89462148ba974",
+   "intake": "ba",
+   "query": "pokemon card mew raw",
+   "title": "Mew ex : SV: Scarlet & Violet Promo Cards #053 Raw",
+   "front_sha256": "b2879fda3598c4e23c11311c4cafbf637a1d503d7b0da34eb95e37f28a687d51",
+   "back_sha256": "f8c80668721f7128f435d14d2ee0f8615aa2d0e6d2001014e268800c88f80411",
+   "front_size": [
+    972,
+    1180
+   ],
+   "back_size": [
+    972,
+    1180
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-44bb27c1cf69a0",
+   "group": "ebay-pair-44bb27c1cf69a0",
+   "intake": "ba",
+   "query": "pokemon card dragonite raw",
+   "title": "Pokemon TCG Dragonite 5 WB Movie Promo HP",
+   "front_sha256": "c3206ad2b8bc5e7d0a008e9abb2f8e810c638993da4ac2c2498caef7af90bc23",
+   "back_sha256": "7377c07f16f9a1eb769d28da48caedbbb03003af28917e5e0de571a2c2cfe9c0",
+   "front_size": [
+    1258,
+    1600
+   ],
+   "back_size": [
+    1239,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-37ca8a8474086e",
+   "group": "ebay-pair-37ca8a8474086e",
+   "intake": "ba",
+   "query": "pokemon card lugia raw",
+   "title": "Onix 10/34. ENG. TCG Classic Venasaur & Lugia ex Deck. Raw. Pokemon TCG.",
+   "front_sha256": "c51767d392e7e2e43825ed2ff8da26c4496fdb19af9e6c5ea6a2d942f827a2fd",
+   "back_sha256": "878ccf0c7f9e4d1c6405b79204122f6b30472d18f6f0fb405372746095650fc1",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "제외",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-7bda3be3c06819",
+   "group": "ebay-pair-7bda3be3c06819",
+   "intake": "ba",
+   "query": "pokemon card mew raw",
+   "title": "Mew V #138 Pokemon Chinese CS4bC - A Raw Ungraded",
+   "front_sha256": "42c8306f85f24fd23b3e2622a2392e0cd71b9753c7b48f3dd72dd410a19d6c12",
+   "back_sha256": "7c6531e62334508bcdbad2dc5b7f731b0ce28a5f3e9467217e7729db2473aca5",
+   "front_size": [
+    1000,
+    1165
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-c2fee154da97e6",
+   "group": "ebay-pair-c2fee154da97e6",
+   "intake": "ba",
+   "query": "pokemon card mew raw",
+   "title": "Pokemon TCG Ancient Mew Movie Promo DMG Creases",
+   "front_sha256": "97eef5f927ad224d17a64d1ede455ce71a4985493f4657c16ac01b6e11b5db25",
+   "back_sha256": "50ccd0c472f00b54a4c1727c5e4c3d33e5cf7a9c20086bb2589d25c99130e6b5",
+   "front_size": [
+    1296,
+    1600
+   ],
+   "back_size": [
+    1296,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-97046cf1f90e74",
+   "group": "ebay-pair-97046cf1f90e74",
+   "intake": "ba",
+   "query": "pokemon card mew raw",
+   "title": "Pokemon Metal MEW ex 205/165 SVP:151 Promo Card - Raw [NM]",
+   "front_sha256": "c941164671dc459fef19cd8cea4418c93fbaa52b5eecef16a902fc3999eccc12",
+   "back_sha256": "4bdc8da8e8f105bae0cabd26ed37959c8d0f44ef3b8ba3a1fb4dd28e0ebd4ea1",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "정상",
+    "surface": "제외",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-19aaf36e5b3d3e",
+   "group": "ebay-pair-19aaf36e5b3d3e",
+   "intake": "ba",
+   "query": "pokemon card lugia raw",
+   "title": "Lugia V 2022 Sword & Shield: Silver Tempest #138/195 Holo RAW TCG (NEAR MINT)",
+   "front_sha256": "46b0fd36839984b59d66cbdf08a85080ed22a6fa673fb8696fcc611fc0ee1612",
+   "back_sha256": "b662f049103968e47d60b76a15c7d22d0422b9f6c831524a1070d7b180be2b5a",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-c2177f21dcd3f3",
+   "group": "ebay-pair-c2177f21dcd3f3",
+   "intake": "ba",
+   "query": "pokemon card dragonite raw",
+   "title": "Pokemon Dragonite 119/181 SM - Team Up Holo Raw",
+   "front_sha256": "9c65f6036ee898bb184e1a782c12f692abae031fe40e3b60a71a74a3b364fa19",
+   "back_sha256": "632132b0c85ca80c40e14c9703d9ff8f20341e0d949cc3398894ffe1feb69c5c",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-36a12afff62015",
+   "group": "ebay-pair-36a12afff62015",
+   "intake": "ba",
+   "query": "pokemon card mew raw",
+   "title": "Pokemon TCG Mew V 251/264 Fusion Strike Alternate Art Rare NM",
+   "front_sha256": "bcb43acd03be7d6f9bf25569aec96df3616f339445c6d7b2e83dfc0b124802db",
+   "back_sha256": "e3da3442589e9075f6c2964296a2315fd8c0a1392f588d34760846ceaebc7dd0",
+   "front_size": [
+    580,
+    712
+   ],
+   "back_size": [
+    581,
+    709
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-5aa4f8c869e87b",
+   "group": "ebay-pair-5aa4f8c869e87b",
+   "intake": "ba",
+   "query": "pokemon card mew raw",
+   "title": "Pokemon TCG Mew ex 205/165 Scarlet & Violet Hyper Rare NM",
+   "front_sha256": "9f8f69f9740d79d63d0a6c39199dc3b1228c925713b60ad5da1c700fc5569f55",
+   "back_sha256": "98556bee7adfb212f32f128ea15dbac41de9f2e11a6b294b7e864d3e7d547dfd",
+   "front_size": [
+    1199,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-ec961444450d80",
+   "group": "ebay-pair-ec961444450d80",
+   "intake": "ba",
+   "query": "pokemon card dragonite raw",
+   "title": "Mega Dragonite ex : Prize Pack Series Cards #152/217 Raw",
+   "front_sha256": "8f1acd32e47b16ca8d68a6fcc36eb3df863af9a602acd3240d792a1a2caf489c",
+   "back_sha256": "ad7d4d0827e04bfe688042b5789e422e2c175a5c1e0f91b2f087c60911192d7e",
+   "front_size": [
+    974,
+    1152
+   ],
+   "back_size": [
+    970,
+    1152
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-f043d3444e3c18",
+   "group": "ebay-pair-f043d3444e3c18",
+   "intake": "ba",
+   "query": "pokemon card lugia raw",
+   "title": "Lugia EX 102/113 Legendary Treasures Holo Ultra Rare Pokémon Card NM/Mint Raw",
+   "front_sha256": "185b322dcb9b79c84f74946fd5c3d03d17f0742151fa6959cdd32466c7bb15a1",
+   "back_sha256": "9e3de332321cded91decf662f7b4a2c9b1cb9c2222e59919b799e4dd2d89275e",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-5faf4753bfaee3",
+   "group": "ebay-pair-5faf4753bfaee3",
+   "intake": "ba",
+   "query": "pokemon card mew raw",
+   "title": "Pokemon Card 2006 MEW 040 Holo Nintendo Black Star Promo DMG",
+   "front_sha256": "6a36404f92f39a55667131244057c26f1239e4ea89ca3e2eca0c07659f19874e",
+   "back_sha256": "b50052a1d6663a0387f2cb5d5b967d6cdce0b8aa74832401a79b1f3c72ee5e49",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-21e0c93d93621a",
+   "group": "ebay-pair-21e0c93d93621a",
+   "intake": "ba",
+   "query": "pokemon card dragonite raw",
+   "title": "Dragonite 96/149 Holo Raw Promo",
+   "front_sha256": "b8d17eb217eefd6ead873fc92749d26b2d6064e2bd120a1396ec396d5b18bb5f",
+   "back_sha256": "b9386362e7d2246828e23cdd5ecf4ad2acce58f9ad61c517ba6f3a122550e358",
+   "front_size": [
+    1053,
+    1343
+   ],
+   "back_size": [
+    1021,
+    1345
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-7b15f45166ce16",
+   "group": "ebay-pair-7b15f45166ce16",
+   "intake": "ba",
+   "query": "pokemon card lugia raw",
+   "title": "Lugia Pokemon Card Japanese 30th Mega Expansion Pack Near Mint Raw Card",
+   "front_sha256": "e3734974d6c3fe14d266da83d887139ce51c67cb817bccf9a9a891efcea54aee",
+   "back_sha256": "932ac7d58ad671ba08b1add0df9fb93f37d0365465191d20058b961eecd7ff87",
+   "front_size": [
+    810,
+    1080
+   ],
+   "back_size": [
+    810,
+    1080
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-d05c84102cb1a6",
+   "group": "ebay-pair-d05c84102cb1a6",
+   "intake": "ba",
+   "query": "pokemon card dragonite raw",
+   "title": "Pokemon Japanese Holo Rare Light Dragonite Card #149",
+   "front_sha256": "586582d48c72ca000c9af9df5dedbb8d34121f1845f5febcae37a74429a02353",
+   "back_sha256": "69cf398c567b611edd6c140c9f3b315df6088102a7f066376bf232fc991d0ae6",
+   "front_size": [
+    1124,
+    1600
+   ],
+   "back_size": [
+    1025,
+    1417
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-ac981691320d82",
+   "group": "ebay-pair-ac981691320d82",
+   "intake": "ba",
+   "query": "pokemon card lugia raw",
+   "title": "Lugia 142/103 30th Celebration Classic Holo Pokemon Card 2026 Japanese TCG NM",
+   "front_sha256": "b1e6e886efcd68ec9ab8977dc2263366c5e213b7b6bee2dc5de653d51811ac08",
+   "back_sha256": "0b26ec1ee0d8b422891e570e58dfc582b0ce4587edb25a4f27e457c19df5746d",
+   "front_size": [
+    902,
+    1200
+   ],
+   "back_size": [
+    958,
+    1200
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-d23df8909744e8",
+   "group": "ebay-pair-d23df8909744e8",
+   "intake": "ba",
+   "query": "pokemon card eevee raw",
+   "title": "Pokemon TCG Eevee 114/103 Full Art Holo English 2023 70HP Basic Colorless",
+   "front_sha256": "88b780824289370dea493ba91b1ff274c644ca5b4aeca6818f4d003e35fa5601",
+   "back_sha256": "f582823934491053d659316f9a9aaf67f15e1b279ee5df7fb6d16943d0373dee",
+   "front_size": [
+    1599,
+    1600
+   ],
+   "back_size": [
+    1599,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-e7626ee758ba59",
+   "group": "ebay-pair-e7626ee758ba59",
+   "intake": "ba",
+   "query": "pokemon card lugia raw",
+   "title": "Lugia 142/103 30th Celebration Classic Holo Pokemon Card 2026 Japanese NM",
+   "front_sha256": "056bc926ba103b2cfd825a9de51015c778db24108b996575d8dd071f0a7a9989",
+   "back_sha256": "2d7f15d5bac7a3de89bd964d544488e8597d1523f35cd6bdb39cefb5287e2b4e",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    886,
+    886
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-65eab0a6845838",
+   "group": "ebay-pair-65eab0a6845838",
+   "intake": "ba",
+   "query": "pokemon card gengar raw",
+   "title": "Pokemon TCG Gengar Vmax 157/264 Sword & Shield Fusion Strike NM",
+   "front_sha256": "1a03d7b5c57d567909ddba40d36c8ac36e467b7d68742ae414b41b74d0fbcb69",
+   "back_sha256": "d11a54bb573b140acbee75cce611feff64763ac65b403259ce4bca0c6a94f487",
+   "front_size": [
+    1270,
+    1600
+   ],
+   "back_size": [
+    1270,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-c8c7c7cee9d784",
+   "group": "ebay-pair-c8c7c7cee9d784",
+   "intake": "ba",
+   "query": "pokemon card lugia raw",
+   "title": "Lugia 142/103 M6a 30th Celebration - Pokemon Card Japanese MEGA [Near Mint]",
+   "front_sha256": "e6cd0e308a0342de825f27332e8aec724ea084dc25a2d467a34aca8fca4b8467",
+   "back_sha256": "b7583cf321429baf6318d4d8b2d478a2ba965c3509b3cc92378b4c75b1145316",
+   "front_size": [
+    500,
+    698
+   ],
+   "back_size": [
+    358,
+    500
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-e331b40a865fe3",
+   "group": "ebay-pair-e331b40a865fe3",
+   "intake": "ba",
+   "query": "pokemon card mew raw",
+   "title": "Mew Holographic Card (Unbroken Bonds)",
+   "front_sha256": "6a7942f1036dd11938aa9a45d7ca8c07ce615fa72167ec451c39088a23255afb",
+   "back_sha256": "a8318c0e598f75b1c3cc41297a9b6af6edd7acef7a99d0729bd8af7ffac90258",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-b600373eea954d",
+   "group": "ebay-pair-b600373eea954d",
+   "intake": "bb",
+   "query": "pokemon card rayquaza raw",
+   "title": "Rayquaza ex 039 Black Star Promo Holo 2006 Pokemon Card EX Tin Ryo Ueda Raw LP",
+   "front_sha256": "d516c561214a4ea0ae9f0c4bd9d9713af42ac862b5f171c0639a2883ede049cc",
+   "back_sha256": "c13d12fe3caa52ebefaa0b64ea0a22749e4dca79e048d385e8fe282fd7428275",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-8bdec89b30cc42",
+   "group": "ebay-pair-8bdec89b30cc42",
+   "intake": "bb",
+   "query": "pokemon card alakazam raw",
+   "title": "Pokemon TCG Alakazam ex 201/165 Scarlet & Violet Special Illustration Rare NM",
+   "front_sha256": "17fd9a5efca76596ba6583c2cee7a582c4b63f2a9650379c7380da9f7e9cb7cc",
+   "back_sha256": "65f255bca9ae6a0f9f86c7a2df2d30b66da98bacc344004bcb86338c79521e12",
+   "front_size": [
+    1322,
+    1600
+   ],
+   "back_size": [
+    1283,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-4c6166241994ae",
+   "group": "ebay-pair-4c6166241994ae",
+   "intake": "bb",
+   "query": "pokemon card rayquaza raw",
+   "title": "Rayquaza V 119/184 Double Rare Japanese VMAX Climax Raw Card NM",
+   "front_sha256": "cd0ba7d8e49cfca384759d77d0c0952360a618dc8b3f346fae5fdd589086cd76",
+   "back_sha256": "83224ad4e4079ff99b5a5e6444d0d9d9f73d6cb6b58a63e7f43fff0aced15547",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-661e743274ccec",
+   "group": "ebay-pair-661e743274ccec",
+   "intake": "bb",
+   "query": "pokemon card umbreon raw",
+   "title": "Pokemon Card - Umbreon 017/113 Holo - Italian Language - Raw Near Mint",
+   "front_sha256": "72c367aaeec4c9d62391567f50065ab6bc42226d778aba893126a7b66b1fb49e",
+   "back_sha256": "957a84f5df944a4bad2b666a571125bc7c8d3ed2314e3c5d388fe5c8f2449630",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-9e2b65ebf9a3cc",
+   "group": "ebay-pair-9e2b65ebf9a3cc",
+   "intake": "bb",
+   "query": "pokemon card gyarados raw",
+   "title": "2015 😺 Gyarados 21/98 XY Ancient Origins Reverse Holo Rare Pokemon Raw",
+   "front_sha256": "dd7cf6c03515372603bae59794dd80e2125aa8e040124dcbbc836fa965d1c81c",
+   "back_sha256": "bb5bb2be52d98696a8dfa9204205c6e85b4d30cb5b6f4aec38623a0d3da20738",
+   "front_size": [
+    1163,
+    1600
+   ],
+   "back_size": [
+    1162,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-d61efa17ffe3e0",
+   "group": "ebay-pair-d61efa17ffe3e0",
+   "intake": "bb",
+   "query": "pokemon card rayquaza raw",
+   "title": "Rayquaza #138/185  - Vivid Voltage. ENG. Raw",
+   "front_sha256": "8284f1df3f467206d03f1ecc47844dcf9a9d77aa54dc716d2ffffc5ccfa8795d",
+   "back_sha256": "a33988bd039aeba796dae7919545921eb15ebe48363aca7a03ecd6e7343a5847",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "제외",
+    "surface": "제외",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-a58d2f9a0172fb",
+   "group": "ebay-pair-a58d2f9a0172fb",
+   "intake": "bb",
+   "query": "pokemon card snorlax raw",
+   "title": "Pokemon TCG Snorlax 051 Scarlet & Violet Sealed Promo NM B",
+   "front_sha256": "195c1e301d54e0ad38255e771ba8b6e7c99f4afee27ed066dd4e726233eb5f49",
+   "back_sha256": "91659967631cfa9b15f851f80154ecee86695383c844b1f84ce0b89db1689a18",
+   "front_size": [
+    626,
+    781
+   ],
+   "back_size": [
+    624,
+    781
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "제외",
+    "surface": "제외",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-f3c5c5b3d2fe4d",
+   "group": "ebay-pair-f3c5c5b3d2fe4d",
+   "intake": "bb",
+   "query": "pokemon card alakazam raw",
+   "title": "Alakazam Base Set 2 Raw MP #1/130 Holo Rare",
+   "front_sha256": "3549be4d47f7ab3729f9ed008a0139fb7ee367ca2e7a9dda5934c59f4900306a",
+   "back_sha256": "26fedef87d64597a8d2ee96d4549c9d0255d8b2b1e18dbbb3222158545582d9b",
+   "front_size": [
+    1166,
+    1600
+   ],
+   "back_size": [
+    1162,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-299bffa49c1275",
+   "group": "ebay-pair-299bffa49c1275",
+   "intake": "bb",
+   "query": "pokemon card gyarados raw",
+   "title": "Dark Gyarados : Celebrations: Classic Collection #8/82 Raw",
+   "front_sha256": "369388e293c4546bf219df58a951f48abd7fee98f82a038d91839391dfda87de",
+   "back_sha256": "6b5b2a9d5ed630dcd4e9c0e7cce8d0a08f21f3a26c105dfac6f86eada1cba3d4",
+   "front_size": [
+    968,
+    1260
+   ],
+   "back_size": [
+    972,
+    1264
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-23d4fe6fbd5f4d",
+   "group": "ebay-pair-23d4fe6fbd5f4d",
+   "intake": "bb",
+   "query": "pokemon card rayquaza raw",
+   "title": "Pokemon TCG Rayquaza Vmax TG20/TG30 Silver Tempest Trainer Gallery NM",
+   "front_sha256": "39a769b9828ebf180d2fcaf2da100380db5e09cac1798f76e99668100a90b161",
+   "back_sha256": "b596e5d42c8f307388c1fc5fe5bf5ad160746385fc75bee8ac9e87f2b0bf16b7",
+   "front_size": [
+    1291,
+    1600
+   ],
+   "back_size": [
+    1266,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-3ed5e8291fd8bf",
+   "group": "ebay-pair-3ed5e8291fd8bf",
+   "intake": "bb",
+   "query": "pokemon card alakazam raw",
+   "title": "Alakazam 056/132 ME01: Mega Evolution Holo",
+   "front_sha256": "a8a7370776ecafe7898ecbc54de8d851b27c8d2fa367d23ffcc6166da55f531c",
+   "back_sha256": "b52e2ff8ffb79dad99e2167b5251dd92d0f1637cadf2247e37ae4fd7b3ee759a",
+   "front_size": [
+    1119,
+    1530
+   ],
+   "back_size": [
+    1099,
+    1528
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-02b5905edde1c8",
+   "group": "ebay-pair-02b5905edde1c8",
+   "intake": "bb",
+   "query": "pokemon card gyarados raw",
+   "title": "Gyarados Reverse Holo Pokemon Card Legendary Treasures 31/113 Raw LP",
+   "front_sha256": "8207acff59f74e329865be14b76c65c488070f7b09a4d03712825013c0fa2e63",
+   "back_sha256": "8cb87f6de60dc426f1048f01117630a462a81e55ba9db210bf6299613e704d43",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-6571d883c3c25d",
+   "group": "ebay-pair-6571d883c3c25d",
+   "intake": "bb",
+   "query": "pokemon card rayquaza raw",
+   "title": "Pokemon TCG M Rayquaza ex 76/108 Classic Celebrations NM",
+   "front_sha256": "d84e2e8c1464cdee3491fcf318c92e0ef5ad8799f12b98811919d51a9b09cbc2",
+   "back_sha256": "517b778b85150d1b2fa3e5d524d82ac3da4408f03548faa33554a2ea174a5d93",
+   "front_size": [
+    1198,
+    1600
+   ],
+   "back_size": [
+    1197,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-818ef58edaa69f",
+   "group": "ebay-pair-818ef58edaa69f",
+   "intake": "bb",
+   "query": "pokemon card alakazam raw",
+   "title": "2016 😺 FA/M Alakazam EX Pokemon XY Fates Collide Rare #118 Raw ",
+   "front_sha256": "2380084db09aa2cfcee6ae747f59d787ee6663729f4132e9ac85a81c65534f98",
+   "back_sha256": "a0164c3700220960fb98362e49b0632dd08d330299ccfb83f5bbc54b6ea08472",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1194,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-53075caa6205fc",
+   "group": "ebay-pair-53075caa6205fc",
+   "intake": "bb",
+   "query": "pokemon card gyarados raw",
+   "title": "Misty's Gyarados : SV10: Destined Rivals #049/182 Raw",
+   "front_sha256": "5071abea06619871346c52048877b4be38a7477f846922a15bb6eee8230323be",
+   "back_sha256": "f1139f19bc202d5615108b9bce994f3cb7f60aa793875324524ded991a74f6ae",
+   "front_size": [
+    974,
+    1260
+   ],
+   "back_size": [
+    972,
+    1260
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-a2737052850bca",
+   "group": "ebay-pair-a2737052850bca",
+   "intake": "bb",
+   "query": "pokemon card rayquaza raw",
+   "title": "Rayquaza V 119/184 Double Rare Japanese VMAX Climax Raw Card NM",
+   "front_sha256": "299211223c6624d65333d66502e4b9c780d8b353a7b569fc29721db059908e2c",
+   "back_sha256": "59b98649373ddb1490640fc7769342057ebe8a989f10f69e4e13e42cf2319315",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-9e163cbf9b4aca",
+   "group": "ebay-pair-9e163cbf9b4aca",
+   "intake": "bb",
+   "query": "pokemon card rayquaza raw",
+   "title": "2023 Pokemon Rayquaza V #100 Crown Zenith Ultra Rare Holo Raw NM",
+   "front_sha256": "37043791b4d44e35ece4b246c9e70b6f59db9a03131131332445dc42dd925de1",
+   "back_sha256": "1ab9d526fd8094007693077b6b796bf1288e8e04a4a17bc81a25a4f572fa0752",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-1a62df04ed7a4a",
+   "group": "ebay-pair-1a62df04ed7a4a",
+   "intake": "bb",
+   "query": "pokemon card alakazam raw",
+   "title": "Pokemon Alakazam ex 201/165 Scarlet Violet 151 SIR Special Illustration NM Raw",
+   "front_sha256": "9f0f32d49423ba09425526a643d931ca8d65db8d9323e546dacd2b449c46daac",
+   "back_sha256": "670ceb303a2c5a65d730ddc522adf10aa1881532ceec48167f778d48ca795b98",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "제외",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-7a9c94d8a6932b",
+   "group": "ebay-pair-7a9c94d8a6932b",
+   "intake": "bb",
+   "query": "pokemon card rayquaza raw",
+   "title": "🐉Rayquaza EX #104/108 Roaring Skies Full Art Holo - Raw / LP-MP Condition📈",
+   "front_sha256": "de75f112188ddd39cdb056ffaf49531c21d8ccc8022c1d8d9dcd71f0f3cec026",
+   "back_sha256": "32f18e62b945d0a812664732d486ab42c159f07bb256c2447e2766890b7a3695",
+   "front_size": [
+    1342,
+    1600
+   ],
+   "back_size": [
+    1346,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-009fdaadb3fe2c",
+   "group": "ebay-pair-009fdaadb3fe2c",
+   "intake": "bc",
+   "query": "pokemon card machamp raw",
+   "title": "Machamp 95/102 Prime HGSS Triumphant Pokemon Holo Moderately Played",
+   "front_sha256": "2a488301a50e2e977bdd83fcf2277425023965b9a7e52d9903c37adc08cd1152",
+   "back_sha256": "41e9f5e6b6060ba0a2fc4b2be771a936774fd341319dce0f7a33d0cb78fadc0d",
+   "front_size": [
+    1159,
+    1600
+   ],
+   "back_size": [
+    1149,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-146ec13ac8f9da",
+   "group": "ebay-pair-146ec13ac8f9da",
+   "intake": "bc",
+   "query": "pokemon card arcanine raw",
+   "title": "Pokemon Hisuian Arcanine V #090 Silver Tempest Ultra Rare Holo Raw NM 2022",
+   "front_sha256": "75d98d253cb72cb0524f04a898a4d58f8fb936b61ae86ead20c95edddea0363e",
+   "back_sha256": "7905fae37f8be6f5345254904f3416515332b4df8686579c03883cbbe1ea889d",
+   "front_size": [
+    945,
+    1206
+   ],
+   "back_size": [
+    1023,
+    1223
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-6db803f42e9f87",
+   "group": "ebay-pair-6db803f42e9f87",
+   "intake": "bc",
+   "query": "pokemon card ninetales raw",
+   "title": "1991 Pokemon TCG Ninetales Holo 12/102 Raw LP",
+   "front_sha256": "bac4445fe3e0a754507a03a1904688a1c1ee4dce332313c79aeedbadcc87237d",
+   "back_sha256": "d1d8be09791f9eec93e22123758e98df1bba388de35464f378f443b458201ea9",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-bd82c821cb5b37",
+   "group": "ebay-pair-bd82c821cb5b37",
+   "intake": "bc",
+   "query": "pokemon card raichu raw",
+   "title": "Raichu 028/111 Pokemon XY Furious Fists 2014 LP",
+   "front_sha256": "8a192c1ca8bbfbe2d0c24d84e58425a473290fe89d51e6e14f2e24abc86edc17",
+   "back_sha256": "612693dfe0bc9ba67b984fd921da26d19619a1d76fd40eef8b7d185c4ee0feff",
+   "front_size": [
+    497,
+    691
+   ],
+   "back_size": [
+    503,
+    693
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-35efc2df6be3b0",
+   "group": "ebay-pair-35efc2df6be3b0",
+   "intake": "bc",
+   "query": "pokemon card lapras raw",
+   "title": "Pokemon Lapras 001/013 Japanese Card",
+   "front_sha256": "762f2cb8fd8c8917c238095f73236a4b8381aea3286c11261c5e05c9c03605b5",
+   "back_sha256": "19ac91652a4fe933f516b8d974fae8a182b7a2cf4b4116711ed700160c9d58b9",
+   "front_size": [
+    1080,
+    1080
+   ],
+   "back_size": [
+    1080,
+    1080
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-1b4d7064ba3979",
+   "group": "ebay-pair-1b4d7064ba3979",
+   "intake": "bc",
+   "query": "pokemon card arcanine raw",
+   "title": "Pokemon TCG RAW Arcanine 23/102 Base Set SHADOWLESS 1999 Rare Unlimited MINT",
+   "front_sha256": "1bf4a1a59203e0a3113c35b11c9b3f8a6a561fe3128ec9ee6da12d59fdc69979",
+   "back_sha256": "15efec3c9eac238eee94cd1af7d01c6d915159088e5526b73fb70d86f8a9ed07",
+   "front_size": [
+    1600,
+    1599
+   ],
+   "back_size": [
+    1600,
+    1599
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-b6bc6236329eaf",
+   "group": "ebay-pair-b6bc6236329eaf",
+   "intake": "bc",
+   "query": "pokemon card lapras raw",
+   "title": "Vintage Pokemon Lapras 10/62 Fossil Unlimited Holo Rare WOTC 1999",
+   "front_sha256": "795b70801cbee12e8d3c254c8bf502b42b7a7bf8a323dd3076666e883eaa94b1",
+   "back_sha256": "3ea633ec343687406b79750962dd799d90ca0fa4eb5b306eafd641eb67674e4c",
+   "front_size": [
+    1600,
+    1600
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-9638a330c17632",
+   "group": "ebay-pair-9638a330c17632",
+   "intake": "bc",
+   "query": "pokemon card machamp raw",
+   "title": "Machamp GX 64/147 Burning Shadows NM Ultra Rare Pokemon Card",
+   "front_sha256": "f2fb3dc9e30a407d88d3147a354286110b2442013ab3f5327cf65d79c2970f8f",
+   "back_sha256": "8e1374781855690ebb7694c2b28f40646cee199f2ab49fd6bddbc32337afafff",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-01ac207c47e044",
+   "group": "ebay-pair-01ac207c47e044",
+   "intake": "bc",
+   "query": "pokemon card raichu raw",
+   "title": "Pokemon Raichu V Brilliant Stars ULTRA Rare Holo #045 2022 RAW NM",
+   "front_sha256": "6e87dc9be24a68878ff363b536aba81a412b4891354f45004194b66cd8bfcd4d",
+   "back_sha256": "1be515b7ab328c9b12264d738731d580453be0ffbcbce9b2e565989912e9e289",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-01fe03f111c1fc",
+   "group": "ebay-pair-01fe03f111c1fc",
+   "intake": "bc",
+   "query": "pokemon card lapras raw",
+   "title": "Pokemon Lapras ex 032/142 Stellar Crown Double Rare Raw NM 2024",
+   "front_sha256": "d1e24f88b2bbb61b559b8be4e1a69c12229769ef27a8c2e7a620dcb2705a649a",
+   "back_sha256": "5890804112ef6d1b99bec7965d557643406d49f05192e47f1691df6e12bf92a0",
+   "front_size": [
+    798,
+    1055
+   ],
+   "back_size": [
+    799,
+    1084
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-962fb6fe22b3ab",
+   "group": "ebay-pair-962fb6fe22b3ab",
+   "intake": "bc",
+   "query": "pokemon card arcanine raw",
+   "title": "Arcanine ex : SV01: Scarlet & Violet Base Set #032/198 Raw",
+   "front_sha256": "acca5f21cff063512ca1ce0965fb1982e32a9c7c349d5aba9c55c3940b9e247b",
+   "back_sha256": "e7ad5ed3be9a29a7e1e77c095f519ee043af9899bf38c439149cc5e55717486c",
+   "front_size": [
+    970,
+    1268
+   ],
+   "back_size": [
+    970,
+    1268
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-9743d020b5507a",
+   "group": "ebay-pair-9743d020b5507a",
+   "intake": "bc",
+   "query": "pokemon card lapras raw",
+   "title": "Pokemon Lapras EX Perfect Order Double Rare Holo #022 2026 RAW NM",
+   "front_sha256": "7aa44c6bb4464d466269022a3eabd2b6136bf2d33ffbc9f7963fccf067e3546e",
+   "back_sha256": "b84a6d27ffc6676e885eb7f55159fbc918011d7b4e1e2bfe540aaacf1d3206b9",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-fd97d7b0895bbd",
+   "group": "ebay-pair-fd97d7b0895bbd",
+   "intake": "bc",
+   "query": "pokemon card machamp raw",
+   "title": "Pokémon TCG Machamp Holo Rare Base Set 1st Edition German language Raw MP",
+   "front_sha256": "b5869ab7ef74788adab049b9cdbd9f092defed5b646ffb10752feff7efa6a311",
+   "back_sha256": "c243aa906d2714a4c0be71b004f0b4efb462824816a21dbaf52a4c81c7e26d37",
+   "front_size": [
+    1199,
+    1599
+   ],
+   "back_size": [
+    1199,
+    1599
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-16cdc2329233ba",
+   "group": "ebay-pair-16cdc2329233ba",
+   "intake": "bc",
+   "query": "pokemon card ninetales raw",
+   "title": "Pokemon TCG Ninetales 199/197 Scarlet & Violet 151 Illustration Rare NM",
+   "front_sha256": "6ada934d1798bd3065c460d9426967373db2d73a430a15367d621bfe73a7f0f3",
+   "back_sha256": "ffd05001ab164cf32c4e75cf174ac67087a83cf49b3c13e6ea0d67ab56bd1f11",
+   "front_size": [
+    1198,
+    1600
+   ],
+   "back_size": [
+    1202,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-694a78b82a4571",
+   "group": "ebay-pair-694a78b82a4571",
+   "intake": "bc",
+   "query": "pokemon card machamp raw",
+   "title": "2017 Pokemon TCG Machamp GX SM - Burning Shadows 64/147 Holo Ultra Rare NM",
+   "front_sha256": "f63cd48cb3bcf1c6cf9e8d02bccddcee0e7a11334efcbfcd52c11c82572645b8",
+   "back_sha256": "e60dc21319bb792cb765d3fcc3204b14da0cf350ff7bcb7ea08482b12479e834",
+   "front_size": [
+    1216,
+    1600
+   ],
+   "back_size": [
+    1206,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-1c25e705783ba1",
+   "group": "ebay-pair-1c25e705783ba1",
+   "intake": "bc",
+   "query": "pokemon card machamp raw",
+   "title": "Machamp 65/145 SM Guardians Rising Rare Holo Raw",
+   "front_sha256": "bc0d4491306cf253c02501f540fafca9e2bba8f69c9bfbd86d3b36276f248c99",
+   "back_sha256": "bed02bbc94263960cea029ff6373a39ba6ba7e4e1333f75e8e6c83febe58a283",
+   "front_size": [
+    1235,
+    1600
+   ],
+   "back_size": [
+    1227,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "제외",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-d3b4bc96aa19fe",
+   "group": "ebay-pair-d3b4bc96aa19fe",
+   "intake": "bc",
+   "query": "pokemon card lapras raw",
+   "title": "Pokemon Lapras #023 Pokemon Go Stamped Holo Rare Raw NM 2022",
+   "front_sha256": "b5ea730969c95212bf128018ee76efac7d24b2d7555a4963fa97b30c9bedbfb2",
+   "back_sha256": "ada3e792237939a8e3b85d9fff01b326d7cf29c39e104bc6e8e1ced36749464e",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-1b728b8b9e7982",
+   "group": "ebay-pair-1b728b8b9e7982",
+   "intake": "bc",
+   "query": "pokemon card arcanine raw",
+   "title": "Nintendo Arcanine 22/132 Rare 100HP 2002",
+   "front_sha256": "5cae50e0415ffcbf38a0d70a1c544acdc7ceaf92f4de981ae78078a15dacf0bf",
+   "back_sha256": "2bb27f73730cc9eb38b977a525bfdc3f14184267452a96d50550d8e5701276a6",
+   "front_size": [
+    1200,
+    1356
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-33de1a09ab0697",
+   "group": "ebay-pair-33de1a09ab0697",
+   "intake": "bc",
+   "query": "pokemon card ninetales raw",
+   "title": "Pokémon TCG Evolutions XY- Ninetales Holo-Rare 15/108 (LP, Raw) CLEAN!",
+   "front_sha256": "741eddf9927bccc51c36bd6ae23f7b4c7535977608ba06b91fef79957fd3b821",
+   "back_sha256": "612c8ce37d144fe2af25d9423bc01f94076c614fc69f327a3297f69108d9706a",
+   "front_size": [
+    1129,
+    1600
+   ],
+   "back_size": [
+    1220,
+    1599
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-3273e7e8dbcadd",
+   "group": "ebay-pair-3273e7e8dbcadd",
+   "intake": "bc",
+   "query": "pokemon card lapras raw",
+   "title": "Lapras - McDonalds 2022 #6/15",
+   "front_sha256": "01c97ca00f8d762836c6d48c28c6656d34afaf3249847c83112aeb742a81febc",
+   "back_sha256": "02445721e5114077cff2b7848a969bbb038a0d1e3d52422c46a1af1604f9a308",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-985ebe176d52db",
+   "group": "ebay-pair-985ebe176d52db",
+   "intake": "bc",
+   "query": "pokemon card arcanine raw",
+   "title": "Arcanine 014/080 Pokemon TCG Japanese Card Nintendo 2003",
+   "front_sha256": "33a37be1e29fe2705b3862dee18833ada5a08c2eb0acc8f1b7377f92cd5faf6e",
+   "back_sha256": "7c43d8e1dae0349bfdcb02b9425f0f811c75e7f30395aba98c24d0294bb3942f",
+   "front_size": [
+    810,
+    1080
+   ],
+   "back_size": [
+    810,
+    1080
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-239e19d313a59e",
+   "group": "ebay-pair-239e19d313a59e",
+   "intake": "bc",
+   "query": "pokemon card ninetales raw",
+   "title": "2022 Pokémon SWSH12: Silver Tempest Ninetales #018/195 – Raw Ungraded",
+   "front_sha256": "2e2def13d8e3e0799e44a1cae1559911f23f6ce5555ec4393844fdf91dda333c",
+   "back_sha256": "97487ad914b192ad37bad213d85408b36a249de968f645b62327bc6c7b9bd694",
+   "front_size": [
+    791,
+    1085
+   ],
+   "back_size": [
+    792,
+    1085
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-d23b41a10e5416",
+   "group": "ebay-pair-d23b41a10e5416",
+   "intake": "bc",
+   "query": "pokemon card raichu raw",
+   "title": "Raichu 1999 Fossil #29/62 unlimited RAW TCG Near Mint",
+   "front_sha256": "5ade37e21273f762ef869337d8e40768d69d79863b9a63d4db8383607ca6cb93",
+   "back_sha256": "e9558568a1817eb953c6a1bdca333d90aeaf3923841d202d2b5d457285a86697",
+   "front_size": [
+    1244,
+    1600
+   ],
+   "back_size": [
+    1338,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-f8a137f7e23ad6",
+   "group": "ebay-pair-f8a137f7e23ad6",
+   "intake": "bc",
+   "query": "pokemon card lapras raw",
+   "title": "Pokemon Lapras EX Perfect Order Double Rare Holo #022 2026 RAW NM",
+   "front_sha256": "d0d986b1d063285f687511ead81741cdd9b14964c3008924ea9ba34f777717d5",
+   "back_sha256": "923a037efbd7346ac3d2d72a2c3e4c380a9ff065e427a02a6edccb5630972581",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-cee2cdf3cc54a6",
+   "group": "ebay-pair-cee2cdf3cc54a6",
+   "intake": "bc",
+   "query": "pokemon card machamp raw",
+   "title": "Pokemon Dark Machoke 1997 Japanese Rocket Gang #67 Base RAW TCG (NEAR MINT) ",
+   "front_sha256": "50a820040f58996d502488208208324b2af5fe8502fb2d77d0921c48eab50297",
+   "back_sha256": "51d3c2e2d9f56bf5811f3a94610e4b4a70b27f5a2b62c50d79c488907e1e216f",
+   "front_size": [
+    1260,
+    1600
+   ],
+   "back_size": [
+    1212,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-4b92705c2248f6",
+   "group": "ebay-pair-4b92705c2248f6",
+   "intake": "bd",
+   "query": "pokemon card celebi raw",
+   "title": "Pokemon 30th Celebration — Shining Celebi 106/105, Near Mint, Raw",
+   "front_sha256": "8327cb80716a0cb5e8c8c544c423fd538d95a0dae838e1b17b4acbb8b156f1bc",
+   "back_sha256": "e86cf69d6067ea7b28c4576d37f4882104bfc169f20d617514c04145998fda9d",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-333649377c1243",
+   "group": "ebay-pair-333649377c1243",
+   "intake": "bd",
+   "query": "pokemon card suicune raw",
+   "title": "Pokemon TCG Suicune V GG38/GG70 Crown Zenith Galarian Gallery NM",
+   "front_sha256": "64ff2efebaf58f5280e2488c9ecee11ffb46a29888665b7aa23f8e0e00e165ef",
+   "back_sha256": "d8e09b3803d1b8ece05fb9c1f25e0eb123a6755ca7aa586a9780ee5c14b128ea",
+   "front_size": [
+    1230,
+    1600
+   ],
+   "back_size": [
+    1233,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-993c2f47528d10",
+   "group": "ebay-pair-993c2f47528d10",
+   "intake": "bd",
+   "query": "pokemon card entei raw",
+   "title": "Pokemon TCG Entei V GG36/GG70 Galarian Gallery Crown Zenith NM",
+   "front_sha256": "ea922050128f4c3b98fb61359c9e49c1aac342207c57e209b8ac6e4925e527ff",
+   "back_sha256": "59b65f3cee7b08f06e2f49df645940206fff3d54baf440590826c4f850f99d6b",
+   "front_size": [
+    1263,
+    1600
+   ],
+   "back_size": [
+    1290,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-eaf76ae7574ebd",
+   "group": "ebay-pair-eaf76ae7574ebd",
+   "intake": "bd",
+   "query": "pokemon card entei raw",
+   "title": "Pokemon TCG Entei V GG36/GG70 Crown Zenith Galarian Gallery NM",
+   "front_sha256": "b3ae9a0c34271607236dadd9eeb877254e7bfc5e13918d5c6e6a4a8c848e6911",
+   "back_sha256": "4951c3fdccf19f110ecac5f0f32ace12ff4c4a2b9bd9309c4be4673cbec78d1d",
+   "front_size": [
+    1211,
+    1600
+   ],
+   "back_size": [
+    1229,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-6e8972f6d91674",
+   "group": "ebay-pair-6e8972f6d91674",
+   "intake": "bd",
+   "query": "pokemon card ho-oh raw",
+   "title": "Nintendo Ho-Oh Holo 010/086  Rare English Pokemon TCG INVESTMEnT CARD",
+   "front_sha256": "a7c58c0886bffb281acd520055845a02648b085a4c762fb279ce521576ec5271",
+   "back_sha256": "6e44759a338a2e7e787b4e688d5cdd944e76595b3636aa5db52e7d8bf8d2e1aa",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-60a85ea20120d2",
+   "group": "ebay-pair-60a85ea20120d2",
+   "intake": "bd",
+   "query": "pokemon card tyranitar raw",
+   "title": "Pokemon TCG Tyranitar 222/193 Scarlet Violet Paldea Evolved NM",
+   "front_sha256": "f4c23157221b1df3f6470d16e5f0738f85bd69b6f2273bfc49d3c1d9ce75bcf6",
+   "back_sha256": "7b5c7c14095034faaca2e92f98c943e3911dadca0ff92ff983fcf268d75957e1",
+   "front_size": [
+    1201,
+    1549
+   ],
+   "back_size": [
+    1203,
+    1457
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-2e748fc8085b03",
+   "group": "ebay-pair-2e748fc8085b03",
+   "intake": "bd",
+   "query": "pokemon card celebi raw",
+   "title": "Celebi 003/072 – Shining Fates Reverse Holo – Pokémon TCG - Raw Card",
+   "front_sha256": "8a689d7d49c9cd5b075ba305c6157a1a45cc88762092b5cf840c6b63f86ba4d2",
+   "back_sha256": "33372d6e49d9a853765219b6aa4d7225222cb78047ef3beaebb3857c08223290",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-9c55a8cbcfb20b",
+   "group": "ebay-pair-9c55a8cbcfb20b",
+   "intake": "bd",
+   "query": "pokemon card entei raw",
+   "title": "Pokemon TCG Entei V GG36/GG70 Crown Zenith Galarian Gallery NM B",
+   "front_sha256": "7625d3e3ab62555e386b3783f55e1c14f3efdf97e0c139f4ab9c63ca1ceec015",
+   "back_sha256": "ff1f63fc593a28a9a83fad3e23633a3c894f9e3028834f891b27b2b05c42557c",
+   "front_size": [
+    556,
+    729
+   ],
+   "back_size": [
+    558,
+    729
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-14d4abf7e7de9e",
+   "group": "ebay-pair-14d4abf7e7de9e",
+   "intake": "bd",
+   "query": "pokemon card celebi raw",
+   "title": "Celebi Venusaur　001/095 Japanese Rare Ships from Japan Free Shipping Raw",
+   "front_sha256": "057c64a48c36937eb93e7c9cd9cf81798ea75e3a32e677c546ad12d250111f42",
+   "back_sha256": "3ba77ec0c38f7c1f33748ffe83e5d93c1c7318d5277af2a6957a6ecffc4d6e69",
+   "front_size": [
+    740,
+    992
+   ],
+   "back_size": [
+    838,
+    1154
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "미확인",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-01e3a72946c799",
+   "group": "ebay-pair-01e3a72946c799",
+   "intake": "bd",
+   "query": "pokemon card entei raw",
+   "title": "Entei 34/53 Black Star Promo Reverse Holo Single Raw Card",
+   "front_sha256": "b55aa31923f346a49e5ce5826aa9df00ebcc053732e81fc05dc51fdb89b35b3c",
+   "back_sha256": "438cd92a0332ad8d1d5690c8680d925f871d60df971387742eea72fe21731478",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-4f9c6c37493b4e",
+   "group": "ebay-pair-4f9c6c37493b4e",
+   "intake": "bd",
+   "query": "pokemon card celebi raw",
+   "title": "Pokémon Celebi & Venusaur GX Holo 1/181 Team Up Raw MP",
+   "front_sha256": "26295f2c75101e9c13de62a50a431c0b07b04703bcbaa2b216299c590788a624",
+   "back_sha256": "87eba4491cac101a17ffbf493535e4a35d8339bb6148999d77300f9b7c46419d",
+   "front_size": [
+    1111,
+    1600
+   ],
+   "back_size": [
+    1139,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "결함",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-d6008ef2ba8414",
+   "group": "ebay-pair-d6008ef2ba8414",
+   "intake": "bd",
+   "query": "pokemon card celebi raw",
+   "title": "Celebi 2025 Pokémon Mega Evolution #12 Uncommon Reverse Holo, Raw/Ungraded",
+   "front_sha256": "6fb90a4a71e0fca728647a140dde0892419e668175dabd41e9d41f2a51c5003d",
+   "back_sha256": "6c0ca2ddc3297a98c6ab4a211dfb359bd13ca480a618d9c2174651fa9c22987d",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "정상",
+    "surface": "제외",
+    "observation_limit": "결함",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-43bb1efe959b1d",
+   "group": "ebay-pair-43bb1efe959b1d",
+   "intake": "bd",
+   "query": "pokemon card suicune raw",
+   "title": "RAW Suicune 026/094 Me02: Phantasmal Flames Reverse Holo",
+   "front_sha256": "c33cae95224491220e23eb7030aee0fee27fa22e163eaea87023646e3c726e9e",
+   "back_sha256": "c15d5d6d869e2b552f29b77250a26819e21339a0732e86e78b65661007cc7006",
+   "front_size": [
+    1119,
+    1533
+   ],
+   "back_size": [
+    1022,
+    1509
+   ],
+   "labels": {
+    "edge": "제외",
+    "corner": "결함",
+    "surface": "제외",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-0735de1b4893ba",
+   "group": "ebay-pair-0735de1b4893ba",
+   "intake": "bd",
+   "query": "pokemon card tyranitar raw",
+   "title": "Pokemon PAL Larvitar, #111 Pupitar, Tyranitar #135 Cosmos Holos #110 2023 RAW NM",
+   "front_sha256": "8a8d01462a91a5e79acb9aadd3e7ffbf61da5978111e923da7cbf53408db631e",
+   "back_sha256": "9664c45aaa4cf9218950cd4f88643014c80365add647f9b6c0d4a2516b608b51",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-57e2b21fc64808",
+   "group": "ebay-pair-57e2b21fc64808",
+   "intake": "bd",
+   "query": "pokemon card celebi raw",
+   "title": "Pokémon Celebi & Venusaur GX SM167 Black Star Promo Holo Raw MP",
+   "front_sha256": "416ccda1fb62aeee47dae55e8ae1d37577a3f64466a76a918cefdaee02aca88f",
+   "back_sha256": "d247e01e77abc5ca8415ae3188e75b95b19e70a5bf8d167f8185d212bbe2c6d3",
+   "front_size": [
+    1130,
+    1600
+   ],
+   "back_size": [
+    1102,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "결함",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-0fb57605ba1b89",
+   "group": "ebay-pair-0fb57605ba1b89",
+   "intake": "bd",
+   "query": "pokemon card entei raw",
+   "title": "Basic Entei HP 130 Pressure Ability Blaze Ball Attack Red Powerful Pokémon",
+   "front_sha256": "a08c5941429f0d60cee58835644d7b502cc416f8e09511084981444b15def03f",
+   "back_sha256": "c6c19cb64a919ba29c17ccb0b7796e9f4b4bff4c5905a2192e78ffd37bcafaf3",
+   "front_size": [
+    1212,
+    1600
+   ],
+   "back_size": [
+    1199,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "제외",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-5de77486ed3284",
+   "group": "ebay-pair-5de77486ed3284",
+   "intake": "bd",
+   "query": "pokemon card ho-oh raw",
+   "title": "Pokemon Ethan's Ho-Oh EX Destined Rivals #039 2025 RAW NM",
+   "front_sha256": "7cc7f9ee2de72646ca449ded7dc18bc03e632560d163efe1952d865273e65952",
+   "back_sha256": "a93db7347f919aa02d8e27f2840110db3e3eae2acc80fd50a9fcb49827d3633a",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "미확인"
+   }
+  },
+  {
+   "id": "ebay-pair-98fb0c09f9d4e0",
+   "group": "ebay-pair-98fb0c09f9d4e0",
+   "intake": "bd",
+   "query": "pokemon card tyranitar raw",
+   "title": "Tyranitar 135/193 - English Rare Stamped Holo - Paldea Evolved - Near mint (NM)",
+   "front_sha256": "fe3f23e6cd730e00ac1043a02bff848f03010275f6efb747ad032ec0ed5f5029",
+   "back_sha256": "acb65d7d45119085671f6d1e589e623c0cfac8405f1d874c82a62bdde8f3dca9",
+   "front_size": [
+    1000,
+    1000
+   ],
+   "back_size": [
+    1178,
+    1178
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-8a702b5e51e098",
+   "group": "ebay-pair-8a702b5e51e098",
+   "intake": "bd",
+   "query": "pokemon card suicune raw",
+   "title": "Pokémon Suicune Holo Black Star Promo Card HGSS21 (read)",
+   "front_sha256": "be07e9a270f1379fbf0a37435ad0b2a3d105fbd832b96cfe9201a958b713ce54",
+   "back_sha256": "c42c8cb658bdbc972f0d0f814b225cec65781e268c72a4ce7fe530e436018eec",
+   "front_size": [
+    1200,
+    1600
+   ],
+   "back_size": [
+    1200,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-2a64441dcfc450",
+   "group": "ebay-pair-2a64441dcfc450",
+   "intake": "bd",
+   "query": "pokemon card entei raw",
+   "title": "Nintendo Entei #34 80 HP Basic Regular EN 2000 Ken Sugimori Pokemon TCG",
+   "front_sha256": "8c6e65317491a07d65de721911f0801ec701ed066e9f819e3c5d5d47746ba322",
+   "back_sha256": "ee93aed501a26225f171ef7ef9a3283631bc8c0e2ae4f64c7948a7ec680d71f2",
+   "front_size": [
+    1431,
+    1431
+   ],
+   "back_size": [
+    1600,
+    1600
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "결함",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-f541b3b1112a66",
+   "group": "ebay-pair-f541b3b1112a66",
+   "intake": "bd",
+   "query": "pokemon card tyranitar raw",
+   "title": "Basic Tyranitar V HP 230 Single Strike Crush Rarity Green Powerful Pokémon",
+   "front_sha256": "75673be9963512f1cb2dba3ba8e14f4ae669f0bf47004f1f7a9a901a3287c82e",
+   "back_sha256": "7a9f57b38d10cbd0c95e188c7da08f94f35ca75556b3f1db9aaaabf0cd67287e",
+   "front_size": [
+    1206,
+    1600
+   ],
+   "back_size": [
+    1193,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "정상",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "결함"
+   }
+  },
+  {
+   "id": "ebay-pair-021fd8ed56a03e",
+   "group": "ebay-pair-021fd8ed56a03e",
+   "intake": "bd",
+   "query": "pokemon card suicune raw",
+   "title": "Suicune LV.44 DPBP#295  Pokemon TCG Japanese Card Nintendo 2007",
+   "front_sha256": "3422ffda57835be38a83d4ee993e221758e339467d6937be3f682f06d33344e0",
+   "back_sha256": "797e987411c5ce0a8741a0c3983b94c6a16a3bef87ba9480a5a3ddf41995452c",
+   "front_size": [
+    810,
+    1080
+   ],
+   "back_size": [
+    810,
+    1080
+   ],
+   "labels": {
+    "edge": "결함",
+    "corner": "정상",
+    "surface": "결함",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  },
+  {
+   "id": "ebay-pair-0da3d8cd7cf427",
+   "group": "ebay-pair-0da3d8cd7cf427",
+   "intake": "bd",
+   "query": "pokemon card entei raw",
+   "title": "Basic Entei HP 130 Blaze Ball Attack Rarity Red Powerful Pokémon",
+   "front_sha256": "de78c45423cb64d3855bcc4eb35e665fb5c421b96952ee70319947bdee4be371",
+   "back_sha256": "32b41cda3230512b3947863d11d14b7e07482cbb74e112be545f2849ef04ec34",
+   "front_size": [
+    1212,
+    1600
+   ],
+   "back_size": [
+    1203,
+    1600
+   ],
+   "labels": {
+    "edge": "정상",
+    "corner": "결함",
+    "surface": "정상",
+    "observation_limit": "정상",
+    "centering": "정상"
+   }
+  }
+ ]
+}

@@ -1,0 +1,4 @@
+ebay-pair-009fdaadb3fe2c=edge:(선택 안 함),corner:(선택 안 함),surface:(선택 안 함);miss:upper_center|middle_left|lower_center|lower_right;
+ebay-pair-01ac207c47e044=edge:(선택 안 함),corner:(선택 안 함),surface:(선택 안 함);miss:;
+ebay-pair-01e3a72946c799=edge:(선택 안 함),corner:(선택 안 함),surface:(선택 안 함);miss:upper_center|upper_right|middle_right|lower_center;
+ebay-pair-01fe03f111c1fc=edge:(선택 안 함),corner:(선택 안 함),surface:(선택 안 함);miss:;

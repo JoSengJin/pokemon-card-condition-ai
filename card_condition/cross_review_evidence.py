@@ -5,8 +5,12 @@ import json
 from pathlib import Path
 import re
 
-from .cross_review import digest, encoded
+from .cross_review import digest
 from .regression_audit import compare_predictions
+from .cross_review_evidence_budget import error_examples, bound_repeated_errors, bound_code_excerpt
+from .cross_review_evidence_codec import compact_evidence, expand_evidence
+from .cross_review_evidence_cohort import expand_cohort_table
+from .cross_review_evidence_manifest import compact_manifest, expand_manifest
 
 
 def load(path):
@@ -251,164 +255,12 @@ def latest_packet(root):
             previous_reviews.append((review.get('deadline',file.stat().st_mtime),str(file),old))
         except (OSError,ValueError,TypeError):continue
     prior=max(previous_reviews,key=lambda item:(item[0],item[1])) if previous_reviews else None
-    seen={(v['path'],v['sha256']) for v in (prior[2].get('latest_sources',[]) if prior else [])}
+    seen={(v['path'],v['sha256']) for v in (expand_manifest(prior[2]) if prior else [])}
     packet['fresh_evidence_ids']=[key for key,value in evidence.items()
         if (key in ('latest_result','latest_diagnostic','related_code','executed_code') or key.startswith('completed_diagnostic_'))
         and isinstance(value,dict) and 'path' in value and (value['path'],value['sha256']) not in seen]
     packet['freshness_reference']=prior[1] if prior else None
+    packet['latest_sources']=compact_manifest(manifest,evidence)
     packet['evidence']=compact_evidence(packet['evidence'])
     packet['evidence_reference_format']='Identical values use $ref JSON Pointers rooted at the evidence ID registry. Resolve the referenced value; no facts were omitted.'
     return bound_code_excerpt(bound_repeated_errors(packet))
-
-
-
-def error_examples(errors,limit):
-    chosen=[]
-    for item in errors:
-        if not any(v['kind']==item['kind'] for v in chosen):chosen.append(item)
-    for item in errors:
-        if len(chosen)>=limit:break
-        if item not in chosen:chosen.append(item)
-    return chosen
-
-
-COHORT_COLUMNS=['id','grouped_cohort_ids','comparison','point_comparison','acceptance_passed','acceptance','errors','error_count','errors_omitted']
-COMPARISON_COLUMNS=['before','after','new_misses','new_false_positives','recovered','aggregate_improved','both_classes_evaluated','constant_prediction','informative_improvement','no_new_errors']
-COUNT_COLUMNS=['tp','tn','fp','fn']
-
-
-def bound_repeated_errors(packet):
-    """Bound case lists, retaining every cohort's counts, criteria, verdict and source."""
-    if len(encoded(packet).encode())<=23700:return packet
-    import copy
-    result=copy.deepcopy(packet)
-    evidence=expand_evidence(result['evidence'])
-    schema=dict(columns=COHORT_COLUMNS,comparison_columns=COMPARISON_COLUMNS,count_columns=COUNT_COLUMNS)
-    def comparison(value):
-        if value is None:return None
-        if set(value)!=set(COMPARISON_COLUMNS):raise ValueError('Unsupported cohort comparison fields; refusing to omit evidence')
-        return [[value[k][n] for n in COUNT_COLUMNS] if k in ('before','after') else value[k] for k in COMPARISON_COLUMNS]
-    for entry in evidence.values():
-        if not isinstance(entry,dict):continue
-        summary=entry.get('summary',{});cohorts=summary.get('required_cohorts',[])
-        if not cohorts or not isinstance(cohorts,list) or 'errors' not in cohorts[0]:continue
-        grouped={};rows=[]
-        for original in cohorts:
-            c=copy.deepcopy(original)
-            if set(c)!={'id','comparison','point_comparison','acceptance_passed','acceptance','errors'}:raise ValueError('Unsupported cohort summary fields; refusing to omit evidence')
-            errors=c['errors'];c.update(errors=[],error_count=len(errors),errors_omitted=len(errors))
-            signature=encoded({k:v for k,v in c.items() if k!='id'})
-            if signature in grouped:
-                grouped[signature][1].append(c['id']);continue
-            row=[c['id'],[],comparison(c['comparison']),comparison(c['point_comparison']),c['acceptance_passed'],c['acceptance'],c['errors'],c['error_count'],c['errors_omitted']]
-            grouped[signature]=row;rows.append(row)
-        summary['required_cohorts']=dict(format='cohort_table_v1',schema=schema,rows=rows)
-    result['evidence']=compact_evidence(evidence)
-    chosen=error_examples(packet['error_cases'],3)
-    result['error_cases']=chosen
-    result['error_cases_truncated']=len(chosen)<packet['error_count']
-    if 'remaining_errors' in result['evidence']:result['evidence']['remaining_errors']=chosen
-    result['error_list_summary']=dict(total=packet['error_count'],shown=len(chosen),omitted=packet['error_count']-len(chosen),selection='one per observed kind, then original order; cohort lists retain exact total; full cases remain in source files')
-    result['evidence_reference_format']=result['evidence_reference_format'].replace('no facts were omitted.','duplicate values are referenced without loss.')
-    result['evidence_reference_format']+=' cohort_table_v1 follows schema columns; before/after follow count_columns. grouped_cohort_ids share metrics and criteria. Full error lists remain in source files.'
-    return result
-
-
-def expand_cohort_table(table):
-    if table['schema']!={'columns':COHORT_COLUMNS,'comparison_columns':COMPARISON_COLUMNS,'count_columns':COUNT_COLUMNS}:raise ValueError('Unsupported cohort table schema')
-    import copy
-    def comparison(row):
-        if row is None:return None
-        if len(row)!=len(COMPARISON_COLUMNS):raise ValueError('Invalid cohort comparison row')
-        value=dict(zip(COMPARISON_COLUMNS,row,strict=True))
-        for key in ('before','after'):value[key]=dict(zip(COUNT_COLUMNS,value[key],strict=True))
-        return value
-    result=[]
-    for row in table['rows']:
-        c=dict(zip(COHORT_COLUMNS,row,strict=True));others=c.pop('grouped_cohort_ids')
-        c['comparison']=comparison(c['comparison']);c['point_comparison']=comparison(c['point_comparison'])
-        for identity in [c['id'],*others]:result.append(dict(copy.deepcopy(c),id=identity))
-    return result
-
-
-def compact_evidence(evidence, *, document=False):
-    """Lossless JSON Pointer aliases inside the evidence registry, not missing measurements."""
-    import copy
-    result=copy.deepcopy(evidence);seen={}
-    if document and result.get('context_reference_root')=='document':
-        # Short root pointers avoid repeating long cohort IDs, criteria and nested aliases.
-        # Pool exact values only: no measurement/condition truncation or inferred equivalence.
-        from collections import Counter
-        counts=Counter();values={}
-        def count(value):
-            if isinstance(value,(dict,list,str)):
-                key=encoded(value)
-                if len(key.encode())>=80:counts[key]+=1;values[key]=value
-            children=value.values() if isinstance(value,dict) else value if isinstance(value,list) else ()
-            for child in children:count(child)
-        count(result)
-        pool={key:str(i) for i,(key,n) in enumerate(counts.items())
-              if n>=2 and (n-1)*len(key.encode())>n*35+12}
-        def share(value,exclude=None):
-            key=encoded(value) if isinstance(value,(dict,list,str)) else None
-            if key in pool and key!=exclude:return {'$ref':'/shared_values/'+pool[key]}
-            if isinstance(value,dict):return {k:share(v) for k,v in value.items()}
-            if isinstance(value,list):return [share(v) for v in value]
-            return value
-        if pool:
-            if 'shared_values' in result:raise ValueError('Reserved shared value registry')
-            result={'shared_values':{i:share(values[key],key) for key,i in pool.items()},**share(result)}
-    def pointer(path):return '/'+ '/'.join(str(p).replace('~','~0').replace('/','~1') for p in path)
-    def visit(value,path):
-        if isinstance(value,(dict,list,str)) and len(encoded(value).encode())>=80:
-            key=encoded(value)
-            if key in seen:
-                alias={'$ref':seen[key]}
-                if len(encoded(alias).encode())<len(key.encode()):return alias
-            else:seen[key]=pointer(path)
-        if isinstance(value,dict):return {k:visit(v,path+[k]) for k,v in value.items()}
-        if isinstance(value,list):return [visit(v,path+[i]) for i,v in enumerate(value)]
-        return value
-    if document:return visit(result,[])
-    for key,value in result.items():
-        if isinstance(value,dict) and isinstance(value.get('summary'),dict):
-            value['summary']={k:visit(v,[key,'summary',k]) for k,v in value['summary'].items()}
-    return result
-
-
-def expand_evidence(evidence, *, decode_tables=True):
-    import copy
-    def visit(value,trail=()):
-        if isinstance(value,dict) and set(value)=={'$ref'}:
-            path=value['$ref']
-            if path in trail:raise ValueError('Cyclic evidence alias')
-            target=evidence
-            for key in path.split('/')[1:]:
-                key=key.replace('~1','/').replace('~0','~');target=target[int(key)] if isinstance(target,list) else target[key]
-            return visit(target,trail+(path,))
-        if isinstance(value,dict):
-            expanded={k:visit(v,trail) for k,v in value.items()}
-            return expand_cohort_table(expanded) if decode_tables and expanded.get('format')=='cohort_table_v1' else expanded
-        if isinstance(value,list):return [visit(v,trail) for v in value]
-        return copy.deepcopy(value)
-    expanded=visit(evidence)
-    if isinstance(expanded,dict) and expanded.get('context_reference_root')=='document':expanded.pop('shared_values',None)
-    return expanded
-
-def bound_code_excerpt(packet):
-    """Trim only the already partial diff; never omit failure criteria or measurements."""
-    if len(encoded(packet).encode()) <= 23700:
-        return packet
-    summary=packet['evidence']['related_code']['summary']
-    excerpt=summary.get('excerpt','')
-    if not excerpt:
-        return packet  # Existing validation still rejects oversized non-code evidence.
-    summary.update(truncated=True,budget_truncated=True,excerpt_chars_before_budget=len(excerpt))
-    low,high=0,len(excerpt)
-    while low<high:
-        middle=(low+high+1)//2
-        summary['excerpt']=excerpt[:middle]
-        if len(encoded(packet).encode())<=23700:low=middle
-        else:high=middle-1
-    summary['excerpt']=excerpt[:low]
-    return packet

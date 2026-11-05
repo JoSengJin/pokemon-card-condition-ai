@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "surface-normal-coexclusion-20261025",
+  "hypothesis": "앞면 img 정상 FP 증가가 추가 정상 제외·출처 연관·상호 카드 쌍 민감 패턴 중 어느 형태와 일치하는지 정상 공동 제외 카드 h 하나만 바꿔 진단한다. 인과·독립 일반화·모델 채택은 주장하지 않는다.",
+  "change": "대상 g는 a,b,c,ㄴ으로 고정한다. h의 정체 하나만 바꾸며 단독제외 대조4개를 먼저 재현한 뒤 방향쌍12개를 평가한다. 양성53행·특징·토큰·가중치식·L2=1·max_bound·threshold0.5 고정.",
+  "success_criterion": "재현4개 확률최대차<=1e-4 및 판정동일·모든fit수렴·누수없음·출처SHA보존·147행과11개cohort 재생동일·diagnostic_evidence<=4000 UTF-8바이트. 계약의 H1/H2/H3 규칙으로 단일일치 또는 미구별을 기록. 주평가 통과는 기준선재생뿐이며 전체acceptance false 예상.",
+  "failure_criterion": "재현·수렴·분리·SHA·유한성·출력 계약 실패면 failed로 종료하고 해석·자동재시도하지 않는다. 재현4개 중 하나라도 실패하면 쌍학습을 시작하지 않는다. 모두 미충족/다중충족은 미구별이며 가설반증·실행실패 아님.",
+  "reference_result": "artifacts/experiments/20261025T122011-647b0e9c/result.json",
+  "acceptance": {
+    "max_fn": 16,
+    "max_fp": 18,
+    "no_new_errors": true,
+    "require_actual_point_guard": false
+  },
+  "required_cohorts": [
+    {
+      "id": "surface-original-regression",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-frozen-original-baseline",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-original-fixed-for-local",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface51-human-click-guard",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "surface51-existing-kind-corrected",
+      "reference_result": "artifacts/experiments/20261024T063834-3536c642/typed-point-reference.json",
+      "acceptance": {
+        "max_fn": 18,
+        "max_fp": 0,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    }
+  ],
+  "code_changes": [
+    {
+      "path": "artifacts/surface-normal-coexclusion-20261025/worker.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "diagnostic",
+  "threshold": 0.5,
+  "new_evidence": "122011 joint holdout의 새 정상FP는 c5/ㄴ2/b2이며 fold마다 양성 구성도 달랐다. 양성 구성을 고정한 정상 카드 h 공동 제외 재학습은 미실행이다.",
+  "human_truth": "artifacts/misdreavus-same-photo-normal-20261024/human-response.json",
+  "cache_source": "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt",
+  "tracked_source": "tools/experiments/surface-normal-coexclusion-20261025/worker.py",
+  "implementation_source_base": "ee6587a6e94942457ae4f20fb9dc225a27b7b753",
+  "contract": "docs/collaboration/tasks/surface-normal-coexclusion-20261025.md",
+  "input_sha256": {
+    "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt": "8061e7ed4814a038930d5ba8611d85f3194ffdfe5f4e9082062272ed820eb84f",
+    "artifacts/experiments/20261024T060419-45e72d0a/training-tokens.pt": "2cc268945d5d909040ff3e7492d83a42862d4daeb4c466db91a0228af7e63e2f",
+    "artifacts/experiments/20261024T093945-04a7e5e8/local-heads.pt": "cdf8eeb7f576ae475d607beafce592fcb9c71a66601062b1d8d3131e04d5d872",
+    "card_condition/detail_bag.py": "21ec78db0570f8ca3a0b8181de801a48ce715d5aa51bb065224caa974e0e53b3",
+    "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+    "artifacts/experiments/20261025T122011-647b0e9c/fold-heads.pt": "4e31b43433d8c6d06115387dea97d0d401a2e0655a1df34c6258ebb716715fa0",
+    "artifacts/experiments/20261025T122011-647b0e9c/result.json": "eb73931a73eb7bfd7c2dd9ed104caeea76a91f9990fa337fcc09e30521bd977e",
+    "artifacts/experiments/20261025T122011-647b0e9c/observations.json": "f7e317a2aa7e8ec6c4aa85fcd1135554b95933d89660c40b2aed4c519c306419",
+    "artifacts/experiments/20261025T122011-647b0e9c/reference.json": "c7e6c1e163191744c168a661f0ba848aa5d79a6dd6e294f7dcc60daf1f116ca9",
+    "artifacts/experiments/20261025T122011-647b0e9c/plan.json": "18f5fa1169f773c3ec6a7be1002af6df8bcdb9ce6a025e76aa8ea624af6fd4a1",
+    "artifacts/experiments/20261025T122011-647b0e9c/diagnostics.json": "744254cdedca586f3c757f7cc880bdc1baa003d450042a1ace45a70411eabb4d"
+  },
+  "training_only_ids": [
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-1",
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-2",
+    "ebay-pair-ff69b8955593fc/photo3-first-attack-surface-confirmed-normal",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-1",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-2",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-3"
+  ],
+  "diagnostic_rules": {
+    "H1": "img 대상3개 중2개 이상: Δ_cross>=2; 같은 출처 각h의 |Δ(g,h)-Δ_cross|<=1",
+    "H2": "img 대상3개 중2개 이상: Δ_same>=2, |Δ_cross|<=1, Δ_same-Δ_cross>=2, δL_same>=0.3, δL_same-δL_cross>=0.3; a의 모든h |Δ|<=1",
+    "H3": "FP(c,ㄴ)-FP(c,b)>=3, FP(ㄴ,c)-FP(ㄴ,b)>=3; Δ(c,ㄴ)>=2, Δ(ㄴ,c)>=2; |Δ(c,b)|<=1, |Δ(ㄴ,b)|<=1",
+    "unidentified": "none or multiple rules matched; do not claim refutation or adopt"
+  }
+}

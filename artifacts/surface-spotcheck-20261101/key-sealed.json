@@ -1,0 +1,68 @@
+{
+ "1": {
+  "kind": "FP",
+  "score": 0.965707540512085,
+  "human": "정상",
+  "id": "ebay-pair-1b3d59291cab08/back/surface/lower_left"
+ },
+ "2": {
+  "kind": "TN",
+  "score": 0.07325387001037598,
+  "human": "정상",
+  "id": "ebay-pair-c194d9e4fca13d/back/surface/center"
+ },
+ "3": {
+  "kind": "FP",
+  "score": 0.9466745257377625,
+  "human": "정상",
+  "id": "ebay-pair-0bfd194e23ca2b/back/surface/upper_right"
+ },
+ "4": {
+  "kind": "TN",
+  "score": 0.06909734755754471,
+  "human": "정상",
+  "id": "ebay-pair-8ef2f67b46146c/back/surface/center"
+ },
+ "5": {
+  "kind": "TP",
+  "score": 0.9234440326690674,
+  "human": "결함",
+  "id": "ebay-pair-34a56773f9016b/back/surface/upper_right"
+ },
+ "6": {
+  "kind": "FP",
+  "score": 0.943234920501709,
+  "human": "정상",
+  "id": "ebay-pair-b26fe718a8a0ff/back/surface/upper_right"
+ },
+ "7": {
+  "kind": "TP",
+  "score": 0.9661978483200073,
+  "human": "결함",
+  "id": "ebay-pair-8b712018d115e4/back/surface/upper_left"
+ },
+ "8": {
+  "kind": "FP",
+  "score": 0.9774037599563599,
+  "human": "정상",
+  "id": "ebay-pair-e7c3d62280bf10/back/surface/upper_right"
+ },
+ "9": {
+  "kind": "FN",
+  "score": 0.16486038267612457,
+  "human": "결함",
+  "id": "ebay-pair-eabfd21f92172a/back/surface/middle_right"
+ },
+ "10": {
+  "kind": "FP",
+  "score": 0.9495124220848083,
+  "human": "정상",
+  "id": "ebay-pair-437c25d2b6161a/back/surface/upper_left"
+ },
+ "11": {
+  "kind": "FN",
+  "score": 0.09786748141050339,
+  "human": "결함",
+  "id": "ebay-pair-0cc161bd2ea196/back/surface/center"
+ }
+}

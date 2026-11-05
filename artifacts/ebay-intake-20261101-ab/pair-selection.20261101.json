@@ -1,0 +1,361 @@
+{
+ "schema": "ebay_pair_selection/v0",
+ "intake": "ebay-intake-20261101-ab",
+ "scope": "all",
+ "reviewed_by": "J",
+ "note": "front/back photo choice and same-card decision only; no condition truth",
+ "decided_at": "2026-11-01",
+ "items": [
+  {
+   "n": 1,
+   "id": "ebay-pair-64f8feffbfe154",
+   "item_id": "v1|147416573334|0",
+   "photo_sha256": [
+    "b7a8a7808b402c2827a1d591516300a28d8b7900b7f01ce74b70844cb6fbfcc8",
+    "3d05256f33c452113dff949dfa79384fda59667ed2a28f1b45d4fab16a0b2daf"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 2,
+   "id": "ebay-pair-82186264358e88",
+   "item_id": "v1|307257801058|0",
+   "photo_sha256": [
+    "ec3d8ed48094ae63b640f78ffda090b6b083438099a8ca557724cb7ec87db4d9",
+    "de876e1f8b2d21d804cb875355c2c4427629695d596492bfdf3f16cbfea3818f",
+    "8fcad41243339dcb3c2ee5442e4c8b23799019cbd9f448d3e1663f7cbcacb552",
+    "6a432fd024b2c7c48729bc698c6dcfa7bdd32a87965119f8972e00d705ee5907",
+    "9a09fe3980bcfa0e260a9f055f7240a3fd710e43a28da0107fa60172a1283d3b",
+    "aeee81f33a185936104c7b82964c6f7dbcd1875a0e0a63020c153bbaa1fe8655",
+    "8aa15ec484d1e53e68e34d5815dc4d4dc51a90f4c870aeb8f225d004fde8ad2f",
+    "d4a8b03886719f62746859fb1e2ac0a3066b51fe8e0abb7140dd5beac12750ee",
+    "e7fc37529c11169c79dfed0c849660757cdb17eac43fe837db6622613cd29571",
+    "faf43dc1c100c2e73fb8caebe794b6e960d7ce20008311a2f41a50351f75fb1b",
+    "662c1f1ee88e4404b96b05819b2e1691002d59a10ed1230aa29ca3070174d169",
+    "9647b206bad11efcf57b75a1a72e7752998b0e06e941f0f7358e5115c67c873c",
+    "fcb9757fb884af4cf6093a3a6e3f309e0c54d8c2d183a4e7139dfc1d7c77329e",
+    "8bb2b1d6c2b0e1290df0629231eb620062e32e77439e3a027e2070291a0653d3",
+    "2d9821d4db063400194df95f18ebecd12994a496392ffed8654dbc9e13d64c22",
+    "be36eb893474cd5a914fcbabeadbe956ee98e4d88c643f5891e21332d16bbbe8",
+    "db86d442db0d6769219cac1896c5c48a07a0776247dbd3b8cd2aa9650ac4b377",
+    "360489ed18aa0bb45812aff1e598b95e56e04fa8a5d6967f883173dfc9ecc2d8"
+   ],
+   "decision": "exclude"
+  },
+  {
+   "n": 3,
+   "id": "ebay-pair-9e8a445355c4e9",
+   "item_id": "v1|287672775512|0",
+   "photo_sha256": [
+    "81cfc50317c038720fbca6d55202e7480200430aed1b965594247b0c183b5f6b",
+    "9481be4da75c36b909a2b88bcc4c204c81f065fd7f07ee7d36d9b224dcca2122",
+    "2e70125af4a1dcabe48d0086b9abc9a02f9a3380774b0f25c30b25b72e01888b",
+    "1cc392b1ab478bb62e77f17040dd1453d9cbcc43c91ebef026e79d999f487e52",
+    "c24b394f431d03add5391654b1db2dee01421066a8a7190f59308538c9fa4751",
+    "486a44a4c51a3ea1c84a190b0903e769f2977ef7e7e32c8ad05577e354d9efda",
+    "3718292c3fe196425a9ca3f0b36bdae7a76a5896905ef687102d6bd3c819039b"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 4,
+   "id": "ebay-pair-3eed3aaf1d377f",
+   "item_id": "v1|900030414432|0",
+   "photo_sha256": [
+    "d9a0705a2cc8ce5d154e9aaee53c85c5a7b13925940c077898446195bcf2e559",
+    "a6036c5715a03eb347c4f502247537ab02fff367aa99936779af7b7830d34675",
+    "3f23ff37880fb291978de1e70d66ea906c1b3ee048366308232fc12c943c9610",
+    "38352fdb439f79117dc713b362d162abde58e5200868a483354c6407d1f993ee"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 3
+  },
+  {
+   "n": 5,
+   "id": "ebay-pair-452a34feb49a36",
+   "item_id": "v1|198760865229|0",
+   "photo_sha256": [
+    "9f89ca56979cec521dfe6fa62088926b649cfaa218f4041b152f86ec3dca8830",
+    "631d18b996fbbd2bcb1bc6799c2681d588f3d7b5611d5d60494177ef401b117e",
+    "9de475076792ebb8e9f8a134ed7301d687cc58669494e7f1865113727c528ca2"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 6,
+   "id": "ebay-pair-e4027c437aaa25",
+   "item_id": "v1|227542859781|0",
+   "photo_sha256": [
+    "0d493621353b856623af86f72a2ff67e0833a3b1287e754c7930b89e1e198fc2",
+    "6bcf98c9e828e1c1f236b0d978821277dc61458ae01350126ee01399bbc2b79d"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 7,
+   "id": "ebay-pair-f0474510c30a99",
+   "item_id": "v1|285887766634|0",
+   "photo_sha256": [
+    "90e0e71eebfcaacb2f64a28bf9217775a7d86dc70b58988857e797081fe7f096",
+    "9ce5d952890cbd669b2313393d8f190f8cc5019bf8b89ad0183ae65a792b3fe1"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 8,
+   "id": "ebay-pair-771c1aca79ec33",
+   "item_id": "v1|327392873560|0",
+   "photo_sha256": [
+    "eb104f02dabc02267e793d05ae64b63613e028e99583b2dc3700f097f593b72a",
+    "a3c8c1ad1e0eb2378190200fc764f0082eaf2994a82cfeade19e2f55511991bc",
+    "6acc21a6945e8376a74c92a5e240d623464a9cece79637359f20c3f69a2d574e",
+    "64f75dd40e1f6dbc9e11cda6ca5ad228702d67f56d8c92bee90e59bad91fe1fa",
+    "431359227f89b8ca3bf5d68726f53c4ca94bf18c1176560158816a534443473b",
+    "8b67fc1a6013210003ed71fa7f51a0bfe1212533b4da9ee78418723de78ec501",
+    "9565aa341bb908ac6857a00e876fb47dc27d76e4dd829c00e4c7f79141f3d258",
+    "efc468fa6a35e29f2de41e9a72c858e11fb4e194f4aece92689d7565b1dbdfd0",
+    "403857f04212c8eb36acafcb8a64d52ae0edbd727119bff2f8a4594ad920e431",
+    "4e032aef921123a00a61578190119c89ac49460488810d5f954211db60d02403",
+    "95607bec79c54360ede790f58fa8ed7f598b9a0156d9b97d38ac070eca7f7d63",
+    "6d89c5665d842ca7b35a3f43cb2b6c9d5515a3d8a41f27d2e2ea22e528471b1c"
+   ],
+   "decision": "exclude"
+  },
+  {
+   "n": 9,
+   "id": "ebay-pair-35e221d496933a",
+   "item_id": "v1|177740395865|0",
+   "photo_sha256": [
+    "68554fb6b1642d8b7fad15e2e6e4c85935298d4e8009cee8b8a07e9e0fc26582",
+    "370fb170bd54be46fc3d43523514b11491744e763d85ed079b69143ccaca8e54",
+    "da5c619829a7754ab7c817388664633c854c01cd8652b14cb66812cf3a1bceef",
+    "5f660e534e838e9c4ce9ddb3bd5c697ae8fb329f640eb977c64d36d8ddced5f8",
+    "12e94e949c57f6f500e4db737f87581a80e129ecf391b545cb16de188a0ac713",
+    "46647bec7a9e5eb983ba2cf1ca666832576a5983490ef4146ecda68eb107fa41",
+    "63265267a1f4f5119147ceafd38a4044102f77931ab10e1dabf92945f9bc2712",
+    "c04f59e44af69f1536b8b7e5c721fe91e9e386a5cc445be216b51ced17f3d940",
+    "63b01089fab26b5393d4fb126070f5a51bddb49e62492b94534d2fa4f1bd121a",
+    "feae296d0665531e1694c568f0105b02ca0944d62d8890ef8d512d79cea807b5",
+    "9b719c17ed78c51abe75d8ed6ddf4afb8873470c172eba7222c37baa18d5e6f9"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 6
+  },
+  {
+   "n": 10,
+   "id": "ebay-pair-07266c87fd115b",
+   "item_id": "v1|880066918781|0",
+   "photo_sha256": [
+    "b9c64cad5b7ff7e5e7a2691240f86dfe2057b45227bb5096abf8085c3874b87a",
+    "a88e911655e57b52a0ed633f41afda6839a22ef10f9a398ddc878573fa03ac91"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 11,
+   "id": "ebay-pair-4a631e1f190864",
+   "item_id": "v1|175036138912|0",
+   "photo_sha256": [
+    "5d55a4a5fcfcd180b11f770e74a00cb77b24b3b93215aedbd0945071c6bfaf39",
+    "90c8e386b37bd6e97b766a845b1259d4e9157c635d601224e977936ff36d547f",
+    "5ecdd1f294bd20f19ccc06072e087908413a7d6900a6587c254a3733f768fddd",
+    "73bc49185d414851f7b6a0014abc0097b39b91dc675fb9a59c51333903391177",
+    "58bcca659fa900c34c911e063809fbac2704d995fe843b4ae20d57e2f9abb33d",
+    "541f9a2b8507e3afdf0dc774b98caaa2dc1655a654653b3955edac478f844593"
+   ],
+   "decision": "exclude"
+  },
+  {
+   "n": 12,
+   "id": "ebay-pair-a5f7bc0f953f83",
+   "item_id": "v1|960126927790|0",
+   "photo_sha256": [
+    "c73fe0465927028120cc9590df118ae9947d6bbad365c2f8570a33a5ce6622a6",
+    "ff6428f1d569f5082b69b1678ef0e69ac09016bb58b645cc908cad5a7b59ed88"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 13,
+   "id": "ebay-pair-ce7b1f873b5390",
+   "item_id": "v1|227542862823|0",
+   "photo_sha256": [
+    "0be236720a30c1b814e5fc0b616507a4bc59514f76653c3b205ee05e65960828",
+    "955686920501400a9ccd5858e84635842a44ee09ada0d717586b6ee1bf2c471e"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 14,
+   "id": "ebay-pair-5f3e0a0ddb2911",
+   "item_id": "v1|900045516247|0",
+   "photo_sha256": [
+    "7eb6024925b32216261382c6ebd536fd41b4fa9f846e75e799e62bee536819ba",
+    "3f2c7f90b646abb936993871258ab5ba1f866e9e84b22b05ef32aaf04725adfa",
+    "1fd6ba3b18f4af851e8630fe554dfaf0bd6e5d653ab7b14ff047b094339ecf91",
+    "591dfc9187ac3d7c33e6bf58eceb25dc4f8df74a7c95ca119cc10e3651d1bf83",
+    "49848a3112a94bd9a022b0480f6b41e57b744ac64068c3b2ba3b6e0c9ed59544",
+    "7fd37c95fa000558ed1cb58a5700edbcbe1f2170a83ab7d41c71fe6dc457667c",
+    "bd6f3799a61ad6bf37e8b04730862306edd36fbe3144e96c50d2089b81177173",
+    "38ab7b2362e8b2901e62662ef570975eb9d081b5363dd0150c1b3b2978661743",
+    "b62baa45940cf51928cc9c923f03771167d9a7a1622345d3ec13017a5fa8eaeb"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 8
+  },
+  {
+   "n": 15,
+   "id": "ebay-pair-75b9e707332cae",
+   "item_id": "v1|307237920223|0",
+   "photo_sha256": [
+    "bd6a4538208a3aa94c4a33541524f63696c0683bc08f0a3097d8c451e6d2c4f8",
+    "c109066078ecc5fddb4f97407315034202c5b92f442536fa1f7e9cf12acb6393"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 16,
+   "id": "ebay-pair-570ba2cf3bf270",
+   "item_id": "v1|377595325775|0",
+   "photo_sha256": [
+    "14144b1ed85f10a5c9e551c7d83842335b5fe01985973bd6ad3f9aa53d56064e",
+    "4828ceb2aec4c0cddbfd75d93a328de74f004c8186b54b5ee631f1d81b4c3e71",
+    "6455c0875cbfa4091f6dcb21d782f1ec6d2cb9bd5f0b34d16fe525ecdff46b8f",
+    "ca644f37d31345f415608949a63ff108af72dad841eeff57df3f572cc13d6f86",
+    "2dda05fdb5a28d930de76139d70c4fe2f6fd6fefe95bde2b18fa9aa0f87d0314",
+    "15379122b6713c2894c621190597c5a13ef28fd35d4a5a3b177810170811a179"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 17,
+   "id": "ebay-pair-d5421b61cd09f5",
+   "item_id": "v1|227542864238|0",
+   "photo_sha256": [
+    "93eeae821a0c41db1ea7f012e5a5c65a85de4170e3180361c6e9a4b98133fb3d",
+    "7a4216bd51919a08bac047a1a165fc6db2039fb39aa7ece2af1d62fe65571757"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 18,
+   "id": "ebay-pair-94ba35cfe7da13",
+   "item_id": "v1|800852953555|0",
+   "photo_sha256": [
+    "b2d096d7ae4efbf77bfe911d071cbab44887e921f25ae7cb816b445be05e7cdb",
+    "c75f492d934d862b7c860b0683835f878cd082ead75c50b2f676de0642ad373c",
+    "75cd6b1e086ea68f4164d9d64847f2919e130ccce4a48f795cfe104f13e072e8"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 2
+  },
+  {
+   "n": 19,
+   "id": "ebay-pair-9ced6108f65fe1",
+   "item_id": "v1|318919534400|0",
+   "photo_sha256": [
+    "f81335dbd16b470381e760ed86375985344221cbb06c3ebdbc58f3ebbf6d6ba9",
+    "bef5e38dfc1fc055972991f1d6bbd39b1c2681bcad70871177d29b4b9830de63"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 20,
+   "id": "ebay-pair-a095c863bf3fe1",
+   "item_id": "v1|377583212694|0",
+   "photo_sha256": [
+    "f4043c616294161ea175e8a932b509a631b3c9b650254a0265632edf38620f5f",
+    "90057ca6bb2dd97ff30f7a4bd7d3a063e407b96b65f7ec28302db0b0dbc039ff"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 21,
+   "id": "ebay-pair-f9cb73c4410b78",
+   "item_id": "v1|318919534441|0",
+   "photo_sha256": [
+    "60336c88275779f3c7482051aca19cec71c74e4d7288d372a32938490626de7e",
+    "cf9fcf298ad8a8a65edb4cc5f5bf22043004e28830326749b096b3f67afcd3ae"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 1
+  },
+  {
+   "n": 22,
+   "id": "ebay-pair-27c1c868f79589",
+   "item_id": "v1|358545238126|0",
+   "photo_sha256": [
+    "fc682ab619ddce229de34298ca5f31cbbca2cf5c057d0c7e09eee8eeeac32ff0",
+    "e2db95acd1ec65635c665f58a6746a66a0f1213cb0125a438ce0e543cdfdfa7a",
+    "450f36669009b9e70edeb87f4a38a68eca1ae84efef07ebbcb0b520c425a5285",
+    "e12e140c5a4447a532b371d17287c474004118493541a54a74ee06544752bd9b",
+    "2b91391d04ffcb548b30267e89f571ae0f62d70c803eb379c7c70be091ae1e89",
+    "440b592c8abe1d725b2db781e12adc93254cbc358bf31854f5bcb57397388f34",
+    "50a36980115f45dd785d7ee10442ef179cac8b658e8eea2567c8cfdcd4db3898",
+    "233d43313dc6d60701091e977c6aa4a74c976dcf505115113200788ff4f7e258",
+    "5e598df76c1d1785ee2f05c8ab25e61709b6b0376cde3541d3f67fa920cdb9d6",
+    "21c9fe69c13cf01b6ab2988832a27322810407c2d10b852e1cc5629547136b97",
+    "c095724bac65cdb8c5de559c9b01ade367b07aef1e23344055186250c0d18689",
+    "1dba0cb833707b05105e4005db96fdc30e8fe129f1cfcbfc9d0a51279fbe89ce",
+    "3e4d555159e6bf9d52b23ae31c7cd41b789fca2e072e41f00beead2935be2bf4",
+    "ee3df3f0f75128f67583c304a7712bba429380c79b67ad0cf28b13dd6b7689d5"
+   ],
+   "decision": "exclude"
+  },
+  {
+   "n": 23,
+   "id": "ebay-pair-dde587dc089cd0",
+   "item_id": "v1|366760940986|0",
+   "photo_sha256": [
+    "3919c9f73fe084affd2a41b74269db31d74f024d0495af2f35e600295f026063",
+    "848c2d976dd7c44e24c41c07a27744f2ecac92f236eae6343fd871c63e037991",
+    "57eb5bdd851df1e2636460f9482ab513efab6fe274d5c6a9e8a120e55208a284",
+    "72ad3b3ad8f9b5e4121b657896e11c0dbd04d136b09b53015988e3f3e5558fe1"
+   ],
+   "decision": "pair",
+   "front": 0,
+   "back": 2
+  },
+  {
+   "n": 24,
+   "id": "ebay-pair-8e23b111fa4b63",
+   "item_id": "v1|366618918483|0",
+   "photo_sha256": [
+    "6a6e158c1a03e7d01efab7e933dd3a8135dc313499ade644458fdb7e9213654b",
+    "de98156ed81c5aecd9bccb152095beff57ea701d2768aaf4ec817b172d65f9db"
+   ],
+   "decision": "exclude"
+  }
+ ]
+}

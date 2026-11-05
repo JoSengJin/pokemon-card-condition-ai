@@ -1,0 +1,50 @@
+{
+ "schema_version": 1,
+ "hypothesis_id": "card-localization-stage2-20261031",
+ "hypothesis": "10% 넓힘 autobox는 개발용 29면에서 미충족 6/29였다(기준 미달, 기준선 17/29). 그 29면은 후보 설계에 쓰였고 f는 어려운 쪽 편향이라, 편향 없는 무작위 표본에서 넓힘 상자가 카드 4점을 포함하는지 독립 확인한다.",
+ "change": "측정 대상: 시드 무작위 표본(f·g·h 뒷면 66면 중 40면, 불가 제외)에서 autobox 출력 10% 넓힘 상자. 후보·비율·허용 0.005·면적비 상한 2.0은 widen 실험과 동일하고 바꾸지 않는다. 시작 점이 중립 중앙 사각형인 새 사람 4점 23면(fresh)이 주 평가이며, 이미 4점이 있던 16면은 보조로만 본다. 학습·모델·외부 AI 호출 없음.",
+ "success_criterion": "fresh 23면에서 \"4점이 모두 상자 안(허용 0.005) 그리고 면적/4점 외접 면적 <= 2.0\"을 만족하지 못한 면이 2면 이하(<=10%, widen·baseline 단계와 같은 규칙). 러너 대응: target=1, score=충족 1.0·아니면 0.0, threshold 0.5, before_scores 전부 0.0(찾기 없음) → FN=미충족, FP 0.",
+ "failure_criterion": "fresh 미충족이 3면 이상이면 단순 10% 넓힘은 카드 찾기로 채택하지 않는다. 기준·비율·표본은 결과를 본 뒤 바꾸지 않는다. 보조(raw autobox, 전체 39면, 기존 16면)는 판정에 쓰지 않는다. 사람 \"불가\"가 있으면 분모에서 제외하고 개수를 보고한다.",
+ "reference_result": "artifacts/card-localization-stage2-20261031/reference/result.json",
+ "reference_note": "rows=fresh 23면(target=1), before_scores=scores=전부 0.0(찾기 없음). 결과를 보지 않고 만든 값.",
+ "acceptance": {
+  "max_fn": 2,
+  "max_fp": 0,
+  "no_new_errors": false,
+  "require_actual_point_guard": false
+ },
+ "code_changes": [
+  {
+   "path": "artifacts/card-localization-stage2-20261031/worker.py",
+   "baseline": null
+  }
+ ],
+ "input_sha256": {
+  "artifacts/ebay-intake-20261030-f/back-faces.json": "4c213f876cdf6a424fe2664e28d8b414447cd5823c6bbe08c3211c7e4e99e03d",
+  "artifacts/ebay-intake-20261030-g/back-faces.json": "6eb0f60784fef358526cbedcfd302c3fc70e953ba0157b35c54a56bf8a89246b",
+  "artifacts/ebay-intake-20261031-h/back-faces.json": "a495efc83e42e3e38763bfe4f5a64c9ea3afa11f6178213357bdf0a092abf35e",
+  "artifacts/ebay-intake-20261030-f/corner-answers.txt": "63f535d1e3ccf69bc1e100a255de3a7d7b1ece906f7d9f40df55f919cc70941e",
+  "artifacts/ebay-intake-20261030-g/corner-answers.txt": "5d8e46b40c66b061ce8aecbebe1ca75a461ffbb058ee97f48048b2f8e5d98672",
+  "artifacts/card-localization-stage2-20261031/sample.json": "d9ab5e9d076a0d5bb142a7d5018f940004596c63bc54b4797a9d3acb8524e4bc",
+  "artifacts/card-localization-stage2-20261031/corner-answers.txt": "9e0358d99557921a9bc499444135b0753124811d3d062c785726154c3ea911bc",
+  "artifacts/ebay-intake-20261027-e/autobox.py": "6adc0a4f4c06a5c2125744984ad01ee5cb3507ae466cd3ebc0d3db9baeb8ae04",
+  "artifacts/corner-rectify-20261030/worker.py": "3c280fff99ae24cfc5285da84f0f45260ca808b14da73b8c6d4f3f10c7258d38",
+  "tools/experiments/card-localization-baseline-20261031/worker.py": "eab4db0cda99b9080e626dfb252a0c27a36a96988cbb614ae39c9147fe9986b0",
+  "tools/experiments/card-localization-widen-20261031/worker.py": "2c3d8a5833c74337d5256d6b0f96d721d8c4adec47f9e0d3b116a9612927fc79",
+  "artifacts/experiments/20261030T225414-c1993f4a/evaluation.json": "b52296d300ced5d0f679d182647d681bb5ab27370767205afca78aeaa09c8f3e"
+ },
+ "gemini_calls_allowed": 0,
+ "independent": false,
+ "production_adopted": false,
+ "experiment_kind": "diagnostic_localization_stage2",
+ "threshold": 0.5,
+ "tracked_directory": "tools/experiments/card-localization-stage2-20261031",
+ "expected_denominators": {
+  "sample": 40,
+  "excluded": 1,
+  "fresh": 23
+ },
+ "known_biases": "모집단은 f·g·h 수집(eBay 검색 결과 편의 표본)이라 전체 매물의 무작위 표본이 아니다. fresh 23면은 후보 설계에 쓰이지 않았으나 같은 수집 배치에서 왔다. 23면은 1면=4.3%라 신뢰구간이 넓다. 사람 점은 한 사람이 폰에서 찍었다. 축 정렬 상자만 평가.",
+ "expected_limit": "기준선·넓힘에서 보인 큰 색 모델 실패와 이미 큰 상자(면적비>2)는 넓힘으로 해결되지 않는다.",
+ "status": "ready_to_run"
+}

@@ -33,11 +33,13 @@ def point_for_label(row, label):
 def point_rows(manifest, grid=False, splits=('train', 'val')):
     digest = hashlib.sha256(Path(manifest).read_bytes()).hexdigest()
     patches, skipped, targets = [], [], set()
+    input_image_hashes = {}
     # Localized observed defects do not establish whole-card gradability.
     for row in load_manifest(manifest, splits=set(splits), require_gradable=False):
         if row.get('excluded'):
             continue
         hashes = dict(zip([side for side in ('front','back') if row.get(side)], row['_image_hashes']))
+        input_image_hashes[row['id']] = hashes
         for side, annotation in validate_annotations(row.get('side_annotations', {}), row).items():
             base = dict(card_id=row['id'], group=row['group'], split=row['split'], side=side,
                         image=annotation['image'], image_sha256=hashes[side], card_box=annotation['box'])
@@ -114,6 +116,7 @@ def point_rows(manifest, grid=False, splits=('train', 'val')):
     if hashlib.sha256(Path(manifest).read_bytes()).hexdigest() != digest:
         raise ValueError('Manifest changed during dataset generation')
     result = dict(evaluation_kind='point_crop_dataset', manifest_sha256=digest,
+        input_image_hashes=input_image_hashes,
         crop_policy='fixed_3x3' if grid else 'point_centered_third',
         patches=len(patches), counts=counts, group_class_counts=groups, point_targets=sorted(targets),
         missing_classes=missing, ready_for_experiment=bool(targets) and not missing, skipped=skipped,

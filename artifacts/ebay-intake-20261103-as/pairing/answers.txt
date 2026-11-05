@@ -1,0 +1,4 @@
+ebay-pair-22d4fd4c6af4c1=1,2
+ebay-pair-fd889fee4584fc=2,3
+ebay-pair-bbb96b8b08fda9=제외
+ebay-pair-d55168f8adc735=1,2

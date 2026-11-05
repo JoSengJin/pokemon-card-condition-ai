@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "region-photo-decode-once-20261028",
+  "hypothesis": "Same photo is decoded once per region today. Reusing the existing view_tensors stream within one face preserves all tensor/backbone shapes and reduces repeated decode latency.",
+  "change": "Only input decoding lifetime: per region to per face. Existing crops/normalization/model calls/pooling/device/threads/checkpoints/threshold/truth and region order fixed; no across-request cache.",
+  "success_criterion": "All27 known development edge regions, same15positive/12normal and9faces in each2 frozen checkpoints: score delta<=1e-7, identical threshold.5 decisions/FN/FP/nulls, photo opens27->9. CPU2threads,1warmup+7alternating trials, median elapsed at least5%lower in EACH model. Frozen147/11cohort checkpoint-cache replay<=2e-5 remains unchanged. Accuracy gain/production adoption not claimed.",
+  "failure_criterion": "Any output/identity/SHA/guard mismatch fails; less than5%median reduction in either model rejects timing hypothesis. No threshold changes, repeated timing experiment, backbone/new data/training, provider calls or hidden retries.",
+  "reference_result": "artifacts/experiments/20261025T122011-647b0e9c/result.json",
+  "acceptance": {
+    "max_fn": 16,
+    "max_fp": 18,
+    "no_new_errors": true,
+    "require_actual_point_guard": false
+  },
+  "required_cohorts": [
+    {
+      "id": "surface-original-regression",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-frozen-original-baseline",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface-original-fixed-for-local",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "surface51-human-click-guard",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "original-surface-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/misdreavus-confirmed-local-intake-20261024/surface-baseline-reference.json",
+      "acceptance": {
+        "max_fp": 17,
+        "max_fn": 17,
+        "no_new_errors": true,
+        "require_actual_point_guard": false
+      }
+    },
+    {
+      "id": "original-click51-fixed-for-exact-roi-same-photo-normal-front-rgb",
+      "reference_result": "artifacts/experiments/20261023T234154-d74a9e18/point-reference.json",
+      "acceptance": {
+        "max_fp": 0,
+        "max_fn": 5,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    },
+    {
+      "id": "surface51-existing-kind-corrected",
+      "reference_result": "artifacts/experiments/20261024T063834-3536c642/typed-point-reference.json",
+      "acceptance": {
+        "max_fn": 18,
+        "max_fp": 0,
+        "no_new_errors": true,
+        "require_actual_point_guard": true
+      }
+    }
+  ],
+  "code_changes": [
+    {
+      "path": "card_condition/edge_views.py",
+      "baseline": "artifacts/region-photo-decode-once-20261028/before/card_condition/edge_views.py"
+    },
+    {
+      "path": "card_condition/region_model.py",
+      "baseline": "artifacts/region-photo-decode-once-20261028/before/card_condition/region_model.py"
+    },
+    {
+      "path": "card_condition/listing_model.py",
+      "baseline": "artifacts/region-photo-decode-once-20261028/before/card_condition/listing_model.py"
+    },
+    {
+      "path": "card_condition/listing_inference.py",
+      "baseline": "artifacts/region-photo-decode-once-20261028/before/card_condition/listing_inference.py"
+    },
+    {
+      "path": "artifacts/region-photo-decode-once-20261028/worker.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "diagnostic",
+  "threshold": 0.5,
+  "new_evidence": "ListingAnalyzer and infer_listings call patch_features for each area. view_tensors opens once per view group, not per face. Unit equivalence/decode tests for all existing view policies and input sizes passed; runtime timing not yet measured.",
+  "human_truth": "artifacts/misdreavus-same-photo-normal-20261024/human-response.json",
+  "cache_source": "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt",
+  "tracked_source": "tools/experiments/region-photo-decode-once-20261028/worker.py",
+  "contract": "docs/collaboration/tasks/region-photo-decode-once-20261028.md",
+  "input_sha256": {
+    "artifacts/experiments/20261024T063834-3536c642/typed-training-tokens.pt": "8061e7ed4814a038930d5ba8611d85f3194ffdfe5f4e9082062272ed820eb84f",
+    "artifacts/experiments/20261024T060419-45e72d0a/training-tokens.pt": "2cc268945d5d909040ff3e7492d83a42862d4daeb4c466db91a0228af7e63e2f",
+    "artifacts/experiments/20261024T093945-04a7e5e8/local-heads.pt": "cdf8eeb7f576ae475d607beafce592fcb9c71a66601062b1d8d3131e04d5d872",
+    "card_condition/detail_bag.py": "21ec78db0570f8ca3a0b8181de801a48ce715d5aa51bb065224caa974e0e53b3",
+    "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+    "artifacts/experiments/20261025T122011-647b0e9c/fold-heads.pt": "4e31b43433d8c6d06115387dea97d0d401a2e0655a1df34c6258ebb716715fa0",
+    "artifacts/experiments/20261025T122011-647b0e9c/result.json": "eb73931a73eb7bfd7c2dd9ed104caeea76a91f9990fa337fcc09e30521bd977e",
+    "artifacts/experiments/20261025T122011-647b0e9c/observations.json": "f7e317a2aa7e8ec6c4aa85fcd1135554b95933d89660c40b2aed4c519c306419",
+    "artifacts/experiments/20261025T122011-647b0e9c/reference.json": "c7e6c1e163191744c168a661f0ba848aa5d79a6dd6e294f7dcc60daf1f116ca9",
+    "artifacts/experiments/20261025T122011-647b0e9c/plan.json": "18f5fa1169f773c3ec6a7be1002af6df8bcdb9ce6a025e76aa8ea624af6fd4a1",
+    "artifacts/experiments/20261025T122011-647b0e9c/diagnostics.json": "744254cdedca586f3c757f7cc880bdc1baa003d450042a1ace45a70411eabb4d",
+    "tools/experiments/surface-normal-coexclusion-20261025/worker.py": "5c2f573f110042b8695170755d95e52af26367f363ed013e6591e68ec47c6a59",
+    "tools/experiments/surface-front-joint-holdout-baseline-20261025/worker.py": "5db79c3d20743fa7cae0c355f81f80be592dcf92a3d674187fe8e07a5b94094b",
+    "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17",
+    "artifacts/experiments/20261027T132418-8a5aa6ae/diagnostics.json": "072a514fb541ad56d56959c3d6f0d6bd6d8bf8222ab90d0fee3182df5b855a82",
+    "artifacts/experiments/20261024T062258-2932de20/diagnostics.json": "314eccc6f99fe2cf72665d8aa011580149f37e7bb06df7f57459191ee6558e5f",
+    "artifacts/experiments/20261024T062428-8e82e9ed/result.json": "4d98114ec6478a19d525893bedafb4f71e914a716f232d5a511d9c8823b2bef9",
+    "artifacts/experiments/20261027T133213-807fae2a/record.json": "a95bf15019e59e075c146915dc25219dde1fae1a2c094a7f6062380908877d5b",
+    "artifacts/experiments/20261024T061542-a90ac171/diagnostics.json": "3d462d178c995d59f7a2669e26c593af70f96b088e36562c05dbee63512b4fbb",
+    "artifacts/misdreavus-same-photo-normal-20261024/human-response.json": "c733369c8efdc7f52321580d6964bfb28dd0674c427d90072fd0febeb2e32c6d",
+    "artifacts/experiments/20261027T144107-8f7674cd/record.json": "24933bdfbe6e1196fe63e01aabf7466ad48b0310abf5779efa234da2aa74d3e0",
+    "artifacts/experiments/20261027T144107-8f7674cd/failure-diagnostics.json": "b220d874c4250dfa6bd1c897aef355cca469ae11771273614b1cdae470a3213c",
+    "artifacts/experiments/20261027T211902-7ae1cc41/record.json": "3f79ad8e2b6e0e9e117eb94d50e1d9620bf0c385c916fcf03bb7968d38952d18",
+    "artifacts/experiments/20261027T211902-7ae1cc41/diagnostics.json": "7b9bf0fe97c496aae490a7e0b03ff4b43e5791387f53d6b0da9fe7046f81035f",
+    "artifacts/experiments/20261027T145641-21c22382/diagnostics.json": "1304964d4f747e5aee87bfdf1452c4c6c538fa4c3f352205e6b3b0b7be8d03c2",
+    "card_condition/edge_views.py": "8d878c97da8c386f39f3d53b1ede40e2627b94141a578c090f0251e8e7516b55",
+    "artifacts/region-photo-decode-once-20261028/before/card_condition/edge_views.py": "b932a43273843ecf56ec62f555404ad32f261d407ce0967bc4802c9070d3225d",
+    "card_condition/region_model.py": "9d4042f7ca0372ef044a82a2f04e456abd9d6e19b54cab2c753d68abbd60b6d7",
+    "artifacts/region-photo-decode-once-20261028/before/card_condition/region_model.py": "98e5222e0d3033343543cb2072d7436d621d7f19e9e7162ea3649b98e3a0779f",
+    "card_condition/listing_model.py": "47c28963687de9f2593d7f4debb160a50e15b09b2aa6eb8f0bbedce83e9208e5",
+    "artifacts/region-photo-decode-once-20261028/before/card_condition/listing_model.py": "f5309f04e86ae3a384c8d0b0c369854911d0581b337cabd2594dd70c2ccd2eae",
+    "card_condition/listing_inference.py": "0cb7a7b48b807c02028e92887f4812820b35973964d8147fc07ddb84cd9a20a0",
+    "artifacts/region-photo-decode-once-20261028/before/card_condition/listing_inference.py": "ee2763ca7f87735b23bf1101d759440066576c491de0cac1758e07c74bbe0e4c",
+    "artifacts/point-edge-context-20261010-round20-epochs20/model.pt": "34dfbf1606fe7695e51b80c5bfbe19b9c52e76162a0904a26c548a3a23943c68",
+    "artifacts/point-edge-context-20261010-round20-epochs20/report.json": "cff32f23defbdd5858c0b4e9154bb706aed8868d3417673264832edbcbad096f",
+    "artifacts/point-edge-tiles-20261010-round20-epochs20/model.pt": "039e2387e36743993385885e78f521b13944736bc1eceea9af9e0dc5818821b0",
+    "artifacts/point-edge-tiles-20261010-round20-epochs20/report.json": "160ca47e81c2ac5fe479f320b7dac1b6c5c27256b2e18ae429921ee6b4b35ff7",
+    "tools/experiments/region-photo-decode-once-20261028/worker.py": "e0ae122cb55d7358723c1960074f3dd6a18c1d96ba1d514e832566182bc9f95c"
+  },
+  "training_only_ids": [
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-1",
+    "ebay-pair-ff69b8955593fc/confirmed-surface_defect-photo-3/human-exact-2",
+    "ebay-pair-ff69b8955593fc/photo3-first-attack-surface-confirmed-normal",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-1",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-2",
+    "ebay-pair-ff69b8955593fc/surface-photo1-reviewed-3"
+  ],
+  "objective": {
+    "ranking_coefficient": 1.0,
+    "margin": 1.0,
+    "normal_temperature": 0.1,
+    "original_loss": "unchanged",
+    "normal": "max_bound",
+    "penalty": 1.0,
+    "initialization": "saved_training_fold"
+  },
+  "proposal": "artifacts/experiments/20261024T103800-512a2260/joint-fold-proposal.json",
+  "proposal_sha256": "318634349c0fbdb2b44b1cd14ef7358077b82157ae08a5c4ccced49a772bfa17",
+  "timing": {
+    "device": "cpu",
+    "threads": 2,
+    "warmups": 1,
+    "repeats": 7,
+    "batch_views": false,
+    "min_median_reduction": 0.05,
+    "max_score_delta": 1e-07
+  },
+  "models": [
+    {
+      "name": "context",
+      "checkpoint": "artifacts/point-edge-context-20261010-round20-epochs20/model.pt",
+      "report": "artifacts/point-edge-context-20261010-round20-epochs20/report.json"
+    },
+    {
+      "name": "tiles",
+      "checkpoint": "artifacts/point-edge-tiles-20261010-round20-epochs20/model.pt",
+      "report": "artifacts/point-edge-tiles-20261010-round20-epochs20/report.json"
+    }
+  ],
+  "timing_photo_sha256": [
+    {
+      "id": "d/front/normal/upper_left",
+      "sha256": "f64e211dbd242c725157378838b62601aafbfd563df61edf26add8084d327150"
+    },
+    {
+      "id": "d/front/normal/upper_center",
+      "sha256": "f64e211dbd242c725157378838b62601aafbfd563df61edf26add8084d327150"
+    },
+    {
+      "id": "d/front/normal/upper_right",
+      "sha256": "f64e211dbd242c725157378838b62601aafbfd563df61edf26add8084d327150"
+    },
+    {
+      "id": "d/front/normal/middle_left",
+      "sha256": "f64e211dbd242c725157378838b62601aafbfd563df61edf26add8084d327150"
+    },
+    {
+      "id": "d/front/normal/middle_right",
+      "sha256": "f64e211dbd242c725157378838b62601aafbfd563df61edf26add8084d327150"
+    },
+    {
+      "id": "d/front/normal/lower_left",
+      "sha256": "f64e211dbd242c725157378838b62601aafbfd563df61edf26add8084d327150"
+    },
+    {
+      "id": "d/front/normal/lower_center",
+      "sha256": "f64e211dbd242c725157378838b62601aafbfd563df61edf26add8084d327150"
+    },
+    {
+      "id": "d/front/normal/lower_right",
+      "sha256": "f64e211dbd242c725157378838b62601aafbfd563df61edf26add8084d327150"
+    },
+    {
+      "id": "d/back/normal/upper_left",
+      "sha256": "0cbd2169d4d4521fa9132b0168bbfd2ed56cf2522eaf40738395d83157a682a2"
+    },
+    {
+      "id": "d/back/normal/upper_center",
+      "sha256": "0cbd2169d4d4521fa9132b0168bbfd2ed56cf2522eaf40738395d83157a682a2"
+    },
+    {
+      "id": "d/back/normal/upper_right",
+      "sha256": "0cbd2169d4d4521fa9132b0168bbfd2ed56cf2522eaf40738395d83157a682a2"
+    },
+    {
+      "id": "d/back/normal/middle_left",
+      "sha256": "0cbd2169d4d4521fa9132b0168bbfd2ed56cf2522eaf40738395d83157a682a2"
+    },
+    {
+      "id": "d/back/normal/middle_right",
+      "sha256": "0cbd2169d4d4521fa9132b0168bbfd2ed56cf2522eaf40738395d83157a682a2"
+    },
+    {
+      "id": "d/back/normal/lower_left",
+      "sha256": "0cbd2169d4d4521fa9132b0168bbfd2ed56cf2522eaf40738395d83157a682a2"
+    },
+    {
+      "id": "d/back/normal/lower_center",
+      "sha256": "0cbd2169d4d4521fa9132b0168bbfd2ed56cf2522eaf40738395d83157a682a2"
+    },
+    {
+      "id": "d/back/normal/lower_right",
+      "sha256": "0cbd2169d4d4521fa9132b0168bbfd2ed56cf2522eaf40738395d83157a682a2"
+    },
+    {
+      "id": "e/back/normal/upper_left",
+      "sha256": "f7083ae6e02977fac4f8d76fd6d43e1afd6cae7f4b1d4dd8c5269f5244583355"
+    },
+    {
+      "id": "e/back/normal/upper_center",
+      "sha256": "f7083ae6e02977fac4f8d76fd6d43e1afd6cae7f4b1d4dd8c5269f5244583355"
+    },
+    {
+      "id": "i/back/normal/upper_right",
+      "sha256": "34658f3edaa19cd9e6efd3716c5876b49eb8ae892bac0878d277580fe78bde63"
+    },
+    {
+      "id": "i/back/normal/upper_center",
+      "sha256": "34658f3edaa19cd9e6efd3716c5876b49eb8ae892bac0878d277580fe78bde63"
+    },
+    {
+      "id": "w/front/point/1",
+      "sha256": "2acebd0215e10099753962fbcbaafc3a1888672f159c11cc38af378aa0cd3127"
+    },
+    {
+      "id": "w/back/normal/lower_left",
+      "sha256": "5320e737e888b3210d1a45dd79791ee51d6b66fd9146227d33c1903129373a79"
+    },
+    {
+      "id": "w/back/normal/lower_right",
+      "sha256": "5320e737e888b3210d1a45dd79791ee51d6b66fd9146227d33c1903129373a79"
+    },
+    {
+      "id": "ebay-b2a1b8141f3246/front/normal/upper_left",
+      "sha256": "4c74b031c992be79d5b967da25a658d3a2409e558f0c02ed27a5eda2871c5e37"
+    },
+    {
+      "id": "ebay-2449983a7acd04/front/normal/upper_right",
+      "sha256": "eeb463b15e6ce7ae5f53ddeecb4cb0fb74e2f001b085794b0f05572fbb68919c"
+    },
+    {
+      "id": "ebay-7db839f540a696/back/normal/lower_right",
+      "sha256": "89c060c28532eaf88ac45be1291d6a8d0c4059eb84bb811a73478bdd513187cb"
+    },
+    {
+      "id": "ebay-7db839f540a696/back/normal/lower_center",
+      "sha256": "89c060c28532eaf88ac45be1291d6a8d0c4059eb84bb811a73478bdd513187cb"
+    }
+  ]
+}

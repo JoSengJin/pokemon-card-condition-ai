@@ -1,5 +1,6 @@
 """Independent experimental patch inference with explicit observation limits."""
 import hashlib
+import io
 import math
 from pathlib import Path
 import time
@@ -9,7 +10,7 @@ from torch import nn
 
 from .model import checked_sigmoid, device_for
 from .regions import REGION_LABELS, REGION_TARGET_AREAS, region_box
-from .edge_views import patch_features, batched_patch_features
+from .edge_views import patch_features, batched_patch_features, region_features
 from .point_probe import load_probe_model
 from .side_model import backbone_for
 
@@ -17,7 +18,8 @@ from .side_model import backbone_for
 class RegionAnalyzer:
     def __init__(self, checkpoint, device='auto'):
         self.device = device_for(device)
-        self.meta = torch.load(checkpoint, map_location='cpu', weights_only=True)
+        checkpoint_bytes = Path(checkpoint).read_bytes()
+        self.meta = torch.load(io.BytesIO(checkpoint_bytes), map_location='cpu', weights_only=True)
         supported = self.meta.get('supported') if isinstance(self.meta, dict) else None
         name = self.meta.get('backbone_name', 'mobilenet_v3_small') if isinstance(self.meta, dict) else None
         self.policy = False
@@ -25,7 +27,7 @@ class RegionAnalyzer:
             '_point_grid_v1', '_point_edge_views_v1', '_point_edge_tiles_v1',
             '_point_edge_tiles_max_v1', '_point_surface_tiles_v1')) if name in ('mobilenet_v3_small', 'resnet18') else ()
         if isinstance(self.meta, dict) and self.meta.get('architecture') in point_architectures:
-            self.meta, self.backbone, self.head, self.policy = load_probe_model(checkpoint, self.device)
+            self.meta, self.backbone, self.head, self.policy = load_probe_model(io.BytesIO(checkpoint_bytes), self.device)
         else:
             if (not isinstance(self.meta, dict) or name not in ('mobilenet_v3_small', 'resnet18')
                     or self.meta.get('architecture') != name + '_region_v1'
@@ -40,9 +42,9 @@ class RegionAnalyzer:
         self.image_size = self.meta.get('image_size', 224)
         if type(self.image_size) is not int or self.image_size not in (224, 448):
             raise ValueError('Invalid checkpoint image_size')
-        self.model_sha256 = hashlib.sha256(Path(checkpoint).read_bytes()).hexdigest()
+        self.model_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
 
-    def analyze(self, image, card_box, area, unknown_labels=(), batch_views=False):
+    def analyze(self, image, card_box, area, unknown_labels=(), batch_views=False, *, _features=None):
         if type(batch_views) is not bool:
             raise ValueError('batch_views must be boolean')
         box = region_box(card_box, area)
@@ -54,8 +56,9 @@ class RegionAnalyzer:
         row = dict(image=image, card_box=card_box, box=box, area=area)
         features_for = batched_patch_features if batch_views else patch_features
         with torch.inference_mode():
-            values = checked_sigmoid(self.head(features_for(self.backbone, row, self.device, self.policy,
-                self.image_size)))[0].cpu().tolist()
+            features = (features_for(self.backbone, row, self.device, self.policy, self.image_size)
+                        if _features is None else _features)
+            values = checked_sigmoid(self.head(features))[0].cpu().tolist()
         if not all(math.isfinite(v) for v in values):
             raise ValueError('Non-finite region output; use Gemini fallback')
         scores, reasons = {}, {}
@@ -75,3 +78,21 @@ class RegionAnalyzer:
                 'limitations': ['Uncalibrated patch scores; no whole-card grade or purchase decision.',
                                'Caller must supply the card box and observation limits; glare is not auto-detected.',
                                'Null does not mean clean or defective; no perspective correction.']}
+
+
+    def analyze_regions(self, image, card_box, areas, *, batch_views=False):
+        if type(batch_views) is not bool:
+            raise ValueError('batch_views must be boolean')
+        if not isinstance(areas,(list,tuple)) or len(areas)!=len(set(areas)):
+            raise ValueError('areas must list distinct regions')
+        rows=[dict(image=image,card_box=card_box,box=region_box(card_box,area),area=area) for area in areas]
+        results=[]
+        with torch.inference_mode():
+            stream=region_features(self.backbone,rows,self.device,self.policy,self.image_size,batch_views)
+            for area in areas:
+                started=time.perf_counter()
+                features=next(stream)
+                result=self.analyze(image,card_box,area,batch_views=batch_views,_features=features)
+                result['elapsed_seconds']=time.perf_counter()-started
+                results.append(result)
+        return results
