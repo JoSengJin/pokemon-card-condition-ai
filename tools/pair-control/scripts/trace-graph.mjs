@@ -1,3 +1,4 @@
+import { STORES_ARGUMENTS } from './trace-config.mjs';
 import { callsOf, argumentFunction, argumentCallbacks, registers } from './trace-calls.mjs';
 import { resolveId } from './trace-resolve-id.mjs';
 import { resolveMember } from './trace-resolve-member.mjs';
@@ -26,7 +27,7 @@ export function collectGraph(ctx) {
           ctx.callbacks.get(target).push(...callbacks);
         }
       }
-      if (result.how !== 'external' || registers(call)) continue;
+      if (result.how !== 'external' || registers(call, ctx, fn) || STORES_ARGUMENTS.has(call.name)) continue;
       for (const argument of call.args) {
         const cb = argumentFunction(ctx, fn, argument);
         if (!cb) continue;

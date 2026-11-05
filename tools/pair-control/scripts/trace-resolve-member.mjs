@@ -11,7 +11,10 @@ export function resolveMember(ctx, fn, call) {
   if (returned) return { to: [returned], how: 'returned-object' };
   if (call.computed) return { to: [], how: 'unresolved', reason: '계산된 멤버 호출' };
   const receiver = call.node.callee.object;
-  if (name === 'push' && receiver?.type === 'AssignmentExpression' && receiver.right.type === 'ArrayExpression') return { to: [], how: 'external', reason: '배열 리터럴을 대입한 수신 객체의 push' };
+  if (name === 'push' && receiver?.type === 'AssignmentExpression' && receiver.operator === '=' && receiver.right.type === 'ArrayExpression') return { to: [], how: 'external', reason: '배열 리터럴을 대입한 수신 객체의 push' };
+  const value = imports[base]?.file ? exportedValue(ctx, imports[base].file, imports[base].imported) : ctx.values[fn.file + ':' + base];
+  const constructor = value?.node?.type === 'NewExpression' && value.node.callee.type === 'Identifier' ? ctx.importsOf[value.file][value.node.callee.name] : null;
+  if (constructor?.module.startsWith('node:') && !chain.length) return { to: [], how: 'external', reason: 'Node 표준 클래스 인스턴스 ' + constructor.module + ':' + constructor.imported + '.' + name + '(전달 프로젝트 콜백은 별도 연결)' };
   const global = ctx.values[fn.file + ':' + base]?.node;
   if (!chain.length && (global?.type === 'ArrayExpression' || (global?.type === 'NewExpression' && /^(Set|Map|WeakSet|WeakMap|Array|Date|RegExp)$/.test(global.callee.name) && !ctx.top[fn.file + ':' + global.callee.name] && !imports[global.callee.name]))) return { to: [], how: 'external', reason: '표준 컨테이너의 모듈 변수 ' + base + '의 메서드 ' + name };
   const schema = schemaFor(ctx, fn, call);

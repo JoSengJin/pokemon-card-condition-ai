@@ -9,12 +9,12 @@ import { workflowTick } from '../src/runtimeWorkflowTick.ts';
 import { serviceTick } from '../src/runtimeServiceTick.ts';
 import { stop } from '../src/executor/monitorSchedule.ts';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
-import { setup, type Env } from './helpers.ts';
+import { setup, task, type Env } from './helpers.ts';
 
-function manual(e: Env, start = async () => ({ status: 'success', result: { ok: true } })) {
+function manual(e: Env, start = async () => ({ status: 'success', result: { ok: true } }), beforeCreate?: () => Promise<void>) {
   stop(e.ex); e.ex.stopped = false;
   let calls = 0;
-  const mastra = { getWorkflow: () => ({ createRun: async () => { calls++; return { runId: 'fake-run', start, resume: start }; } }) } as unknown as Mastra;
+  const mastra = { getWorkflow: () => ({ createRun: async () => { calls++; await beforeCreate?.(); return { runId: 'fake-run', start, resume: start }; } }) } as unknown as Mastra;
   setRuntime(e.ex, mastra);
   return () => calls;
 }
@@ -99,4 +99,52 @@ test('다른 실행기를 초기화해도 진행 중 workflow의 비동기 컨�
     manual(b);
     await running; await waiting;
   } finally { a.cleanup(); b.cleanup(); }
+});
+
+
+test('createRun 점검 뒤 실행 직전 승인 철회는 native start를 호출하지 않는다', async () => {
+  const e = setup();
+  try {
+    let open!: () => void, started = 0;
+    const gate = new Promise<void>((resolve) => { open = resolve; });
+    manual(e, async () => { started++; return { status: 'success', result: { ok: true } }; }, async () => gate);
+    e.ex.runtime.session = { id: 's', generation: 1, status: 'idle' } as any; e.ex.runtime.generation = 1;
+    const approval = grantApproval(e.ex, { basis: 'synthetic', actions: ['assign_task'], targets: ['task-a'] });
+    const origin: RuntimeOrigin = { sessionId: 's', generation: 1, lifetime: e.ex.lifetime, action: 'assign_task', target: 'task-a' };
+    const waiting = startWorkflow('prepareTaskWorkflow', {}, undefined, origin), rejected = assert.rejects(waiting, /승인 범위 밖/);
+    const running = workflowTick(e.ex);
+    approval.revokedAt = 'after createRun'; open();
+    await running; await rejected;
+    assert.equal(started, 0);
+  } finally { e.cleanup(); }
+});
+
+test('재검토 run ID와 이력은 workflow 실행 전에 영속 상태에 연결된다', async () => {
+  const e = setup();
+  try {
+    manual(e, async () => {
+      assert.equal(e.ex.state.tasks['task-a'].runId, 'fake-run');
+      assert.deepEqual(e.ex.state.tasks['task-a'].runHistory, ['old-run', 'fake-run']);
+      return { status: 'success', result: { ok: true } };
+    });
+    e.ex.state.tasks['task-a'] = { taskId: 'task-a', runId: 'old-run', runHistory: ['old-run'] } as any;
+    const waiting = startWorkflow('pairTaskWorkflow', { taskId: 'task-a', reviewOnly: true }, 'task-a');
+    await workflowTick(e.ex); await waiting;
+  } finally { e.cleanup(); }
+});
+
+test('완료된 서비스 결과는 이후 작업 상태 변경과 공유하지 않는 저장 스냅샷이다', async () => {
+  const e = setup();
+  try {
+    manual(e);
+    e.ex.state.workflowRequests = { parent: { id: 'parent', kind: 'start', workflow: 'prepareTaskWorkflow', stage: 'dispatching', lifetime: e.ex.lifetime } };
+    e.ex.state.serviceRequests = { assign: { id: 'assign', parentId: 'parent', service: 'assign', payload: { raw: task(e, 'task-a') }, stage: 'queued' } };
+    await serviceTick(e.ex);
+    const request = e.ex.state.serviceRequests.assign;
+    assert.equal(request.stage, 'done', request.error ?? '');
+    const result = request.result as { status: string };
+    assert.equal(result.status, 'assigned'); assert.notEqual(result, e.ex.state.tasks['task-a']);
+    e.ex.state.tasks['task-a'].status = 'blocked';
+    assert.equal(result.status, 'assigned');
+  } finally { e.cleanup(); }
 });

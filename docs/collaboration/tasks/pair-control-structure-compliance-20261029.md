@@ -182,3 +182,14 @@ tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충�
 - Mastra 실제 콜백 8개와 HTTP 인자 배열 서비스 3개를 근거 있는 간선으로 연결했다. 초과 파일·시작점·순환은 0이다. 미확인 88개는 미분류 상태이므로 전체 준수 완료가 아니다. 특히 Hono compose.js:35의 next→handler도 대조 중이며 외부로 무조건 제외하지 않는다.
 - 검증: typecheck 통과. 저장 요청·승인 철회·세대 변경·stop·결과 불명·실행기 격리 및 측정기 24개 통과. 실행기·안전성·교대·파이프라인·승인 취소 관련 37개 통과(339582ms). 양방향 합성 원격 push 포함, 실제 모델·운영 원격 호출 없음. 전체 214개 회귀 통과는 직전 4905314 소스의 결과이며 이번 요청 구조의 전체 회귀는 아직 아니다.
 - 리스크: 요청 장부 추가와 worker 타이머 수명, workflow 재개 순서. stop은 두 worker 타이머도 정리한다. 결과 불명은 보수적으로 보존하며 자동 재시도하지 않는다. 롤백은 이 단계 커밋 git revert이며 저장된 결과 불명 기록은 임의 삭제하지 않는다.
+
+### HTTP 정책 연결 정리의 허용 범위 보완 (2026-11-06)
+- tools/pair-control/package.json 및 package-lock.json을 추가 허용한다. 이미 Mastra 의존성으로 설치·잠금된 Hono 4.13.13의 validator를 직접 사용할 때 같은 버전을 직접 의존성에 명시하는 데 한정한다. 버전 변경·추가 다운로드·새 서버 기능은 없다.
+- Hono compose의 프로젝트 middleware→next→route 중첩을 실제 대조했다. host/origin/x-pair-control 정책은 독립 검증 콜백이 Response 또는 승인 결과를 반환하도록 하고, Hono의 기존 validator가 그 결과를 확인한 뒤 next를 호출한다. 프로젝트 검증 콜백이 다음 handler를 호출하는 사슬은 제거하며 정책은 그대로 유지한다. validator.js의 validationFunc 반환 확인→next 순서와 HTTP 허용/거절 회귀로 검증한다.
+
+### Codex HTTP 정책·실행 직전 반례 보완 (2026-11-06)
+- Hono 4.13.13 기존 설치 버전을 직접 의존성에 명시했다(잠긴 패키지 버전·다운로드 변경 없음). validator의 검증 결과 확인 후 next 호출 순서를 사용한다. 프로젝트 validateRequest는 host/origin/x-pair-control 검사 결과만 반환하며 다음 라우트를 부르지 않는다. 이전 정책의 허용·거절 9개 사례를 실제 Hono 메모리 요청으로 검증했다.
+- workflow createRun 대기 뒤에도 실행 직전 같은 승인 판정을 재검사한다. 재검토 runId·이력을 native 실행 전에 저장해 재시작 중 이전 runId로 연결되는 창을 없앴다. 서비스 완료 결과는 structuredClone 스냅샷으로 저장해 이후 task 변경과 공유하지 않는다.
+- 측정기는 함수 값을 Array.push/Map.set에 보관하는 경우를 실행으로 오인하지 않게 했고, ??= 배열 기본값만으로 기존 프로젝트 객체를 제외하던 판정을 제거했다. 파생 refine 스키마도 원본·import·중첩 참조를 따라 검증 콜백에 연결한다.
+- 검증: typecheck 통과, HTTP·저장 요청·실행 직전 철회·run 소유권·스냅샷 12개 통과, 측정기 21개 통과. 추가 검사 첫 명령은 뒤쪽 node에 PATH 설정이 이어지지 않아 Node18 환경 오류가 났고 해당 로그를 보존했다. Node24 명령으로 다시 실행한 12개가 실제 통과 근거다.
+- 정적 --check 초과 파일 0·시작점 0·순환 0, 원시 미확인 86·외부 호출 지점 2730. 미확인 목록의 native Array/Set·Promise resolve·Hono context·Mastra 상태 기록·zod issue 기록 출처를 대조 중이며 최종 HTML에 호출 지점별 근거를 담는다. 이 단계 이후 전체 회귀와 최종 렌더는 아직 미완료다.

@@ -36,7 +36,7 @@ export function argumentFunction(ctx, fn, argument) {
   return namedFunction(ctx, fn.file, argument.name);
 }
 
-export function registers(call) { return REGISTER.has(call.name); }
+export function registers(call, ctx, fn) { return REGISTER.has(call.name) || (ctx.importsOf[fn.file][call.name]?.module === 'hono/validator' && call.name === 'validator'); }
 
 export function rootIdentifier(node) {
   while (node) {

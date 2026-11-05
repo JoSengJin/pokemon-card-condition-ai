@@ -9,6 +9,18 @@ export function indexSchemas(ctx) {
     const origin = rootIdentifier(value.node), imported = ctx.importsOf[value.file]?.[origin];
     if (imported?.module === 'zod') ctx.schemas[key] = { key, value, validators: new Set(), dependencies: new Set() };
   }
+  let discovered = true;
+  while (discovered) {
+    discovered = false;
+    for (const [key, value] of Object.entries(ctx.values)) {
+      if (ctx.schemas[key]) continue;
+      const node = value.node, origin = rootIdentifier(node), imported = ctx.importsOf[value.file]?.[origin];
+      const base = imported?.file ? exportedValue(ctx, imported.file, imported.imported) : ctx.values[value.file + ':' + origin];
+      const method = node?.type === 'CallExpression' && node.callee.type === 'MemberExpression' ? node.callee.property?.name : null;
+      if (!base || !ctx.schemas[base.file + ':' + base.name] || (node.type !== 'Identifier' && !['refine', 'superRefine', 'optional', 'nullable', 'default', 'array', 'min', 'max', 'regex', 'trim'].includes(method))) continue;
+      ctx.schemas[key] = { key, value, validators: new Set(), dependencies: new Set() }; discovered = true;
+    }
+  }
   for (const schema of Object.values(ctx.schemas)) {
     const pending = [schema.value.node];
     while (pending.length) {

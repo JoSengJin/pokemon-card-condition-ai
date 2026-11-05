@@ -32,6 +32,7 @@ export async function serviceTick(ex: Executor) {
     else if (request.service === 'integrate') request.result = await integrate(ex, data.taskId!);
     else throw new UserError('지원하지 않는 workflow 서비스');
     if (ex.stopped) return;
+    request.result = structuredClone(request.result);
     request.stage = 'done'; ex.store.save();
   } catch (error) {
     if (!ex.stopped) { request.stage = 'failed'; request.error = (error as Error).message; request.userError = error instanceof UserError; ex.store.save(); }

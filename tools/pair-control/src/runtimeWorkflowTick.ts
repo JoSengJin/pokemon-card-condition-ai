@@ -17,7 +17,14 @@ export async function workflowTick(ex: Executor) {
     request.stage = 'dispatching'; request.lifetime = ex.lifetime; ex.store.save();
     const mastra = getMastra(ex), workflow = mastra.getWorkflow(request.workflow);
     const run = await workflow.createRun(request.kind === 'resume' ? { runId: request.runId! } : { resourceId: request.resourceId });
-    request.runId = run.runId; ex.store.save();
+    request.runId = run.runId;
+    if (request.kind === 'start' && request.workflow === 'pairTaskWorkflow' && (request.inputData as { reviewOnly?: boolean })?.reviewOnly) {
+      const task = ex.state.tasks[request.resourceId!];
+      if (!task) throw new UserError('재검토 대상 작업이 없음');
+      task.runId = run.runId; task.runHistory = [...task.runHistory, run.runId];
+    }
+    ex.store.save();
+    validateOrigin(ex, request.origin); // createRun 대기 사이 승인 철회·세대 변경도 실행을 막는다.
     const output = request.kind === 'resume'
       ? await executionContext.run({ executor: ex, mastra }, run.resume.bind(run, { step: request.step!, resumeData: request.resumeData! }))
       : await executionContext.run({ executor: ex, mastra }, run.start.bind(run, { inputData: request.inputData }));

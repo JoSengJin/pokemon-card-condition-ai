@@ -187,3 +187,27 @@ test('실제 workflow 실행 요청은 framework 콜백으로, 도메인 실행�
   assert.ok(callees.includes('workflowPrepare.ts:registerExecute'));
   assert.ok(!callees.includes('taskLaunch.ts:launch'), '도메인 실행은 영속 서비스 요청을 감시하는 별도 진입점만 호출');
 });
+
+
+test('배열의 함수 값 저장은 호출이 아니며 ??= 기본값만 보고 프로젝트 push를 외부로 제외하지 않는다', () => {
+  const stored = measure({ 'src/a.ts': `function leaf() { return 1; }\nexport function caller() { const out = []; out.push(leaf); return out; }\n` }, ['--start=caller']);
+  assert.equal(stored.out.starts[0].transitions, 0, 'push는 leaf 값을 보관할 뿐 호출하지 않음');
+  const unknown = measure({ 'src/a.ts': `class Ops { push() { return 1; } }\nexport function caller(value) { (value ??= []).push(1); }\n` }, ['--start=caller']);
+  assert.equal(unknown.out.unresolvedCount, 1, '기존 value가 Ops일 수 있으므로 배열 기본값만으로 제외하지 않음');
+});
+
+test('Hono validator 팩터리는 검증 콜백을 등록하며 프로젝트 팩터리의 콜백 호출은 그대로 센다', () => {
+  const sources = { 'src/a.ts': `import { validator } from 'hono/validator';\nfunction leaf() { return 1; }\nexport function register() { return validator('header', () => leaf()); }\n` };
+  assert.equal(measure(sources, ['--start=register']).out.starts[0].transitions, 0);
+  const project = { 'src/a.ts': `function leaf() { return 1; }\nfunction validator(cb) { cb(); }\nexport function caller() { validator(() => leaf()); }\n` };
+  assert.equal(measure(project, ['--start=caller']).out.starts[0].transitions, 3);
+});
+
+
+test('기존 스키마를 refine한 파생 스키마의 검증 콜백도 import·중첩 참조를 따라 연결한다', () => {
+  const src = {
+    'src/schema.ts': `import { z } from 'zod';\nfunction leaf() { return true; }\nconst base = z.string();\nexport const derived = base.refine(() => leaf());\n`,
+    'src/a.ts': `import { z } from 'zod';\nimport { derived } from './schema.ts';\nconst schema = z.object({ value: derived });\nexport function parse(value) { return schema.safeParse(value); }\n`,
+  };
+  assert.equal(measure(src, ['--start=parse']).out.starts[0].transitions, 2);
+});

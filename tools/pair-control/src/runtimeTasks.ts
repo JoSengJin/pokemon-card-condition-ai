@@ -17,7 +17,6 @@ export async function startReview(taskId: string) {
   const ex = getExecutor(), task = getTask(ex, taskId);
   if (task.status !== 'integration_refused') throw new UserError(`재검토는 통합 거절(승인 무효화) 상태에서만 가능(${task.status})`);
   const result = await startWorkflow('pairTaskWorkflow', { taskId, reviewOnly: true }, taskId);
-  task.runId = result.runId; task.runHistory = [...task.runHistory, result.runId]; ex.store.save();
   return { runId: result.runId, status: result.status };
 }
 
