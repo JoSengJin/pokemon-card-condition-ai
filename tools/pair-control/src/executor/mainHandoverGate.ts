@@ -1,6 +1,5 @@
 import { limitOf } from './executorLookup.ts';
 // 메인 교대 대상과 공급자별 한도를 한 곳에서 판정한다. 일반 교대만 추가 작업 차단 상태를 확인한다.
-import { swapBlockers } from './mainRole.ts';
 import { UserError, type Executor } from './executor.ts';
 import type { Agent } from './mainTypes.ts';
 import { appendEvent } from './store.ts';
@@ -17,12 +16,4 @@ export async function targetGate(ex: Executor, toRaw: string, limitReason?: stri
   appendEvent(ex.cfg.stateDir, { type: 'main_handover_blocked', lifetime: ex.lifetime, to, detail: lim.detail, bothLimited: !!(rt.limited[from] && rt.limited[to]) });
   ex.store.save();
   return { ok: false as const, status: rt.limited[from] && rt.limited[to] ? 'blocked_both_limited' as const : 'blocked_target_limited' as const, detail: lim.detail };
-}
-
-export async function manualGate(ex: Executor, toRaw: string) {
-  const target = await targetGate(ex, toRaw);
-  if ('status' in target) return target;
-  const blockers = (await swapBlockers(ex)).filter((reason) => !reason.startsWith('프로세스 실행 중: agent '));
-  if (blockers.length) throw new UserError(`교대할 수 없음: ${blockers.join(' / ')}`);
-  return target;
 }

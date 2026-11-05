@@ -7,12 +7,16 @@ export function renderSpecs() {
 }
 
 export function specRows(list, kind) {
-  return list.map((c, i) => '<div class="specRow" data-list="' + kind + '" data-i="' + i + '">' +
+  const rows = [];
+  for (const [i, c] of list.entries()) {
+    rows.push('<div class="specRow" data-list="' + kind + '" data-i="' + i + '">' +
     '<input data-k="name" value="' + esc(c.name) + '" placeholder="이름">' +
     '<select data-k="executable">' + ['git', 'node', '.venv/bin/python'].map((x) => '<option' + (x === c.executable ? ' selected' : '') + '>' + x + '</option>').join('') + '</select>' +
     '<textarea data-k="args" placeholder="인자 한 줄에 하나">' + esc(c.args.join('\n')) + '</textarea>' +
     (kind === 'c' ? '<input data-k="cwd" value="' + esc(c.cwd) + '" title="작업 폴더 기준 cwd">' : '') +
-    '<button type="button" data-spec="rm">빼기</button></div>').join('') || '<div class="muted small">없음</div>';
+    '<button type="button" data-spec="rm">빼기</button></div>');
+  }
+  return rows.join('') || '<div class="muted small">없음</div>';
 }
 
 export function onSpecClick(el) {

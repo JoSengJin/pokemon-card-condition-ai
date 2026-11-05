@@ -3,15 +3,7 @@ import path from 'node:path';
 import { UserError } from '../executor/executor.ts';
 import { cfg } from './serverContext.ts';
 
-export function act(fn: (c: any) => Promise<unknown>) {
-  return async (c: any) => {
-    try { return c.json({ ok: true, data: await fn(c) }); }
-    catch (err) {
-      const user = err instanceof UserError;
-      return c.json({ ok: false, error: user ? err.message : `내부 오류: ${(err as Error).message}` }, user ? 400 : 500);
-    }
-  };
-}
+export { act } from './requestAction.ts';
 
 export async function body(c: any) {
   try { return await c.req.json(); } catch { return {}; }

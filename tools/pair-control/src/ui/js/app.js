@@ -9,21 +9,27 @@ import { pollLog, onLogScroll } from './app-log.js';
 let busy = false;
 
 ui.rerender = render;
-ui.refreshNow = refresh;
+ui.refreshNow = poll;
 document.addEventListener('click', onClick);
 document.addEventListener('click', onThemeClick);
 document.addEventListener('input', onInput);
 document.addEventListener('change', onInput);
 document.addEventListener('scroll', onLogScroll, true); // scroll도 버블링되지 않아 capture로 받는다
 document.addEventListener('toggle', onInput, true); // toggle은 버블링되지 않아 capture로 받는다
-// 숨겨진 탭은 브라우저가 타이머를 늦추므로, 다시 보일 때 바로 확인한다.
-document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-window.addEventListener('focus', () => refresh());
+// 같은 폴링 진입점이 상태 수집과 렌더를 순서대로 수행한다.
+document.addEventListener('visibilitychange', poll);
+window.addEventListener('focus', poll);
 initTheme();
 initForm();
-setInterval(async () => {
-  if (busy) return;
+setInterval(poll, 1000);
+poll();
+
+async function poll() {
+  if (busy || document.hidden) return;
   busy = true;
-  try { await refresh(); await pollLog(); await pollActivity(); } finally { busy = false; }
-}, 1000);
-refresh().then(pollLog);
+  try {
+    if (await refresh()) render();
+    await pollLog();
+    if (await pollActivity()) render();
+  } finally { busy = false; }
+}

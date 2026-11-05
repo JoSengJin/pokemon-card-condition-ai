@@ -13,7 +13,8 @@ const HEADING = /^\s{0,3}#{1,6}\s/;
 
 /** 한 줄에서 경로 후보를 뽑는다: 백틱으로 감싼 토큰, 없으면 목록 항목의 첫 토큰. */
 function pathsIn(line: string, listItem: boolean): string[] {
-  const ticks = [...line.matchAll(/`([^`\n]+)`/g)].map((m) => m[1].trim());
+  const ticks = [];
+  for (const match of line.matchAll(/`([^`\n]+)`/g)) ticks.push(match[1].trim());
   if (ticks.length) return ticks;
   const m = ITEM.exec(line);
   return listItem && m ? [m[1].trim().split(/\s+/)[0].replace(/[,;:]+$/, '')] : [];

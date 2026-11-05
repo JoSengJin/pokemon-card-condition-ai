@@ -3,10 +3,14 @@ import { esc } from './core.js';
 export const ICON = { done: '✓', active: '', action: '!', failed: '✗', warn: '!', todo: '', skipped: '–' };
 
 export function pipelineBar(stages, key, cur, changed) {
-  return '<ol class="pipe" aria-label="작업 단계">' + stages.map((s, i) =>
+  const rows = [];
+  for (const [i, s] of stages.entries()) {
+    rows.push(
     '<li class="node s-' + s.status + (s.key === key ? ' sel' : '') + (s.key === cur ? ' cur' : '') + (changed.includes(s.key) ? ' changed' : '') + '">' +
       '<button type="button" data-act="stage" data-stage="' + s.key + '" title="' + esc(s.desc) + '" aria-current="' + (s.key === key ? 'step' : 'false') + '">' +
-      '<span class="dot">' + (ICON[s.status] || '') + '</span><span class="nl">' + (i + 1) + '. ' + esc(s.label) + '</span><span class="nt">' + esc(s.text) + '</span></button></li>').join('') + '</ol>';
+      '<span class="dot">' + (ICON[s.status] || '') + '</span><span class="nl">' + (i + 1) + '. ' + esc(s.label) + '</span><span class="nt">' + esc(s.text) + '</span></button></li>');
+  }
+  return '<ol class="pipe" aria-label="작업 단계">' + rows.join('') + '</ol>';
 }
 
 export function stageChanges(stages, prev) {
@@ -19,5 +23,10 @@ export function stageChanges(stages, prev) {
 }
 
 export function logStageLinks(stages) {
-  return ['build', 'tests', 'review', 'postcheck'].map((k) => '<button type="button" class="link" data-act="stage" data-stage="' + k + '">' + (stages.findIndex((x) => x.key === k) + 1) + '. ' + esc(stages.find((x) => x.key === k).label) + '</button>').join(' · ');
+  const links = [];
+  for (const key of ['build', 'tests', 'review', 'postcheck']) {
+    const index = stages.findIndex((stage) => stage.key === key), stage = stages[index];
+    links.push('<button type="button" class="link" data-act="stage" data-stage="' + key + '">' + (index + 1) + '. ' + esc(stage.label) + '</button>');
+  }
+  return links.join(' · ');
 }

@@ -8,10 +8,13 @@ function badAction(a: unknown, i: number): string | null {
   const row = a as Record<string, unknown>;
   if (typeof row.id !== 'string' || !row.id.trim()) return `행동[${i}].id가 비어 있거나 문자열이 아님`;
   if (typeof row.type !== 'string' || !(ACTION_TYPES as readonly string[]).includes(row.type)) return `행동[${i}].type을 지원하지 않음: ${String(row.type)}`;
-  if ([row.taskId, row.sha, row.target].some((v) => v !== undefined && typeof v !== 'string')) return `행동[${i}]의 taskId·sha·target은 문자열이어야 함`;
+  for (const value of [row.taskId, row.sha, row.target]) if (value !== undefined && typeof value !== 'string') return `행동[${i}]의 taskId·sha·target은 문자열이어야 함`;
   if (row.input !== undefined && (!row.input || typeof row.input !== 'object' || Array.isArray(row.input))) return `행동[${i}].input이 객체가 아님`;
-  if ([row.diffHash, row.note].some((v) => v !== undefined && typeof v !== 'string')) return `행동[${i}]의 diffHash·note는 문자열이어야 함`;
-  if (row.reviewedFiles !== undefined && (!Array.isArray(row.reviewedFiles) || row.reviewedFiles.some((f) => typeof f !== 'string'))) return `행동[${i}].reviewedFiles가 문자열 배열이 아님`;
+  for (const value of [row.diffHash, row.note]) if (value !== undefined && typeof value !== 'string') return `행동[${i}]의 diffHash·note는 문자열이어야 함`;
+  if (row.reviewedFiles !== undefined) {
+    if (!Array.isArray(row.reviewedFiles)) return `행동[${i}].reviewedFiles가 문자열 배열이 아님`;
+    for (const file of row.reviewedFiles) if (typeof file !== 'string') return `행동[${i}].reviewedFiles가 문자열 배열이 아님`;
+  }
   return null;
 }
 

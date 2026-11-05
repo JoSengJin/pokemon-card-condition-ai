@@ -1,5 +1,5 @@
 import * as G from './git.ts';
-import { git, redactText } from './pushTransport.ts';
+import { networkEnv, redactText } from './pushTransport.ts';
 import { checkout } from './pushConfig.ts';
 import type { PushPlan, PushRecord, RevertInfo } from './pushTypes.ts';
 import type { Executor } from './executor.ts';
@@ -38,7 +38,7 @@ export function judgePushFindings(ex: Executor, plan: PushPlan) {
 export async function dryRunPush(ex: Executor, plan: PushPlan) {
   const cwd = checkout(ex), blockers = plan.blockers;
   // 전송 없이 거절·인증 여부만 확인(원격에 읽기 접속)
-  const dry = await git(cwd, ['push', '--dry-run', '--porcelain', plan.remote, `${plan.localHead}:refs/heads/${plan.branch}`], 90_000);
+  const dry = await G.run('git', ['push', '--dry-run', '--porcelain', plan.remote, `${plan.localHead}:refs/heads/${plan.branch}`], cwd, 90_000, networkEnv());
   plan.dryRun = { ok: dry.code === 0, detail: redactText((dry.stderr || dry.stdout).trim().slice(0, 300)) };
   if (dry.code !== 0) blockers.push(`push --dry-run 실패: ${plan.dryRun.detail || `code ${dry.code}`}`);
   return plan;

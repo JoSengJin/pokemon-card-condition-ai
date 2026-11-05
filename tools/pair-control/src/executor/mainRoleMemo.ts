@@ -1,5 +1,6 @@
 import { limitOf } from './executorLookup.ts';
 import { taskLine } from './mainRoleTaskLine.ts';
+import { turnOf } from './executorView.ts';
 import type { Executor } from './executor.ts';
 
 export function memo(ex: Executor, from: 'codex' | 'claude', to: 'codex' | 'claude', reason: string, at: string): string {
@@ -8,6 +9,8 @@ export function memo(ex: Executor, from: 'codex' | 'claude', to: 'codex' | 'clau
   const open = tasks.filter((t) => !['integrated', 'rejected', 'abandoned', 'cancelled'].includes(t.status));
   const reHandoff = tasks.filter((t) => t.handoff && !t.handoff.cancelledAt && t.handoff.to === from && t.status === 'review_pending');
   const pushes = Object.values(ex.state.pushes ?? {}).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5);
+  const openLines = [];
+  for (const task of open) openLines.push(taskLine(task, turnOf(task)));
   return `# 메인 역할 이양: ${from} → ${to}
 
 - 시각: ${at}
@@ -17,7 +20,7 @@ export function memo(ex: Executor, from: 'codex' | 'claude', to: 'codex' | 'clau
 
 ## 진행 중인 작업
 
-${open.map(taskLine).join('\n') || '- 없음'}
+${openLines.join('\n') || '- 없음'}
 
 ## 새 메인에게 다시 전달해야 하는 인계
 

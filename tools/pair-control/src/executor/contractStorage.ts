@@ -1,4 +1,5 @@
-import crypto from 'node:crypto';
+import { sha256 } from './contentHash.ts';
+export { sha256 } from './contentHash.ts';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as G from './git.ts';
@@ -7,7 +8,6 @@ import type { TaskInputT } from './contract.ts';
 
 export const contractPath = (taskId: string) => `docs/collaboration/tasks/${taskId}.md`;
 
-export const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
 export interface ContractCommit { contractSha: string; contractHash: string; reused: boolean }
 
@@ -43,6 +43,6 @@ export async function commitContract(worktree: string, t: TaskInputT): Promise<C
 }
 
 export async function contractHashAt(worktree: string, taskId: string, sha: string): Promise<string | null> {
-  const r = await G.git(worktree, 'show', `${sha}:${contractPath(taskId)}`);
+  const r = await G.run('git', ['show', `${sha}:${contractPath(taskId)}`], worktree);
   return r.code === 0 ? sha256(r.stdout) : null;
 }

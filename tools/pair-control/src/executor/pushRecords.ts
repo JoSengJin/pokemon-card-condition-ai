@@ -1,6 +1,6 @@
 import * as G from './git.ts';
 import { checkout, remoteName } from './pushConfig.ts';
-import { lsRemote } from './pushTransport.ts';
+import { lsRemote, networkEnv, redactText } from './pushTransport.ts';
 import { UserError } from './executor.ts';
 import type { PushPlan, PushRecord, RevertInfo } from './pushTypes.ts';
 import type { Executor } from './executor.ts';
@@ -13,8 +13,8 @@ export function pushState(ex: Executor) {
 export async function verifyPush(ex: Executor, id: string): Promise<PushRecord> {
   const rec = ex.state.pushes?.[id];
   if (!rec) throw new UserError('푸시 기록 없음');
-  const now = await lsRemote(checkout(ex), rec.remote, rec.branch);
-  if (!now.ok) throw new UserError(`원격 확인 실패: ${now.detail}`);
+  const now = await lsRemote(checkout(ex), rec.remote, rec.branch, networkEnv());
+  if (!now.ok) throw new UserError(`원격 확인 실패: ${redactText(now.detail)}`);
   const reachable = now.sha && (now.sha === rec.pushedSha || (await G.isAncestor(checkout(ex), rec.pushedSha, now.sha)));
   if (now.sha === rec.pushedSha) { rec.status = 'pushed_verified'; rec.detail = '원격 SHA가 대상 SHA와 일치'; }
   else if (reachable) { rec.status = 'pushed_verified'; rec.detail = '대상 SHA가 원격 이력에 포함됨(이후 다른 커밋이 추가됨)'; }

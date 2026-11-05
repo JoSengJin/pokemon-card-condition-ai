@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import { probe } from './adapters.ts';
-import { effectiveGroups } from './contract.ts';
 import { UserError } from './errors.ts';
 import type { Executor, Task } from './executor.ts';
 
@@ -22,7 +21,7 @@ export async function refreshProbes(ex: Executor) {
   return ex.probes;
 }
 
-export function groupsOf(task: Task) { return effectiveGroups(task); }
+export { effectiveGroups as groupsOf } from './contract.ts';
 
 export function turnOf(t: Task): { who: 'user' | 'implementer' | 'main' | 'tool'; agent?: 'codex' | 'claude'; label: string; next: string } {
     const impl = { who: 'implementer' as const, agent: t.agent };

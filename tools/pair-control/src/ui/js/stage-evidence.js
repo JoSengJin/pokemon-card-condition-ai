@@ -36,7 +36,8 @@ export function handoffState(t) {
 }
 
 export function pushStateOf(t, push) {
-  const rec = ((push && push.records) || []).find((r) => r.tasks.includes(t.taskId));
+  let rec;
+  for (const record of (push && push.records) || []) if (record.tasks.includes(t.taskId)) { rec = record; break; }
   if (!rec) return { status: 'action', text: '아직 푸시 안 함', primary: { act: 'pushcheck', label: '푸시 점검' } };
   if (rec.status === 'pushed_verified') return rec.revert && rec.revert.pushedAs ? { status: 'warn', text: '푸시 후 되돌림됨' } : { status: 'done', text: '원격 반영 확인' };
   if (rec.status === 'push_failed') return { status: 'failed', text: '푸시 실패(원격 그대로)', primary: { act: 'pushcheck', label: '다시 점검' } };

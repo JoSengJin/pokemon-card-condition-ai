@@ -10,7 +10,19 @@ export function codexEvent(o) {
   if (o.type === 'item.started' && it.type === 'command_execution') return ['$ ' + clip(it.command)];
   if (o.type !== 'item.completed') return o.type === 'item.started' || o.type === 'item.updated' ? [] : null;
   if (it.type === 'agent_message') return clip(it.text, 1200).split('\n');
-  if (it.type === 'command_execution') return ['  → 종료 코드 ' + it.exit_code].concat(String(it.aggregated_output || '').split('\n').filter((l) => l.trim()).slice(0, 3).map((l) => '    ' + clip(l, 160)));
-  if (it.type === 'file_change') return (it.changes || []).map((c) => '[수정] ' + clip(c.path, 160));
+  if (it.type === 'command_execution') {
+    const lines = [];
+    for (const line of String(it.aggregated_output || '').split('\n')) {
+      if (!line.trim()) continue;
+      lines.push('    ' + clip(line, 160));
+      if (lines.length === 3) break;
+    }
+    return ['  → 종료 코드 ' + it.exit_code].concat(lines);
+  }
+  if (it.type === 'file_change') {
+    const lines = [];
+    for (const change of it.changes || []) lines.push('[수정] ' + clip(change.path, 160));
+    return lines;
+  }
   return it.type === 'reasoning' ? [] : null;
 }

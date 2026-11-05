@@ -11,13 +11,13 @@ import { attachLoggedOutput } from './loggedOutput.ts';
 export function runLogged(cmd: string, args: string[], cwd: string, timeoutMs: number, env: NodeJS.ProcessEnv, logPath: string, redact: Redact): Promise<{ code: number; timedOut: boolean }> {
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   fs.writeFileSync(logPath, '');
+  const w = lineWriter(logPath, redact);
+  const child = spawn(cmd, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  attachLoggedOutput(child, w);
   return new Promise((resolve) => {
-    const w = lineWriter(logPath, redact);
     let timedOut = false, done = false;
-    const child = spawn(cmd, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
     const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, timeoutMs);
     const finish = (code: number) => { if (done) return; done = true; clearTimeout(timer); w.end(); resolve({ code, timedOut }); };
-    attachLoggedOutput(child, w);
     child.on('error', (err) => { w.push(`[실행 실패] ${err.message}\n`); finish(127); });
     child.on('close', (code) => finish(typeof code === 'number' ? code : 1));
   });

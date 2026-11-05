@@ -9,7 +9,7 @@ import type { Executor } from './executor.ts';
 
 export const BEFORE_START = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 'abandoned'];
 
-export async function createVenv(ex: Executor, taskId: string) {
+export async function makeVenv(ex: Executor, taskId: string) {
   const t = getTask(ex, taskId);
   if (!BEFORE_START.includes(t.status)) throw new UserError(`시작 전·중단된 작업에서만 환경을 만들 수 있음(${t.status})`);
   const wts = await G.worktrees(ex.cfg.repo);
@@ -22,5 +22,10 @@ export async function createVenv(ex: Executor, taskId: string) {
   const r = await G.run('python3', ['-m', 'venv', '.venv'], real, 180_000, sanitizedChildEnv());
   record(ex, t, 'venv_created', { code: r.code, stderr: r.stderr.slice(0, 300) });
   if (r.code !== 0) throw new UserError(`python3 -m venv 실패(code ${r.code}): ${r.stderr.trim().slice(0, 300)}`);
+  return t;
+}
+
+export async function createVenv(ex: Executor, taskId: string) {
+  await makeVenv(ex, taskId);
   return recheckEnv(ex, taskId);
 }

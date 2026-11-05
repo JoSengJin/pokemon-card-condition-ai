@@ -3,7 +3,9 @@ import { esc, lbl } from './core.js';
 import { STATUS } from './view-status.js';
 
 export function miniPipeline(stages) {
-  return '<div class="mini" aria-hidden="true">' + stages.map((s) => '<i class="s-' + s.status + '" title="' + esc(s.label + ': ' + s.text) + '"></i>').join('') + '</div>';
+  const nodes = [];
+  for (const stage of stages) nodes.push('<i class="s-' + stage.status + '" title="' + esc(stage.label + ': ' + stage.text) + '"></i>');
+  return '<div class="mini" aria-hidden="true">' + nodes.join('') + '</div>';
 }
 
 export function taskCard(t, ui, pushed, cur, pipeline) {

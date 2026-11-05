@@ -2,7 +2,7 @@ import { say, ui } from './core.js';
 import { ACTIONS } from './action-routes.js';
 import { run } from './action-request.js';
 
-export function onClick(ev) {
+export async function onClick(ev) {
   const el = ev.target.closest('[data-act]');
   if (!el || el.disabled) return;
   const act = el.dataset.act;
@@ -13,13 +13,13 @@ export function onClick(ev) {
   else if (act === 'logpause') ui.keep.logPaused = !ui.keep.logPaused;
   else if (act === 'copy') return copyText(document.getElementById(el.dataset.target), el.dataset.what);
   else if (act === 'maincopy') return copyText(document.getElementById('mainMemo'), '이양 메모');
-  else if (ACTIONS[act]) return run(act, el);
+  else if (ACTIONS[act]) await run(act, el);
   ui.rerender();
 }
 
-export function onInput(ev) {
+export async function onInput(ev) {
   const el = ev.target;
-  if (el.id === 'mainBox' && ev.type === 'toggle' && el.open) return run('maincheck', el);
+  if (el.id === 'mainBox' && ev.type === 'toggle' && el.open) { await run('maincheck', el); ui.rerender(); return; }
   const k = el.dataset && el.dataset.keep;
   if (!k) return;
   ui.keep[k] = el.type === 'checkbox' ? el.checked : el.tagName === 'DETAILS' ? el.open : el.value;

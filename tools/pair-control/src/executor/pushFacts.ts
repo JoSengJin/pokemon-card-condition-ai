@@ -1,11 +1,11 @@
 import * as G from './git.ts';
-import { git, redactUrl, redactText } from './pushTransport.ts';
+import { networkEnv, redactUrl, redactText } from './pushTransport.ts';
 import { checkout } from './pushConfig.ts';
 import type { PushPlan, PushRecord, RevertInfo } from './pushTypes.ts';
 import type { Executor } from './executor.ts';
 
 export async function collectPushFacts(ex: Executor, plan: PushPlan) {
-  const cwd = checkout(ex), { remote, branch, blockers } = plan;
+  const cwd = checkout(ex), { remote, branch, blockers } = plan, env = networkEnv();
   const branchResult = await G.run('git', ['symbolic-ref', '--quiet', '--short', 'HEAD'], cwd);
   const cur = branchResult.code === 0 ? branchResult.stdout.trim() : null;
   if (cur !== branch) blockers.push(`통합 checkout의 브랜치가 ${branch}가 아님(현재 ${cur ?? 'detached'})`);
@@ -17,11 +17,11 @@ export async function collectPushFacts(ex: Executor, plan: PushPlan) {
   if (!head) { blockers.push(`로컬 ${branch} 브랜치를 읽지 못함`); return plan; }
   plan.localHead = head;
 
-  const url = await git(cwd, ['remote', 'get-url', remote]);
+  const url = await G.run('git', ['remote', 'get-url', remote], cwd, 60_000, env);
   if (url.code !== 0) { blockers.push(`원격 '${remote}'이(가) 설정되어 있지 않음`); return plan; }
   plan.remoteUrl = redactUrl(url.stdout.trim());
 
-  const f = await git(cwd, ['fetch', '--no-tags', remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`]);
+  const f = await G.run('git', ['fetch', '--no-tags', remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`], cwd, 60_000, env);
   if (f.code !== 0) { blockers.push(`원격 fetch 실패: ${redactText(f.stderr.trim().slice(0, 300)) || `code ${f.code}`}`); return plan; }
   const remoteHead = await G.revParse(cwd, `refs/remotes/${remote}/${branch}`);
   if (!remoteHead) { blockers.push('원격에 이 브랜치가 없음 — 첫 푸시는 이 도구가 하지 않음'); return plan; }

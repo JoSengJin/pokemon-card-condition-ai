@@ -1,7 +1,7 @@
 import { B, esc } from './core.js';
 import { panelBuild, panelGit, panelPrepare, panelReview, panelTests } from './panels-work.js';
-import { panelApprove, panelHandoff, panelIntegrate, panelPostcheck, panelPush, pushRecords } from './panels-release.js';
-import { logTarget, renderLog, statText } from './logview.js';
+import { panelApprove, panelHandoff, panelIntegrate, panelPostcheck, panelPush } from './panels-release.js';
+import { logTarget, statText } from './logview.js';
 import { currentKey, stagesOf } from './stages.js';
 import { pipelineBar, stageChanges, logStageLinks } from './view-stage-bar.js';
 import { runInfo } from './view-run-info.js';
@@ -19,7 +19,7 @@ export const WHO = { user: '사용자', implementer: '구현 에이전트', main
 export function renderTask(state, ui) {
   const box = document.getElementById('detail');
   const t = state.tasks.find((x) => x.taskId === ui.selected);
-  if (!t) { box.innerHTML = '<p class="muted empty">왼쪽 목록에서 작업을 고르거나 위에서 새 작업을 만드세요.</p>'; return; }
+  if (!t) { box.innerHTML = '<p class="muted empty">왼쪽 목록에서 작업을 고르거나 위에서 새 작업을 만드세요.</p>'; return null; }
   const stages = stagesOf(t, state.push, state.main && state.main.agent);
   const cur = currentKey(stages);
   const key = ui.stage[t.taskId] && PANELS[ui.stage[t.taskId]] ? ui.stage[t.taskId] : cur;
@@ -42,9 +42,10 @@ export function renderTask(state, ui) {
     pipelineBar(stages, key, cur, changed) +
     '<section class="stagePanel s-' + st.status + '"><h3><span class="num">' + idx + '</span> ' + esc(st.label) + ' <span class="pill s-' + st.status + '">' + WORD[st.status] + '</span>' +
       (lg ? ' <span class="small muted" id="logStat">' + statText(lg) + '</span>' : '') +
-      (key !== cur ? ' <button type="button" class="link small" data-act="stage" data-stage="' + cur + '">지금 단계로</button>' : '') + '</h3>' + renderLog(lg, ui) +
+      (key !== cur ? ' <button type="button" class="link small" data-act="stage" data-stage="' + cur + '">지금 단계로</button>' : '') + '</h3>' + '<div id="taskLog"></div>' +
       (lg ? '' : '<div class="small muted logHint">실행 로그는 ' + logStageLinks(stages) + ' 단계에서 볼 수 있습니다(누르면 그 단계로 이동).</div>') +
       '<p class="desc">' + esc(st.desc) + '</p><div class="small muted">담당: ' + esc(st.who) + ' · 상태: ' + esc(st.text) + '</div>' +
-      '<div class="panelBody">' + PANELS[key](t, ui) + (key === 'push' && state.push ? '<h4>푸시 기록</h4>' + pushRecords(state.push.records) : '') + '</div></section>' +
+      '<div class="panelBody" id="stageBody"></div></section>' +
     runInfo(t, ui);
+  return { task: t, key, log: lg };
 }

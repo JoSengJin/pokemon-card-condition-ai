@@ -22,7 +22,6 @@ export async function run(act, el) {
     say(a.n + ' 실패: ' + e.message, 'bad');
     if (act === 'maincheck') ui.mainBlockers = { error: e.message };
   }
-  ui.rerender();
   setTimeout(ui.refreshNow, 0);
 }
 

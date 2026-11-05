@@ -1,11 +1,13 @@
 export function gate(stages) {
   let wait = null;
-  return stages.map((s) => {
+  const gated = [];
+  for (const s of stages) {
     const out = wait && ['action', 'active'].includes(s.status)
       ? { ...s, status: 'todo', text: '앞 단계(' + wait.label + ') 완료 후', primary: null } : s;
     if (!wait && !['done', 'skipped'].includes(s.status) && !(s.key === 'review' && s.status !== 'active')) wait = s;
-    return out;
-  });
+    gated.push(out);
+  }
+  return gated;
 }
 
 export function currentKey(stages) {

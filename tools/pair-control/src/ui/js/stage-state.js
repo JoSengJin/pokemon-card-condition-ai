@@ -53,5 +53,7 @@ export function stagesOf(t, push, mainAgent) {
 }
 
 export function venvMissing(env) {
-  return !!env && !env.ready && (env.checks || []).some((c) => c.name === '자체 .venv' && !c.ok && c.detail === '없음');
+  if (!env || env.ready) return false;
+  for (const check of env.checks || []) if (check.name === '자체 .venv' && !check.ok && check.detail === '없음') return true;
+  return false;
 }

@@ -1,9 +1,8 @@
 import crypto from 'node:crypto';
 import * as G from './git.ts';
-import { sanitizedChildEnv } from './freeGuard.ts';
 import { authorize } from './approvalGate.ts';
 import { checkout } from './pushConfig.ts';
-import { redactText } from './pushTransport.ts';
+import { networkEnv, redactText } from './pushTransport.ts';
 import { UserError } from './executor.ts';
 import type { PushPlan, PushRecord, RevertInfo } from './pushTypes.ts';
 import type { Executor } from './executor.ts';
@@ -13,9 +12,7 @@ export async function executePush(ex: Executor, plan: PushPlan, sessionId?: stri
   const owner = crypto.randomUUID();
   if (!ex.locks.acquire('integration', { owner, kind: 'push' })) throw new UserError(`다른 통합·푸시가 진행 중: ${JSON.stringify(ex.locks.holder('integration'))}`);
   try {
-    const env = sanitizedChildEnv();
-    env.GIT_TERMINAL_PROMPT = '0';
-    if (process.env.SSH_AUTH_SOCK) env.SSH_AUTH_SOCK = process.env.SSH_AUTH_SOCK;
+    const env = networkEnv();
     const before = await G.run('git', ['ls-remote', plan.remote, `refs/heads/${plan.branch}`], cwd, 60_000, env);
     const beforeSha = before.code === 0 ? before.stdout.trim().split(/\s+/)[0] : null;
     if (before.code !== 0) throw new UserError(`원격 확인 실패: ${redactText(before.stderr.trim().slice(0, 300))}`);

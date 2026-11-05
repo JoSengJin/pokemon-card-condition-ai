@@ -24,11 +24,14 @@ export function mainRuntimeView(ex: Executor, pipeline: ReturnType<typeof pipeli
 
 export async function snapshot(pipeline: ReturnType<typeof pipelineView>) {
   const ex = getExecutor();
-  const tasks = await Promise.all(Object.values(ex.state.tasks).map(async (task) => {
-    const info = await runInfo(task.runId);
+  const source = Object.values(ex.state.tasks), queries = [];
+  for (const task of source) queries.push(runInfo(task.runId));
+  const observations = await Promise.all(queries), tasks = [];
+  for (const [index, task] of source.entries()) {
+    const info = observations[index];
     const execution = task.lastExecId ? ex.state.executions[task.lastExecId] : null;
-    return { ...task, groups: groupsOf(task), mastra: info, mismatch: discrepancy(task, info), turn: turnOf(task), exec: execution && { ...execution, token: undefined, groupAlive: groupAlive(ex, execution.pgid) } };
-  }));
+    tasks.push({ ...task, groups: groupsOf(task), mastra: info, mismatch: discrepancy(task, info), turn: turnOf(task), exec: execution && { ...execution, token: undefined, groupAlive: groupAlive(ex, execution.pgid) } });
+  }
   tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     now: new Date().toISOString(), lifetime: ex.lifetime, mode: ex.cfg.allowRealModelCalls ? 'real-allowed' : 'mock-only',

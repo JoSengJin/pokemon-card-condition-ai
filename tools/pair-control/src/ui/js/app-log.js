@@ -1,8 +1,11 @@
+import { claudeEvent } from './event-claude.js';
+import { codexEvent } from './event-codex.js';
+import { clip } from './event-text.js';
 import { api, ui } from './core.js';
 
 import { logTarget, paintLog } from './logview.js';
 
-import { splitLogChunk, appendLogRows, fmtLine } from './event-log.js';
+import { splitLogChunk, appendLogRows, parseLogEvent } from './event-log.js';
 
 export async function pollLog() {
   const t = ui.state && ui.state.tasks.find((x) => x.taskId === ui.selected);
@@ -14,7 +17,11 @@ export async function pollLog() {
   try {
     const d = await api(g.api + ui.log.next);
     const batch = splitLogChunk(ui.log, d.text || '', ui.log.next === 0, g.live);
-    for (const raw of batch.raws) appendLogRows(ui.log, fmtLine(raw), batch.now);
+    for (const raw of batch.raws) {
+      const event = parseLogEvent(raw);
+      const lines = event ? claudeEvent(event) || codexEvent(event) || [clip(raw)] : [raw];
+      appendLogRows(ui.log, lines, batch.now);
+    }
     ui.log.next = d.next;
     paintLog(g, ui);
   } catch { /* 다음 주기에 다시 받는다 */ }

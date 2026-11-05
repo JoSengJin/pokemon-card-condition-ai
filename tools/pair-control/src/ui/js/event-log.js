@@ -2,12 +2,15 @@ import { clip } from './event-text.js';
 import { claudeEvent } from './event-claude.js';
 import { codexEvent } from './event-codex.js';
 
+export function parseLogEvent(raw) {
+  if (!raw.startsWith('{')) return null;
+  try { const event = JSON.parse(raw); return event && typeof event.type === 'string' ? event : null; }
+  catch { return null; }
+}
+
 export function fmtLine(raw) {
-  if (!raw.startsWith('{')) return [raw];
-  let o = null;
-  try { o = JSON.parse(raw); } catch { return [raw]; }
-  if (!o || typeof o.type !== 'string') return [raw];
-  return claudeEvent(o) || codexEvent(o) || [clip(raw)];
+  const event = parseLogEvent(raw);
+  return event ? claudeEvent(event) || codexEvent(event) || [clip(raw)] : [raw];
 }
 
 export function splitLogChunk(log, chunk, firstFetch, live) {

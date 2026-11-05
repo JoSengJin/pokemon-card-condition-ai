@@ -9,7 +9,7 @@ import type { MainAction, MainSession } from './mainTypes.ts';
 
 export const tokenHash = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 
-function requestText(s: MainSession, token: string, approvedActions: string[]): string {
+export function requestText(s: MainSession, token: string, approvedActions: string[]): string {
   return `# 새 메인(${s.agent}) 인수 요청 — 세대 ${s.generation}
 
 당신은 pair-control의 새 메인입니다. 이전 메인(${s.from})의 대화 기억은 전달되지 않습니다. 이 폴더의 checkpoint.json만이 입력 근거입니다.
@@ -32,11 +32,11 @@ function requestText(s: MainSession, token: string, approvedActions: string[]): 
 }
 
 /** 입력 묶음 폴더(checkpoint.json + TAKEOVER_REQUEST.md)를 만들고 새 메인에게 줄 프롬프트를 돌려준다. */
-export function writeBundle(ex: Executor, s: MainSession, token: string, approvedActions: string[]) {
+export function writeBundle(ex: Executor, s: MainSession, request: string) {
   const bundleDir = path.join(ex.cfg.stateDir, 'main-sessions', s.id);
   fs.mkdirSync(bundleDir, { recursive: true });
   fs.copyFileSync(s.checkpointFile, path.join(bundleDir, 'checkpoint.json'));
-  fs.writeFileSync(path.join(bundleDir, 'TAKEOVER_REQUEST.md'), requestText(s, token, approvedActions));
+  fs.writeFileSync(path.join(bundleDir, 'TAKEOVER_REQUEST.md'), request);
   return { bundleDir, prompt: 'TAKEOVER_REQUEST.md를 읽고 지시대로 수행한 뒤 마지막 줄에 결과 JSON 한 개를 출력하세요. 파일을 수정하지 마세요.' };
 }
 

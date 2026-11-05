@@ -7,10 +7,10 @@ const TURN_CLS = { applied: 'ok', launching: 'info', launched: 'info', verified:
 
 const actionHtml = (a) => '<div class="' + (a.ok ? 'ok' : 'bad') + '">' + (a.ok ? '✓ ' : '✗ ') + esc(a.type + ': ' + a.detail) + '</div>';
 
-function turnHtml(t, current) {
+function turnHtml(t, current, actions) {
   const head = '세대 ' + t.generation + ' · ' + esc(t.agent) + ' · ' + lbl(esc(TURN[t.status] || t.status), TURN_CLS[t.status] || 'muted') + ' · 행동 성공 ' + t.actionsOk + '/' + t.actionsTotal;
   return '<div class="pipeTurn' + (current ? ' cur' : '') + '">' + (current ? '<b>현재 턴</b> ' : '') + head +
-    (t.failure ? ' <span class="warn">' + esc(t.failure) + '</span>' : '') + t.actions.map(actionHtml).join('') + '</div>';
+    (t.failure ? ' <span class="warn">' + esc(t.failure) + '</span>' : '') + actions + '</div>';
 }
 
 const heldHtml = (h) => '<div class="warn">' + esc(h.reason) + ' <span class="muted mono">' + esc(h.key.slice(0, 40)) + '</span></div>';
@@ -23,11 +23,17 @@ export function renderPipeline(p) {
   if (!p) { el.innerHTML = ''; return; }
   const tk = p.takeover, ev = p.events;
   const takeover = tk ? '메인 인수: ' + esc(tk.from) + ' → <b>' + esc(tk.agent) + '</b> (세대 ' + tk.generation + ') · ' + (tk.acked ? lbl('인수 확인됨', 'ok') : lbl('인수 확인 전', 'info')) : '메인 인수: ' + lbl('진행 중인 교대 세션 없음', 'muted');
-  const last = p.turns.slice(0, -1).reverse();
+  const last = p.turns.slice(0, -1).reverse(), actions = new Map(), previous = [];
+  for (const turn of [...p.turns, ...(p.currentTurn ? [p.currentTurn] : [])]) {
+    const rows = [];
+    for (const action of turn.actions) rows.push(actionHtml(action));
+    actions.set(turn.id, rows.join(''));
+  }
+  for (const turn of last) previous.push(turnHtml(turn, false, actions.get(turn.id)));
   el.innerHTML = '<div class="pipeHead"><b>교대 후 연속 처리</b></div><div>' + takeover + '</div>' +
     '<div class="muted">이벤트 대기 ' + ev.pending + ' · 턴 진행 ' + ev.launched + ' · 적용 ' + ev.applied + ' · 보류 ' + ev.held + ' · 결과 불명 ' + ev.unknown + '</div>' +
-    (p.currentTurn ? turnHtml(p.currentTurn, true) : '<div class="muted">모델 턴 없음</div>') +
-    (last.length ? '<details open><summary class="small muted">이전 턴 ' + last.length + '개</summary>' + last.map((t) => turnHtml(t, false)).join('') + '</details>' : '') +
+    (p.currentTurn ? turnHtml(p.currentTurn, true, actions.get(p.currentTurn.id)) : '<div class="muted">모델 턴 없음</div>') +
+    (last.length ? '<details open><summary class="small muted">이전 턴 ' + last.length + '개</summary>' + previous.join('') + '</details>' : '') +
     (p.heldReasons.length ? '<div class="pipeHeld"><b>보류·결과 불명 사유</b>' + p.heldReasons.map(heldHtml).join('') + '</div>' : '') +
     (p.tasks.length ? '<div class="pipeTasks"><b>작업별 완료 상태</b>' + p.tasks.map(taskHtml).join('') + '</div>' : '');
 }

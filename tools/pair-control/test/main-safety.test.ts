@@ -1,3 +1,4 @@
+import { buildCheckpoint } from '../src/executor/checkpointBuild.ts';
 import { getTask } from '../src/executor/executorLookup.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
@@ -155,7 +156,7 @@ test('통합 결과: 실제 workflow에서 통합 checkout이 깨끗하지 않�
 
 // ---------- 4. 잘못된 모델 출력 ----------
 async function takeoverWith(env: Env, body: Record<string, unknown>) {
-  const cp = await saveCheckpoint(env.ex, 'synthetic');
+  const cp = await saveCheckpoint(env.ex, await buildCheckpoint(env.ex, 'synthetic'));
   const s = session(env);
   Object.assign(s, { status: 'launching', checkpointFile: cp.file, checkpointHash: cp.hash, execId: 'x1' });
   env.ex.runtime.generation = 0; env.ex.runtime.frozen = true;

@@ -1,17 +1,19 @@
+import { buildCheckpoint } from './checkpointBuild.ts';
 import { ensureWatcher } from './monitorSchedule.ts';
 // 메인 역할 교대: 새 배정·상태 변경 정지 → 체크포인트 저장 → 새 메인 프로세스 실행 → 인수 확인(체크포인트·실제 Git 대조, mainAck.ts) → 승인 범위 안의 다음 행동.
 // "교대 완료"는 인수 확인과 다음 행동 수행 근거가 있을 때만 표시한다(completed). 표시 이름 변경이나 프로세스 시작만으로는 완료가 아니다.
 // 실패(실행 불가·한도·확인 불일치·결과 불명)는 상태와 복구 지점(체크포인트)을 남기고 끝낸다. 자동 재시도 루프는 없다.
 import crypto from 'node:crypto';
-import { modelActions } from './mainApprovals.ts';
+import { inheritable, modelActions } from './mainApprovals.ts';
 import { saveCheckpoint } from './mainCheckpoint.ts';
-import { manualGate } from './mainHandoverGate.ts';
+import { targetGate } from './mainHandoverGate.ts';
 import { lock } from './mainSerial.ts';
-import { tokenHash, writeBundle } from './mainTakeover.ts';
+import { tokenHash, requestText, writeBundle } from './mainTakeover.ts';
 import { swapBlockers } from './mainRole.ts';
 import { appendEvent } from './store.ts';
 import type { Executor } from './executor.ts';
 import type { Agent, MainSession } from './mainTypes.ts';
+import { UserError } from './errors.ts';
 
 export { clearAgentLimit } from './limitScope.ts';
 
@@ -37,7 +39,8 @@ export function prepareSession(ex: Executor, who: { to: Agent; from: Agent }, cp
     checkpointFile: cp.file, checkpointHash: cp.hash, tokenHash: tokenHash(token), actionResults: [], launchStage: 'probe', launchLifetime: ex.lifetime };
   rt.session = s;
   ex.audit('main_handover_started', { session: s.id, from: who.from, to: who.to, generation: s.generation, limitRecovery: s.limitRecovery, checkpointFile: cp.file });
-  const b = writeBundle(ex, s, token, modelActions(ex, s.id));
+  const request = requestText(s, token, modelActions(inheritable(ex, s.id)));
+  const b = writeBundle(ex, s, request);
   s.bundleDir = b.bundleDir; s.launchPrompt = b.prompt;
   ex.store.save();
   ensureWatcher(ex, );
@@ -51,9 +54,11 @@ export function prepareSession(ex: Executor, who: { to: Agent; from: Agent }, cp
 export async function handoverMain(ex: Executor, toRaw: string, _opts: { reason?: string } = {}) {
   const release = await lock(ex);
   try {
-    const gate = await manualGate(ex, toRaw);
+    const gate = await targetGate(ex, toRaw);
     if ('status' in gate) return gate;
+    const blockers = (await swapBlockers(ex)).filter((reason) => !reason.startsWith('프로세스 실행 중: agent '));
+    if (blockers.length) throw new UserError(`교대할 수 없음: ${blockers.join(' / ')}`);
     ex.runtime.frozen = true; // 이 줄부터 이전 메인의 배정·승인·통합은 받지 않는다
-    return prepareSession(ex, gate, await saveCheckpoint(ex, 'handover'), {});
+    return prepareSession(ex, gate, await saveCheckpoint(ex, await buildCheckpoint(ex, 'handover')), {});
   } finally { release(); }
 }

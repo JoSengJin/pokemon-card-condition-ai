@@ -4,12 +4,13 @@ import type { TaskInputT } from './contractTaskSchema.ts';
 
 export function effectiveGroups(t: Pick<TaskInputT, 'allowedFiles' | 'conflictGroups'>) {
   const g = new Set(t.conflictGroups);
-  if (t.allowedFiles.some((f) => SHARED_CONFIG.some((s) => pathsOverlap(f, s)))) g.add('shared-config');
+  for (const file of t.allowedFiles) for (const shared of SHARED_CONFIG) if (pathsOverlap(file, shared)) g.add('shared-config');
   return [...g];
 }
 
 export function needsDevelopLock(t: Pick<TaskInputT, 'allowedFiles'>) {
-  return t.allowedFiles.some((f) => DEVELOP_LOCK_PREFIXES.some((p) => pathsOverlap(f, p)));
+  for (const file of t.allowedFiles) for (const prefix of DEVELOP_LOCK_PREFIXES) if (pathsOverlap(file, prefix)) return true;
+  return false;
 }
 
 export interface ConflictReason { kind: 'files' | 'group' | 'worktree' | 'branch'; detail: string; otherTask: string }

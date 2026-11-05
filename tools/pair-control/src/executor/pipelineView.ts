@@ -20,9 +20,8 @@ function pushedTasks(ex: Executor): Set<string> {
   return done;
 }
 
-export function pipelineView(ex: Executor) {
+export function pipelineSummary(ex: Executor, held: { key: string; reason: string }[]) {
   const p = pipe(ex), s = ex.runtime.session, pushed = pushedTasks(ex);
-  const held = prepHolds(ex, s?.id);
   for (const e of Object.values(p.events)) if (e.state === 'held' || e.state === 'unknown') held.push({ key: e.key, reason: `${e.state === 'unknown' ? '[결과 불명] ' : ''}${e.reason ?? ''}` });
   const counts: Record<EventState, number> = { pending: 0, launched: 0, applied: 0, held: 0, unknown: 0 };
   for (const e of Object.values(p.events)) counts[e.state]++;
@@ -35,4 +34,8 @@ export function pipelineView(ex: Executor) {
     events: counts, heldReasons: held, turns, currentTurn: current,
     tasks: Object.values(ex.state.tasks).map((t) => ({ taskId: t.taskId, status: t.status, pipelineDone: pushed.has(t.taskId) })),
   };
+}
+
+export function pipelineView(ex: Executor) {
+  return pipelineSummary(ex, prepHolds(ex, ex.runtime.session?.id));
 }

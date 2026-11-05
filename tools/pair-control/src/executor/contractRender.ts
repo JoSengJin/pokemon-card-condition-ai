@@ -12,7 +12,7 @@ export function renderContract(t: TaskInputT): string {
     // 값이 있을 때만 넣어, 읽을 문서가 없는 기존 계약의 내용(해시)은 바뀌지 않는다.
     ...(t.readDocs?.length ? { read_docs: t.readDocs } : {}),
   };
-  const list = (xs: string[], empty: string) => (xs.length ? xs.map((x) => `- ${x}`).join('\n') : `- ${empty}`);
+  const list = (xs: string[], empty: string) => (xs.length ? '- ' + xs.join('\n- ') : `- ${empty}`);
   return `# 작업 계약: ${t.taskId}
 
 pair-control이 작업 준비 시 작업 브랜치에 커밋한 계약이다. 실행·검사·승인은 이 파일의 커밋 SHA와 내용 해시를 기준으로 한다.

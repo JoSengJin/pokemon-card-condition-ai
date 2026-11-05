@@ -16,11 +16,14 @@ export const EMPTY = {
 export function logTarget(t, key, ui) {
   if (!LOG_STAGES.includes(key)) return null;
   const e = t.exec, r = t.review;
-  const list = key === 'build' && e ? [logEntry(e.execId, '에이전트 출력', 'execs/' + enc(e.execId) + '/log?from=', LIVE.includes(e.status), e.exitCode, e.startedAt, e.endedAt, e.pid)]
-    : key === 'tests' ? ((t.verification && t.verification.items) || []).filter((i) => i.execId).map((i) => logEntry(i.execId, i.name, 'execs/' + enc(i.execId) + '/log?from=', i.status === 'running', i.exitCode, i.startedAt, i.endedAt))
-    : key === 'review' && r && r.execId ? [logEntry(r.execId, '리뷰 출력', 'execs/' + enc(r.execId) + '/log?from=', r.status === 'running', null, r.startedAt, r.endedAt)]
-    : key === 'postcheck' ? (((t.integration && t.integration.postChecks) || []).filter((i) => i.logPath).map((i) => logEntry('post:' + i.id, i.name, 'tasks/' + enc(t.taskId) + '/post-log?check=' + enc(i.id) + '&from=', i.status === 'running', i.exitCode, i.startedAt, i.endedAt)))
-    : [];
+  const list = [];
+  if (key === 'build' && e) list.push(logEntry(e.execId, '에이전트 출력', 'execs/' + enc(e.execId) + '/log?from=', LIVE.includes(e.status), e.exitCode, e.startedAt, e.endedAt, e.pid));
+  else if (key === 'tests') {
+    for (const item of (t.verification && t.verification.items) || []) if (item.execId) list.push(logEntry(item.execId, item.name, 'execs/' + enc(item.execId) + '/log?from=', item.status === 'running', item.exitCode, item.startedAt, item.endedAt));
+  } else if (key === 'review' && r && r.execId) list.push(logEntry(r.execId, '리뷰 출력', 'execs/' + enc(r.execId) + '/log?from=', r.status === 'running', null, r.startedAt, r.endedAt));
+  else if (key === 'postcheck') {
+    for (const item of (t.integration && t.integration.postChecks) || []) if (item.logPath) list.push(logEntry('post:' + item.id, item.name, 'tasks/' + enc(t.taskId) + '/post-log?check=' + enc(item.id) + '&from=', item.status === 'running', item.exitCode, item.startedAt, item.endedAt));
+  }
   if (!list.length) {
     const manual = key === 'build' && t.mode === 'manual';
     return { empty: manual ? '(수동 모드는 에이전트 세션의 출력을 도구가 받지 못합니다 — 대신 아래 "작업 폴더 활동"을 보여 줍니다)' : key === 'postcheck' && t.integration && t.integration.postStatus === 'not_run' ? '(계약에 통합 후 검사가 없어 실행하지 않았습니다)' : EMPTY[key], list: [], live: false };

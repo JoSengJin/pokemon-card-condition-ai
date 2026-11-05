@@ -6,9 +6,7 @@ export const ui = {
   seen: {}, changedAt: null, shownStage: null, activity: {}, activityAt: 0, // 직전에 그린 단계 상태(바뀐 노드를 깜빡이게)와 마지막 변화 시각
 };
 
-const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-
-export function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ESC[c]); }
+export function esc(v) { return String(v ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
 
 /** 이미 안전한 텍스트에 색을 입힌다. 이스케이프는 호출하는 쪽에서 한다(호출 깊이를 늘리지 않기 위해). */
 export function lbl(safeText, cls) { return '<span class="' + cls + '">' + safeText + '</span>'; }

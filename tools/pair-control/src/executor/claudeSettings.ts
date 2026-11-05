@@ -22,7 +22,8 @@ export function scanClaudeSettings(opts: { worktree?: string; env?: NodeJS.Proce
     if (json && typeof json === 'object') {
       if (json.apiKeyHelper) risks.push({ code: 'settings_api_key', message: `apiKeyHelper가 설정됨: ${label}`, fix: '구독 로그인만 쓰려면 이 설정을 제거' });
       if (json.env && typeof json.env === 'object') {
-        const names = PAID_ENV_KEYS.filter((k) => k in json.env);
+        const names = [];
+        for (const key of PAID_ENV_KEYS) if (key in json.env) names.push(key);
         if (names.length) risks.push({ code: 'settings_api_key', message: `설정의 env에 API 키 항목 이름이 있음(${names.join(', ')}): ${label} — 값은 읽지 않음`, fix: '해당 항목을 제거' });
       }
       if (json.forceLoginMethod !== undefined && json.forceLoginMethod !== 'claudeai') {

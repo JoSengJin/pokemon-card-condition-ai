@@ -1,7 +1,5 @@
 import { api, say, ui } from './core.js';
 
-import { render } from './app-render.js';
-
 let lastSig = '';
 
 export async function refresh() {
@@ -16,9 +14,9 @@ export async function refresh() {
     live.className = 'chip ok';
     live.textContent = '● 실시간' + (ui.changedAt ? ' · 마지막 변화 ' + ui.changedAt : '');
     if (document.getElementById('msg').textContent.startsWith('상태 조회 실패')) say(''); // 다시 연결되면 오류 문구를 지운다
-    if (sig === lastSig) return;
+    if (sig === lastSig) return false;
     lastSig = sig;
-    render();
+    return true;
   } catch (e) {
     document.getElementById('live').className = 'chip bad';
     document.getElementById('live').textContent = '○ 연결 끊김 — 1초마다 다시 시도';
@@ -35,6 +33,6 @@ export async function pollActivity() {
     const a = await api('tasks/' + encodeURIComponent(t.taskId) + '/activity');
     const same = JSON.stringify({ ...a, at: 0 }) === JSON.stringify({ ...ui.activity[t.taskId], at: 0 });
     ui.activity[t.taskId] = a;
-    if (!same) render();
+    return !same;
   } catch { /* 다음 주기에 다시 받는다 */ }
 }

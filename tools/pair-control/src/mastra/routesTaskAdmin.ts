@@ -8,7 +8,7 @@ import { executor } from './serverContext.ts';
 
 export const taskAdminRoutes = [
   registerApiRoute('/pair/api/tasks/:id/archive', { method: 'POST', handler: act(async (c) => setArchived(executor, id(c), (await body(c)).archived !== false)) }),
-  registerApiRoute('/pair/api/tasks/:id/discard', { method: 'POST', handler: act(async (c) => discardTask(executor, id(c), String((await body(c)).reason ?? ''), resumeStep)) }),
+  registerApiRoute('/pair/api/tasks/:id/discard', { method: 'POST', handler: act(discardTask, async (c: any) => [executor, id(c), String((await body(c)).reason ?? ''), resumeStep]) }),
   registerApiRoute('/pair/api/archive-finished', { method: 'POST', handler: act(async () => archiveFinished(executor)) }),
   registerApiRoute('/pair/api/scope', { method: 'POST', handler: act(async (c) => extractScope(String((await body(c)).text ?? ''))) }),
   registerApiRoute('/pair/api/tasks/:id/rereview', { method: 'POST', handler: act(async (c) => startReview(id(c))) }),

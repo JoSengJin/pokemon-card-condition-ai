@@ -20,7 +20,11 @@ export async function checkVenv(checkout: string, needed: EnvReadiness['needed']
   const checks: Check[] = [];
   const fixes: string[] = [];
   const add = (name: string, ok: boolean, detail: string) => checks.push({ name, ok, detail });
-  const done = () => ({ needed, ready: checks.every((c) => c.ok), checks, fixes, checkedAt: new Date().toISOString() });
+  const done = () => {
+    let ready = true;
+    for (const check of checks) if (!check.ok) ready = false;
+    return { needed, ready, checks, fixes, checkedAt: new Date().toISOString() };
+  };
   if (needed === 'none') { add('실행 환경', true, 'Python 불필요(계약 env=none, ./develop 미사용)'); return done(); }
 
   const venv = path.join(checkout, '.venv');

@@ -53,12 +53,14 @@ export function revokeApproval(ex: Executor, id: string): Approval {
 
 /** 지금 새 메인이 승계할 수 있는 승인: 철회되지 않았고, 특정 세션에 묶인 것은 현재 세션 것만. */
 export function inheritable(ex: Executor, sessionId: string | undefined): Approval[] {
-  return ex.runtime.approvals.filter((a) => !a.revokedAt && (!a.boundSessionId || a.boundSessionId === sessionId));
+  const approvals = [];
+  for (const approval of ex.runtime.approvals) if (!approval.revokedAt && (!approval.boundSessionId || approval.boundSessionId === sessionId)) approvals.push(approval);
+  return approvals;
 }
 
 /** 새 메인 요청문에 알려 줄 "모델이 제안할 수 있는 행동 종류". 도구의 준비 권한(prepare_checks)은 모델 행동이 아니므로 뺀다. */
-export function modelActions(ex: Executor, sessionId: string | undefined): string[] {
+export function modelActions(approvals: Approval[]): string[] {
   const out = new Set<string>();
-  for (const a of inheritable(ex, sessionId)) for (const x of a.actions) if ((ACTION_TYPES as readonly string[]).includes(x)) out.add(x);
+  for (const a of approvals) for (const x of a.actions) if ((ACTION_TYPES as readonly string[]).includes(x)) out.add(x);
   return [...out];
 }
