@@ -27,7 +27,7 @@ export async function serviceTick(ex: Executor) {
     if (request.service === 'plan') request.result = await planTask(ex, data.raw);
     else if (request.service === 'worktree') request.result = await createWorktree(ex, data.raw as TaskInputT);
     else if (request.service === 'assign') request.result = await assign(ex, data.raw);
-    else if (request.service === 'launch') request.result = await launch(ex, data.taskId!, data.runId!);
+    else if (request.service === 'launch') request.result = await launch(ex, data.taskId!, data.runId!, request.origin);
     else if (request.service === 'collect') request.result = await collect(ex, data.taskId!, data.execId ?? null);
     else if (request.service === 'integrate') request.result = await integrate(ex, data.taskId!);
     else throw new UserError('지원하지 않는 workflow 서비스');

@@ -1,3 +1,6 @@
+import { limitFor } from './executorPolicy.ts';
+import { validateOrigin } from '../runtimeRequestPolicy.ts';
+import type { RuntimeOrigin } from '../runtimeRequests.ts';
 import { getTask } from './executorLookup.ts';
 import { spawnExec } from './taskSpawn.ts';
 import { reserve } from './taskReserve.ts';
@@ -9,7 +12,7 @@ import { setStatus, releaseExecLocks } from './taskState.ts';
 import type { ConflictReason } from './contract.ts';
 import { STARTABLE, type Executor, type Check } from './executor.ts';
 
-export async function launch(taskExecutor: Executor, taskId: string, runId: string): Promise<{ ok: true; execId: string; pid: number } | { ok: true; manual: true; execId: null } | { ok: false; reason: string; conflicts?: ConflictReason[]; checks?: Check[] }> {
+export async function launch(taskExecutor: Executor, taskId: string, runId: string, origin?: RuntimeOrigin): Promise<{ ok: true; execId: string; pid: number } | { ok: true; manual: true; execId: null } | { ok: false; reason: string; conflicts?: ConflictReason[]; checks?: Check[] }> {
   const t = getTask(taskExecutor, taskId);
   const execId = crypto.randomUUID();
   const r = reserve(taskExecutor, t, execId);
@@ -23,6 +26,7 @@ export async function launch(taskExecutor: Executor, taskId: string, runId: stri
   }
   try {
     const checks = await preflightChecks(taskExecutor, t);
+    validateOrigin(taskExecutor, origin);
     t.preflight = checks;
     const failed = checks.filter((c) => !c.ok);
     if (t.mode === 'manual') {
@@ -55,6 +59,11 @@ export async function launch(taskExecutor: Executor, taskId: string, runId: stri
       setStatus(taskExecutor, t, 'blocked', reason);
       return { ok: false, reason, checks };
     }
+    // 사전 검사·CLI 탐색 대기 중 철회된 권한으로 프로세스를 시작하지 않는다.
+    validateOrigin(taskExecutor, origin);
+    if (taskExecutor.guardAlert) throw new Error(`무료 가드 발동 상태: ${taskExecutor.guardAlert.detail}`);
+    const limit = t.mode === 'real' ? limitFor(taskExecutor, t.agent) : null;
+    if (limit) throw new Error(`구독 한도 도달: ${limit.detail}`);
     t.permission = plan.permission;
     return spawnExec(taskExecutor, t, runId, execId, plan);
   } catch (err) {

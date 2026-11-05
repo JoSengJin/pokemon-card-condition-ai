@@ -4,6 +4,7 @@ import { setStatus } from './taskState.ts';
 import { OCCUPYING, STARTABLE, type Executor, type Task } from './executor.ts';
 
 export function reserve(taskExecutor: Executor, t: Task, execId: string): { ok: true } | { ok: false; reason: string; conflicts?: ConflictReason[] } {
+  if (taskExecutor.stopped) return { ok: false, reason: '실행기가 정지됨 — 작업을 시작하지 않음' };
   if (taskExecutor.guardAlert) return { ok: false, reason: `무료 가드 발동 상태: ${taskExecutor.guardAlert.detail}` };
   if (!STARTABLE.includes(t.status)) return { ok: false, reason: `현재 상태(${t.status})에서는 시작할 수 없음(중복 실행 차단)` };
   const found: ConflictReason[] = [];
