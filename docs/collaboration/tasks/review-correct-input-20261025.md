@@ -2,7 +2,7 @@
 
 - task_id: `review-correct-input-20261025`
 - owner: Claude
-- status: ready_for_review
+- status: integrated (2026-11-05 Codex, source 0ce69d886576927264b3bcb1bbafcfa4cae46098 → main 8bfb160)
 - base_sha: `de33cab` (main = origin/main 확인 시점)
 - branch: `claude/review-correct-input-20261025`
 - goal: 최신 자료(`2dea72236b02`)의 `./review --auto` 재개가 Codex correct 사전 검사(32,000 bytes)에 막히지 않게 한다. 입력 상한·근거 ID·저장 응답 재사용·호출 상한·중복 방지는 그대로 둔다.
@@ -22,3 +22,11 @@
 - 미검증: 실제 Codex가 correct에서 유효한 수정안을 내는지, 그 뒤 Gemini·NVIDIA 실제 호출 성공 여부.
 - risk: correct 여유가 384 bytes뿐이다. 이번 저장 응답은 고정이라 결정적으로 통과하지만, 이후 더 큰 packet·응답에서는 다시 `input_size` 차단이 날 수 있다(차단은 모델 요청 전이라 비용 없음). verify가 비용을 쓴 뒤 correct가 막히는 구조 자체는 그대로다.
 - rollback: 통합 SHA를 `./develop -- git revert <SHA>`로 되돌린다. 되돌리면 `2dea72236b02` 재개는 다시 `input_size`로 막힌다.
+
+## Codex 현재 main 검증 — 2026-11-05
+
+- 통합: `8bfb160`의 전체 SHA와 원본 대응은 `git log`의 cherry-pick trailer로 확인한다. 기존 현재 코드에 +7줄, 새 테스트 2개를 포함한 전달 커밋만 통합했다.
+- 저장된 verify 응답과 과거 packet, 현재 context/prompt 구성 코드, **합성 correction.errors**를 사용한 읽기 전용 프롬프트 구성: 통합 전 32,666 bytes → 통합 후 31,440 bytes(상한 32,000 불변). 정확한 과거 호출 replay·새 AI 응답이 아니다. 입력의 cohort ID·acceptance 동일 시만 결과 표 참조로 대체하며 다른 기준은 유지한다.
+- 관련 `test_cross_review*.py` 207개 통과(신규 2개 포함). 첫 잠금 내 실행은 임시 fixture에 부모 checkout lock FD가 상속되어 실패1/오류26이었다. 부모 main 잠금은 유지하고 자식 테스트에서 `CARD_CONDITION_WORKSPACE_LOCK_FD` 환경변수만 제거해 임시 root의 별도 잠금을 사용하자 전체 통과했다. 코드 실패를 숨기거나 잠금을 삭제하지 않았다.
+- 실제 Codex correct 응답·Gemini·심판·실험·모델 추론은 실행하지 않았다. 다른 packet의 32KB 통과나 응답 품질을 보장하지 않는다. 이번 고정 입력의 여유는 560 bytes다. 토큰/비용 절감률과 모델 성능은 미측정이다.
+- 감사·HTML: ignored `artifacts/worktree-followup-20261105/`. 원래 worktree와 브랜치는 삭제하지 않는다. 전체 결과는 `docs/collaboration/reports/worktree-followup-20261105.md`.
