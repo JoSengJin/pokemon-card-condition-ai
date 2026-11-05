@@ -21,6 +21,50 @@ function measure(sources: Record<string, string>, extra: string[] = [], edges?: 
 }
 const depthOf = (o: any, start: string) => (o.overStarts.find((r: any) => r.start.endsWith(`:${start}`))?.transitions ?? 0);
 
+test('표준 API의 동기 콜백도 한 전이로 세고, 이벤트 등록 콜백은 독립 진입점으로 측정한다', () => {
+  const out = measure({ 'src/a.ts': `function leaf() { return 1; }\nexport function sync() { return [1].map(() => leaf()); }\nexport function schedule() { setInterval(() => leaf(), 1); }\n` }, ['--start=sync']).out;
+  assert.equal(out.starts[0].transitions, 2, 'sync→map 콜백→leaf');
+  const scheduled = measure({ 'src/a.ts': `function leaf() { return 1; }\nexport function schedule() { setInterval(() => leaf(), 1); }\n` }).out;
+  assert.ok(!scheduled.overStarts.length);
+  const root = measure({ 'src/a.ts': `function leaf() { return 1; }\nexport function schedule() { setInterval(() => leaf(), 1); }\n` }, ['--start=schedule']).out;
+  assert.equal(root.starts[0].transitions, 0, '타이머 등록이 콜백을 동기 호출하지 않음');
+});
+
+test('반환된 API 래퍼의 매개변수 호출은 모듈에서 전달한 실제 handler로 이어진다', () => {
+  const sources = {
+    'src/api.ts': `export function act(fn) { return async function wrapped(c) { return fn(c); }; }\n`,
+    'src/routes.ts': `import { act } from './api.ts';\nfunction service() { return 1; }\nexport const route = act(async () => service());\n`,
+  };
+  assert.equal(measure(sources, ['--start=wrapped']).out.starts[0].transitions, 2, 'wrapped→handler→service');
+});
+
+test('객체 속성의 함수 이름은 렉시컬 바인딩이 아니므로 같은 이름 import를 가리지 않는다', () => {
+  const sources = {
+    'src/service.ts': `export function approve() { return 1; }\n`,
+    'src/bind.ts': `import { approve } from './service.ts';\nexport function bind() { return { approve: async () => approve() }; }\n`,
+  };
+  const out = measure(sources, ['--start=approve']).out;
+  assert.ok(out.starts.some((row: any) => row.start === 'bind.ts:approve' && row.transitions === 1));
+  assert.deepEqual(out.cycles, [], '객체 속성을 자기 재귀로 잘못 연결하지 않음');
+});
+
+test('promisify는 감싼 함수의 출처를 따라가며 프로젝트 함수를 외부로 숨기지 않는다', () => {
+  const sources = { 'src/a.ts': `import { promisify } from 'node:util';\nfunction inner(cb) { cb(); }\nconst wrapped = promisify(inner);\nexport function caller() { return wrapped(); }\n` };
+  assert.equal(measure(sources, ['--start=caller']).out.starts[0].transitions, 1, 'caller→프로젝트 inner');
+  const external = measure({ 'src/a.ts': `import { promisify } from 'node:util';\nimport { execFile } from 'node:child_process';\nconst run = promisify(execFile);\nexport function caller() { return run('git'); }\n` }).out;
+  assert.ok(Object.keys(external.external).some((reason) => reason.includes('node:child_process:execFile')));
+});
+
+test('직접·상호 재귀는 순환으로 보고하며 --check를 실패시킨다', () => {
+  const result = measure({ 'src/a.ts': `export function a() { return b(); }\nfunction b() { return a(); }\n` }, ['--check']);
+  assert.equal(result.code, 1); assert.ok(result.out.cycles.length > 0);
+});
+
+test('getter 읽기도 실제 함수 호출 전이로 센다', () => {
+  const result = measure({ 'src/a.ts': `function leaf() { return 1; }\nexport class K { get value() { return leaf(); } }\nexport function read(k: K) { return k.value; }\n` }, ['--start=read']);
+  assert.equal(result.out.starts[0].transitions, 2, 'read→getter→leaf');
+});
+
 test('함수 정의 수: 익명 콜백·중첩 함수·메서드·.mjs를 모두 세고 7개 초과를 표시한다', () => {
   const body = `export function a() { return [1].map((x) => x).filter((y) => y > 0).some(function (z) { return z; }); }\nconst b = () => { const c = () => 1; return c(); };\nclass K { m() { return 1; } get g() { return 2; } }\n`; // 정의: a + 3콜백 + b + c + m + g = 8
   const { out, code } = measure({ 'src/big.ts': body, 'src/sup.mjs': `export const f = () => 1;\n` }, ['--check']);
