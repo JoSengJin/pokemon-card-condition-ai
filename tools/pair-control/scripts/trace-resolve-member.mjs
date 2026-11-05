@@ -10,6 +10,10 @@ export function resolveMember(ctx, fn, call) {
   const returned = !call.chain.length && (scope.objects.get(base) ?? scope.locals.get(base)?.members)?.[name];
   if (returned) return { to: [returned], how: 'returned-object' };
   if (call.computed) return { to: [], how: 'unresolved', reason: '계산된 멤버 호출' };
+  const receiver = call.node.callee.object;
+  if (name === 'push' && receiver?.type === 'AssignmentExpression' && receiver.right.type === 'ArrayExpression') return { to: [], how: 'external', reason: '배열 리터럴을 대입한 수신 객체의 push' };
+  const global = ctx.values[fn.file + ':' + base]?.node;
+  if (!chain.length && (global?.type === 'ArrayExpression' || (global?.type === 'NewExpression' && /^(Set|Map|WeakSet|WeakMap|Array|Date|RegExp)$/.test(global.callee.name) && !ctx.top[fn.file + ':' + global.callee.name] && !imports[global.callee.name]))) return { to: [], how: 'external', reason: '표준 컨테이너의 모듈 변수 ' + base + '의 메서드 ' + name };
   const schema = schemaFor(ctx, fn, call);
   if (schema) {
     if (['parse', 'safeParse', 'parseAsync', 'safeParseAsync'].includes(name) && schema.validators.size) return { to: [...schema.validators], how: 'schema-validator:' + schema.key };

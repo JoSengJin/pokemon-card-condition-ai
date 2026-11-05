@@ -1,4 +1,91 @@
 {
-  "note": "실제 동적 연결의 근거를 기록한다. MainOps 제거 뒤 해당 수동 간선은 필요하지 않다.",
-  "edges": []
+  "note": "실제 framework 재진입을 소스 근거로 연결한다. 외부 경계로 프로젝트 콜백을 생략하지 않는다.",
+  "edges": [
+    {
+      "from": "runtimeWorkflowTick.ts:workflowTick",
+      "to": "workflowTaskStart.ts:launchExecute",
+      "weight": 1,
+      "via": "executionContext.run",
+      "evidence": "runtimeWorkflowTick 이 저장 요청의 Mastra run.start/run.resume를 실행한다. workflow.ts의 then 조립과 설치된 @mastra/core 1.79.0 dist/resolve-agent-CMSnjTVM.js:1414 entry.step.execute(executionContext)를 대조했다. 도메인 실행은 runtimeServiceTick이 별도 저장 요청을 읽어 수행하며 이 간선에서 제외하지 않는다."
+    },
+    {
+      "from": "runtimeWorkflowTick.ts:workflowTick",
+      "to": "workflowTaskStart.ts:awaitExitExecute",
+      "weight": 1,
+      "via": "executionContext.run",
+      "evidence": "runtimeWorkflowTick 이 저장 요청의 Mastra run.start/run.resume를 실행한다. workflow.ts의 then 조립과 설치된 @mastra/core 1.79.0 dist/resolve-agent-CMSnjTVM.js:1414 entry.step.execute(executionContext)를 대조했다. 도메인 실행은 runtimeServiceTick이 별도 저장 요청을 읽어 수행하며 이 간선에서 제외하지 않는다."
+    },
+    {
+      "from": "runtimeWorkflowTick.ts:workflowTick",
+      "to": "workflowTaskStart.ts:collectExecute",
+      "weight": 1,
+      "via": "executionContext.run",
+      "evidence": "runtimeWorkflowTick 이 저장 요청의 Mastra run.start/run.resume를 실행한다. workflow.ts의 then 조립과 설치된 @mastra/core 1.79.0 dist/resolve-agent-CMSnjTVM.js:1414 entry.step.execute(executionContext)를 대조했다. 도메인 실행은 runtimeServiceTick이 별도 저장 요청을 읽어 수행하며 이 간선에서 제외하지 않는다."
+    },
+    {
+      "from": "runtimeWorkflowTick.ts:workflowTick",
+      "to": "workflowTaskGates.ts:reviewGateExecute",
+      "weight": 1,
+      "via": "executionContext.run",
+      "evidence": "runtimeWorkflowTick 이 저장 요청의 Mastra run.start/run.resume를 실행한다. workflow.ts의 then 조립과 설치된 @mastra/core 1.79.0 dist/resolve-agent-CMSnjTVM.js:1414 entry.step.execute(executionContext)를 대조했다. 도메인 실행은 runtimeServiceTick이 별도 저장 요청을 읽어 수행하며 이 간선에서 제외하지 않는다."
+    },
+    {
+      "from": "runtimeWorkflowTick.ts:workflowTick",
+      "to": "workflowTaskGates.ts:integrateGateExecute",
+      "weight": 1,
+      "via": "executionContext.run",
+      "evidence": "runtimeWorkflowTick 이 저장 요청의 Mastra run.start/run.resume를 실행한다. workflow.ts의 then 조립과 설치된 @mastra/core 1.79.0 dist/resolve-agent-CMSnjTVM.js:1414 entry.step.execute(executionContext)를 대조했다. 도메인 실행은 runtimeServiceTick이 별도 저장 요청을 읽어 수행하며 이 간선에서 제외하지 않는다."
+    },
+    {
+      "from": "runtimeWorkflowTick.ts:workflowTick",
+      "to": "workflowPrepare.ts:planExecute",
+      "weight": 1,
+      "via": "executionContext.run",
+      "evidence": "runtimeWorkflowTick 이 저장 요청의 Mastra run.start/run.resume를 실행한다. workflow.ts의 then 조립과 설치된 @mastra/core 1.79.0 dist/resolve-agent-CMSnjTVM.js:1414 entry.step.execute(executionContext)를 대조했다. 도메인 실행은 runtimeServiceTick이 별도 저장 요청을 읽어 수행하며 이 간선에서 제외하지 않는다."
+    },
+    {
+      "from": "runtimeWorkflowTick.ts:workflowTick",
+      "to": "workflowPrepare.ts:worktreeExecute",
+      "weight": 1,
+      "via": "executionContext.run",
+      "evidence": "runtimeWorkflowTick 이 저장 요청의 Mastra run.start/run.resume를 실행한다. workflow.ts의 then 조립과 설치된 @mastra/core 1.79.0 dist/resolve-agent-CMSnjTVM.js:1414 entry.step.execute(executionContext)를 대조했다. 도메인 실행은 runtimeServiceTick이 별도 저장 요청을 읽어 수행하며 이 간선에서 제외하지 않는다."
+    },
+    {
+      "from": "runtimeWorkflowTick.ts:workflowTick",
+      "to": "workflowPrepare.ts:registerExecute",
+      "weight": 1,
+      "via": "executionContext.run",
+      "evidence": "runtimeWorkflowTick 이 저장 요청의 Mastra run.start/run.resume를 실행한다. workflow.ts의 then 조립과 설치된 @mastra/core 1.79.0 dist/resolve-agent-CMSnjTVM.js:1414 entry.step.execute(executionContext)를 대조했다. 도메인 실행은 runtimeServiceTick이 별도 저장 요청을 읽어 수행하며 이 간선에서 제외하지 않는다."
+    },
+    {
+      "from": "taskWithdraw.ts:withdrawApproval",
+      "to": "runtimeRequests.ts:resumeStep",
+      "weight": 1,
+      "via": "await resume(",
+      "evidence": "routesTaskDecisions.ts unapprove의 act 인자 배열 [executor,id,resumeStep,startReview]가 withdrawApproval의 resume에 전달된다.",
+      "resolves": [
+        "resume"
+      ]
+    },
+    {
+      "from": "taskWithdraw.ts:withdrawApproval",
+      "to": "runtimeTasks.ts:startReview",
+      "weight": 1,
+      "via": "await rereview(",
+      "evidence": "같은 unapprove 인자 배열의 startReview가 rereview에 전달된다.",
+      "resolves": [
+        "rereview"
+      ]
+    },
+    {
+      "from": "taskDiscard.ts:discardTask",
+      "to": "runtimeRequests.ts:resumeStep",
+      "weight": 1,
+      "via": "await resume(",
+      "evidence": "routesTaskAdmin.ts discard의 act 인자 배열 마지막 resumeStep이 discardTask의 resume에 전달된다.",
+      "resolves": [
+        "resume"
+      ]
+    }
+  ]
 }

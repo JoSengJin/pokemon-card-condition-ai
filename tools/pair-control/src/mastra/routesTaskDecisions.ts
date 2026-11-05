@@ -29,5 +29,5 @@ export const taskDecisionRoutes = [
     await resumeStep(task.runId!, 'integrate-gate', { action: 'integrate' });
     return getTask(executor, task.taskId);
   }) }),
-  registerApiRoute('/pair/api/tasks/:id/unapprove', { method: 'POST', handler: act(async (c) => withdrawApproval(executor, id(c), resumeStep, startReview)) }),
+  registerApiRoute('/pair/api/tasks/:id/unapprove', { method: 'POST', handler: act(withdrawApproval, async (c: any) => [executor, id(c), resumeStep, startReview]) }),
 ];

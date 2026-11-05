@@ -119,7 +119,7 @@ test('실제 저장소: 구조 수정 단계별 측정값(수정 전 6857715 기
   const direct = JSON.parse(execFileSync(process.execPath, [tool, `--root=${repoRoot}`, '--start=runPush'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).starts[0].callees as string[];
   assert.ok(direct.includes('pushFacts.ts:collectPushFacts') && direct.includes('pushAuthorization.ts:verifyAutomaticPush') && direct.includes('pushExecution.ts:executePush'), '수동 호환 경로도 사실 수집→scope→exec 단계 함수를 직접 호출');
   assert.equal(depthOf(out, 'onMainEnd'), 0, '종료 관찰·응답 검증·저장을 각각 4회 이하로 평탄화함');
-  assert.ok(Array.isArray(out.unresolved) && out.manualEdges === 0, 'MainOps 간접층과 해당 수동 간선을 제거했고 미확인 목록을 별도 출력함');
+  assert.ok(Array.isArray(out.unresolved) && out.manualEdges === 11, 'framework 콜백 8개와 HTTP 인자 배열로 전달된 실제 서비스 3개를 연결함');
 });
 
 
@@ -176,4 +176,14 @@ function bridge(opts) { sink(opts); }
 export function caller() { bridge({ hit: () => leaf() }); }
 ` };
   assert.equal(measure(src, ['--start=caller']).out.starts[0].transitions, 4, 'caller→bridge→sink→hit→leaf');
+});
+
+
+test('실제 workflow 실행 요청은 framework 콜백으로, 도메인 실행은 저장 요청의 독립 진입점으로 이어진다', () => {
+  const out = JSON.parse(execFileSync(process.execPath, [tool, `--root=${repoRoot}`, '--start=workflowTick'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+  const callees = out.starts[0].callees;
+  assert.ok(callees.includes('workflowTaskStart.ts:launchExecute'));
+  assert.ok(callees.includes('workflowTaskGates.ts:integrateGateExecute'));
+  assert.ok(callees.includes('workflowPrepare.ts:registerExecute'));
+  assert.ok(!callees.includes('taskLaunch.ts:launch'), '도메인 실행은 영속 서비스 요청을 감시하는 별도 진입점만 호출');
 });

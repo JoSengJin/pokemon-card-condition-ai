@@ -15,6 +15,7 @@ import { UserError } from './errors.ts';
 import type { PairConfig } from './config.ts';
 import type { TaskInputT } from './contract.ts';
 import type { EnvReadiness } from './envcheck.ts';
+import type { WorkflowRequest, ServiceRequest, RuntimeOrigin } from '../runtimeRequests.ts';
 import type { Agent, MainRuntime } from './mainTypes.ts';
 export { UserError } from './errors.ts';
 
@@ -123,6 +124,7 @@ export interface MainRole { agent: 'codex' | 'claude'; since: string; reason?: s
   /** 인수 확인이 끝난 메인 세션의 세대. 없으면 교대 기능 도입 전 기록이다. */
   generation?: number }
 interface State {
+  workflowRequests?: Record<string, WorkflowRequest>; serviceRequests?: Record<string, ServiceRequest>;
   tasks: Record<string, Task>; executions: Record<string, Execution>; guardCancellations?: GuardCancellation[]; limit?: LimitState | null; main?: MainRole | null;
   /** 메인 교대 실행 상태(세대·세션·승인 장부·한도·처리한 행동). */
   mainRuntime?: MainRuntime | null;
@@ -132,7 +134,7 @@ interface State {
   pushAllow?: Record<string, { at: string; file: string; line: number; commit: string }>;
 }
 
-export type Resumer = (runId: string, step: string, data: Record<string, unknown>) => Promise<unknown>;
+export type Resumer = (runId: string, step: string, data: Record<string, unknown>, origin?: RuntimeOrigin) => Promise<unknown>;
 
 export class Executor {
   readonly store: Store<State>;
@@ -145,6 +147,9 @@ export class Executor {
   readonly probes: Partial<Record<'codex' | 'claude', Probe>> = {};
   readonly logOffsets = new Map<string, number>();
   timer: NodeJS.Timeout | null = null;
+  runtimeTimers: NodeJS.Timeout[] = [];
+  workflowBusy = false;
+  serviceBusy = false;
   resumer: Resumer | null = null;
   guardAlert: Alert | null = null;
   ticking = false;

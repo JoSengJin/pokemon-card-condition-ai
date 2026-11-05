@@ -14,6 +14,8 @@ export function indexScopes(ctx) {
         if (id?.type !== 'Identifier') continue;
         const match = /^\s*\??\s*:\s*([A-Z]\w*)/.exec(ctx.parsed[owner.file].orig.slice(id.end, id.end + 80));
         if (match) scope.types[id.name] = match[1];
+        const annotation = /^\s*\??\s*:\s*(string|number|boolean|Array<[^>]+>|(?:string|number|boolean|[A-Z]\w*)\[\])/.exec(ctx.parsed[owner.file].orig.slice(id.end, id.end + 120));
+        if (annotation) scope.locals.set(id.name, { std: '매개변수 주석 ' + annotation[1] });
         const returned = /^\s*\??\s*:\s*ReturnType<\s*typeof\s+(\w+)\s*>/.exec(ctx.parsed[owner.file].orig.slice(id.end, id.end + 120));
         const target = returned && namedFunction(ctx, owner.file, returned[1]);
         if (target && ctx.returnedMembers.has(target)) scope.objects.set(id.name, ctx.returnedMembers.get(target));

@@ -175,3 +175,10 @@ tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충�
 - 전체 회귀: Node 24.21.0, caffeinate -dimsu npm test, 총 214개·213 통과·실패 0·기존 브라우저 자동 검사 1 건너뜀, 715151ms. 로그: /tmp/pair-full-regression-20261106.log (로컬). typecheck 통과. 검증 소스는 6bf2c29 이후 이 체크포인트의 작업 변경이며 문서와 공백 정리는 검증 후다.
 - 현재 자동 그래프는 초과 파일 0·초과 시작점 0, 미확인 108·외부 분류 호출 지점 2676이다. 그러나 설치된 Mastra의 resolve-agent-CMSnjTVM.js:1414가 entry.step.execute를 실제 호출함을 대조했고, workflow.ts 조립을 따라 dispatchAction→startTask→launch execute→launch→spawnExec→setStatus→save (6회)가 남아 있음을 확인했다. 자동 그래프의 0을 전체 준수로 보고하지 않는다.
 - 시작 SHA 6857715도 같은 측정기로 정의 수를 재측정해 초과 파일 31개를 확인했다. workflow 연결을 포함하지 않은 호출 깊이는 전후 준수 비교 근거로 쓰지 않는다. 다음은 workflow 요청·도메인 실행의 저장 상태 인계와 실제 framework 간선 연결, 미확인/외부 분류 감사, 변경 뒤 전체 재검증·HTML 보고서다. main 통합·운영 push·실제 모델 호출 없음. 롤백은 의존 커밋 역순 git revert.
+
+### Codex workflow 영속 요청 체크포인트 (2026-11-06)
+- workflowRequests와 serviceRequests를 JSON 상태로 나눴다. API·관찰·행동은 요청과 결과만 읽고, workflowTick은 저장된 native start/resume, serviceTick은 저장된 도메인 효과 하나를 직접 수행한다. 둘 다 queued→dispatching→done/failed, dispatching 재시작은 unknown이며 재호출하지 않는다. 서비스는 현재 수명의 부모 요청이 있어야 한다.
+- 메인 행동의 세션·세대·수명·행동·대상·SHA를 요청에 저장하고 양쪽 실행 직전에 같은 approvalGate로 재승인한다. stop은 새 실행을 막는다. AsyncLocalStorage와 실행기별 Mastra 참조로 다른 실행기 초기화가 진행 중 요청의 대상을 바꾸지 못하게 했다.
+- Mastra 실제 콜백 8개와 HTTP 인자 배열 서비스 3개를 근거 있는 간선으로 연결했다. 초과 파일·시작점·순환은 0이다. 미확인 88개는 미분류 상태이므로 전체 준수 완료가 아니다. 특히 Hono compose.js:35의 next→handler도 대조 중이며 외부로 무조건 제외하지 않는다.
+- 검증: typecheck 통과. 저장 요청·승인 철회·세대 변경·stop·결과 불명·실행기 격리 및 측정기 24개 통과. 실행기·안전성·교대·파이프라인·승인 취소 관련 37개 통과(339582ms). 양방향 합성 원격 push 포함, 실제 모델·운영 원격 호출 없음. 전체 214개 회귀 통과는 직전 4905314 소스의 결과이며 이번 요청 구조의 전체 회귀는 아직 아니다.
+- 리스크: 요청 장부 추가와 worker 타이머 수명, workflow 재개 순서. stop은 두 worker 타이머도 정리한다. 결과 불명은 보수적으로 보존하며 자동 재시도하지 않는다. 롤백은 이 단계 커밋 git revert이며 저장된 결과 불명 기록은 임의 삭제하지 않는다.
