@@ -145,3 +145,16 @@ tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충�
 - `30a6ac6` 추가: push 네트워크 환경 래퍼(`netEnv`)와 `verifyPushScope→pushScope` 중첩을 제거했다. `runPush`가 사실 수집 결과를 직접 판정하고 동일한 `authorize` 구현으로 push 직전 승인 철회를 재검사한다. push 경로는 ≤4가 되었고 초과 시작점은 58→55. 승인 철회·미등록 커밋·점검 뒤 HEAD 변경·합성 원격 회귀는 유지됐다. 다만 `plan→scope→lock→exec`의 단계별 영속 상태와 preflight 파일 분리는 아직 남아 있다.
 - `18f94ec`: 자동 push를 실제 `plan→scope→lock→exec` 저장 단계로 분리했다. scope의 소유 작업을 저장하고 잠금 뒤 exec 직전에 승인을 재검사한다. exec 상태 재시작은 원격 호출 없이 결과 불명으로 보존한다. `a042657`은 런타임에서 쓰지 않던 테스트 호환 `applyActions` 루프를 제거했다.
 - `622e682`, `524081c`: task ID 브랜치 조회와 승인 스냅샷 Git 조회·상태 이벤트 저장의 단순 래퍼를 제거했다. 현재 측정은 초과 파일 31개, 초과 시작점 49개, 미확인 83개이며 `dispatchAction`·`authorizeAction`은 ≤4다. 관련 파이프라인 회귀 58개, 준비·안전·구조 회귀 21개와 최종 구조 회귀 6개가 통과했다. 다음 병목은 `pipelineTick→applyVerified→applyTurn→advanceActions→advancePushAction→preparePush→preflight`와 한도 인수 사슬이다.
+
+
+### Codex 실행기·화면 분리 체크포인트 (2026-11-05)
+- 단계 커밋: ed6b423 Git 조회·작업 준비·로그·감독 IO 분리, 284c962 push 점검과 턴 실행 요청의 영속 단계.
+- 실행기 함수 정의(이번 묶음 전→후): git 19→0(facade), mainRole 10→2, logstream 13→0(facade), supervisor 10→6, prepare 20→0(facade), push 28→0(facade). 분리된 실행기 파일도 모두 ≤7로 측정했다.
+- 자동 push는 plan→facts→scan→check→scope→lock→exec 저장 단계다. facts는 Git 사실, scan은 커밋 전체 이력, check는 오탐 판정·dry-run, scope/exec는 같은 approvalGate 승인을 대조한다. 실행 감시가 저장된 행동을 직접 수행하고 같은 단계에서 부모 턴 결과도 마감한다.
+- 새 모델 턴은 queued 요청을 저장한 뒤 실행 감시가 launching을 먼저 저장한다. 실제 턴 ID가 생기면 요청과 연결한다. queued의 최초 재개, launching 결과 불명 보존, 이미 저장된 턴의 종료 상태 보존, 실행 전 승인 철회·stop을 회귀로 검증했다.
+- UI 함수 정의(전→현재 facade 또는 진입점): actions 17→0, app 11→3, contract-request 16→0, events 13→0, form-specs 8→0, form 20→0, logview 22→0, panels-release 14→0, panels-work 14→0, stages 14→0, view-list 25→0, view-task 13→0. 각 실제 구현 파일도 ≤7이다. 카드의 단계 계산과 HTML 렌더를 호출자가 순서대로 수행해 중첩을 줄였다.
+- 검증: typecheck 통과. Git·로그·감독·메인 관련 23개, prepare 3개, push·범위·상태 적용·구조 46개 통과. 감시 라우팅 후 교대 양방향 통합 2개, 턴 요청 재시작 4개 통과. UI·contract 25개 중 24 통과·1 건너뜀, contract-handoff 7개 통과. 부모 턴 완료가 push보다 한 틱 늦던 회귀는 수정 후 양방향 통합과 push 단일 회귀로 재확인했다.
+- 브라우저: 합성 snapshot을 제공하는 읽기 전용 localhost 미리보기에서 작업 목록·상세·교대 후 연속 처리 패널을 실제 확인했다. 최종 소스 재로딩 뒤 오류·경고 로그 없음. screenshot은 로컬 검증 증거로 보존한다. Playwright 기반 자동 브라우저 항목은 설치 부재로 여전히 건너뜀이며, 수동 렌더 관찰과 구분한다.
+- 현재 정적 측정: 초과 파일 2개(start 11, structure-trace 69), 초과 시작점 5개(모두 structure-trace 내부), 미확인 호출 101개. **전체 구조 준수 아님.** MainOps의 남은 3개 간접 호출, API·workflow 동적 연결, 외부 분류의 실제 근거 대조와 콜백 호출 전이 검증이 남았다. 측정 도구 자체도 분리·평탄화해야 한다.
+- 미완료 검증: 이 체크포인트 소스 전체 npm test, 최종 --check, 최종 HTML 보고서. 앞선 Executor 전체 회귀의 191개 중 1개 실패 기록은 보존하며, 해당 재시작 사례 수정·개별 통과를 전체 통과로 바꾸어 보고하지 않는다.
+- 리스크: 감시 단계 순서·서버 재시작 정책·브라우저 모듈 연결. 단계별 git revert로 되돌리며 의존 커밋은 역순으로 복원한다. 운영 상태·모델·라벨·실제 모델 요청·main 통합·운영 push는 변경하지 않았다.

@@ -3,11 +3,12 @@
 // 무료 가드 알림이 생기면 그 그룹만 종료한 뒤 사용자에게 알린다. 다른 서버·세션은 건드리지 않는다.
 //   npm start                → config.local.json, .state/
 //   npm start -- --demo      → .demo/config.json, .demo/state (npm run demo:fixture 먼저)
-import { spawn, execFile } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PAID_ENV_KEYS } from '../src/executor/paidSignals.mjs';
+import { notify } from './launcher-notify.mjs';
+import { enforceLauncherGuard } from './launcher-guard.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 if (Number(process.versions.node.split('.')[0]) < 22) {
@@ -19,30 +20,7 @@ const configFile = process.env.PAIR_CONTROL_CONFIG ?? path.join(root, demo ? '.d
 const stateDir = process.env.PAIR_CONTROL_STATE_DIR ?? path.join(root, demo ? '.demo/state' : '.state');
 const alertFile = path.join(stateDir, 'alerts', 'paid-risk.json');
 
-function notify(title, message) {
-  const esc = (s) => String(s).replace(/["\\]/g, ' ').slice(0, 200);
-  if (process.platform === 'darwin') execFile('osascript', ['-e', `display notification "${esc(message)}" with title "${esc(title)}" sound name "Basso"`], () => {});
-  console.error(`\n[pair-control 무료 가드] ${title}: ${message}\n`);
-}
-
-function refuse(detail) {
-  fs.mkdirSync(path.dirname(alertFile), { recursive: true });
-  if (!fs.existsSync(alertFile)) fs.writeFileSync(alertFile, JSON.stringify({ at: new Date().toISOString(), reason: 'paid_env', detail, source: 'launcher' }, null, 2));
-  notify('유료 전환 신호 — 시작하지 않음', detail);
-  process.exit(3);
-}
-
-if (fs.existsSync(alertFile)) {
-  const a = JSON.parse(fs.readFileSync(alertFile, 'utf8'));
-  notify('이전 무료 가드 알림 미확인 — 시작하지 않음', `${a.detail} (확인 후 npm run guard:ack${demo ? ' -- --demo' : ''})`);
-  process.exit(3);
-}
-const keys = PAID_ENV_KEYS.filter((k) => process.env[k]);
-if (keys.length) refuse(`과금 경로가 열릴 수 있는 환경변수: ${keys.join(', ')} — 셸에서 unset 후 다시 시작`);
-if (!fs.existsSync(configFile)) {
-  console.error(`설정 파일 없음: ${configFile}\nconfig.example.json을 복사해 config.local.json을 만들거나 npm run demo:fixture 후 npm start -- --demo`);
-  process.exit(2);
-}
+enforceLauncherGuard(configFile, alertFile, demo);
 
 const env = {
   ...process.env, PAIR_CONTROL_ROOT: root, PAIR_CONTROL_CONFIG: configFile, PAIR_CONTROL_STATE_DIR: stateDir,
