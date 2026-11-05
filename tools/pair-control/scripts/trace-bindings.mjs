@@ -1,4 +1,15 @@
+import { GLOBAL_CALLS } from './trace-config.mjs';
+
 export function indexBindings(ctx) {
+  ctx.values = {}; ctx.globalTypes = {};
+  for (const file of ctx.files) for (const item of ctx.parsed[file].ast.body) {
+    const declaration = item.declaration ?? item;
+    if (declaration.type !== 'VariableDeclaration') continue;
+    for (const variable of declaration.declarations) if (variable.id.type === 'Identifier') {
+      ctx.values[file + ':' + variable.id.name] = { file, name: variable.id.name, node: variable.init };
+      if (variable.init?.type === 'NewExpression' && variable.init.callee.type === 'Identifier' && ctx.classes[variable.init.callee.name]) ctx.globalTypes[file + ':' + variable.id.name] = variable.init.callee.name;
+    }
+  }
   ctx.getterNames = new Set();
   for (const fn of ctx.fns) {
     if (fn.kind === 'get') ctx.getterNames.add(fn.name);
@@ -39,6 +50,9 @@ export function indexPromiseFactories(ctx) {
     if (declaration.type !== 'VariableDeclaration') continue;
     for (const variable of declaration.declarations) {
       const init = variable.init;
+      if (variable.id.type === 'Identifier' && init?.type === 'Identifier' && GLOBAL_CALLS.has(init.name) && !ctx.top[file + ':' + init.name]) {
+        ctx.factories[file + ':' + variable.id.name] = { to: [], how: 'external', reason: '전역 표준 함수 별칭 ' + init.name }; continue;
+      }
       if (variable.id.type !== 'Identifier' || init?.type !== 'CallExpression' || init.callee.type !== 'Identifier') continue;
       const factory = ctx.importsOf[file][init.callee.name], argument = init.arguments[0];
       if (factory?.module !== 'node:util' || factory.imported !== 'promisify' || argument?.type !== 'Identifier') continue;
@@ -47,4 +61,15 @@ export function indexPromiseFactories(ctx) {
       else if (imported && !imported.file) ctx.factories[file + ':' + variable.id.name] = { to: [], how: 'external', reason: 'node:util.promisify가 감싼 외부 함수 ' + imported.module + ':' + imported.imported };
     }
   }
+}
+
+export function exportedValue(ctx, file, name) {
+  const seen = new Set();
+  while (!seen.has(file + ':' + name)) {
+    seen.add(file + ':' + name);
+    const value = ctx.exportsOf[file]?.[name];
+    if (!value || typeof value === 'string') return ctx.values[file + ':' + (value || name)] ?? null;
+    file = value.from; name = value.name;
+  }
+  return null;
 }

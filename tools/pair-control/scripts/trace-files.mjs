@@ -28,6 +28,6 @@ export function parseFiles(ctx) {
     const original = fs.readFileSync(path.join(ctx.root, file), 'utf8');
     const text = original.replace(MODIFIERS, (match) => ' '.repeat(match.length));
     const code = file.endsWith('.ts') ? stripTypeScriptTypes(text, { mode: 'strip' }) : text;
-    ctx.parsed[file] = { orig: text, ast: acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'module', allowHashBang: true, locations: true }) };
+    ctx.parsed[file] = { raw: original, orig: text, ast: acorn.parse(code, { ecmaVersion: 'latest', sourceType: 'module', allowHashBang: true, locations: true }) };
   }
 }

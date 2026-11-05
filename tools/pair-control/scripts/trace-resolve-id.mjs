@@ -12,6 +12,8 @@ export function resolveId(ctx, fn, call) {
   if (call.isNew && imp?.file && ctx.classes[imp.imported]) return { to: ctx.methods[imp.imported + ':constructor'] ?? [], how: 'new:' + call.name };
   if (imp?.file) { const to = exported(ctx, imp.file, imp.imported); return to.length ? { to, how: 'import' } : { to: [], how: 'unresolved', reason: 'import:' + imp.file + '에서 ' + imp.imported + ' 정의를 찾지 못함' }; }
   if (imp) return { to: [], how: 'external', reason: '외부 모듈 import(' + imp.imported + ')' };
+  const returned = scope.locals.get(call.name)?.fn;
+  if (returned) return { to: [returned], how: 'returned-function' };
   if (scope.params.has(call.name)) return { callbackParam: call.name };
   if (call.isNew && ctx.classes[call.name]) return { to: ctx.methods[call.name + ':constructor'] ?? [], how: 'new:' + call.name };
   if (scope.names.has(call.name)) return { to: [], how: 'unresolved', reason: '지역 변수(별칭·구조분해 포함)를 호출 — 대상 미확인' };

@@ -119,5 +119,61 @@ test('실제 저장소: 구조 수정 단계별 측정값(수정 전 6857715 기
   const direct = JSON.parse(execFileSync(process.execPath, [tool, `--root=${repoRoot}`, '--start=runPush'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).starts[0].callees as string[];
   assert.ok(direct.includes('pushFacts.ts:collectPushFacts') && direct.includes('pushAuthorization.ts:verifyAutomaticPush') && direct.includes('pushExecution.ts:executePush'), '수동 호환 경로도 사실 수집→scope→exec 단계 함수를 직접 호출');
   assert.equal(depthOf(out, 'onMainEnd'), 0, '종료 관찰·응답 검증·저장을 각각 4회 이하로 평탄화함');
-  assert.ok(Array.isArray(out.unresolved) && out.manualEdges >= 3, '제거되지 않은 MainOps 연결 수동 간선과 미확인 목록이 출력됨');
+  assert.ok(Array.isArray(out.unresolved) && out.manualEdges === 0, 'MainOps 간접층과 해당 수동 간선을 제거했고 미확인 목록을 별도 출력함');
+});
+
+
+test('반환 객체의 메서드·전달된 콜백·기본 콜백을 실제 호출로 연결한다', () => {
+  const src = { 'src/a.ts': `function leaf() { return 1; }
+function sink(cb) { return { end() { cb(); } }; }
+function bridge(cb) { const writer = sink(cb); writer.end(); }
+export function caller() { bridge(() => leaf()); }
+export function defaults(cb = () => leaf()) { cb(); }
+` };
+  const out = measure(src, ['--start=caller']).out;
+  assert.equal(out.starts[0].transitions, 4, 'caller→bridge→end→전달 콜백→leaf');
+  assert.equal(measure(src, ['--start=defaults']).out.starts[0].transitions, 2);
+});
+
+test('생성자 함수 필드와 반환된 리스너를 실제 주입 함수로 연결한다', () => {
+  const src = { 'src/a.ts': `function leaf() { return 1; }
+function listener() { return function hit() { return leaf(); }; }
+export class Guard { constructor(private callback: () => void) {} run() { this.callback(); } }
+const guard = new Guard(listener());
+export function caller() { guard.run(); }
+` };
+  const out = measure(src, ['--start=caller']).out;
+  assert.equal(out.starts[0].transitions, 3, 'caller→run→hit→leaf');
+});
+
+test('프로젝트 객체에 대입한 함수와 계산된 테이블을 이름 추정 없이 연결한다', () => {
+  const src = { 'src/a.ts': `function leaf() { return 1; }
+export class Executor { ops = {}; }
+export function bind(ex: Executor) { ex.ops = { approve: () => leaf() }; }
+export function caller(ex: Executor) { const ops = ex.ops; return ops.approve(); }
+const panels = { a: () => leaf(), b: () => 0 };
+export function render(key) { return panels[key](); }
+` };
+  assert.equal(measure(src, ['--start=caller']).out.starts[0].transitions, 2);
+  assert.equal(measure(src, ['--start=render']).out.starts[0].transitions, 2);
+});
+
+test('zod의 parse는 중첩 스키마 검증 함수를 호출하며 외부 경계로 숨기지 않는다', () => {
+  const src = { 'src/a.ts': `import { z } from 'zod';
+function leaf() { return true; }
+const item = z.string().refine(() => leaf());
+const schema = z.object({ item });
+export function parse(value) { return schema.safeParse(value); }
+` };
+  assert.equal(measure(src, ['--start=parse']).out.starts[0].transitions, 2, 'parse→refine 콜백→leaf');
+});
+
+
+test('옵션 객체로 전달한 콜백도 여러 서비스 전달 뒤 실제 호출로 이어진다', () => {
+  const src = { 'src/a.ts': `function leaf() { return 1; }
+function sink(opts) { opts.hit(); }
+function bridge(opts) { sink(opts); }
+export function caller() { bridge({ hit: () => leaf() }); }
+` };
+  assert.equal(measure(src, ['--start=caller']).out.starts[0].transitions, 4, 'caller→bridge→sink→hit→leaf');
 });

@@ -103,13 +103,6 @@ export interface PipelineState {
   steps: Record<string, { at: string; ok: boolean; detail: string }>;
 }
 
-/** 메인 행동이 실제로 수행될 때 쓰는 연결부. 호출하는 쪽(서버·테스트)이 기존 기능을 그대로 넘긴다. */
-export interface MainOps {
-  assign?: (input: Record<string, unknown>) => Promise<unknown>;
-  approve?: (taskId: string, sha: string) => Promise<unknown>;
-  integrate?: (taskId: string) => Promise<unknown>;
-}
-
 /** 새 메인이 낼 수 있는 행동. 이 목록 밖 type은 지원하지 않는 행동으로 거부한다. */
 export interface MainAction { id: string; type: string; taskId?: string; sha?: string; target?: string; input?: Record<string, unknown>; reviewedFiles?: string[]; diffHash?: string; note?: string }
 

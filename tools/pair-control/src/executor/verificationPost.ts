@@ -23,4 +23,4 @@ export async function runPostChecks(ex: Executor, t: Task, checkout: string, dev
 }
 
 const SECRET_PATTERNS = [/sk-ant-[A-Za-z0-9_-]{8,}/g, /sk-[A-Za-z0-9_-]{16,}/g, /gh[pousr]_[A-Za-z0-9]{20,}/g, /Bearer\s+[A-Za-z0-9._-]{16,}/g];
-function redact(s: string) { return SECRET_PATTERNS.reduce((acc, re) => acc.replace(re, '[REDACTED]'), s); }
+function redact(s: string) { for (const re of SECRET_PATTERNS) s = s.replace(re, '[REDACTED]'); return s; }

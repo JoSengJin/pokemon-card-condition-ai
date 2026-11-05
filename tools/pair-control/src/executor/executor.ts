@@ -1,3 +1,4 @@
+import type { GuardCancellation } from './guardCancellation.ts';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,7 +15,7 @@ import { UserError } from './errors.ts';
 import type { PairConfig } from './config.ts';
 import type { TaskInputT } from './contract.ts';
 import type { EnvReadiness } from './envcheck.ts';
-import type { Agent, MainOps, MainRuntime } from './mainTypes.ts';
+import type { Agent, MainRuntime } from './mainTypes.ts';
 export { UserError } from './errors.ts';
 
 export type TaskStatus =
@@ -122,7 +123,7 @@ export interface MainRole { agent: 'codex' | 'claude'; since: string; reason?: s
   /** 인수 확인이 끝난 메인 세션의 세대. 없으면 교대 기능 도입 전 기록이다. */
   generation?: number }
 interface State {
-  tasks: Record<string, Task>; executions: Record<string, Execution>; limit?: LimitState | null; main?: MainRole | null;
+  tasks: Record<string, Task>; executions: Record<string, Execution>; guardCancellations?: GuardCancellation[]; limit?: LimitState | null; main?: MainRole | null;
   /** 메인 교대 실행 상태(세대·세션·승인 장부·한도·처리한 행동). */
   mainRuntime?: MainRuntime | null;
   /** 푸시·되돌림 기록과 마지막 점검(push.ts). */
@@ -131,7 +132,7 @@ interface State {
   pushAllow?: Record<string, { at: string; file: string; line: number; commit: string }>;
 }
 
-export type Resumer = (runId: string, step: string, data: Record<string, unknown>) => Promise<void>;
+export type Resumer = (runId: string, step: string, data: Record<string, unknown>) => Promise<unknown>;
 
 export class Executor {
   readonly store: Store<State>;
@@ -146,7 +147,6 @@ export class Executor {
   timer: NodeJS.Timeout | null = null;
   resumer: Resumer | null = null;
   guardAlert: Alert | null = null;
-  mainOps: MainOps = {};
   ticking = false;
   stopped = false;
 

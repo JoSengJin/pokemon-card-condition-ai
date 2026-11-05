@@ -65,7 +65,7 @@ test('accepted→authorized 사이 승인 철회는 dispatch 직전 재검사에
     const s = launching(); e.ex.runtime.session = s; e.ex.runtime.generation = 1;
     e.ex.state.tasks.t1 = { taskId: 't1', status: 'review_pending' } as any;
     const approval = grantApproval(e.ex, { basis: '합성 승인', actions: ['approve_task'], targets: ['t1'] });
-    let calls = 0; (e.ex.mainOps = { approve: async () => { calls++; } });
+    let calls = 0; e.ex.resumer = async () => { calls++; };
     ackSession(e.ex, s, { actions: [{ id: 'a1', type: 'approve_task', taskId: 't1', sha: 'a'.repeat(40) }] });
     applyTakenOver(e.ex, s);
     assert.equal(s.actionWork?.[0].status, 'accepted');

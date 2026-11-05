@@ -1,6 +1,6 @@
 export const LIMIT_DEFS = 7, LIMIT_DEPTH = 4;
 export const FN = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
-export const REGISTER = new Set(['setInterval', 'setTimeout', 'on', 'once', 'addEventListener', 'registerApiRoute']);
+export const REGISTER = new Set(['setInterval', 'setTimeout', 'on', 'once', 'addEventListener', 'registerApiRoute', 'refine', 'superRefine']);
 export const MODIFIERS = /\b(readonly|private|public|protected)\b(?=\s)/g;
 export const EXTERNAL = /^(JSON|Object|Array|Math|Promise|Date|Number|String|Boolean|Set|Map|process|console|Buffer|RegExp|Symbol|Reflect|fs|path|crypto|os|Error|document|window|navigator|location|localStorage|sessionStorage|Intl|URL|Response|Request|globalThis)$/;
 

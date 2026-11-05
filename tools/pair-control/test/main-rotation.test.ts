@@ -38,14 +38,6 @@ async function ready(env: Env, name: string, dir: string) {
   return getTask(env.ex, name).result!.headSha!;
 }
 
-/** 화면·API와 같은 연결: 승인은 기존 승인 함수와 workflow 재개로 수행한다. */
-function wire(env: Env) {
-  (env.ex.mainOps = { approve: async (id, sha) => {
-    const a = await approve(env.ex, id, sha, { requireHandoff: true });
-    await resumeStep(getTask(env.ex, id).runId!, 'review-gate', { decision: 'approve', sha: a.sha });
-  } });
-}
-
 /** 교대가 끝날 때까지(성공이면 completed/idle, 실패면 history의 failed) 기다린다. */
 const finished = (env: Env) => waitFor(() => {
   const rt = env.ex.runtime;
@@ -63,7 +55,7 @@ test('양방향 교대: 인수 확인 뒤에만 메인이 바뀌고, 승인은 �
   await withFlag(env, async () => {
     const shaA = await ready(env, 'task-a', 'src_a'), shaB = await ready(env, 'task-b', 'src_b');
     const contractA = { sha: getTask(env.ex, 'task-a').contractSha, hash: getTask(env.ex, 'task-a').contractHash };
-    wire(env);
+
     grantApproval(env.ex, { basis: '사용자 승인: 개발·통합 승인 범위(2026-10-28 테스트)', actions: ['approve_task'], targets: ['task-a', 'task-b'] });
     script({ actions: [{ id: 'a1', type: 'approve_task', taskId: 'task-a', sha: shaA }] });
 
@@ -98,7 +90,7 @@ test('승인 범위: 장부 범위 안만 수행하고 범위 밖 작업·실험
   const env = setup(real);
   await withFlag(env, async () => {
     const shaA = await ready(env, 'task-a', 'src_a'), shaB = await ready(env, 'task-b', 'src_b');
-    wire(env);
+
     grantApproval(env.ex, { basis: 'task-a 승인', actions: ['approve_task'], targets: ['task-a'] });
     grantApproval(env.ex, { basis: '이전 세션에 묶인 승인', actions: ['approve_task'], targets: ['task-b'], boundSessionId: 'old-session' });
     assert.throws(() => grantApproval(env.ex, { basis: '', actions: ['approve_task'] }), /승인 근거/);
@@ -127,7 +119,7 @@ test('이전 메인의 지연 응답·중복 명령 차단: 같은 행동 ID는 
   const env = setup(real);
   await withFlag(env, async () => {
     const shaA = await ready(env, 'task-a', 'src_a');
-    wire(env);
+
     grantApproval(env.ex, { basis: '승인', actions: ['approve_task'], targets: '*' });
     const act = { id: 'dup', type: 'approve_task', taskId: 'task-a', sha: shaA };
     script({ actions: [act, act] });
@@ -184,7 +176,7 @@ test('결과 불명 대상은 확인 전에 다시 수행하지 않는다(작업
   const env = setup(real);
   await withFlag(env, async () => {
     const shaA = await ready(env, 'task-a', 'src_a');
-    wire(env);
+
     grantApproval(env.ex, { basis: '승인', actions: ['approve_task', 'integrate_task'], targets: '*' });
     getTask(env.ex, 'task-a').status = 'unknown';
     env.ex.state.pushes = { p1: { id: 'p1', status: 'push_unverified', tasks: ['task-p'], at: new Date().toISOString(), preRemoteHead: 'a'.repeat(40), pushedSha: 'b'.repeat(40) } as any };

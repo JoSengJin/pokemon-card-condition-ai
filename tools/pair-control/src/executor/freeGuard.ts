@@ -1,3 +1,4 @@
+import { textSignal } from './guardSignal.ts';
 // 무료 전용 가드. 유료 과금 경로로 바뀔 수 있는 신호를 보면 서비스를 멈추고 사용자에게 알린다.
 // 감지 대상:
 //  1) 서버 환경의 API 키·클라우드 토큰(있으면 CLI가 구독 대신 API 과금 경로를 쓸 수 있음)
@@ -7,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { writeJsonAtomic } from './store.ts';
-import { LIMIT_LOG_PATTERNS, PAID_ENV_KEYS, PAID_LOG_HARD, PAID_LOG_PATTERNS, PAID_LOG_SOFT } from './paidSignals.mjs';
+import { PAID_ENV_KEYS, PAID_LOG_PATTERNS } from './paidSignals.mjs';
 
 export { PAID_ENV_KEYS, PAID_LOG_PATTERNS };
 
@@ -24,7 +25,8 @@ export class FreeGuard {
   }
 
   checkEnv(env: NodeJS.ProcessEnv = process.env) {
-    const found = PAID_ENV_KEYS.filter((k) => env[k]);
+    const found = [];
+    for (const key of PAID_ENV_KEYS) if (env[key]) found.push(key);
     if (found.length) this.trip('paid_env', `과금 경로가 열릴 수 있는 환경변수 존재: ${found.join(', ')} (값은 기록하지 않음)`, 'server-env');
   }
 
@@ -33,23 +35,14 @@ export class FreeGuard {
    * 한도 안내문에 섞인 "extra usage" 같은 문구를 과금으로 오인해 서비스를 끄지 않되, 한도 상태에서는 어떤 구매·재시도도 하지 않는다.
    */
   scanLog(text: string, source: string): 'paid' | 'limit' | null {
-    for (const re of PAID_LOG_HARD) {
-      const m = text.match(re);
-      if (m) { this.trip('paid_log', `실행 로그에서 과금 신호 문구 감지: "${m[0]}"`, source); return 'paid'; }
-    }
-    for (const re of LIMIT_LOG_PATTERNS) {
-      const m = text.match(re);
-      if (m) {
-        this.onLimit({ at: new Date().toISOString(), reason: 'usage_limit', detail: `구독 사용 한도 도달 문구 감지: "${m[0]}"`, source });
-        return 'limit';
-      }
-    }
-    for (const re of PAID_LOG_SOFT) {
-      const m = text.match(re);
-      if (m) { this.trip('paid_log', `실행 로그에서 과금 신호 문구 감지: "${m[0]}"`, source); return 'paid'; }
-    }
-    return null;
+    const signal = textSignal(text, source);
+    if (!signal) return null;
+    if (signal.kind === 'paid') this.trip(signal.reason, signal.detail, signal.source);
+    else this.reportLimit(signal.alert);
+    return signal.kind;
   }
+
+  reportLimit(alert: Alert) { this.onLimit(alert); }
 
   trip(reason: string, detail: string, source: string) {
     const alert: Alert = { at: new Date().toISOString(), reason, detail, source };

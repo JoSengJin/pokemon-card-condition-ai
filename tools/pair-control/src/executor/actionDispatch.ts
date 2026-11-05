@@ -1,4 +1,7 @@
 // authorized 행동 하나를 재승인한 뒤 dispatching으로 먼저 저장하고 서비스를 호출한다.
+import { approve } from './taskApproval.ts';
+import { getTask } from './executorLookup.ts';
+import { prepareTask, startTask } from '../runtimeTasks.ts';
 import { authorize } from './approvalGate.ts';
 import { finishAction } from './actionState.ts';
 import { confirmAction } from './mainDispatch.ts';
@@ -16,10 +19,19 @@ export async function dispatchAction(ex: Executor, s: MainSession, work: ActionW
     try { authorize(ex, s.id, a.type, target, a.sha); } catch (e) { finishAction(ex, work, false, (e as Error).message); return; }
     work.status = 'dispatching'; work.dispatchLifetime = ex.lifetime; ex.store.save();
     try {
-      const ops = ex.mainOps;
-      if (a.type === 'approve_task' && ops.approve) await ops.approve(target, String(a.sha ?? ''));
-      else if (a.type === 'integrate_task' && ops.integrate) await ops.integrate(target);
-      else if (a.type === 'assign_task' && ops.assign) await ops.assign(work.input ?? {});
+      if (a.type === 'approve_task') {
+        if (!ex.resumer) throw new UserError('workflow 재개 서비스가 연결되지 않음');
+        const approval = await approve(ex, target, String(a.sha ?? ''), { requireHandoff: true });
+        await ex.resumer(getTask(ex, target).runId!, 'review-gate', { decision: 'approve', sha: approval.sha });
+      } else if (a.type === 'integrate_task') {
+        const task = getTask(ex, target);
+        if (task.status !== 'approved') throw new UserError(`승인된 상태가 아님(${task.status})`);
+        if (!ex.resumer) throw new UserError('workflow 재개 서비스가 연결되지 않음');
+        await ex.resumer(task.runId!, 'integrate-gate', { action: 'integrate' });
+      } else if (a.type === 'assign_task') {
+        const result = await prepareTask(work.input ?? {});
+        if (work.input?.start !== false) await startTask(result.taskId!);
+      }
       else if (a.type === 'confirm_handoff') await confirmAction(ex, a, target, !!work.selfReview);
       else if (a.type === 'push_main') {
         const sha = String(a.sha ?? '').toLowerCase();

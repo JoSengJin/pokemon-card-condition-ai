@@ -34,11 +34,12 @@ const assignInput = { agent: 'claude', mode: 'mock', goal: '합성 배정', allo
 
 /** 구현·확인·승인 직전까지 끝난 작업(전체 SHA 반환). approved=true면 승인까지. */
 async function ready(env: Env, name: string, opts: { approved?: boolean; confirm?: boolean } = {}) {
-  await assign(env.ex, task(env, name, { mode: 'manual', allowedFiles: ['src_a/'] }));
+  const dir = `src_${name.split('-').at(-1)}`;
+  await assign(env.ex, task(env, name, { mode: 'manual', allowedFiles: [dir + '/'] }));
   await startTask(name);
   const wt = env.fixture.worktrees[name].path;
-  fs.appendFileSync(path.join(wt, 'src_a/work.txt'), 'change\n');
-  git(wt, 'add', '--', 'src_a/work.txt'); git(wt, 'commit', '-qm', `feat: ${name}`);
+  fs.appendFileSync(path.join(wt, dir, 'work.txt'), 'change\n');
+  git(wt, 'add', '--', dir + '/work.txt'); git(wt, 'commit', '-qm', `feat: ${name}`);
   await finishManual(env.ex, name);
   await waitFor(() => getTask(env.ex, name).status === 'review_pending', `${name} review`);
   await verify(env, name);
@@ -97,7 +98,7 @@ test('조건부 승인: 자유 문장 조건은 자동 수행을 보류하고, �
     const s = session(env2);
     grantApproval(env2.ex, { basis: '합성: 구조화 조건', actions: ['approve_task'], targets: ['task-a'], requires: { handoffConfirmed: true } });
     const calls: string[] = [];
-    (env2.ex.mainOps = { approve: async (id) => { calls.push(id); } });
+    env2.ex.resumer = async (id) => { calls.push(id); };
     const r1 = await applyActions(env2.ex, s, [{ id: 'c1', type: 'approve_task', taskId: 'task-a', sha }]);
     assert.equal(r1[0].ok, false);
     assert.match(r1[0].detail, /조건 미충족.*메인 확인/);
@@ -114,8 +115,8 @@ test('통합 결과: 차단·거절·충돌·검사 실패·상태 미변경은 
   grantApproval(env.ex, { basis: '합성', actions: ['approve_task', 'integrate_task'], targets: '*' });
   for (const status of ['integration_blocked', 'integration_refused', 'integration_conflict', 'integrated_check_failed', 'approved'] as const) {
     const id = `t-${status}`;
-    env.ex.state.tasks[id] = { taskId: id, status: 'approved' } as any;
-    (env.ex.mainOps = { integrate: async () => { env.ex.state.tasks[id].status = status; } });
+    env.ex.state.tasks[id] = { taskId: id, runId: id, status: 'approved' } as any;
+    env.ex.resumer = async () => { env.ex.state.tasks[id].status = status; };
     const r = await applyActions(env.ex, s, [{ id: `i-${status}`, type: 'integrate_task', taskId: id }]);
     assert.equal(r[0].ok, false, `${status}는 성공이 아님`);
     assert.ok(r[0].detail.includes(status), r[0].detail);
@@ -124,14 +125,14 @@ test('통합 결과: 차단·거절·충돌·검사 실패·상태 미변경은 
   const cases: [string, any][] = [['no-head', { postStatus: 'not_run' }], ['post-failed', { newHead: 'a'.repeat(40), postStatus: 'failed' }]];
   for (const [name, integration] of cases) {
     const id = `t-${name}`;
-    env.ex.state.tasks[id] = { taskId: id, status: 'approved', postChecks: [{}] } as any;
-    (env.ex.mainOps = { integrate: async () => { Object.assign(env.ex.state.tasks[id], { status: 'integrated', integration }); } });
+    env.ex.state.tasks[id] = { taskId: id, runId: id, status: 'approved', postChecks: [{}] } as any;
+    env.ex.resumer = async () => { Object.assign(env.ex.state.tasks[id], { status: 'integrated', integration }); };
     const r = await applyActions(env.ex, s, [{ id: `i-${name}`, type: 'integrate_task', taskId: id }]);
     assert.equal(r[0].ok, false, name);
   }
   // 모든 근거를 갖춘 통합만 성공
-  env.ex.state.tasks['t-ok'] = { taskId: 't-ok', status: 'approved', postChecks: [{}] } as any;
-  (env.ex.mainOps = { integrate: async () => { Object.assign(env.ex.state.tasks['t-ok'], { status: 'integrated', integration: { newHead: 'a'.repeat(40), postStatus: 'passed' } }); } });
+  env.ex.state.tasks['t-ok'] = { taskId: 't-ok', runId: 't-ok', status: 'approved', postChecks: [{}] } as any;
+  env.ex.resumer = async () => { Object.assign(env.ex.state.tasks['t-ok'], { status: 'integrated', integration: { newHead: 'a'.repeat(40), postStatus: 'passed' } }); };
   const ok = await applyActions(env.ex, s, [{ id: 'i-ok', type: 'integrate_task', taskId: 't-ok' }]);
   assert.equal(ok[0].ok, true, ok[0].detail);
 }));
@@ -205,12 +206,12 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
 test('소유권: 행동 묶음 도중 세대가 바뀌면 이전 메인의 남은 행동은 수행되지 않는다', async () => withEnv(async (env) => {
   const s = session(env, 'old', 1);
   grantApproval(env.ex, { basis: '합성', actions: ['approve_task'], targets: '*' });
-  env.ex.state.tasks['task-a'] = { taskId: 'task-a', status: 'review_pending' } as any;
-  env.ex.state.tasks['task-b'] = { taskId: 'task-b', status: 'review_pending' } as any;
+  const shaA = await ready(env, 'task-a');
+  const shaB = await ready(env, 'task-b');
   const g = gate(); const calls: string[] = [];
-  (env.ex.mainOps = { approve: async (id) => { calls.push(id); env.ex.state.tasks[id].status = 'approved'; if (calls.length === 1) await g.p; } });
-  const p = applyActions(env.ex, s, [{ id: 'one', type: 'approve_task', taskId: 'task-a' }, { id: 'two', type: 'approve_task', taskId: 'task-b' }]);
-  await tick();
+  env.ex.resumer = async (runId) => { const id = Object.values(env.ex.state.tasks).find((t) => t.runId === runId)!.taskId; calls.push(id); if (calls.length === 1) await g.p; };
+  const p = applyActions(env.ex, s, [{ id: 'one', type: 'approve_task', taskId: 'task-a', sha: shaA }, { id: 'two', type: 'approve_task', taskId: 'task-b', sha: shaB }]);
+  await waitFor(() => calls.length === 1, '승인 서비스 실행');
   env.ex.runtime.session = { ...s, id: 'new', generation: 2 }; env.ex.runtime.generation = 2;
   g.open();
   const r = await p;
@@ -222,13 +223,13 @@ test('소유권: 행동 묶음 도중 세대가 바뀌면 이전 메인의 남�
 test('소유권: 행동 실행 중 시작된 교대는 그 행동이 끝난 뒤에 진행되고, 이전 메인의 남은 행동은 정지 상태로 거부된다', async () => withEnv(async (env) => {
   const s = session(env, 'old', 1);
   grantApproval(env.ex, { basis: '합성', actions: ['approve_task'], targets: '*' });
-  env.ex.state.tasks['task-a'] = { taskId: 'task-a', status: 'review_pending' } as any;
-  env.ex.state.tasks['task-b'] = { taskId: 'task-b', status: 'review_pending' } as any;
+  const shaA = await ready(env, 'task-a');
+  const shaB = await ready(env, 'task-b');
   const g = gate(); const calls: string[] = [];
-  (env.ex.mainOps = { approve: async (id) => { calls.push(id); env.ex.state.tasks[id].status = 'approved'; if (calls.length === 1) await g.p; } });
+  env.ex.resumer = async (runId) => { const id = Object.values(env.ex.state.tasks).find((t) => t.runId === runId)!.taskId; calls.push(id); if (calls.length === 1) await g.p; };
   env.ex.launchMainProcess = async () => 'synthetic-exec';
-  const p = applyActions(env.ex, s, [{ id: 'one', type: 'approve_task', taskId: 'task-a' }, { id: 'two', type: 'approve_task', taskId: 'task-b' }]);
-  await tick();
+  const p = applyActions(env.ex, s, [{ id: 'one', type: 'approve_task', taskId: 'task-a', sha: shaA }, { id: 'two', type: 'approve_task', taskId: 'task-b', sha: shaB }]);
+  await waitFor(() => calls.length === 1, '승인 서비스 실행');
   const h = handoverAfterLimit(env.ex, 'claude', [], '메인 한도 소진 보고(사용자)');
   await tick();
   assert.equal(env.ex.runtime.frozen, false, '진행 중인 행동이 끝나기 전에는 교대가 정지를 걸지 않음');
@@ -243,12 +244,12 @@ test('소유권: 행동 실행 중 시작된 교대는 그 행동이 끝난 뒤�
 test('중복: 같은 행동 ID는 동시에 보내도 한 번만 수행되고, 수행 시작 표시만 남은(결과 불명) 행동은 재실행하지 않는다', async () => withEnv(async (env) => {
   const s = session(env);
   grantApproval(env.ex, { basis: '합성', actions: ['approve_task'], targets: '*' });
-  env.ex.state.tasks['task-a'] = { taskId: 'task-a', status: 'review_pending' } as any;
+  const shaA = await ready(env, 'task-a');
   const g = gate(); let calls = 0;
-  (env.ex.mainOps = { approve: async (id) => { calls++; env.ex.state.tasks[id].status = 'approved'; await g.p; } });
-  const act = { id: 'same', type: 'approve_task', taskId: 'task-a' };
+  env.ex.resumer = async () => { calls++; await g.p; };
+  const act = { id: 'same', type: 'approve_task', taskId: 'task-a', sha: shaA };
   const p1 = applyActions(env.ex, s, [act]); const p2 = applyActions(env.ex, s, [act]);
-  await tick();
+  await waitFor(() => calls === 1, '승인 서비스 실행');
   assert.equal(env.ex.runtime.processed['same']?.ok, false, '실행 전에 수행 중 표시를 먼저 남김');
   assert.match(env.ex.runtime.processed['same'].detail, /수행 중/);
   g.open();
@@ -259,7 +260,7 @@ test('중복: 같은 행동 ID는 동시에 보내도 한 번만 수행되고, �
 
   // 프로세스가 수행 중 표시만 남기고 죽은 경우를 흉내: 재시작 후에도 같은 ID는 재실행하지 않는다
   env.ex.runtime.processed['crashed'] = { id: 'crashed', type: 'approve_task', ok: false, detail: '수행 중(완료 기록 전 중단되면 결과 불명 — 재실행하지 않음)', at: 'x' };
-  const c = await applyActions(env.ex, s, [{ id: 'crashed', type: 'approve_task', taskId: 'task-a' }]);
+  const c = await applyActions(env.ex, s, [{ id: 'crashed', type: 'approve_task', taskId: 'task-a', sha: shaA }]);
   assert.equal(c[0].ok, false);
   assert.equal(calls, 1);
 }));

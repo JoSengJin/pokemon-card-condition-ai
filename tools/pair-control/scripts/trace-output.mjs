@@ -14,5 +14,5 @@ export function resultOf(ctx, only) {
   }
   overStarts.sort((a, b) => b.transitions - a.transitions);
   for (const call of ctx.external) { const kind = call.reason; (external[kind] ??= { count: 0, sample: call.file + ':' + call.line + ' ' + call.call }).count++; }
-  return only ? { perFile: counts, starts, unresolvedCount: ctx.unresolved.length, cycles: ctx.cycles } : { limits: { defs: LIMIT_DEFS, depth: LIMIT_DEPTH }, perFile: counts, starts, overFiles, overStarts, unresolved: ctx.unresolved, external, manualEdges: ctx.manual.length, cycles: ctx.cycles };
+  return only ? { perFile: counts, starts, unresolvedCount: ctx.unresolved.length, cycles: ctx.cycles } : { limits: { defs: LIMIT_DEFS, depth: LIMIT_DEPTH }, perFile: counts, starts, overFiles, overStarts, unresolved: ctx.unresolved, external, externalCalls: ctx.external, manualEdges: ctx.manual.length, cycles: ctx.cycles };
 }

@@ -167,3 +167,11 @@ tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충�
 - 검증: typecheck 통과. 관련 64개 중 63 통과·브라우저 자동 검사 1 건너뜀, 측정기/명령 IO/JSON 정규화/로그 16개 통과, 최종 관련 62개 중 61 통과·같은 브라우저 자동 검사 1 건너뜀. key 순서·날짜·undefined·NaN·__proto__ 정규화, 명령 성공/종료코드/환경/spawn 실패/시간 초과, HTTP 인자 해석과 오류 응답을 회귀로 확인했다.
 - UI 소스 재로딩 뒤 작업 목록·상세·교대 패널과 구현 단계 로그 창 전환을 브라우저에서 확인했다. 오류·경고 없음. 합성 GET 전용 서버이며 운영 상태 변경·실제 모델 호출은 없다.
 - 다음은 미확인/외부 목록을 실제 선언·호출자와 대조하고 필요한 프로젝트 간선을 연결하는 단계다. 최종 전체 회귀·HTML 보고서는 아직 미완료다. 원격 통합·push도 하지 않았다.
+
+### Codex 실제 연결 감사 체크포인트 (2026-11-06)
+- MainOps 인터페이스·runtimeBind의 approve/integrate/assign 래퍼·수동 간선 3개를 제거했다. 행동 진입점은 승인 서비스·준비 서비스·실제 workflow 재개 서비스를 직접 호출한다. 승인 판정은 approvalGate 단일 구현이다.
+- 반환 객체 메서드·팩터리 반환 리스너·생성자 함수 필드·옵션 객체 콜백·콜백 재전달·zod 중첩 validator를 실제 초기화/전달 근거로 추적한다. 측정기 회귀 17개 통과.
+- 과금·한도 감지는 즉시 차단 상태와 취소 요청을 함께 저장하고, 감시 진입점이 pending→dispatching→sent로 그룹 취소를 수행한다. dispatching 재시작은 unknown으로 보존한다. 관련 안전성·상태 적용·취소 회귀 37개 통과.
+- 전체 회귀: Node 24.21.0, caffeinate -dimsu npm test, 총 214개·213 통과·실패 0·기존 브라우저 자동 검사 1 건너뜀, 715151ms. 로그: /tmp/pair-full-regression-20261106.log (로컬). typecheck 통과. 검증 소스는 6bf2c29 이후 이 체크포인트의 작업 변경이며 문서와 공백 정리는 검증 후다.
+- 현재 자동 그래프는 초과 파일 0·초과 시작점 0, 미확인 108·외부 분류 호출 지점 2676이다. 그러나 설치된 Mastra의 resolve-agent-CMSnjTVM.js:1414가 entry.step.execute를 실제 호출함을 대조했고, workflow.ts 조립을 따라 dispatchAction→startTask→launch execute→launch→spawnExec→setStatus→save (6회)가 남아 있음을 확인했다. 자동 그래프의 0을 전체 준수로 보고하지 않는다.
+- 시작 SHA 6857715도 같은 측정기로 정의 수를 재측정해 초과 파일 31개를 확인했다. workflow 연결을 포함하지 않은 호출 깊이는 전후 준수 비교 근거로 쓰지 않는다. 다음은 workflow 요청·도메인 실행의 저장 상태 인계와 실제 framework 간선 연결, 미확인/외부 분류 감사, 변경 뒤 전체 재검증·HTML 보고서다. main 통합·운영 push·실제 모델 호출 없음. 롤백은 의존 커밋 역순 git revert.

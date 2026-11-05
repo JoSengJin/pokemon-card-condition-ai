@@ -7,7 +7,8 @@ import { onMainEnd } from './mainEnd.ts';
 import { onReviewEnd } from './reviewEnd.ts';
 import { onAuxEnd, startNextCheck } from './verificationLifecycle.ts';
 import { setStatus, releaseExecLocks } from './taskState.ts';
-import { scanOutput } from './streamGuard.ts';
+import { outputSignals } from './streamGuard.ts';
+import { cancelAll } from './taskCancel.ts';
 import { mark, pipe } from './pipelineState.ts';
 import { pipelineTick } from './pipelineTick.ts';
 import { advancePushAction } from './actionPush.ts';
@@ -28,6 +29,23 @@ export async function tick(taskExecutor: Executor, ) {
   if (taskExecutor.ticking) return;
   taskExecutor.ticking = true;
   try {
+    // 관찰과 취소 실행을 같은 진입점에서 순서대로 처리한다. 가드 콜백은 저장만 한다.
+    for (const execution of Object.values(taskExecutor.state.executions)) {
+      if (!['running', 'cancelling'].includes(execution.status)) continue;
+      const log = readNewLog(taskExecutor, execution);
+      if (!log) continue;
+      for (const signal of outputSignals(log, 'exec:' + execution.execId)) {
+        if (signal.kind === 'paid') taskExecutor.guard.trip(signal.reason, signal.detail, signal.source);
+        else taskExecutor.guard.reportLimit(signal.alert);
+      }
+    }
+    for (const request of taskExecutor.state.guardCancellations ?? []) {
+      if (request.stage === 'dispatching') { request.stage = 'unknown'; taskExecutor.store.save(); continue; }
+      if (request.stage !== 'pending') continue;
+      request.stage = 'dispatching'; request.lifetime = taskExecutor.lifetime; taskExecutor.store.save();
+      cancelAll(taskExecutor, request.reason, request.agent);
+      request.stage = 'sent'; taskExecutor.store.save();
+    }
     const pending = Object.values(taskExecutor.state.executions).find((row) => row.completion && row.completion.stage !== 'done');
     if (pending?.completion?.stage === 'observed') {
       pending.completion.stage = 'routing'; pending.completion.lifetime = taskExecutor.lifetime; taskExecutor.store.save(); return;
@@ -49,8 +67,6 @@ export async function tick(taskExecutor: Executor, ) {
     }
   for (const ex of Object.values(taskExecutor.state.executions)) {
     if (ex.status !== 'running' && ex.status !== 'cancelling') continue;
-    const log = readNewLog(taskExecutor, ex);
-    if (log) scanOutput(taskExecutor.guard, log, `exec:${ex.execId}`);
     if (fs.existsSync(ex.exitPath)) { await observeExit(taskExecutor, ex); continue; }
     if (!alive(taskExecutor, ex.pid)) {
       await new Promise((r) => setTimeout(r, 200));
@@ -74,6 +90,7 @@ export async function tick(taskExecutor: Executor, ) {
       }
     }
   }
+  if (taskExecutor.guardAlert) return;
   if (Object.values(taskExecutor.state.executions).some((execution) => execution.completion && execution.completion.stage !== 'done')) return;
   for (const t of Object.values(taskExecutor.state.tasks)) {
     const v = t.verification;

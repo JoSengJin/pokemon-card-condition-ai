@@ -14,6 +14,11 @@ export function localType(ctx, fn, decl) {
   if (annotation && /(\[\]|^Array|^Set|^Map|^string|^number|^Record|^Promise)/.test(annotation[1].trim())) return { std: '주석 ' + annotation[1].trim() };
   if (init.type === 'ArrayExpression') return { std: '배열 리터럴 초기화' };
   if (init.type === 'Literal' || init.type === 'TemplateLiteral') return { std: '리터럴 초기화' };
+  if (init.type === 'MemberExpression' && !init.computed) {
+    const chain = []; let base = init;
+    while (base.type === 'MemberExpression' && !base.computed) { chain.unshift(base.property.name); base = base.object; }
+    if (base.type === 'Identifier') return { alias: { base: base.name, chain } };
+  }
   if (init.type === 'NewExpression' && init.callee.type === 'Identifier') {
     const name = init.callee.name;
     return /^(Set|Map|WeakMap|WeakSet|Array|Promise|Date|RegExp|Error|URL)$/.test(name) ? { std: 'new ' + name } : ctx.classes[name] ? { cls: name } : null;
@@ -21,7 +26,10 @@ export function localType(ctx, fn, decl) {
   const call = init.type === 'AwaitExpression' ? init.argument : init;
   if (call.type !== 'CallExpression' || call.callee.type !== 'Identifier') return null;
   const target = namedFunction(ctx, fn.file, call.callee.name), type = target && ctx.returns.get(target);
-  return type && ctx.classes[type] ? { cls: type } : null;
+  if (type && ctx.classes[type]) return { cls: type };
+  if (target && ctx.returnedMembers.has(target)) return { members: ctx.returnedMembers.get(target) };
+  if (target && ctx.returnedFunctions.has(target)) return { fn: ctx.returnedFunctions.get(target) };
+  return null;
 }
 
 export function indexReturnTypes(ctx) {

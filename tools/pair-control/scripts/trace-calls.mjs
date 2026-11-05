@@ -14,18 +14,22 @@ export function callsOf(ctx, fn) {
 }
 
 export function describeCall(node) {
-  const callee = node.callee, call = { line: node.loc.start.line, args: node.arguments, node };
+  const callee = node.callee, call = { line: node.loc.start.line, args: node.arguments, node, origin: rootIdentifier(node.callee) };
   if (callee.type === 'Identifier') return { ...call, kind: 'id', name: callee.name, isNew: node.type === 'NewExpression' };
-  if (callee.type !== 'MemberExpression' || callee.computed || !callee.property?.name) return { ...call, kind: 'member', computed: true, name: '[]', base: null, chain: [] };
+  if (callee.type !== 'MemberExpression') return { ...call, kind: 'member', computed: true, name: '[]', base: null, chain: [] };
   const chain = []; let object = callee.object;
   while (object?.type === 'MemberExpression' && !object.computed) { chain.unshift(object.property.name); object = object.object; }
-  return { ...call, kind: 'member', computed: false, name: callee.property.name, chain,
+  return { ...call, kind: 'member', computed: callee.computed, name: callee.computed ? '[]' : callee.property.name, chain,
     base: object?.type === 'Identifier' ? object.name : object?.type === 'ThisExpression' ? 'this' : null,
     baseCall: object?.type === 'CallExpression' && object.callee.type === 'Identifier' ? object.callee.name : null };
 }
 
 export function argumentFunction(ctx, fn, argument) {
   if (FN.has(argument.type)) return argument.__fn;
+  if (argument.type === 'CallExpression' && argument.callee.type === 'Identifier') {
+    const target = namedFunction(ctx, fn.file, argument.callee.name);
+    return target && ctx.returnedFunctions.get(target);
+  }
   if (argument.type !== 'Identifier') return null;
   const scope = ctx.scopes.get(fn);
   for (const owner of scope.chain) { const target = ctx.inner.get(owner.node)?.[argument.name]?.[0]; if (target) return target; }
@@ -33,3 +37,30 @@ export function argumentFunction(ctx, fn, argument) {
 }
 
 export function registers(call) { return REGISTER.has(call.name); }
+
+export function rootIdentifier(node) {
+  while (node) {
+    if (node.type === 'Identifier') return node.name;
+    if (node.type === 'MemberExpression') node = node.object;
+    else if (node.type === 'CallExpression' || node.type === 'NewExpression') node = node.callee;
+    else if (node.type === 'ChainExpression') node = node.expression;
+    else return null;
+  }
+  return null;
+}
+
+
+/** 옵션 객체의 함수 필드도 실제 인수에서만 수집한다. */
+export function argumentCallbacks(ctx, fn, argument, prefix) {
+  const out = [], pending = [{ argument, prefix }];
+  while (pending.length) {
+    const item = pending.pop(), cb = argumentFunction(ctx, fn, item.argument);
+    if (cb) out.push({ param: item.prefix, cb });
+    if (item.argument.type !== 'ObjectExpression') continue;
+    for (const property of item.argument.properties) {
+      const key = property.key?.name ?? property.key?.value;
+      if (key !== undefined && property.value) pending.push({ argument: property.value, prefix: item.prefix + '.' + key });
+    }
+  }
+  return out;
+}

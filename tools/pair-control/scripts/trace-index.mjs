@@ -3,11 +3,13 @@ import { FN } from './trace-config.mjs';
 import { children, nameOf } from './trace-ast.mjs';
 
 export function indexFunctions(ctx) {
+  ctx.parents = new Map();
   for (const file of ctx.files) {
     ctx.exportsOf[file] = {}; ctx.importsOf[file] = {};
     const pending = [{ node: ctx.parsed[file].ast, parent: null, owner: null, cls: null }];
     while (pending.length) {
       const frame = pending.pop(), node = frame.node;
+      ctx.parents.set(node, frame.parent);
       let owner = frame.owner, cls = frame.cls;
       if (node.type === 'ClassDeclaration') { cls = node.id.name; ctx.classes[cls] = { file, node, fields: {} }; }
       if (FN.has(node.type)) {
@@ -33,6 +35,13 @@ export function indexModules(ctx) {
     if (node.source) {
       const rel = path.normalize(path.join(path.dirname(file), node.source.value));
       for (const spec of node.specifiers) ctx.exportsOf[file][spec.exported.name] = { from: rel, name: spec.local.name };
+    }
+  }
+  for (const file of ctx.files) for (const match of ctx.parsed[file].orig.matchAll(/\bimport\s+type\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g)) {
+    const rel = match[2].startsWith('.') ? path.normalize(path.join(path.dirname(file), match[2])) : null;
+    for (const specifier of match[1].split(',')) {
+      const [imported, alias] = specifier.trim().split(/\s+as\s+/);
+      if (imported) ctx.importsOf[file][alias || imported] = { file: rel, module: match[2], ns: false, imported, typeOnly: true };
     }
   }
 }

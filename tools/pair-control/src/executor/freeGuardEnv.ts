@@ -12,9 +12,10 @@ export function sanitizedChildEnv(base: NodeJS.ProcessEnv = process.env): NodeJS
 
 /** macOS 알림(무료, 로컬). 실패해도 알림 파일과 콘솔 출력은 남는다. */
 export function notifyUser(title: string, message: string) {
-  const esc = (s: string) => s.replace(/["\\]/g, ' ').slice(0, 200);
+  const words = [title, message];
+  for (let i = 0; i < words.length; i++) words[i] = words[i].replace(/["\\]/g, ' ').slice(0, 200);
   if (process.platform === 'darwin' && !process.env.PAIR_CONTROL_NO_NOTIFY) {
-    execFile('osascript', ['-e', `display notification "${esc(message)}" with title "${esc(title)}" sound name "Basso"`], () => {});
+    execFile('osascript', ['-e', `display notification "${words[1]}" with title "${words[0]}" sound name "Basso"`]).on('error', () => {});
   }
   console.error(`\n[pair-control 무료 가드] ${title}: ${message}\n`);
 }
