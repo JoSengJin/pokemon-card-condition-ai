@@ -1,3 +1,4 @@
+import { effectiveGroups } from '../src/executor/contract.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 // 허용 파일 정리 규칙·프롬프트 추출·프리셋. 모델 요청 없음.
 import assert from 'node:assert/strict';
@@ -73,7 +74,7 @@ test('허용 파일을 비우면 기본 범위 적용, 금지 경로·"./"는 �
 
     // 기본 범위끼리는 같은 폴더라 겹친다 — 병렬로 돌리려면 범위를 좁혀야 한다는 뜻이다.
     const other = { ...p.task!, taskId: 'task-other', branch: 'claude/task-other', worktree: '/tmp/wt-other' };
-    assert.ok(conflicts(p.task!, other).some((c) => c.kind === 'files'), '기본 범위끼리 겹침');
+    assert.ok(conflicts(p.task!, other, { a: effectiveGroups(p.task!), b: effectiveGroups(other) }).some((c) => c.kind === 'files'), '기본 범위끼리 겹침');
 
     const own = await planTask(env.ex, { agent: 'claude', goal: '직접 적음', allowedFiles: ['src_a/'] });
     assert.equal(own.scopeDefault, false);

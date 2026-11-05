@@ -1,3 +1,4 @@
+import { effectiveGroups } from './contract.ts';
 // 작업 준비 자동화: 사람은 담당·목표·허용 파일만 고르고, 브랜치·기준 SHA·worktree 경로는 결정적으로 계산한다.
 // 미리보기(planTask)는 부작용이 없고, 생성(createWorktree)은 사용자가 배정을 누를 때 Mastra prepare-task workflow 안에서만 실행된다.
 import fs from 'node:fs';
@@ -153,7 +154,7 @@ export async function planTask(ex: Executor, raw: unknown): Promise<Plan> {
   const found: ConflictReason[] = [];
   if (v.success) {
     for (const o of Object.values(ex.state.tasks)) {
-      if (OCCUPYING.includes(o.status)) found.push(...conflicts(v.data, o));
+      if (OCCUPYING.includes(o.status)) found.push(...conflicts(v.data, o, { a: effectiveGroups(v.data), b: effectiveGroups(o) }));
     }
   }
   if (found.length) warnings.push(`진행 중 작업과 겹침 → 그 작업이 통합/거절될 때까지 시작 불가: ${[...new Set(found.map((c) => `${c.otherTask}(${c.detail})`))].join(', ')}`);

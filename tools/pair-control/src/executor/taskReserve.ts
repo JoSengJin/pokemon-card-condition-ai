@@ -1,3 +1,4 @@
+import { effectiveGroups } from './contract.ts';
 import { conflicts, type ConflictReason } from './contract.ts';
 import { setStatus } from './taskState.ts';
 import { OCCUPYING, STARTABLE, type Executor, type Task } from './executor.ts';
@@ -8,7 +9,7 @@ export function reserve(taskExecutor: Executor, t: Task, execId: string): { ok: 
   const found: ConflictReason[] = [];
   for (const o of Object.values(taskExecutor.state.tasks)) {
     if (o.taskId === t.taskId || !OCCUPYING.includes(o.status)) continue;
-    found.push(...conflicts(t, o));
+    found.push(...conflicts(t, o, { a: effectiveGroups(t), b: effectiveGroups(o) }));
   }
   if (found.length) return { ok: false, reason: '다른 진행 중 작업과 충돌', conflicts: found };
   const names = [`task:${t.taskId}`, `worktree:${t.worktree}`, `branch:${t.branch}`];
