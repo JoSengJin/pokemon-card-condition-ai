@@ -2,20 +2,20 @@
 
 - task_id: `pair-control-structure-compliance-20261029`
 - owner: Codex (Claude의 `93c1e2b81d4c682fcbaf530b5daf7771593264cd` 체크포인트에서 구현 인수)
-- status: implementing (단계별 진행 — 아래 단계 완료 조건 참조)
+- status: ready_for_review (리팩토링 단계 0~7 구현·검증 완료, main 미통합 — 최종 인계 참조)
 - base_sha: `6857715afd87c0922d3e0e0510efce0435e156b6` (전달받은 최신 문서 커밋과 실제 HEAD 일치, 작업 트리 변경 없음. 검토 대상 코드 커밋 `0b3341cd8b7a5d3722af94790f79c2f8d0e000f7`)
-- branch: `claude/pair-control` (기존 worktree). 통합·운영 push는 Codex. 실제 모델 호출·학습·사진 추론·운영 push 없음(fake CLI·스텁·임시 bare 원격만).
+- branch: `codex/pair-control-structure-continuation-20261029` (원래 `claude/pair-control` 체크포인트에서 인수한 분리 worktree). 통합·운영 push는 Codex. 실제 모델 호출·학습·사진 추론·운영 push 없음(fake CLI·스텁·임시 bare 원격만).
 - 사용자 결정: **코딩 규칙 준수**. 한정 예외·기준 완화·기존 파일 동결안은 채택하지 않는다. 기본 checkout의 최신 PAIR_CODING.md §2.1을 그대로 적용한다(파일당 정의 ≤7 — 익명 콜백 포함, 호출 전이 ≤4 — 파일·객체·래퍼를 넘어 계산, 임의 경계 없음).
 - 이 브랜치의 AGENTS.md/PAIR_CODING.md/HTML_REPORTING.md 사본은 낡았으므로 수정하지 않는다.
 
 ## 목표
 
-tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충족한다. 기능은 추가하지 않고 구조만 바꾼다. 지금 상태에서 충족을 주장하지 않는다 — 아래 현황과 단계로 진행하고 단계별로 측정 결과를 기록한다.
+tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충족한다. 기능은 추가하지 않고 구조만 바꾼다. 아래 시작 현황과 단계별 기록을 보존하며, 최종 판정은 문서 끝의 최종 인계와 HTML 보고서를 따른다.
 
 ## 측정 도구 (단계 0, 완료)
 
 `scripts/structure-trace.mjs`를 다시 만들었다: 이름 일치 추정 없음, 확정 간선만 계산(식별자·import·네임스페이스·this·타입 주석 체인·콜백 매개변수·수동 간선), 확정 못한 멤버 호출은 `unresolved`로 나열, `--check`는 초과 시 실패. 수동 간선은 `scripts/structure-edges.json`에 근거와 함께만 둔다. 회귀: `test/structure-trace.test.ts`(ops.push 오탐·verify 콜백·run.resume 오탐·함수 수·수동 간선 근거·실제 경로 pushNow 7회/onMainEnd 12회). 재현 명령: `node scripts/structure-trace.mjs > out.json`(저장소 기준 약 10초).
-알려진 한계: getter 접근은 호출 전이로 세지 않음(함수 정의 수에는 포함), 타입 주석 없는 지역 변수·`ops`(MainOps)·Mastra 동적 호출은 수동 간선 또는 미확인, 이름 있는 시작 함수 + 프로젝트 함수에 넘긴 콜백만 시작점. 측정 도구 자체의 구조 준수는 단계 6에서 다룬다(현재 정의 45개 — 미준수).
+단계 0 당시 한계(현재는 아래 보완·최종 감사로 해소/분류): getter 접근은 호출 전이로 세지 않음(함수 정의 수에는 포함), 타입 주석 없는 지역 변수·`ops`(MainOps)·Mastra 동적 호출은 수동 간선 또는 미확인, 이름 있는 시작 함수 + 프로젝트 함수에 넘긴 콜백만 시작점. 측정 도구 자체의 구조 준수는 단계 6에서 다룬다(현재 정의 45개 — 미준수).
 
 ## 현재 현황 (base 6857715, 도구 측정)
 
@@ -193,3 +193,14 @@ tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충�
 - 측정기는 함수 값을 Array.push/Map.set에 보관하는 경우를 실행으로 오인하지 않게 했고, ??= 배열 기본값만으로 기존 프로젝트 객체를 제외하던 판정을 제거했다. 파생 refine 스키마도 원본·import·중첩 참조를 따라 검증 콜백에 연결한다.
 - 검증: typecheck 통과, HTTP·저장 요청·실행 직전 철회·run 소유권·스냅샷 12개 통과, 측정기 21개 통과. 추가 검사 첫 명령은 뒤쪽 node에 PATH 설정이 이어지지 않아 Node18 환경 오류가 났고 해당 로그를 보존했다. Node24 명령으로 다시 실행한 12개가 실제 통과 근거다.
 - 정적 --check 초과 파일 0·시작점 0·순환 0, 원시 미확인 86·외부 호출 지점 2730. 미확인 목록의 native Array/Set·Promise resolve·Hono context·Mastra 상태 기록·zod issue 기록 출처를 대조 중이며 최종 HTML에 호출 지점별 근거를 담는다. 이 단계 이후 전체 회귀와 최종 렌더는 아직 미완료다.
+
+### 최종 인계 — 리팩토링 단계 0~7 완료 (2026-11-06)
+- 검증 코드 전체 SHA: `6eddfd41934cf6452ee33d550016e1ffdd19810d`. 이 뒤의 변경은 이 작업 계약과 정적 HTML 보고서뿐이다. main 통합·운영 push는 실행하지 않았다.
+- 고정 계약의 8개 단계(0~7) 완료. 모든 소스 270개 파일·함수 정의 779개(시작 SHA의 같은 AST 재측정: 73파일·797정의). 파일당 최대 7, 실제 프로젝트 호출 전이 최대 4, 초과 파일·시작점·순환 모두 0. 테스트 파일은 원래 계약의 회귀 범위이며 정의 수 측정 범위는 src/**·scripts/*.mjs 그대로다.
+- 원시 미확인 86개는 출력에서 숨기지 않았다. 실제 호출자/초기화/타입/설치 라이브러리 대조 결과 Array/Set 53, Promise resolve 4, Hono Context 7, Zod issue 7, Mastra 상태 기록 13·조립 2다. 대조 뒤 미분류 0. 외부 호출 2730개(사유 370종)도 전체 지점·사유를 보고서에 보존했다. 실제 프로젝트 callback 간선은 측정에 포함했다. native 분류는 프로젝트 말단 예외나 임의 경계로 등록하지 않았다. 이 SHA에 한정한 동일 개발자의 소스 감사이며 독립 리뷰를 뜻하지 않는다.
+- 최종 검증: `npm run typecheck` 통과(Node 24.21.0), `node scripts/structure-trace.mjs --check` 종료 0, `caffeinate -dimsu npm test` 총 228·227 통과·실패 0·취소 0·기존 브라우저 자동 검사 1 건너뜀, 756903ms. 최종 그래프가 감사한 그래프와 동일함을 대조했다.
+- 전체 로그: 검사 세션 로컬 `/tmp/pair-final-full-regression-20261106.log`, SHA-256 `cffe9a19547160d3a360d5d941b7755460de9a162501b5df18a8e4508ef1e873`. 이전 실패·환경 오류 로그는 보존했고 최종 통과와 구분했다. 남은 실패 0, 구조 초과 0, 자동 브라우저 건너뜀 1(Playwright 미설치). 수동 렌더 관찰을 자동 테스트 통과로 바꾸지 않았다.
+- 화면 확인: 최종 소스의 GET 전용 합성 localhost에서 작업 목록·교대 패널·보류/결과 불명·구현 로그 창을 실제 확인했고 오류·경고 로그 없음. 스크린샷 `pair-final-ui-20261106.png`(로컬 /tmp), SHA-256 `ab7694ecd906d224c85f81ff97d2c982d3fb086ba2e64d9463f6e18e7b11a9ad`.
+- HTML: `docs/collaboration/reports/pair-control-structure-compliance-20261029.html`을 실제 브라우저에서 열고 렌더 확인했다. 첫 화면의 SHA·정의 수·전체 테스트 결과를 대조하고 미확인 분류 표를 펼쳐 86행·가로 넘침 없음·브라우저 오류/경고 없음도 확인했다. 전체 적용 순서 56개 코드/기존 문서 커밋의 전체 SHA, 변경 파일 301개, 파일별 전후 정의 수, 779개 호출 경로, native 분류 근거/파일 해시, 검증/리스크/롤백을 담았다. 최종 인계 문서 커밋은 검증 코드 SHA와 구분한다.
+- 전체 카드 분석 진척은 기본 checkout의 고정 기준 `usable-card-analysis-v1.13` 장부 78/100(기록값)을 참고로 표시했으며 이 리팩토링에서 재산정·수정하지 않았다. 모델 학습·사진 추론·실제 provider 요청은 없고 모델 성능 변화는 평가하지 않았다. 다음 모델 개발은 시작하지 않았다.
+- 리스크/롤백: 감시·workflow·요청 worker 수명과 결과 불명 복구가 바뀌었다. 실행 직전 철회·세대 변경·중복·재시작·stop·한도·push HEAD/범위를 fake CLI·임시 bare 원격으로 검증했다. 실제 CLI 배포/인증 환경은 미검증이다. 단계와 의존 커밋을 역순으로 `./develop -- git revert <전체 SHA>`하고 dispatching/unknown 장부는 임의 삭제·재실행하지 않는다. 이번 작업의 운영 상태 변경은 없다.
