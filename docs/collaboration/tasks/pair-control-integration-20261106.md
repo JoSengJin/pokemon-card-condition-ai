@@ -7,7 +7,7 @@
 - integration_base_sha: 3c2e0b1882e117fc558073b23a9f543e50ec40fe (fetch 확인 main=origin/main)
 - branch: codex/pair-control-integration-20261106
 - goal: 최신 main과 도구 전체를 별도 브랜치에서 결합·검증하고 실행 직전 stop/승인 철회 반례를 보완한다.
-- allowed_files: 이 계약, docs/collaboration/reports/pair-control-integration-20261106.html, tools/pair-control/src/executor/taskLaunch.ts, tools/pair-control/src/executor/taskSpawn.ts, tools/pair-control/src/executor/taskReserve.ts, tools/pair-control/src/runtimeServiceTick.ts, tools/pair-control/src/runtimeRequests.ts, tools/pair-control/src/runtimeRequestPolicy.ts, tools/pair-control/test/launch-authority.test.ts. 최신 main 병합 유입 파일은 기존 커밋 그대로 보존하고 AGENTS.md/PAIR_CODING.md/README.md 충돌만 양쪽 지침·도구 안내를 대조해 해결한다.
+- allowed_files: 이 계약, docs/collaboration/reports/pair-control-integration-20261106.html, tools/pair-control/src/executor/taskLaunch.ts, tools/pair-control/src/executor/taskSpawn.ts, tools/pair-control/src/executor/taskReserve.ts, tools/pair-control/src/runtimeServiceTick.ts, tools/pair-control/src/runtimeRequests.ts, tools/pair-control/src/runtimeRequestPolicy.ts, tools/pair-control/test/launch-authority.test.ts, tools/pair-control/test/control.test.ts. 최신 main 병합 유입 파일은 기존 커밋 그대로 보존하고 AGENTS.md/PAIR_CODING.md/README.md 충돌만 양쪽 지침·도구 안내를 대조해 해결한다.
 - forbidden_files: 모델·worker·라벨·평가 자료 수동 변경, 비밀 설정, 다른 checkout 미커밋 파일. 실제 모델 호출·실제 CLI 모델 요청·학습·사진 추론·운영 push 금지. fake CLI·합성 fixture·임시 bare 원격만 사용.
 - contract: approvalGate 단일 승인 판정, 세션·세대·stop·한도·결과 불명·재시작·push 범위 보호 유지. 기본 checkout 미추적 .claude/는 건드리지 않고 깨끗해지기 전 main 통합 보류.
 - structure: 변경 전 270파일/779정의, 최대 정의7/전이4. 변경 파일별 전후 정의·경로를 기록. main 원본 도메인 파일은 구조 리팩토링 범위 밖.
@@ -29,3 +29,7 @@
 - typecheck 통과. 관련 저장 요청9개 포함 총21개 통과/실패0, 19747.827208ms. pair-integration-targeted-20261106.log.
 - taskLaunch 정의7→7, taskReserve1→1, runtimeServiceTick1→1. 전체270파일/779정의 불변, 최대전이4 유지, 초과파일0/시작점0/순환0. serviceTick→launch→validateOrigin→authorize→unmet=4. 원시 미확인86, 외부호출2730→2732(검사 메시지 내 Error2개) — 최종 분류 대조 예정.
 - 전체 회귀/최종 HTML은 다음 단계이며 아직 이번 결과로 보고하지 않는다.
+
+## 첫 전체 회귀의 비동기 관찰 경합
+- b8fa28dbf186cb053cb67364241e5a30d8fc512e 전체240개: 238통과/1실패/1기존 건너뜀, 673910.643375ms. 실패는 control.test.ts:59에서 status=review_pending 저장 직후 Mastra suspendedStep=null을 읽은 경우다. 분리 실행1개는 통과했으나 전체 실패를 성공으로 대체하지 않았다.
+- collect 서비스의 작업 상태 저장과 native review-gate suspend 저장은 독립된 비동기 단계다. 임의 지연·기대값 완화 없이 runInfo.suspendedStep=review-gate가 실제 저장될 때까지 기존 waitFor로 기다린다. control.test.ts의 이 검증 지점만 수정한다. 운영 소스는 변경하지 않는다.

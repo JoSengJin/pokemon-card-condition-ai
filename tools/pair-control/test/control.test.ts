@@ -55,8 +55,12 @@ test('독립 작업 두 개 병렬 실행 → 각각 전체 SHA로 검토 대기
       assert.match(r.headSha!, /^[0-9a-f]{40}$/);
       assert.ok(r.checksPassed, JSON.stringify(r.checks));
       assert.equal(r.commits.length, 1);
-      const info = await runInfo(getTask(env.ex, id).runId);
-      assert.equal(info?.suspendedStep, 'review-gate');
+      // 작업 상태 저장 뒤 framework의 대기 상태 저장도 끝나야 두 근거를 대조할 수 있다.
+      const info = await waitFor(async () => {
+        const saved = await runInfo(getTask(env.ex, id).runId);
+        return saved?.suspendedStep === 'review-gate' ? saved : null;
+      }, `${id} persisted review-gate`);
+      assert.equal(info.suspendedStep, 'review-gate');
       assert.equal(discrepancy(getTask(env.ex, id), info), null);
     }
     assert.equal(ea.tokens, '미측정');
