@@ -1,3 +1,4 @@
+import { limitOf } from './executorLookup.ts';
 import { assertMainActive } from './executorPolicy.ts';
 import { turnOf } from './executorView.ts';
 // 메인 역할(통합·푸시·실험 단일 담당) 표시와 이양 기록.
@@ -50,7 +51,7 @@ function memo(ex: Executor, from: 'codex' | 'claude', to: 'codex' | 'claude', re
 - 시각: ${at}
 - 사유: ${reason || '(미기재)'}
 - 주의: 이 기록은 도구의 표시일 뿐이며 권한을 강제하지 않는다. PAIR_CODING.md/AGENTS.md가 정한 역할 규칙은 바뀌지 않았다. 새 메인(${to})에게는 사용자가 한 줄로 알려야 한다.
-- 한도 상태: ${ex.limit ? ex.limit.detail : '도달 없음'}
+- 한도 상태: ${limitOf(ex)?.detail ?? '도달 없음'}
 
 ## 진행 중인 작업
 

@@ -1,3 +1,4 @@
+import { limitOf } from './executorLookup.ts';
 import { turnOf } from './executorView.ts';
 // 체크포인트 내용 구성: 저장된 작업 상태 + 실제 Git 헤드 + 진행 중 실행·푸시·승인·한도. 추정값은 넣지 않는다.
 import { execFileSync } from 'node:child_process';
@@ -39,6 +40,6 @@ export async function buildCheckpoint(ex: Executor, why: string) {
     schema: 'main-checkpoint/v1', why, at: new Date().toISOString(), generation: rt.generation, from: ex.mainAgent, repo: ex.cfg.repo, branch: ex.cfg.integration.branch,
     tasks: rows, nextActionCandidates, inheritedExecutions: running,
     integrationLock: ex.locks.holder('integration') ?? null, pushes, approvals: rt.approvals.filter((a) => !a.revokedAt),
-    limited: rt.limited, globalLimit: ex.limit, unverified,
+    limited: rt.limited, globalLimit: limitOf(ex), unverified,
   };
 }

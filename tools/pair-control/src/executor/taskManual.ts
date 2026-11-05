@@ -1,20 +1,21 @@
+import { getTask } from './executorLookup.ts';
 import { UserError } from './errors.ts';
 import { setStatus, releaseExecLocks } from './taskState.ts';
 import type { Executor } from './executor.ts';
 
 export async function finishManual(owner: Executor, taskId: string) {
-  const t = owner.task(taskId);
+  const t = getTask(owner, taskId);
   if (t.status !== 'manual_working' || !t.manual) throw new UserError(`수동 작업 중이 아님(${t.status})`);
   if (!owner.resumer || !t.runId) throw new UserError('workflow 연결 없음');
   releaseExecLocks(owner, t, t.manual.execId);
   t.manual.endedAt = new Date().toISOString(); t.manual.ended = 'finished';
   setStatus(owner, t, 'collecting', '사용자가 작업 완료를 표시 · 결과 수집 중');
   await owner.resumer(t.runId, 'await-exit', { execId: 'manual', exitCode: 0, signal: null, cancelled: false });
-  return owner.task(taskId);
+  return getTask(owner, taskId);
 }
 
 export async function cancelManual(owner: Executor, taskId: string): Promise<{ ok: boolean; reason: string }> {
-  const t = owner.task(taskId);
+  const t = getTask(owner, taskId);
   if (t.status !== 'manual_working' || !t.manual) return { ok: false, reason: '수동 작업 중이 아님' };
   releaseExecLocks(owner, t, t.manual.execId);
   t.manual.endedAt = new Date().toISOString(); t.manual.ended = 'cancelled';

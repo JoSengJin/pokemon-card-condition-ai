@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { readNewLog } from '../src/executor/processLog.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 // 스트리밍(JSONL) 출력과 무과금 가드. 모델 요청 없음(mock 에이전트·샘플 이벤트만).
@@ -92,8 +93,8 @@ test('mock 스트림 실행: 이벤트 줄이 로그에 남고 과금 문구를 
     const env = setup();
     try {
       await runStream(env, scenario);
-      await waitFor(() => env.ex.task('task-a').status === 'review_pending', `${scenario} review`);
-      const t = env.ex.task('task-a');
+      await waitFor(() => getTask(env.ex, 'task-a').status === 'review_pending', `${scenario} review`);
+      const t = getTask(env.ex, 'task-a');
       const log = fs.readFileSync(env.ex.state.executions[t.lastExecId!].logPath, 'utf8');
       assert.match(log, /"type":"system","subtype":"init"/);
       assert.ok(log.split('\n').filter((l) => l.startsWith('{')).every((l) => JSON.parse(l).type), '이벤트 줄은 모두 JSON');

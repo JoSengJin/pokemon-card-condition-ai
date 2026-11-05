@@ -1,3 +1,4 @@
+import { getTask } from './executorLookup.ts';
 import { limitFor, assertMainActive } from './executorPolicy.ts';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -14,7 +15,7 @@ import { REVIEW_MOCK_SCENARIOS, type Executor } from './executor.ts';
 
 export async function startReviewJob(taskExecutor: Executor, taskId: string, o: { reviewer?: 'codex' | 'claude'; mode?: 'mock' | 'real'; mockScenario?: (typeof REVIEW_MOCK_SCENARIOS)[number]; forHandoff?: boolean } = {}) {
   assertMainActive(taskExecutor, '리뷰 시작');
-  const t = taskExecutor.task(taskId);
+  const t = getTask(taskExecutor, taskId);
   if (taskExecutor.guardAlert) throw new UserError('과금 신호 감지 상태 — 실행하지 않음');
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 리뷰를 등록(${t.status})`);
   const sha = t.result?.headSha;

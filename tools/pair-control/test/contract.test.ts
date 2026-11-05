@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { logTail } from '../src/executor/executorView.ts';
@@ -27,11 +28,11 @@ test('계약은 작업 브랜치에만 커밋되고 개인 경로가 없으며 �
     assert.ok(!text.includes(wt) && !text.includes(env.dir), '계약에 개인 절대경로 없음');
     assert.match(text, /## 완료 조건\n\n- src_a 파일 갱신/);
     await startTask('task-a');
-    await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
-    const ex = env.ex.state.executions[env.ex.task('task-a').lastExecId!];
+    await waitFor(() => getTask(env.ex, 'task-a').status === 'review_pending', 'review');
+    const ex = env.ex.state.executions[getTask(env.ex, 'task-a').lastExecId!];
     assert.match(logTail(env.ex, ex.execId).text, /계약 읽음: # 작업 계약: task-a/);
     assert.ok(ex.display.join(' ').length < 400, 'CLI 인자는 계약 경로만(긴 지시는 파일)');
-    const r = env.ex.task('task-a').result!;
+    const r = getTask(env.ex, 'task-a').result!;
     assert.ok(r.checksPassed, JSON.stringify(r.checks));
     assert.deepEqual(r.changedFiles, ['src_a/mock-task-a.txt'], '계약 이후 변경만 Git 계약 검사 대상');
   } finally { env.cleanup(); }
@@ -42,8 +43,8 @@ test('에이전트가 계약 파일을 바꾸면 Git 계약 검사 실패', asyn
   try {
     await assign(env.ex, task(env, 'task-a', { mockScenario: 'edit-contract' }));
     await startTask('task-a');
-    await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
-    const r = env.ex.task('task-a').result!;
+    await waitFor(() => getTask(env.ex, 'task-a').status === 'review_pending', 'review');
+    const r = getTask(env.ex, 'task-a').result!;
     assert.equal(r.checksPassed, false);
     assert.equal(r.checks.find((c) => c.name === '계약 파일 불변')?.ok, false);
     await assert.rejects(approve(env.ex, 'task-a', r.headSha!), /검사 실패/);
@@ -63,7 +64,7 @@ test('준비 재시도: 등록 전 중단된 준비는 같은 worktree·계약 �
     assert.ok(p2.ok, JSON.stringify(p2.checks));
     assert.equal(p2.createWorktree, false);
     const r = await prepareTask(input);
-    const t = env.ex.task(r.taskId!);
+    const t = getTask(env.ex, r.taskId!);
     assert.equal(t.contractSha, c1.contractSha, '같은 계약 커밋 재사용');
     assert.equal(gitOut(wt, 'rev-list', '--count', `${env.fixture.baseSha}..HEAD`), '1', '중복 커밋 없음');
     assert.equal(gitOut(env.fixture.repo, 'worktree', 'list').split('\n').length, wtCount, '중복 worktree 없음');

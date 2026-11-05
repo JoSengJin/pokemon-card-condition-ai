@@ -1,3 +1,4 @@
+import { getTask, limitOf } from '../src/executor/executorLookup.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
@@ -30,18 +31,18 @@ async function ready(env: Env, name: string, dir: string) {
   fs.appendFileSync(path.join(wt, dir, 'work.txt'), 'change\n');
   gitOut(wt, 'add', '--', `${dir}/work.txt`); gitOut(wt, 'commit', '-qm', `feat: ${name}`);
   await finishManual(env.ex, name);
-  await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
+  await waitFor(() => getTask(env.ex, name).status === 'review_pending', `${name} review`);
   await verify(env, name);
   await handoffToMain(env.ex, name);
   confirmHandoff(env.ex, name, '테스트 확인');
-  return env.ex.task(name).result!.headSha!;
+  return getTask(env.ex, name).result!.headSha!;
 }
 
 /** 화면·API와 같은 연결: 승인은 기존 승인 함수와 workflow 재개로 수행한다. */
 function wire(env: Env) {
-  env.ex.setMainOps({ approve: async (id, sha) => {
+  (env.ex.mainOps = { approve: async (id, sha) => {
     const a = await approve(env.ex, id, sha, { requireHandoff: true });
-    await resumeStep(env.ex.task(id).runId!, 'review-gate', { decision: 'approve', sha: a.sha });
+    await resumeStep(getTask(env.ex, id).runId!, 'review-gate', { decision: 'approve', sha: a.sha });
   } });
 }
 
@@ -61,7 +62,7 @@ test('양방향 교대: 인수 확인 뒤에만 메인이 바뀌고, 승인은 �
   const env = setup(real);
   await withFlag(env, async () => {
     const shaA = await ready(env, 'task-a', 'src_a'), shaB = await ready(env, 'task-b', 'src_b');
-    const contractA = { sha: env.ex.task('task-a').contractSha, hash: env.ex.task('task-a').contractHash };
+    const contractA = { sha: getTask(env.ex, 'task-a').contractSha, hash: getTask(env.ex, 'task-a').contractHash };
     wire(env);
     grantApproval(env.ex, { basis: '사용자 승인: 개발·통합 승인 범위(2026-10-28 테스트)', actions: ['approve_task'], targets: ['task-a', 'task-b'] });
     script({ actions: [{ id: 'a1', type: 'approve_task', taskId: 'task-a', sha: shaA }] });
@@ -78,9 +79,9 @@ test('양방향 교대: 인수 확인 뒤에만 메인이 바뀌고, 승인은 �
     assert.equal(env.ex.mainAgent, 'claude');
     assert.equal(env.ex.state.main!.generation, 1);
     assert.equal(env.ex.runtime.frozen, false);
-    assert.equal(env.ex.task('task-a').status, 'approved', '새 메인이 다음 승인 작업을 실제로 처리');
-    assert.equal(env.ex.task('task-a').contractSha, contractA.sha, '교대했다는 이유로 확정된 계약을 다시 만들거나 바꾸지 않음');
-    assert.equal(env.ex.task('task-a').contractHash, contractA.hash);
+    assert.equal(getTask(env.ex, 'task-a').status, 'approved', '새 메인이 다음 승인 작업을 실제로 처리');
+    assert.equal(getTask(env.ex, 'task-a').contractSha, contractA.sha, '교대했다는 이유로 확정된 계약을 다시 만들거나 바꾸지 않음');
+    assert.equal(getTask(env.ex, 'task-a').contractHash, contractA.hash);
     assert.ok(s1.ackedAt && s1.completedAt);
 
     script({ actions: [{ id: 'b1', type: 'approve_task', taskId: 'task-b', sha: shaB }] });
@@ -89,7 +90,7 @@ test('양방향 교대: 인수 확인 뒤에만 메인이 바뀌고, 승인은 �
     assert.equal(s2.status, 'completed');
     assert.equal(env.ex.mainAgent, 'codex');
     assert.equal(env.ex.runtime.generation, 2);
-    assert.equal(env.ex.task('task-b').status, 'approved', '재승인 없이 같은 승인 범위를 승계');
+    assert.equal(getTask(env.ex, 'task-b').status, 'approved', '재승인 없이 같은 승인 범위를 승계');
   });
 });
 
@@ -116,8 +117,8 @@ test('승인 범위: 장부 범위 안만 수행하고 범위 밖 작업·실험
     assert.match(byId.exp.detail, /승인 범위 밖: run_experiment/);
     assert.match(byId.fp.detail, /어떤 승인으로도 자동 승계·수행하지 않음/);
     assert.match(byId.asg.detail, /승인 범위 밖: assign_task/);
-    assert.equal(env.ex.task('task-a').status, 'approved');
-    assert.equal(env.ex.task('task-b').status, 'review_pending', '범위 밖 작업은 건드리지 않음');
+    assert.equal(getTask(env.ex, 'task-a').status, 'approved');
+    assert.equal(getTask(env.ex, 'task-b').status, 'review_pending', '범위 밖 작업은 건드리지 않음');
     assert.equal(s.status, 'completed', '범위 안 행동 하나가 실제로 수행됨');
   });
 });
@@ -139,10 +140,10 @@ test('이전 메인의 지연 응답·중복 명령 차단: 같은 행동 ID는 
     script({});
     await handoverMain(env.ex, 'codex');
     await finished(env);
-    const before = JSON.stringify(env.ex.task('task-a'));
+    const before = JSON.stringify(getTask(env.ex, 'task-a'));
     const late = await applyActions(env.ex, s1, [{ id: 'late', type: 'approve_task', taskId: 'task-a', sha: shaA }]);
     assert.match(late[0].detail, /이전 세대의 메인/);
-    assert.equal(JSON.stringify(env.ex.task('task-a')), before, '늦은 이전 세션은 상태를 덮어쓰지 못함');
+    assert.equal(JSON.stringify(getTask(env.ex, 'task-a')), before, '늦은 이전 세션은 상태를 덮어쓰지 못함');
     // 이전 세션의 프로세스 종료 알림도 무시
     const stale = { ...env.ex.state.executions[s1.execId!] };
     await onMainEnd(env.ex, stale, { code: 0, cancelled: false, unknown: false });
@@ -156,7 +157,7 @@ test('한도 오류 직후 복구: 마지막 인계문 없이 저장된 상태�
   await withFlag(env, async () => {
     await assign(env.ex, task(env, 'task-c', { mode: 'mock', mockScenario: 'slow-success', allowedFiles: ['src_c/'] }));
     await startTask('task-c');
-    await waitFor(() => env.ex.task('task-c').status === 'running', 'running');
+    await waitFor(() => getTask(env.ex, 'task-c').status === 'running', 'running');
     script({ actions: [] });
     const r = await handoverAfterLimit(env.ex, 'claude', [], 'codex 한도 소진');
     assert.equal(r.status, 'launching', '한도 복구는 진행 중인 실행을 기다리지 않음');
@@ -172,7 +173,7 @@ test('한도 오류 직후 복구: 마지막 인계문 없이 저장된 상태�
     assert.equal(s.status, 'idle', '행동 근거가 없으면 완료로 표시하지 않음');
     assert.equal(env.ex.mainAgent, 'claude');
     // 구현 에이전트는 계속 실행되어 결과가 나온다(중단되지 않음)
-    await waitFor(() => env.ex.task('task-c').status === 'review_pending', '구현 결과 인수', 30_000);
+    await waitFor(() => getTask(env.ex, 'task-c').status === 'review_pending', '구현 결과 인수', 30_000);
     const ag = Object.values(env.ex.state.executions).find((e) => e.taskId === 'task-c' && (e.kind ?? 'agent') === 'agent')!;
     assert.equal(ag.status, 'exited');
     assert.equal(ag.cancelRequested, false);
@@ -185,7 +186,7 @@ test('결과 불명 대상은 확인 전에 다시 수행하지 않는다(작업
     const shaA = await ready(env, 'task-a', 'src_a');
     wire(env);
     grantApproval(env.ex, { basis: '승인', actions: ['approve_task', 'integrate_task'], targets: '*' });
-    env.ex.task('task-a').status = 'unknown';
+    getTask(env.ex, 'task-a').status = 'unknown';
     env.ex.state.pushes = { p1: { id: 'p1', status: 'push_unverified', tasks: ['task-p'], at: new Date().toISOString(), preRemoteHead: 'a'.repeat(40), pushedSha: 'b'.repeat(40) } as any };
     script({ actions: [{ id: 'u1', type: 'approve_task', taskId: 'task-a', sha: shaA }, { id: 'p1', type: 'integrate_task', taskId: 'task-p' }] });
     await handoverAfterLimit(env.ex, 'claude', [], '메인 한도 소진 보고(사용자)'); // 일반 교대는 push 결과 불명을 막는다 → 한도 복구 경로로 확인
@@ -245,6 +246,6 @@ test('교대 실패는 상태와 복구 지점을 보존하고 재시도하지 �
     assert.equal(both.status, 'blocked_both_limited', '양쪽 한도 소진');
     assert.equal(execs(), n1, '새 프로세스를 시작하지 않음');
     assert.equal(env.ex.mainAgent, 'codex');
-    assert.equal(env.ex.limit, null, '메인이 낸 한도는 구현 에이전트 전체 한도로 번지지 않음');
+    assert.equal(limitOf(env.ex), null, '메인이 낸 한도는 구현 에이전트 전체 한도로 번지지 않음');
   });
 });

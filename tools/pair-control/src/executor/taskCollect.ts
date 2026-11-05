@@ -1,3 +1,4 @@
+import { getTask } from './executorLookup.ts';
 import * as G from './git.ts';
 import { isAllowed } from './contract.ts';
 import { contractHashAt } from './contractFile.ts';
@@ -6,7 +7,7 @@ import { setStatus } from './taskState.ts';
 import type { Executor, Check } from './executor.ts';
 
 export async function collect(owner: Executor, taskId: string, execId: string | null) {
-  const t = owner.task(taskId);
+  const t = getTask(owner, taskId);
   const ex = execId ? owner.state.executions[execId] : null;
   const checks: Check[] = [];
   const add = (name: string, ok: boolean, detail: string) => checks.push({ name, ok, detail });
@@ -34,14 +35,14 @@ export async function collect(owner: Executor, taskId: string, execId: string | 
 }
 
 export async function recollect(owner: Executor, taskId: string) {
-  const t = owner.task(taskId);
+  const t = getTask(owner, taskId);
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 다시 수집(${t.status})`);
   if (t.verification?.status === 'running' || t.review?.status === 'running') throw new UserError('작업 테스트나 리뷰가 실행 중');
   return collect(owner, taskId, t.result?.execId ?? null);
 }
 
 export async function diff(owner: Executor, taskId: string) {
-  const t = owner.task(taskId);
+  const t = getTask(owner, taskId);
   const head = t.result?.headSha;
   if (!head) return '';
   return G.diffText(t.worktree, t.baseSha, head);

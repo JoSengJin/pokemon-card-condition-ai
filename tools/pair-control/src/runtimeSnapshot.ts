@@ -1,3 +1,4 @@
+import { limitOf } from './executor/executorLookup.ts';
 import { limitFor } from './executor/executorPolicy.ts';
 import { groupAlive } from './executor/processIdentity.ts';
 import { turnOf } from './executor/executorView.ts';
@@ -31,7 +32,7 @@ export async function snapshot(pipeline: ReturnType<typeof pipelineView>) {
   tasks.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return {
     now: new Date().toISOString(), lifetime: ex.lifetime, mode: ex.cfg.allowRealModelCalls ? 'real-allowed' : 'mock-only',
-    guard: ex.guardAlert, limit: ex.limit, mainRuntime: mainRuntimeView(ex, pipeline), main: ex.state.main ?? { agent: 'codex', since: null, reason: '기본값' }, push: pushState(ex), probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
+    guard: ex.guardAlert, limit: limitOf(ex), mainRuntime: mainRuntimeView(ex, pipeline), main: ex.state.main ?? { agent: 'codex', since: null, reason: '기본값' }, push: pushState(ex), probes: ex.probes, integration: ex.cfg.integration, connection: connection(ex), tasks,
   };
 }
 

@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { cancel } from '../src/executor/taskCancel.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
@@ -17,7 +18,7 @@ import { invocations, setup, task, verify, waitFor, type Env } from './helpers.t
 import { makeVenv } from '../scripts/fixture-lib.mjs';
 
 const gitOut = (cwd: string, ...a: string[]) => execFileSync('git', ['-c', 'user.name=session', '-c', 'user.email=s@l', ...a], { cwd }).toString().trim();
-const status = (env: Env, id: string) => env.ex.task(id).status;
+const status = (env: Env, id: string) => getTask(env.ex, id).status;
 const sessionCommit = (env: Env, name: string, file: string, text = 'session change\n') => {
   const wt = env.fixture.worktrees[name].path;
   fs.mkdirSync(path.dirname(path.join(wt, file)), { recursive: true });
@@ -35,7 +36,7 @@ test('수동 모드 전체 흐름: 프로세스 없이 소유권 유지 → 작�
     assert.equal(status(env, 'task-a'), 'manual_working');
     assert.equal(invocations(env), 0, '도구가 에이전트 프로세스를 띄우지 않음');
     assert.equal(Object.keys(env.ex.state.executions).length, 0);
-    assert.equal((await runInfo(env.ex.task('task-a').runId))?.suspendedStep, 'await-exit');
+    assert.equal((await runInfo(getTask(env.ex, 'task-a').runId))?.suspendedStep, 'await-exit');
     assert.ok(env.ex.locks.holder('task:task-a'), '소유권 잠금 유지');
     // 같은 파일을 쓰는 다른 작업은 시작할 수 없음
     await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_a/file.txt'] }));
@@ -46,7 +47,7 @@ test('수동 모드 전체 흐름: 프로세스 없이 소유권 유지 → 작�
     const sha = sessionCommit(env, 'task-a', 'src_a/session.txt');
     await finishManual(env.ex, 'task-a');
     await waitFor(() => status(env, 'task-a') === 'review_pending', 'review');
-    const t = env.ex.task('task-a');
+    const t = getTask(env.ex, 'task-a');
     assert.equal(env.ex.locks.holder('task:task-a'), null, '완료 후 잠금 해제');
     assert.equal(t.result!.headSha, sha);
     assert.ok(t.result!.checksPassed, JSON.stringify(t.result!.checks));
@@ -66,7 +67,7 @@ test('수동 모드: 허용 밖 변경·미커밋 변경은 Git 검사 실패, �
     fs.writeFileSync(path.join(env.fixture.worktrees['task-a'].path, 'src_a', 'wip.txt'), '미커밋');
     await finishManual(env.ex, 'task-a');
     await waitFor(() => status(env, 'task-a') === 'review_pending', 'review');
-    let r = env.ex.task('task-a').result!;
+    let r = getTask(env.ex, 'task-a').result!;
     assert.equal(r.checksPassed, false);
     assert.deepEqual(r.outOfScope, ['outside.txt'], '허용 범위 안의 미커밋 파일은 범위 밖이 아니라 미커밋 검사에서 실패');
     assert.equal(r.checks.find((c) => c.name === '미커밋 변경 없음')!.ok, false);
@@ -76,17 +77,17 @@ test('수동 모드: 허용 밖 변경·미커밋 변경은 Git 검사 실패, �
     // 정리하고 허용 범위 안 커밋만 남긴 뒤 다시 수집
     const wt = env.fixture.worktrees['task-a'].path;
     fs.rmSync(path.join(wt, 'src_a', 'wip.txt'));
-    gitOut(wt, 'reset', '-q', '--hard', env.ex.task('task-a').contractSha);
+    gitOut(wt, 'reset', '-q', '--hard', getTask(env.ex, 'task-a').contractSha);
     const sha2 = sessionCommit(env, 'task-a', 'src_a/ok.txt');
     await recollect(env.ex, 'task-a');
-    r = env.ex.task('task-a').result!;
+    r = getTask(env.ex, 'task-a').result!;
     assert.ok(r.checksPassed, JSON.stringify(r.checks));
     assert.equal(r.headSha, sha2);
     await verify(env, 'task-a');
     // 커밋을 더 하면 이전 작업 테스트로 승인할 수 없음
     const sha3 = sessionCommit(env, 'task-a', 'src_a/more.txt');
     await recollect(env.ex, 'task-a');
-    assert.equal(env.ex.task('task-a').result!.headSha, sha3);
+    assert.equal(getTask(env.ex, 'task-a').result!.headSha, sha3);
     await assert.rejects(approve(env.ex, 'task-a', sha3), /작업 테스트가 통과하지 않음|현재 SHA·계약과 다름/);
   } finally { env.cleanup(); }
 });
@@ -102,15 +103,15 @@ test('수동 모드: 취소는 잠금을 풀고 workflow를 끝냄, 서버 재�
     assert.ok(env.ex.locks.holder('task:task-a'));
     assert.equal(invocations(env), 0);
     await assert.rejects(startTask('task-a'), /중복 실행 차단|잠금 사용 중/);
-    assert.equal((await runInfo(env.ex.task('task-a').runId))?.suspendedStep, 'await-exit', '재시작 후에도 Mastra 대기 상태 유지');
+    assert.equal((await runInfo(getTask(env.ex, 'task-a').runId))?.suspendedStep, 'await-exit', '재시작 후에도 Mastra 대기 상태 유지');
 
     const r = await cancel(env.ex, 'task-a');
     assert.ok(r.ok, r.reason);
     assert.equal(status(env, 'task-a'), 'cancelled');
     assert.equal(env.ex.locks.holder('task:task-a'), null);
-    const info = await waitFor(async () => { const i = await runInfo(env.ex.task('task-a').runId); return i?.result ? i : null; }, 'run result');
+    const info = await waitFor(async () => { const i = await runInfo(getTask(env.ex, 'task-a').runId); return i?.result ? i : null; }, 'run result');
     assert.equal(info.result.outcome, 'cancelled');
-    assert.equal(env.ex.task('task-a').result ?? null, null, '취소는 결과를 수집하지 않음');
+    assert.equal(getTask(env.ex, 'task-a').result ?? null, null, '취소는 결과를 수집하지 않음');
     await startTask('task-a'); // 취소 후 다시 시작 가능
     assert.equal(status(env, 'task-a'), 'manual_working');
     // 완료를 두 번 누르거나 작업 중이 아닐 때는 거절

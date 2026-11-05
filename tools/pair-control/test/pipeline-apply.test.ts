@@ -33,6 +33,21 @@ test('verified 턴은 다음 연속 처리에서 한 번만 적용되고 저장�
   } finally { e.cleanup(); }
 });
 
+test('재시작 뒤 종료 observed 기록은 라우팅 완료 전 결과 불명으로 덮지 않는다', async () => {
+  const e = setup();
+  try {
+    owner(e);
+    verifiedTurn(e, { status: 'launched', lifetime: 'previous-server', execId: 'saved-exit' });
+    e.ex.state.executions['saved-exit'] = { execId: 'saved-exit', status: 'exited', completion: { stage: 'observed', code: 0, cancelled: false, unknown: false } } as any;
+    await pipelineTick(e.ex);
+    assert.equal(pipe(e.ex).turns.t1.status, 'launched');
+    assert.equal(pipe(e.ex).events.k.state, 'launched');
+    e.ex.state.executions['saved-exit'].completion!.stage = 'done';
+    await pipelineTick(e.ex);
+    assert.equal(pipe(e.ex).turns.t1.status, 'unknown', '종료 처리가 끝나도 응답 검증 기록이 없으면 결과 불명');
+  } finally { e.cleanup(); }
+});
+
 test('검증 뒤 세대가 바뀌면 이전 응답은 적용하지 않고 stale로 남긴다(행동 장부에도 남지 않음)', async () => {
   const e = setup();
   try {

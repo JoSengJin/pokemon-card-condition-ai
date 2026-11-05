@@ -1,3 +1,4 @@
+import { getTask } from './executorLookup.ts';
 import { assertMainActive } from './executorPolicy.ts';
 import { startReviewJob } from './reviewStart.ts';
 import fs from 'node:fs';
@@ -10,7 +11,7 @@ import type { Executor } from './executor.ts';
 
 export async function handoffToMain(ex: Executor, taskId: string) {
   assertMainActive(ex, '메인 인계');
-  const t = ex.task(taskId);
+  const t = getTask(ex, taskId);
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 인계(${t.status})`);
   const r = t.result;
   if (!r?.headSha || !r.commits.length) throw new UserError('인계할 커밋이 없음 — 에이전트가 커밋하지 않았습니다');

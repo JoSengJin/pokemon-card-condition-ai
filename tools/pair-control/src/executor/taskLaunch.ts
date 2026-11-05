@@ -1,3 +1,4 @@
+import { getTask } from './executorLookup.ts';
 import { spawnExec } from './taskSpawn.ts';
 import { reserve } from './taskReserve.ts';
 import { preflightChecks } from './taskPreflight.ts';
@@ -9,7 +10,7 @@ import type { ConflictReason } from './contract.ts';
 import { STARTABLE, type Executor, type Check } from './executor.ts';
 
 export async function launch(taskExecutor: Executor, taskId: string, runId: string): Promise<{ ok: true; execId: string; pid: number } | { ok: true; manual: true; execId: null } | { ok: false; reason: string; conflicts?: ConflictReason[]; checks?: Check[] }> {
-  const t = taskExecutor.task(taskId);
+  const t = getTask(taskExecutor, taskId);
   const execId = crypto.randomUUID();
   const r = reserve(taskExecutor, t, execId);
   if (!r.ok) {

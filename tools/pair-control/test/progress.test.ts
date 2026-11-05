@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 // 진행률 항목 기반 계약 초안(원문 인용, 판단은 사람) — 합성 development-progress.json만 사용한다.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -65,7 +66,7 @@ test('초안으로 작업 준비: 계약 파일에 원문과 범위 제한이 �
     const d = await progressDraft(env.ex, 'C1');
     const r = await prepareTask({ agent: 'claude', mode: 'manual', goal: d.draft.goal, doneCriteria: d.draft.doneCriteria, prompt: d.draft.prompt, allowedFiles: d.suggestedFiles,
       checks: [{ id: 'ws', name: '공백', executable: 'git', args: ['diff', '--check', '{contract}', '{head}'] }] });
-    const t = env.ex.task(r.taskId!);
+    const t = getTask(env.ex, r.taskId!);
     const text = fs.readFileSync(path.join(t.worktree, t.contractPath), 'utf8');
     assert.ok(text.includes('> FN/(TP+FN)<=5%') && text.includes('점수·진척률·배점·판정을 바꾸지 않는다'));
     assert.equal(t.usesDevelopLock, true);

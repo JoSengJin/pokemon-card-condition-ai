@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 // 실시간 로그: 줄 단위 비밀 가림·즉시 기록·시간 제한, 통합 후 검사 실행 중 로그, 수동 모드 활동. 모델 요청 없음.
@@ -56,22 +57,22 @@ test('통합 후 검사: 실행 중에 로그가 먼저 보이고, 끝나면 완
     const code = `console.log("post-start");console.log("key ${secret}");setTimeout(()=>{console.log("post-end")},1500)`;
     await assign(env.ex, task(env, 'task-a', { postChecks: [{ id: 'slow', name: '느린 검사', executable: 'node', args: ['-e', code] }] }));
     await startTask('task-a');
-    await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
+    await waitFor(() => getTask(env.ex, 'task-a').status === 'review_pending', 'review');
     await verify(env, 'task-a');
-    const t = env.ex.task('task-a');
+    const t = getTask(env.ex, 'task-a');
     const a = await approve(env.ex, 'task-a', t.result!.headSha!);
     await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     const integrating = resumeStep(t.runId!, 'integrate-gate', { action: 'integrate' });
 
     const live = await waitFor(() => { try { const r = tailPostLog(env.ex, 'task-a', 'slow', 0); return r.text.includes('post-start') ? r : null; } catch { return null; } }, '실행 중 로그');
-    assert.equal(env.ex.task('task-a').status, 'integrating', '아직 통합 후 검사가 도는 중');
-    assert.equal(env.ex.task('task-a').integration!.postStatus, 'running');
-    assert.equal(env.ex.task('task-a').integration!.postChecks![0].status, 'running');
+    assert.equal(getTask(env.ex, 'task-a').status, 'integrating', '아직 통합 후 검사가 도는 중');
+    assert.equal(getTask(env.ex, 'task-a').integration!.postStatus, 'running');
+    assert.equal(getTask(env.ex, 'task-a').integration!.postChecks![0].status, 'running');
     assert.ok(!live.text.includes('post-end'));
     assert.ok(live.text.includes('[REDACTED]') && !live.text.includes(secret), '비밀은 가려져 기록');
 
     await integrating;
-    const done = env.ex.task('task-a');
+    const done = getTask(env.ex, 'task-a');
     assert.equal(done.status, 'integrated');
     assert.equal(done.integration!.postStatus, 'passed');
     assert.equal(done.integration!.postChecks![0].status, 'passed');
@@ -86,7 +87,7 @@ test('활동: 새 커밋·변경 파일·미커밋·범위 밖 변경을 읽기�
   const env = setup();
   try {
     await assign(env.ex, task(env, 'task-a', { mode: 'manual' }));
-    const wt = env.ex.task('task-a').worktree;
+    const wt = getTask(env.ex, 'task-a').worktree;
     const empty = await activityOf(env.ex, 'task-a');
     assert.equal(empty.commits.length, 0, '계약 커밋 위의 작업은 아직 없음');
     assert.deepEqual(empty.dirty, []);

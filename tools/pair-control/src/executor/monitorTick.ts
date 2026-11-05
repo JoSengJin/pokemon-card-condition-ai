@@ -64,6 +64,7 @@ export async function tick(taskExecutor: Executor, ) {
       }
     }
   }
+  if (Object.values(taskExecutor.state.executions).some((execution) => execution.completion && execution.completion.stage !== 'done')) return;
   for (const t of Object.values(taskExecutor.state.tasks)) {
     const v = t.verification;
     if (v?.status !== 'running' || v.items.some((item) => item.status === 'running')) continue;

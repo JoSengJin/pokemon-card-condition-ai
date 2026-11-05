@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { stop } from '../src/executor/monitorSchedule.ts';
 import { runChecks } from '../src/executor/verificationStart.ts';
 import fs from 'node:fs';
@@ -98,7 +99,7 @@ export function task(env: Env, name: string, extra: Record<string, unknown> = {}
 /** 사용자가 '작업 테스트 실행'을 누른 것과 같다. 끝날 때까지 기다린다. */
 export async function verify(env: Env, id: string) {
   await runChecks(env.ex, id);
-  return waitFor(() => { const v = env.ex.task(id).verification; return v && v.status !== 'running' ? v : null; }, `${id} checks`);
+  return waitFor(() => { const v = getTask(env.ex, id).verification; return v && v.status !== 'running' ? v : null; }, `${id} checks`);
 }
 
 export async function waitFor<T>(fn: () => T | Promise<T>, label: string, timeoutMs = 15_000): Promise<NonNullable<T>> {

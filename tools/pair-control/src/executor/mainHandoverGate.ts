@@ -1,3 +1,4 @@
+import { limitOf } from './executorLookup.ts';
 // 메인 교대 대상과 공급자별 한도를 한 곳에서 판정한다. 일반 교대만 추가 작업 차단 상태를 확인한다.
 import { swapBlockers } from './mainRole.ts';
 import { UserError, type Executor } from './executor.ts';
@@ -10,7 +11,7 @@ export async function targetGate(ex: Executor, toRaw: string, limitReason?: stri
   if (to === from) throw new UserError(`이미 ${from}이(가) 메인임`);
   if (rt.frozen || rt.session?.status === 'launching') throw new UserError('메인 교대가 이미 진행 중 — 끝난 뒤 다시 시도');
   if (limitReason !== undefined) rt.limited[from] ??= { at: new Date().toISOString(), detail: limitReason || '메인 한도 소진 보고(사용자)' };
-  const lim = rt.limited[to] ?? ex.limit;
+  const lim = rt.limited[to] ?? limitOf(ex);
   if (!lim) return { to, from };
   rt.failures.push({ at: new Date().toISOString(), reason: `대상 ${to} 사용 불가(한도): ${lim.detail}` });
   appendEvent(ex.cfg.stateDir, { type: 'main_handover_blocked', lifetime: ex.lifetime, to, detail: lim.detail, bothLimited: !!(rt.limited[from] && rt.limited[to]) });

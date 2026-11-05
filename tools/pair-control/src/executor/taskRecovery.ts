@@ -1,10 +1,11 @@
+import { getTask } from './executorLookup.ts';
 import { groupAlive } from './processIdentity.ts';
 import { UserError } from './errors.ts';
 import { setStatus, releaseExecLocks } from './taskState.ts';
 import type { Executor } from './executor.ts';
 
 export function acknowledgeUnknown(owner: Executor, taskId: string) {
-  const t = owner.task(taskId);
+  const t = getTask(owner, taskId);
   if (t.status !== 'unknown') throw new UserError('결과 불명 상태가 아님');
   const ex = t.lastExecId ? owner.state.executions[t.lastExecId] : null;
   if (ex && groupAlive(owner, ex.pgid)) throw new UserError(`프로세스 그룹 ${ex.pgid}가 아직 살아 있음`);
@@ -13,7 +14,7 @@ export function acknowledgeUnknown(owner: Executor, taskId: string) {
 }
 
 export async function applyObservedExit(owner: Executor, taskId: string) {
-  const t = owner.task(taskId);
+  const t = getTask(owner, taskId);
   if (t.status !== 'exit_observed') throw new UserError('재시작 후 종료 관찰 상태가 아님');
   const ex = owner.state.executions[t.lastExecId!];
   setStatus(owner, t, 'collecting', '사용자 확인 후 결과 반영');

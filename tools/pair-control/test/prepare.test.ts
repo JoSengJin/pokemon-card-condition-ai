@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 // 작업 준비 자동화(prepare-task workflow) 검증. 모델 요청 없음.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -37,12 +38,12 @@ test('준비하고 배정: worktree·브랜치 생성 → 등록 → 그대로 �
   const env = setup();
   try {
     const r = await prepareTask({ agent: 'codex', goal: '연습', allowedFiles: ['src_b/'], mockScenario: 'success' });
-    const t = env.ex.task(r.taskId!);
+    const t = getTask(env.ex, r.taskId!);
     assert.equal(t.status, 'assigned');
     assert.ok(t.preflight!.every((c) => c.ok), JSON.stringify(t.preflight));
     assert.equal(gitOut(t.worktree, 'symbolic-ref', '--short', 'HEAD'), t.branch);
     await startTask(t.taskId);
-    await waitFor(() => env.ex.task(t.taskId).status === 'review_pending', 'review');
+    await waitFor(() => getTask(env.ex, t.taskId).status === 'review_pending', 'review');
 
     // 같은 ID로 다시: 이미 배정·브랜치 존재 → 거절, 기존 폴더 그대로
     const marker = path.join(t.worktree, 'src_b', 'file.txt');

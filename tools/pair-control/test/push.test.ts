@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
@@ -24,13 +25,13 @@ async function integrate(env: Env, name: string, file: string, extra: Record<str
   fs.appendFileSync(path.join(wt, file), `${name} change\n`);
   git(wt, 'add', '--', file); git(wt, 'commit', '-qm', `feat: ${name}`);
   await finishManual(env.ex, name);
-  await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
+  await waitFor(() => getTask(env.ex, name).status === 'review_pending', `${name} review`);
   await verify(env, name);
-  const t = env.ex.task(name);
+  const t = getTask(env.ex, name);
   const a = await approve(env.ex, name, t.result!.headSha!);
   await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
   await resumeStep(t.runId!, 'integrate-gate', { action: 'integrate' });
-  return env.ex.task(name);
+  return getTask(env.ex, name);
 }
 const otherClonePush = (env: Env, file = 'other.txt') => {
   const dir = path.join(env.dir, `clone-${Math.random().toString(36).slice(2)}`);

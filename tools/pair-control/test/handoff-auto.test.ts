@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
@@ -60,7 +61,7 @@ async function readyForHandoff(env: Env, name: string) {
   fs.appendFileSync(path.join(wt, 'src_a/work.txt'), 'change\n');
   gitOut(wt, 'add', '--', 'src_a/work.txt'); gitOut(wt, 'commit', '-qm', 'feat: work');
   await finishManual(env.ex, name);
-  await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
+  await waitFor(() => getTask(env.ex, name).status === 'review_pending', `${name} review`);
   await verify(env, name);
 }
 
@@ -70,12 +71,12 @@ test('인계 자동 확인: 가드를 통과하면 별도 codex 리뷰가 approv
     await readyForHandoff(env, 'task-a');
     const r = await handoffToMainAuto(env.ex, 'task-a');
     assert.match(r.autoNote!, /자동 확인 시작/);
-    await waitFor(() => !!env.ex.task('task-a').handoff?.confirmedAt, '자동 확인');
-    const h = env.ex.task('task-a').handoff!;
+    await waitFor(() => !!getTask(env.ex, 'task-a').handoff?.confirmedAt, '자동 확인');
+    const h = getTask(env.ex, 'task-a').handoff!;
     assert.equal(h.auto, true);
     assert.match(h.note!, /대화 중인 메인 세션의 확인이 아님/);
-    assert.equal(env.ex.task('task-a').approval, null, '승인은 대신하지 않음');
-    assert.equal(env.ex.task('task-a').status, 'review_pending');
+    assert.equal(getTask(env.ex, 'task-a').approval, null, '승인은 대신하지 않음');
+    assert.equal(getTask(env.ex, 'task-a').status, 'review_pending');
   } finally { env.cleanup(); }
 });
 
@@ -86,9 +87,9 @@ test('인계 자동 확인: changes_requested면 확인하지 않고 사람 차�
   try {
     await readyForHandoff(env, 'task-a');
     await handoffToMainAuto(env.ex, 'task-a');
-    await waitFor(() => env.ex.task('task-a').review?.status === 'done', '리뷰 종료');
-    assert.equal(env.ex.task('task-a').review!.verdict, 'changes_requested');
-    assert.equal(env.ex.task('task-a').handoff!.confirmedAt, undefined);
+    await waitFor(() => getTask(env.ex, 'task-a').review?.status === 'done', '리뷰 종료');
+    assert.equal(getTask(env.ex, 'task-a').review!.verdict, 'changes_requested');
+    assert.equal(getTask(env.ex, 'task-a').handoff!.confirmedAt, undefined);
   } finally { fs.rmSync(flag, { force: true }); env.cleanup(); }
 });
 
@@ -98,8 +99,8 @@ test('인계 자동 확인: 과금 가드가 막으면 인계만 하고 사유�
     await readyForHandoff(env, 'task-a');
     const r = await handoffToMainAuto(env.ex, 'task-a');
     assert.match(r.autoNote!, /^자동 확인 안 함: .*실제 모델 호출 차단/);
-    assert.ok(env.ex.task('task-a').handoff && !env.ex.task('task-a').handoff!.confirmedAt);
-    assert.equal(env.ex.task('task-a').review, null);
+    assert.ok(getTask(env.ex, 'task-a').handoff && !getTask(env.ex, 'task-a').handoff!.confirmedAt);
+    assert.equal(getTask(env.ex, 'task-a').review, null);
   } finally { env.cleanup(); }
 });
 
@@ -109,11 +110,11 @@ test('자동 확인이 approve가 아니면 인계는 확인되지 않고 결과
   fs.writeFileSync(flag, 'insufficient_evidence');
   try {
     await readyForHandoff(env, 'task-a');
-    const sha = env.ex.task('task-a').result!.headSha!;
+    const sha = getTask(env.ex, 'task-a').result!.headSha!;
     await assert.rejects(approve(env.ex, 'task-a', sha, { requireHandoff: true }), /메인 인계가 끝나지 않음/);
     await handoffToMainAuto(env.ex, 'task-a');
-    await waitFor(() => env.ex.task('task-a').review?.status === 'done', '리뷰 종료');
-    const h = env.ex.task('task-a').handoff!;
+    await waitFor(() => getTask(env.ex, 'task-a').review?.status === 'done', '리뷰 종료');
+    const h = getTask(env.ex, 'task-a').handoff!;
     assert.equal(h.confirmedAt, undefined, 'approve가 아니면 자동 확인하지 않음');
     assert.equal(h.autoResult!.verdict, 'insufficient_evidence');
     assert.match(h.autoResult!.summary!, /fake codex review/);
@@ -129,7 +130,7 @@ test('승인 전제조건: 리뷰가 실행 중이면 승인할 수 없다', asy
   const env = setup(real);
   try {
     await readyForHandoff(env, 'task-a');
-    const t = env.ex.task('task-a'), sha = t.result!.headSha!;
+    const t = getTask(env.ex, 'task-a'), sha = t.result!.headSha!;
     await handoffToMain(env.ex, 'task-a');
     confirmHandoff(env.ex, 'task-a');
     t.review = { reviewId: 'r', reviewer: 'codex', mode: 'real', sha, contractHash: t.contractHash, bundleDir: '', worktreeFingerprint: '', status: 'running', startedAt: 'x' };

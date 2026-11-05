@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { startReviewJob } from '../src/executor/reviewStart.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 // 실제 사용자 흐름 회귀(합성 저장소 + mock 에이전트 + fake 리뷰 CLI). 모델 요청 없음.
@@ -34,7 +35,7 @@ test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 �
       postChecks: [{ id: 'post', name: '통합 후 파일 확인', executable: 'git', args: ['ls-files', '--error-unmatch', 'src_b/file.txt'] }],
     });
     const id = prep.taskId!;
-    let t = env.ex.task(id);
+    let t = getTask(env.ex, id);
     assert.equal(t.status, 'assigned');
     assert.equal(gitOut(t.worktree, 'log', '-1', '--format=%s'), `docs(task): ${id} 작업 계약`);
     assert.equal(gitOut(repo, 'rev-parse', 'main'), mainBefore, '준비 단계에서 main 불변');
@@ -42,8 +43,8 @@ test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 �
 
     // 2) 실행 → Git 계약 검사
     await startTask(id);
-    await waitFor(() => env.ex.task(id).status === 'review_pending', 'review');
-    t = env.ex.task(id);
+    await waitFor(() => getTask(env.ex, id).status === 'review_pending', 'review');
+    t = getTask(env.ex, id);
     assert.ok(t.result!.checksPassed, JSON.stringify(t.result!.checks));
 
     // 3) 작업 테스트(비밀값 미전달·로그 가림)
@@ -56,9 +57,9 @@ test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 �
 
     // 4) 별도 리뷰(fake) — 판정은 기록만
     await startReviewJob(env.ex, id, { mockScenario: 'approve' });
-    const rv = await waitFor(() => { const r = env.ex.task(id).review; return r && r.status !== 'running' ? r : null; }, 'review job');
+    const rv = await waitFor(() => { const r = getTask(env.ex, id).review; return r && r.status !== 'running' ? r : null; }, 'review job');
     assert.equal(rv.reviewer, 'codex'); assert.equal(rv.verdict, 'approve');
-    assert.equal(env.ex.task(id).status, 'review_pending', '리뷰가 승인을 대신하지 않음');
+    assert.equal(getTask(env.ex, id).status, 'review_pending', '리뷰가 승인을 대신하지 않음');
 
     // 5) 사람 승인 → 통합 → 통합 후 검사
     const a = await approve(env.ex, id, t.result!.headSha!);
@@ -66,7 +67,7 @@ test('준비 → 계약 커밋 → 실행 → Git 검사 → 작업 테스트 �
     await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     assert.equal((await runInfo(t.runId))?.suspendedStep, 'integrate-gate');
     await resumeStep(t.runId!, 'integrate-gate', { action: 'integrate' });
-    t = env.ex.task(id);
+    t = getTask(env.ex, id);
     assert.equal(t.status, 'integrated', t.statusReason ?? '');
     assert.equal(t.integration!.postStatus, 'passed');
     assert.equal(t.integration!.preHead, mainBefore);

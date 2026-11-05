@@ -1,3 +1,4 @@
+import { getTask } from './executorLookup.ts';
 import { assertMainActive } from './executorPolicy.ts';
 import { integrationState } from './integrationSnapshot.ts';
 import crypto from 'node:crypto';
@@ -14,7 +15,7 @@ import type { Executor, Task, TaskStatus } from './executor.ts';
 
 export async function integrate(taskExecutor: Executor, taskId: string): Promise<{ outcome: string; detail: string }> {
   assertMainActive(taskExecutor, '통합');
-  const t = taskExecutor.task(taskId);
+  const t = getTask(taskExecutor, taskId);
   if (t.status !== 'approved' || !t.approval) throw new UserError(`승인된 상태가 아님(${t.status})`);
   if (taskExecutor.guardAlert) throw new UserError('무료 가드 발동 상태');
   const owner = crypto.randomUUID();

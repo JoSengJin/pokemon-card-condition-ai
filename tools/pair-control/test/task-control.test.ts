@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { stop } from '../src/executor/monitorSchedule.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve, reject } from '../src/executor/taskApproval.ts';
@@ -13,13 +14,13 @@ import { invocations, setup, task, verify, waitFor, type Env } from './helpers.t
 
 async function toApproved(env: Env, id: string) {
   await startTask(id);
-  await waitFor(() => env.ex.task(id).status === 'review_pending', `${id} review`);
+  await waitFor(() => getTask(env.ex, id).status === 'review_pending', `${id} review`);
   assert.equal((await verify(env, id)).status, 'passed');
-  const t = env.ex.task(id);
+  const t = getTask(env.ex, id);
   const a = await approve(env.ex, id, t.result!.headSha!);
   await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
   assert.equal((await runInfo(t.runId))?.suspendedStep, 'integrate-gate');
-  return env.ex.task(id);
+  return getTask(env.ex, id);
 }
 
 test('승인 취소: 같은 SHA로 검토 단계 복귀, 에이전트 재실행 없음, 작업 테스트 유효, 다시 승인하면 통합 가능', async () => {
@@ -43,7 +44,7 @@ test('승인 취소: 같은 SHA로 검토 단계 복귀, 에이전트 재실행 
     const a = await approve(env.ex, 'task-a', sha);
     await resumeStep(t.runId!, 'review-gate', { decision: 'approve', sha: a.sha });
     await resumeStep(t.runId!, 'integrate-gate', { action: 'integrate' });
-    await waitFor(() => env.ex.task('task-a').status === 'integrated', 'integrated');
+    await waitFor(() => getTask(env.ex, 'task-a').status === 'integrated', 'integrated');
   } finally { env.cleanup(); }
 });
 
@@ -53,7 +54,7 @@ test('승인 취소는 승인됨 상태에서만, 보관은 진행 중·결정 �
     await assign(env.ex, task(env, 'task-a'));
     await assert.rejects(withdrawApproval(env.ex, 'task-a', resumeStep, startReview), /승인됨 상태에서만/);
     await startTask('task-a');
-    await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
+    await waitFor(() => getTask(env.ex, 'task-a').status === 'review_pending', 'review');
     await assert.rejects(withdrawApproval(env.ex, 'task-a', resumeStep, startReview), /승인됨 상태에서만/);
     assert.throws(() => setArchived(env.ex, 'task-a', true), /보관할 수 없음\(review_pending\)/);
 
@@ -61,10 +62,10 @@ test('승인 취소는 승인됨 상태에서만, 보관은 진행 중·결정 �
     const archived = setArchived(env.ex, 'task-a', true);
     assert.ok(archived.archivedAt);
     assert.equal(archived.status, 'rejected', '상태·기록은 그대로');
-    assert.ok(env.ex.task('task-a').result, '결과 기록 유지');
+    assert.ok(getTask(env.ex, 'task-a').result, '결과 기록 유지');
     const again = env.restart();
     try {
-      assert.ok(again.ex.task('task-a').archivedAt, '재시작 후에도 보관 유지');
+      assert.ok(getTask(again.ex, 'task-a').archivedAt, '재시작 후에도 보관 유지');
       assert.equal(setArchived(again.ex, 'task-a', false).archivedAt, null);
     } finally { stop(again.ex); }
   } finally { env.cleanup(); }
@@ -74,7 +75,7 @@ test('환경 만들기: 고정 명령으로 .venv만 만들고 준비 완료, �
   const env = setup();
   try {
     await assign(env.ex, task(env, 'task-a', { env: 'python' }));
-    const wt = env.ex.task('task-a').worktree;
+    const wt = getTask(env.ex, 'task-a').worktree;
     assert.equal(fs.existsSync(path.join(wt, '.venv')), false);
     const before = await recheckEnv(env.ex, 'task-a');
     assert.equal(before!.ready, false);
@@ -87,10 +88,10 @@ test('환경 만들기: 고정 명령으로 .venv만 만들고 준비 완료, �
     await assert.rejects(createVenv(env.ex, 'task-a'), /이미 .venv가 있음/);
 
     await assign(env.ex, task(env, 'task-b', { env: 'python', allowedFiles: ['src_b/'] }));
-    env.ex.task('task-b').worktree = env.fixture.repo; // 기본 checkout을 가리키는 비정상 기록
+    getTask(env.ex, 'task-b').worktree = env.fixture.repo; // 기본 checkout을 가리키는 비정상 기록
     await assert.rejects(createVenv(env.ex, 'task-b'), /기본 checkout/);
-    env.ex.task('task-a').status = 'running';
+    getTask(env.ex, 'task-a').status = 'running';
     await assert.rejects(createVenv(env.ex, 'task-a'), /시작 전·중단된 작업에서만/);
-    env.ex.task('task-a').status = 'assigned';
+    getTask(env.ex, 'task-a').status = 'assigned';
   } finally { env.cleanup(); }
 });

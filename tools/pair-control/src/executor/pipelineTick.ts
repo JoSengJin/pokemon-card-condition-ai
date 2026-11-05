@@ -27,7 +27,8 @@ const busy = new WeakSet<object>(); // 겹쳐 호출돼도 한 번에 하나만(
 function recoverTurns(ex: Executor) {
   for (const t of Object.values(pipe(ex).turns)) {
     if (!RESTART_UNKNOWN.includes(t.status) || t.lifetime === ex.lifetime) continue;
-    const running = t.status === 'launched' && t.execId && ['running', 'cancelling'].includes(ex.state.executions[t.execId]?.status ?? '');
+    const execution = t.execId ? ex.state.executions[t.execId] : undefined;
+    const running = t.status === 'launched' && execution && (['running', 'cancelling'].includes(execution.status) || (execution.completion && execution.completion.stage !== 'done'));
     if (running) continue;
     t.status = 'unknown'; t.failure = '서버 재시작 전 진행 중이던 턴 — 결과 불명, 재시도하지 않음';
     mark(ex, t.eventKeys, 'unknown', { reason: t.failure });

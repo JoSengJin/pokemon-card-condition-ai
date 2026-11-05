@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { approve } from '../src/executor/taskApproval.ts';
 import { recollect } from '../src/executor/taskCollect.ts';
@@ -28,10 +29,10 @@ async function manualDone(env: Env, name: string, file = 'src_a/work.txt', extra
   await startTask(name);
   const sha = file ? commit(env, name, file) : null;
   await finishManual(env.ex, name);
-  await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
+  await waitFor(() => getTask(env.ex, name).status === 'review_pending', `${name} review`);
   return sha;
 }
-const turn = (env: Env, id: string) => turnOf(env.ex.task(id));
+const turn = (env: Env, id: string) => turnOf(getTask(env.ex, id));
 
 test('누구 차례: 배정 → 에이전트 작업 → 사용자(검사·인계) → 메인 확인 중 → 사용자(승인) → 통합', async () => {
   const env = setup();
@@ -42,7 +43,7 @@ test('누구 차례: 배정 → 에이전트 작업 → 사용자(검사·인계
     assert.deepEqual([turn(env, 'task-a').who, turn(env, 'task-a').agent], ['implementer', 'claude']);
     const sha = commit(env, 'task-a', 'src_a/work.txt');
     await finishManual(env.ex, 'task-a');
-    await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
+    await waitFor(() => getTask(env.ex, 'task-a').status === 'review_pending', 'review');
     assert.match(turn(env, 'task-a').next, /메인에게 인계/);
     await verify(env, 'task-a');
 
@@ -51,7 +52,7 @@ test('누구 차례: 배정 → 에이전트 작업 → 사용자(검사·인계
     assert.deepEqual([turn(env, 'task-a').who, turn(env, 'task-a').agent], ['main', 'codex']);
     // 인계 문서: 전체 SHA·부모·변경 파일·검사·미검증·롤백, 상태 폴더에만 저장하고 브랜치에는 커밋하지 않음
     const wt = env.fixture.worktrees['task-a'].path;
-    const t = env.ex.task('task-a');
+    const t = getTask(env.ex, 'task-a');
     const parent = gitOut(wt, 'rev-parse', `${sha}^`);
     for (const needle of [`전체 SHA: \`${sha}\``, `\`${sha}\` ← \`${parent}\``, '- src_a/work.txt', 'Git 계약 검사: 통과', '작업 테스트: passed', '독립 리뷰: 미실행', '미검증·한계', './develop -- git revert', '## 메인(codex)이 할 일', wt]) {
       assert.ok(h.text.includes(needle), `없음: ${needle}`);

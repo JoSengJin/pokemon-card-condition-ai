@@ -1,10 +1,11 @@
+import { getTask } from './executorLookup.ts';
 import { cancelRunning } from './processCancel.ts';
 import { cancelManual } from './taskManual.ts';
 import { finishVerification } from './verificationLifecycle.ts';
 import type { Executor } from './executor.ts';
 
 export async function cancel(taskExecutor: Executor, taskId: string): Promise<{ ok: boolean; reason: string }> {
-  const t = taskExecutor.task(taskId);
+  const t = getTask(taskExecutor, taskId);
   if (t.status === 'manual_working') return cancelManual(taskExecutor, taskId);
   if (t.verification?.status === 'running' && !t.verification.items.some((item) => item.status === 'running')) {
     finishVerification(taskExecutor, t, 'cancelled', '사용자 중단(검사 프로세스 시작 전)');

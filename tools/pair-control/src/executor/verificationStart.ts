@@ -1,3 +1,4 @@
+import { getTask } from './executorLookup.ts';
 import { ensureWatcher } from './monitorSchedule.ts';
 import crypto from 'node:crypto';
 import * as G from './git.ts';
@@ -7,7 +8,7 @@ import { UserError } from './errors.ts';
 import type { Executor, CheckRun } from './executor.ts';
 
 export async function runChecks(taskExecutor: Executor, taskId: string) {
-  const t = taskExecutor.task(taskId);
+  const t = getTask(taskExecutor, taskId);
   if (taskExecutor.guardAlert) throw new UserError('과금 신호 감지 상태 — 실행하지 않음');
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 작업 테스트를 실행(${t.status})`);
   if (!t.checks.length) throw new UserError('계약에 작업 테스트가 없음 — 승인할 수 없음(검사를 포함해 새 작업으로 준비)');

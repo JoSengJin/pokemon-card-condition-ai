@@ -1,3 +1,4 @@
+import { getTask } from './executorLookup.ts';
 import { reject } from './taskApproval.ts';
 import { recheckEnv } from './taskEnvironment.ts';
 // 작업 제어: 승인 취소(승인됨 → 검토 단계), 작업 보관(목록에서 숨기기), 실행 환경 만들기(.venv). 에이전트를 다시 실행하지 않는다.
@@ -23,7 +24,7 @@ function record(ex: Executor, t: Task, type: string, data: Record<string, unknow
  * 같은 SHA·계약의 작업 테스트·리뷰·인계 기록은 그대로 유효하다.
  */
 export async function withdrawApproval(ex: Executor, taskId: string, resume: Resume, rereview: (taskId: string) => Promise<unknown>) {
-  const t = ex.task(taskId);
+  const t = getTask(ex, taskId);
   if (!['approved', 'integration_blocked'].includes(t.status) || !t.approval) throw new UserError(`승인 취소는 승인됨 상태에서만 가능(${t.status})`);
   const sha = t.approval.sha, oldRun = t.runId;
   t.approval = null;
@@ -35,12 +36,12 @@ export async function withdrawApproval(ex: Executor, taskId: string, resume: Res
     catch (err) { record(ex, t, 'resume_error', { runId: oldRun, error: (err as Error).message }); }
   }
   await rereview(taskId);
-  return ex.task(taskId);
+  return getTask(ex, taskId);
 }
 
 /** 끝났거나 시작 전인 작업만 목록에서 숨긴다. 기록·worktree·브랜치는 그대로 두고 언제든 해제할 수 있다. */
 export function setArchived(ex: Executor, taskId: string, archived: boolean) {
-  const t = ex.task(taskId);
+  const t = getTask(ex, taskId);
   if (archived && OCCUPYING.includes(t.status)) throw new UserError(`진행 중이거나 결정이 남은 작업은 보관할 수 없음(${t.status}) — 먼저 취소·거절하거나 통합하세요`);
   t.archivedAt = archived ? new Date().toISOString() : null;
   record(ex, t, archived ? 'task_archived' : 'task_unarchived');
@@ -53,7 +54,7 @@ const DISCARD_DIRECT = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected'
 export const DISCARDABLE = [...DISCARD_VIA_REJECT, ...DISCARD_DIRECT];
 
 export async function discardTask(ex: Executor, taskId: string, reason: string, resume: Resume) {
-  const t = ex.task(taskId);
+  const t = getTask(ex, taskId);
   const why = String(reason ?? '').trim().slice(0, 300);
   if (why.length < 2) throw new UserError('폐기 사유를 적어 주세요(다른 사람이 이유를 알 수 있게 기록됩니다)');
   const prev = t.status;
@@ -70,7 +71,7 @@ export async function discardTask(ex: Executor, taskId: string, reason: string, 
   t.discard = { at, reason: why };
   t.archivedAt = at;
   record(ex, t, 'task_discarded', { from: prev, reason: why });
-  return ex.task(taskId);
+  return getTask(ex, taskId);
 }
 
 /** 끝난 작업을 한꺼번에 보관한다: 거절·결과 불명 확정, 그리고 통합되고 원격 반영까지 확인된 작업. 중단됨(다시 시작할 수 있음)은 건드리지 않는다. */
@@ -94,7 +95,7 @@ const BEFORE_START = ['assigned', 'blocked', 'failed', 'cancelled', 'rejected', 
  * 기본 checkout·등록되지 않은 폴더·진행 중 작업·이미 있는 .venv(링크 포함)는 거부한다. 끝나면 실행 준비를 다시 확인한다.
  */
 export async function createVenv(ex: Executor, taskId: string) {
-  const t = ex.task(taskId);
+  const t = getTask(ex, taskId);
   if (!BEFORE_START.includes(t.status)) throw new UserError(`시작 전·중단된 작업에서만 환경을 만들 수 있음(${t.status})`);
   const wts = await G.worktrees(ex.cfg.repo);
   const real = fs.existsSync(t.worktree) ? fs.realpathSync.native(t.worktree) : t.worktree;
@@ -111,7 +112,7 @@ export async function createVenv(ex: Executor, taskId: string) {
 
 /** 통합 후 검사 항목의 로그를 이어서 읽는다. 파일은 작업 상태에 기록된 항목에서만 찾는다(클라이언트가 경로를 주지 않음). */
 export function tailPostLog(ex: Executor, taskId: string, checkId: string, from: number) {
-  const item = ex.task(taskId).integration?.postChecks?.find((i) => i.id === checkId);
+  const item = getTask(ex, taskId).integration?.postChecks?.find((i) => i.id === checkId);
   if (!item?.logPath) throw new UserError('통합 후 검사 로그 없음');
   return tailFile(item.logPath, Math.max(0, from));
 }
@@ -121,7 +122,7 @@ export function tailPostLog(ex: Executor, taskId: string, checkId: string, from:
  * 읽기만 한다(git log/status). 숫자와 목록은 화면이 그대로 보여 주며 판정에는 쓰이지 않는다.
  */
 export async function activityOf(ex: Executor, taskId: string) {
-  const t = ex.task(taskId);
+  const t = getTask(ex, taskId);
   const base = t.contractSha || t.baseSha; // 계약 커밋 위의 작업만(Git 계약 검사와 같은 기준)
   const log = await G.git(t.worktree, 'log', '--format=%h%x09%cI%x09%s', `${base}..HEAD`);
   const commits = log.stdout.split('\n').filter(Boolean).slice(0, 30).map((l) => { const [sha, at, ...s] = l.split('\t'); return { sha, at, subject: s.join('\t') }; });

@@ -1,9 +1,10 @@
+import { getTask } from './executorLookup.ts';
 import { groupAlive, ownsLeader } from './processIdentity.ts';
 import { setStatus } from './taskState.ts';
 import type { Executor } from './executor.ts';
 
 export async function cancelRunning(taskExecutor: Executor, taskId: string): Promise<{ ok: boolean; reason: string }> {
-  const t = taskExecutor.task(taskId);
+  const t = getTask(taskExecutor, taskId);
   const ex = Object.values(taskExecutor.state.executions).filter((e) => e.taskId === taskId && ['running', 'cancelling'].includes(e.status))
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
   if (!ex) return { ok: false, reason: '이 실행기가 시작한 실행 중 프로세스가 없음' };

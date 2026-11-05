@@ -1,3 +1,4 @@
+import { getTask, limitOf } from '../src/executor/executorLookup.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
 // 교대 후 연속 페어코딩: 새 메인이 인수 뒤 도착하는 구현 결과를 받아 검사→검토→통합→합성 원격 push까지 이어 처리하는지 확인한다.
@@ -54,7 +55,7 @@ async function manualResult(env: Env, name: string, dirName: string, extra: Reco
   fs.appendFileSync(path.join(wt, dirName, 'work.txt'), content);
   git(wt, 'add', '--', `${dirName}/work.txt`); git(wt, 'commit', '-qm', `feat: ${name}`);
   await finishManual(env.ex, name);
-  await waitFor(() => env.ex.task(name).status === 'review_pending', `${name} review`);
+  await waitFor(() => getTask(env.ex, name).status === 'review_pending', `${name} review`);
 }
 
 const pushedFor = (env: Env, id: string) => Object.values(env.ex.state.pushes ?? {}).find((p) => p.status === 'pushed_verified' && p.tasks.includes(id));
@@ -64,8 +65,8 @@ async function expectPushed(env: Env, id: string) {
   assert.equal(originHead(env), git(env.fixture.repo, 'rev-parse', 'HEAD'), '합성 원격 = 통합 checkout HEAD');
   assert.equal(originHead(env), rec.pushedSha);
   assert.ok(!rec.command.some((a) => /force|^\+|-f$/.test(a)), 'force 없음');
-  assert.equal(env.ex.task(id).status, 'integrated');
-  assert.equal(env.ex.task(id).integration?.postStatus === 'failed', false);
+  assert.equal(getTask(env.ex, id).status, 'integrated');
+  assert.equal(getTask(env.ex, id).integration?.postStatus === 'failed', false);
   return rec;
 }
 
@@ -76,13 +77,13 @@ for (const [from, to, name, dirName] of [['codex', 'claude', 'task-d', 'src_b'],
     // 구현 에이전트(${name})는 교대 시점에 실행 중이며 중단되지 않는다.
     await assign(env.ex, task(env, name, { mode: 'mock', mockScenario: 'slow-success', allowedFiles: [`${dirName}/`] }));
     await startTask(name);
-    await waitFor(() => env.ex.task(name).status === 'running', 'running');
+    await waitFor(() => getTask(env.ex, name).status === 'running', 'running');
     grant(env);
     script();
     await handoverMain(env.ex, to);
     const s = await taken(env);
     assert.equal(env.ex.mainAgent, to);
-    assert.ok(['running', 'collecting', 'review_pending'].includes(env.ex.task(name).status), '교대 때 구현을 중단하지 않음');
+    assert.ok(['running', 'collecting', 'review_pending'].includes(getTask(env.ex, name).status), '교대 때 구현을 중단하지 않음');
 
     await expectPushed(env, name); // 이후 단계는 이 테스트가 호출하지 않는다: 검사·인계·확인·승인·통합·push 모두 파이프라인이 수행
     const ag = Object.values(env.ex.state.executions).find((e) => e.taskId === name && (e.kind ?? 'agent') === 'agent')!;
@@ -93,7 +94,7 @@ for (const [from, to, name, dirName] of [['codex', 'claude', 'task-d', 'src_b'],
     assert.deepEqual(ts.flatMap((t) => t.actionResults.map((r) => [r.type, r.ok])), [['confirm_handoff', true], ['approve_task', true], ['integrate_task', true], ['push_main', true]]);
     assert.equal(turns().length, 2, '모델 턴은 이벤트당 정확히 한 번');
     assert.ok(Object.values(pipe(env.ex).events).every((e) => e.state === 'applied'));
-    assert.match(env.ex.task(name).handoff!.note ?? '', /합성 검토/);
+    assert.match(getTask(env.ex, name).handoff!.note ?? '', /합성 검토/);
 
     // 입력 묶음: 이전 기억 없음 명시, 승인된 행동 종류, 변경 파일·diff 파일 제공, diff 해시 원문은 주지 않음
     const t1 = ts[0], bundle = path.join(env.cfg.stateDir, 'main-sessions', t1.id);
@@ -121,10 +122,10 @@ test('새 작업 준비→구현 시작→결과 수집→검사·검토→통�
   await handoverMain(env.ex, 'claude');
   const s = await taken(env);
   assert.equal(s.actionResults[0].ok, true, s.actionResults[0].detail);
-  assert.notEqual(env.ex.task('task-n').status, 'assigned', '배정만 하고 멈추지 않고 구현을 시작');
+  assert.notEqual(getTask(env.ex, 'task-n').status, 'assigned', '배정만 하고 멈추지 않고 구현을 시작');
   await expectPushed(env, 'task-n');
   assert.notEqual(originHead(env), base);
-  assert.equal(env.ex.task('task-n').integration?.postStatus, 'passed', '통합 후 검사 통과 뒤에만 push');
+  assert.equal(getTask(env.ex, 'task-n').integration?.postStatus, 'passed', '통합 후 검사 통과 뒤에만 push');
 }));
 
 // ---------- 4. 차단 ----------
@@ -136,7 +137,7 @@ test('승인 범위 밖 작업은 자동 검사·인계·턴 모두 하지 않�
   script();
   await handoverMain(env.ex, 'claude'); await taken(env);
   await expectPushed(env, 'task-b');
-  const a = env.ex.task('task-d');
+  const a = getTask(env.ex, 'task-d');
   assert.equal(a.status, 'review_pending'); assert.equal(a.verification ?? null, null, '검사도 시작하지 않음'); assert.equal(a.handoff ?? null, null);
   const held = Object.values(pipe(env.ex).events).filter((e) => e.taskId === 'task-d');
   assert.ok(held.length === 0 || held.every((e) => e.state === 'held'));
@@ -154,7 +155,7 @@ test('특정 세션에 묶인 승인은 새 메인이 승계하지 않는다: �
   script();
   await handoverMain(env.ex, 'claude'); await taken(env);
   await sleep(2000);
-  assert.equal(env.ex.task('task-b').verification ?? null, null); assert.equal(turns().length, 0);
+  assert.equal(getTask(env.ex, 'task-b').verification ?? null, null); assert.equal(turns().length, 0);
   assert.equal(Object.keys(env.ex.state.pushes ?? {}).length, 0);
 }));
 
@@ -166,8 +167,8 @@ test('자유 문장 조건뿐인 승인: 검사·인계·모델 턴을 모두 �
   await handoverMain(env.ex, 'claude'); await taken(env);
   await sleep(2500);
   assert.equal(turns().length, 0, '모델 턴 0회'); assert.equal(Object.keys(pipe(env.ex).steps).length, 0, '자동 검사·인계 0회');
-  assert.equal(env.ex.task('task-b').verification ?? null, null); assert.equal(env.ex.task('task-b').handoff ?? null, null);
-  assert.equal(env.ex.task('task-b').status, 'review_pending');
+  assert.equal(getTask(env.ex, 'task-b').verification ?? null, null); assert.equal(getTask(env.ex, 'task-b').handoff ?? null, null);
+  assert.equal(getTask(env.ex, 'task-b').status, 'review_pending');
   assert.ok(pipelineView(env.ex).heldReasons.some((h) => /승인 조건 미확정/.test(h.reason)), '보류 사유가 화면 요약에 남음');
   assert.equal(originHead(env), env.fixture.baseSha); assert.equal(Object.keys(env.ex.state.pushes ?? {}).length, 0);
 }));
@@ -179,11 +180,11 @@ test('작업 테스트 실패: 인계·턴 없이 해당 작업에서 멈추고 
   script();
   await handoverMain(env.ex, 'claude'); await taken(env);
   await waitFor(() => Object.values(pipe(env.ex).events).find((e) => e.kind === 'blocked'), '차단 이벤트', T);
-  const a = env.ex.task('task-b');
+  const a = getTask(env.ex, 'task-b');
   assert.equal(a.verification?.status, 'failed'); assert.equal(a.handoff ?? null, null);
   assert.match(Object.values(pipe(env.ex).events).find((e) => e.kind === 'blocked')!.reason!, /통과하지 않음\(failed\)/);
   await sleep(1200);
-  assert.equal(turns().length, 0); assert.equal(env.ex.task('task-b').status, 'review_pending');
+  assert.equal(turns().length, 0); assert.equal(getTask(env.ex, 'task-b').status, 'review_pending');
 }));
 
 test('통합 후 검사 실패: 통합 행동은 실패로 남고 push 단계로 넘어가지 않는다', { timeout: 120_000 }, async () => withEnv(async (env) => {
@@ -194,7 +195,7 @@ test('통합 후 검사 실패: 통합 행동은 실패로 남고 push 단계로
   await handoverMain(env.ex, 'claude'); await taken(env);
   const t = await waitFor(() => Object.values(pipe(env.ex).turns).find((x) => x.status === 'applied'), '턴 적용', T);
   assert.equal(t.actionResults.find((r) => r.type === 'integrate_task')!.ok, false);
-  assert.equal(env.ex.task('task-b').status, 'integrated_check_failed');
+  assert.equal(getTask(env.ex, 'task-b').status, 'integrated_check_failed');
   await sleep(1500);
   assert.equal(turns().length, 1, 'push 턴이 생기지 않음'); assert.equal(originHead(env), env.fixture.baseSha);
   assert.ok(Object.values(pipe(env.ex).events).some((e) => e.kind === 'blocked' && e.state === 'held'));
@@ -208,7 +209,7 @@ test('구현 에이전트=메인: selfReview를 명시한 승인이 없으면 �
     await handoverMain(env.ex, 'claude'); await taken(env);
     const t = await waitFor(() => Object.values(pipe(env.ex).turns).find((x) => x.status === 'applied'), '턴 적용', T);
     assert.match(t.actionResults[0].detail, /독립 확인이 아님.*selfReview/);
-    assert.equal(env.ex.task('task-a').status, 'review_pending'); assert.equal(env.ex.task('task-a').handoff?.confirmedAt, undefined);
+    assert.equal(getTask(env.ex, 'task-a').status, 'review_pending'); assert.equal(getTask(env.ex, 'task-a').handoff?.confirmedAt, undefined);
     assert.throws(() => grantApproval(env.ex, { basis: 'x', actions: ['confirm_handoff', 'approve_task'], requires: { selfReview: true } }), /confirm_handoff 단독/);
   });
   await withEnv(async (env) => {
@@ -219,7 +220,7 @@ test('구현 에이전트=메인: selfReview를 명시한 승인이 없으면 �
     script({ forceConfirm: true });
     await handoverMain(env.ex, 'claude'); await taken(env);
     await expectPushed(env, 'task-a');
-    assert.match(env.ex.task('task-a').handoff!.note!, /^\[자기 확인 — 독립 확인 아님\]/);
+    assert.match(getTask(env.ex, 'task-a').handoff!.note!, /^\[자기 확인 — 독립 확인 아님\]/);
   });
 });
 
@@ -233,7 +234,7 @@ test('push 승인이 장부에 없거나 diff 해시가 틀리면 해당 단계�
     const held = await waitFor(() => Object.values(pipe(env.ex).events).find((e) => e.kind === 'integrated' && e.state === 'held'), 'push 승인 없는 통합 이벤트 보류', T);
     assert.match(held.reason!, /승인 범위 밖: push_main/);
     assert.equal(turns().length, 1, 'push_main 승인이 없으면 push 턴을 시작하지 않음(결과 도착 턴 1회뿐)');
-    assert.equal(originHead(env), env.fixture.baseSha); assert.equal(env.ex.task('task-a').status, 'integrated');
+    assert.equal(originHead(env), env.fixture.baseSha); assert.equal(getTask(env.ex, 'task-a').status, 'integrated');
     assert.equal(pipelineView(env.ex).tasks[0].pipelineDone, false, '통합만으로 파이프라인 완료 표시 안 함');
   });
   await withEnv(async (env) => {
@@ -243,7 +244,7 @@ test('push 승인이 장부에 없거나 diff 해시가 틀리면 해당 단계�
     await handoverMain(env.ex, 'codex'); await taken(env);
     const t = await waitFor(() => Object.values(pipe(env.ex).turns).find((x) => x.status === 'applied'), '턴 적용', T);
     assert.match(t.actionResults[0].detail, /diff 해시가 도구 계산값과 다름/);
-    assert.equal(env.ex.task('task-a').status, 'review_pending'); assert.equal(originHead(env), env.fixture.baseSha);
+    assert.equal(getTask(env.ex, 'task-a').status, 'review_pending'); assert.equal(originHead(env), env.fixture.baseSha);
   });
 });
 
@@ -259,8 +260,8 @@ test('실행 중 재교대: 이전 세대 턴의 늦은 응답은 상태를 바�
   const r = await handoverAfterLimit(env.ex, 'claude', [], '합성: 턴 진행 중 재교대');
   assert.equal(r.status, 'launching');
   await waitFor(() => pipe(env.ex).turns[first.id].status === 'stale', '늦은 응답 거부', T);
-  assert.equal(env.ex.task('task-c').status, 'review_pending', '늦은 응답의 행동은 수행되지 않음');
-  assert.equal(env.ex.task('task-c').handoff?.confirmedAt, undefined);
+  assert.equal(getTask(env.ex, 'task-c').status, 'review_pending', '늦은 응답의 행동은 수행되지 않음');
+  assert.equal(getTask(env.ex, 'task-c').handoff?.confirmedAt, undefined);
   const second = await waitFor(() => Object.values(pipe(env.ex).turns).find((t) => t.generation === 2 && t.status === 'applied'), '새 세대 턴', T);
   assert.match(second.actionResults[0].detail, /독립 확인이 아님/, '새 메인=구현 에이전트라 selfReview 없이는 막힘');
   assert.equal(turns().length, 2, '이벤트마다 세대당 턴 한 번');
@@ -271,7 +272,7 @@ test('중복 이벤트·겹친 틱: 같은 이벤트는 한 번만 등록되고 
   await manualResult(env, 'task-a', 'src_a');
   grant(env, ['confirm_handoff']); script({ mode: 'none', delayMs: 800 });
   await handoverMain(env.ex, 'claude'); await taken(env);
-  const sha = env.ex.task('task-a').result!.headSha!;
+  const sha = getTask(env.ex, 'task-a').result!.headSha!;
   await waitFor(() => pipe(env.ex).events[`result_ready:task-a:${sha}`], '이벤트 등록', T);
   assert.equal(register(env.ex, 'result_ready', 'task-a', sha), false, '이미 등록된 이벤트(또는 같은 키)는 새로 만들지 않음');
   await Promise.all([pipelineTick(env.ex), pipelineTick(env.ex), pipelineTick(env.ex)]);
@@ -292,7 +293,7 @@ test('한쪽 한도: 턴이 한도로 끝나면 그 에이전트를 기록하고
   script({ forceConfirm: true }); // 다음 턴은 정상
   await waitFor(() => env.ex.runtime.generation === 2 && env.ex.mainAgent === 'claude', '한도 교대', T);
   assert.ok(env.ex.runtime.limited.codex, '한도에 닿은 에이전트가 기록됨');
-  assert.equal(env.ex.limit, null, '메인이 낸 한도가 전체 한도로 번지지 않음');
+  assert.equal(limitOf(env.ex), null, '메인이 낸 한도가 전체 한도로 번지지 않음');
   await expectPushed(env, 'task-c');
   const ts = Object.values(pipe(env.ex).turns);
   assert.equal(ts[0].status, 'limited');
@@ -314,7 +315,7 @@ test('양쪽 한도: 의존 이벤트를 보류하고 복구 지점을 남기며
   await waitFor(() => fs.readdirSync(path.join(env.cfg.stateDir, 'main-checkpoints')).some((f) => f.endsWith('both-limited.json')), '복구 지점 보존', T);
   await sleep(1500);
   assert.equal(turns().length, 1, '자동 재시도 없음');
-  assert.equal(env.ex.task('task-c').status, 'review_pending');
+  assert.equal(getTask(env.ex, 'task-c').status, 'review_pending');
   // 사용자가 두 에이전트의 한도가 풀렸음을 확인하면 보류가 풀리고 한 번 이어간다
   script();
   clearAgentLimit(env.ex, 'codex'); clearAgentLimit(env.ex, 'claude');
@@ -350,7 +351,7 @@ test('서버 재시작: 진행 중이던 턴이 끝나 있으면 이어 받아 �
       await waitFor(() => pipe(env.ex).turns[turn.id].status === 'unknown', '결과 불명', T);
       assert.ok(Object.values(pipe(env.ex).events).every((e) => e.state === 'unknown'));
       await sleep(1500);
-      assert.equal(turns().length, 1, '재실행 없음'); assert.equal(env.ex.task('task-c').status, 'review_pending');
+      assert.equal(turns().length, 1, '재실행 없음'); assert.equal(getTask(env.ex, 'task-c').status, 'review_pending');
       assert.equal(originHead(env), env.fixture.baseSha);
     } finally { env.cleanup(); }
   });

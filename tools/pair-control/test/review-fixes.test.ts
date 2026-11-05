@@ -1,3 +1,4 @@
+import { getTask, limitOf } from '../src/executor/executorLookup.ts';
 import { stop } from '../src/executor/monitorSchedule.ts';
 import { limitFor } from '../src/executor/executorPolicy.ts';
 import { assign } from '../src/executor/taskAssign.ts';
@@ -52,7 +53,7 @@ function countChecks(e: Env) {
 async function slowWorker(e: Env, name: string, dir: string) {
   await assign(e.ex, task(e, name, { mode: 'mock', mockScenario: 'slow-success', allowedFiles: [`${dir}/`] }));
   await startTask(name);
-  await waitFor(() => e.ex.task(name).status === 'running', `${name} running`);
+  await waitFor(() => getTask(e.ex, name).status === 'running', `${name} running`);
   return Object.values(e.ex.state.executions).find((x) => x.taskId === name && (x.kind ?? 'agent') === 'agent')!;
 }
 const hit = (e: Env, execId: string) => e.ex.guard.scanLog(LIMIT, `exec:${execId}`);
@@ -64,7 +65,7 @@ for (const [workerName, workerDir, limitedAgent, otherAgent] of [['task-b', 'src
       owner(e, limitedAgent);
       const ex = await slowWorker(e, workerName, workerDir);
       hit(e, ex.execId);
-      assert.equal(e.ex.limit, null, '공급자 실행이 낸 한도는 전역 한도가 아님');
+      assert.equal(limitOf(e.ex), null, '공급자 실행이 낸 한도는 전역 한도가 아님');
       assert.ok(limitFor(e.ex, limitedAgent), '한도에 닿은 공급자는 막힘');
       assert.equal(limitFor(e.ex, otherAgent), null, '다른 공급자는 막히지 않음');
       stubLaunch(e);
@@ -100,7 +101,7 @@ test('A. 양쪽 공급자 한도는 blocked_both_limited, 출처를 알 수 없�
   try {
     owner(u, 'codex');
     u.ex.guard.scanLog(LIMIT, 'exec:no-such-execution');
-    assert.ok(u.ex.limit, '출처 불명 → 보수적 전역 한도');
+    assert.ok(limitOf(u.ex), '출처 불명 → 보수적 전역 한도');
     assert.ok(limitFor(u.ex, 'claude'));
     stubLaunch(u);
     assert.equal((await handoverAfterLimit(u.ex, 'claude', [], '메인 한도 소진 보고(사용자)')).status, 'blocked_target_limited');
@@ -116,7 +117,7 @@ test('A. 한도에 닿은 공급자의 worker만 중단하고 다른 공급자�
     await waitFor(() => e.ex.state.executions[codexExec.execId].cancelRequested, 'codex worker 중단 요청');
     await sleep(800);
     assert.equal(e.ex.state.executions[claudeExec.execId].cancelRequested, false, '한도에 닿지 않은 claude worker는 중단하지 않음');
-    assert.equal(e.ex.task('task-a').status, 'running');
+    assert.equal(getTask(e.ex, 'task-a').status, 'running');
   } finally { e.cleanup(); }
 });
 
@@ -128,15 +129,15 @@ async function integratedTaskA(e: Env) {
   fs.appendFileSync(path.join(wt, 'src_a/file.txt'), 'review change\n');
   git(wt, 'add', '--', 'src_a/file.txt'); git(wt, 'commit', '-qm', 'synthetic task change');
   await finishManual(e.ex, 'task-a');
-  await waitFor(() => e.ex.task('task-a').status === 'review_pending', 'review');
+  await waitFor(() => getTask(e.ex, 'task-a').status === 'review_pending', 'review');
   await verify(e, 'task-a'); await handoffToMain(e.ex, 'task-a');
-  const sha = e.ex.task('task-a').result!.headSha!;
+  const sha = getTask(e.ex, 'task-a').result!.headSha!;
   confirmHandoff(e.ex, 'task-a', '합성 검토');
   const a = await approve(e.ex, 'task-a', sha, { requireHandoff: true });
-  await resumeStep(e.ex.task('task-a').runId!, 'review-gate', { decision: 'approve', sha: a.sha });
-  await resumeStep(e.ex.task('task-a').runId!, 'integrate-gate', { action: 'integrate' });
-  assert.equal(e.ex.task('task-a').status, 'integrated');
-  return e.ex.task('task-a').integration!.newHead!;
+  await resumeStep(getTask(e.ex, 'task-a').runId!, 'review-gate', { decision: 'approve', sha: a.sha });
+  await resumeStep(getTask(e.ex, 'task-a').runId!, 'integrate-gate', { action: 'integrate' });
+  assert.equal(getTask(e.ex, 'task-a').status, 'integrated');
+  return getTask(e.ex, 'task-a').integration!.newHead!;
 }
 const pushGrants = (e: Env) => {
   grantApproval(e.ex, { basis: '합성: task-a 통합 범위', actions: ['integrate_task'], targets: ['task-a'] });
@@ -223,7 +224,7 @@ async function unverifiedResult(e: Env, name = 'task-a', dir = 'src_a') {
   fs.appendFileSync(path.join(wt, dir, 'work.txt'), 'change\n');
   git(wt, 'add', '--', `${dir}/work.txt`); git(wt, 'commit', '-qm', `feat: ${name}`);
   await finishManual(e.ex, name);
-  await waitFor(() => e.ex.task(name).status === 'review_pending', `${name} review`);
+  await waitFor(() => getTask(e.ex, name).status === 'review_pending', `${name} review`);
 }
 const tickUntil = async (e: Env, cond: () => unknown, label: string) => waitFor(async () => { await pipelineTick(e.ex); return cond(); }, label, 30_000);
 
@@ -235,7 +236,7 @@ test('C. 자유 문장 조건뿐인 승인: 사람 판단 전 검사·인계·�
     grantApproval(e.ex, { basis: '합성: 조건부', actions: ['prepare_checks', 'confirm_handoff', 'approve_task', 'integrate_task'], targets: '*', conditions: '사용자가 확인하기 전에는 자동 처리 금지' });
     for (let i = 0; i < 4; i++) { await pipelineTick(e.ex); await sleep(150); }
     assert.equal(checks.length, 0); assert.equal(launches.length, 0);
-    assert.equal(e.ex.task('task-a').verification ?? null, null); assert.equal(e.ex.task('task-a').handoff ?? null, null);
+    assert.equal(getTask(e.ex, 'task-a').verification ?? null, null); assert.equal(getTask(e.ex, 'task-a').handoff ?? null, null);
     assert.equal(Object.keys(pipe(e.ex).steps).length, 0);
     assert.ok(Object.values(pipe(e.ex).events).every((ev) => ev.state === 'held' && /조건/.test(ev.reason ?? '')), '보류 사유에 조건 미확정이 남음');
   } finally { e.cleanup(); }
@@ -250,7 +251,7 @@ test('C. approve_task 조건부 승인은 준비 권한을 주지 않는다: pre
     for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
     assert.equal(checks.length, 0, 'approve_task 승인은 검사 권한이 아님'); assert.equal(launches.length, 0);
     grantApproval(e.ex, { basis: '합성: 준비 권한(검사·인계 문서)만', actions: ['prepare_checks'], targets: '*' });
-    await tickUntil(e, () => e.ex.task('task-a').handoff && !e.ex.task('task-a').handoff!.cancelledAt, '인계 문서 생성');
+    await tickUntil(e, () => getTask(e.ex, 'task-a').handoff && !getTask(e.ex, 'task-a').handoff!.cancelledAt, '인계 문서 생성');
     for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
     assert.equal(checks.length, 1, '검사는 한 번'); assert.equal(launches.length, 0, '확인(confirm_handoff) 승인이 없으면 모델 턴 없음');
     assert.ok(Object.values(pipe(e.ex).events).some((ev) => ev.state === 'held' && /confirm_handoff/.test(ev.reason ?? '')));
@@ -283,11 +284,11 @@ test('C. 열린 confirm_handoff 승인이면 검사→인계→모델 턴이 필
 async function selfSetup(e: Env, mainAgent: 'claude' | 'codex') {
   const s = owner(e, mainAgent);
   await unverifiedResult(e); await verify(e, 'task-a'); await handoffToMain(e.ex, 'task-a'); // task-a 구현 담당 = claude
-  const t = e.ex.task('task-a'), sha = t.result!.headSha!;
+  const t = getTask(e.ex, 'task-a'), sha = t.result!.headSha!;
   const diff = git(t.worktree, 'diff', '--binary', t.baseSha, sha);
   return { s, sha, act: (id: string) => ({ id, type: 'confirm_handoff', taskId: 'task-a', sha, reviewedFiles: t.result!.changedFiles, note: '합성 검토 메모', diffHash: crypto.createHash('sha256').update(diff + '\n').digest('hex') }) };
 }
-const diffOk = (e: Env) => { const t = e.ex.task('task-a'); return crypto.createHash('sha256').update(execFileSync('git', ['diff', '--binary', t.baseSha, t.result!.headSha!], { cwd: t.worktree })).digest('hex'); };
+const diffOk = (e: Env) => { const t = getTask(e.ex, 'task-a'); return crypto.createHash('sha256').update(execFileSync('git', ['diff', '--binary', t.baseSha, t.result!.headSha!], { cwd: t.worktree })).digest('hex'); };
 
 test('D. 일반 승인이 먼저 기록돼도 명시적 selfReview 승인이 선택된다. 일반 승인만으로는 자기 확인 불가', { timeout: 90_000 }, async () => {
   for (const order of ['generic-first', 'self-first'] as const) {
@@ -303,7 +304,7 @@ test('D. 일반 승인이 먼저 기록돼도 명시적 selfReview 승인이 선
       if (order === 'generic-first') sr(); else { revokeApproval(e.ex, e.ex.runtime.approvals[0].id); sr(); g(); }
       const ok = await applyActions(e.ex, s, [a('d1')]);
       assert.equal(ok[0].ok, true, ok[0].detail); assert.match(ok[0].detail, /자기 확인.*독립 검토 아님/, '독립 검토와 구별해 표시');
-      assert.match(e.ex.task('task-a').handoff!.note!, /^\[자기 확인 — 독립 확인 아님\]/);
+      assert.match(getTask(e.ex, 'task-a').handoff!.note!, /^\[자기 확인 — 독립 확인 아님\]/);
     } finally { e.cleanup(); }
   }
 });
@@ -320,7 +321,7 @@ test('D. selfReview 승인 철회·자유 문장 조건이 있으면 거부하�
     grantApproval(e.ex, { basis: '합성: 조건부 selfReview', actions: ['confirm_handoff'], targets: ['task-a'], requires: { selfReview: true }, conditions: '구두 확인 후에만' });
     const r = await applyActions(e.ex, s, [a('r2')]);
     assert.equal(r[0].ok, false); assert.match(r[0].detail, /검증할 수 없는 조건|독립 확인이 아님/);
-    assert.equal(e.ex.task('task-a').handoff?.confirmedAt, undefined);
+    assert.equal(getTask(e.ex, 'task-a').handoff?.confirmedAt, undefined);
   } finally { e.cleanup(); }
   const ind = setup();
   try {

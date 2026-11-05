@@ -1,3 +1,4 @@
+import { getTask } from '../src/executor/executorLookup.ts';
 import { cancel } from '../src/executor/taskCancel.ts';
 import { assign } from '../src/executor/taskAssign.ts';
 import { finishManual } from '../src/executor/taskManual.ts';
@@ -45,7 +46,7 @@ test('이양 거절: 프로세스 실행 중·통합 잠금·푸시 결과 불�
     await waitFor(() => Object.values(env.ex.state.executions).some((e) => e.status === 'running'), 'running');
     await assert.rejects(setMain(env.ex, 'claude'), /프로세스 실행 중: agent task-a/);
     await cancel(env.ex, 'task-a');
-    await waitFor(() => env.ex.task('task-a').status === 'cancelled', 'cancelled');
+    await waitFor(() => getTask(env.ex, 'task-a').status === 'cancelled', 'cancelled');
     assert.deepEqual(await swapBlockers(env.ex), []);
 
     assert.ok(env.ex.locks.acquire('integration', { owner: 'x', kind: 'push' }));
@@ -80,7 +81,7 @@ test('이양 메모: 이전 메인에게 인계되어 확인 전인 작업은 �
     execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@l', 'add', '--', 'src_a/w.txt'], { cwd: wt });
     execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@l', 'commit', '-qm', 'w'], { cwd: wt });
     await finishManual(env.ex, 'task-a');
-    await waitFor(() => env.ex.task('task-a').status === 'review_pending', 'review');
+    await waitFor(() => getTask(env.ex, 'task-a').status === 'review_pending', 'review');
     await verify(env, 'task-a');
     await handoffToMain(env.ex, 'task-a');
     const { memo } = await setMain(env.ex, 'claude', '토큰');
