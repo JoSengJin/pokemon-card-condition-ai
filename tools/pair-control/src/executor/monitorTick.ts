@@ -10,6 +10,16 @@ import { setStatus, releaseExecLocks } from './taskState.ts';
 import { scanOutput } from './streamGuard.ts';
 import { mark, pipe } from './pipelineState.ts';
 import { pipelineTick } from './pipelineTick.ts';
+import { advancePushAction } from './actionPush.ts';
+import { dispatchAction } from './actionDispatch.ts';
+import { actionsDone } from './actionState.ts';
+import { finishApplied } from './pipelineApply.ts';
+import { finishSession } from './mainSessionApply.ts';
+import type { MainTurn } from './mainTypes.ts';
+import { autoSteps } from './pipelineSteps.ts';
+import { scanEvents } from './pipelineEvents.ts';
+import { launchTurn } from './pipelineTurn.ts';
+import { turnHold } from './approvalScope.ts';
 import { advanceSessionLaunch } from './mainSessionLaunch.ts';
 import { handoverAfterLimit } from './mainLimit.ts';
 import type { Executor } from './executor.ts';
@@ -84,6 +94,50 @@ export async function tick(taskExecutor: Executor, ) {
     await handoverAfterLimit(taskExecutor, other, limited.eventKeys, `${limited.agent} 메인 한도 — 승인된 교대 절차 연결`);
     limited.limitHandoverDoneAt = new Date().toISOString(); taskExecutor.store.save(); return;
   }
+  // 저장된 push 작업은 실행 감시가 직접 진행한다. 턴 적용과 별개로 한 단계만 수행한다.
+  const session = taskExecutor.runtime.session;
+  if (!taskExecutor.stopped && session && !taskExecutor.runtime.frozen) {
+    const owners = session.status === 'applying' && session.actionLifetime === taskExecutor.lifetime
+      ? [session] : Object.values(pipe(taskExecutor).turns);
+    for (const owner of owners) {
+      if (owner.status !== 'applying') continue;
+      if ('lifetime' in owner && owner.lifetime !== taskExecutor.lifetime) continue;
+      for (const work of owner.actionWork ?? []) {
+        if (work.status === 'done') continue;
+        if (work.status === 'authorized') await dispatchAction(taskExecutor, session, work);
+        else if (work.status === 'dispatching' && work.action.type === 'push_main' && work.dispatchLifetime === taskExecutor.lifetime && work.pushStage) await advancePushAction(taskExecutor, session, work);
+        else break;
+        if (actionsDone(owner)) {
+          if (owner === session) finishSession(taskExecutor, session); else finishApplied(taskExecutor, owner as MainTurn);
+        }
+        return;
+      }
+    }
+  }
+  const request = pipe(taskExecutor).launch;
+  if (request && !taskExecutor.stopped && !taskExecutor.runtime.frozen) {
+    const valid = session?.id === request.sessionId && taskExecutor.runtime.generation === request.generation && ['completed', 'idle'].includes(session.status);
+    const knownTurn = request.turnId && pipe(taskExecutor).turns[request.turnId];
+    if (knownTurn) { delete pipe(taskExecutor).launch; taskExecutor.store.save(); return; } // 종료 관찰·턴 복구가 실제 실행 기록을 처리한다.
+    if (!valid || request.stage === 'launching') {
+      mark(taskExecutor, request.eventKeys, valid ? 'unknown' : 'pending', { reason: valid ? '턴 실행 시작 뒤 결과 기록 없음 — 재시도하지 않음' : '저장된 턴 요청의 세션·세대가 바뀜' });
+    } else {
+      const events = [];
+      for (const key of request.eventKeys) {
+        const event = pipe(taskExecutor).events[key], task = event && taskExecutor.state.tasks[event.taskId];
+        if (!event || !task) continue;
+        const hold = turnHold(taskExecutor, session!.id, task, event.kind);
+        if (hold) { mark(taskExecutor, [key], 'held', { reason: hold }); continue; }
+        events.push(event);
+      }
+      if (!events.length) { delete pipe(taskExecutor).launch; taskExecutor.store.save(); return; }
+      request.stage = 'launching'; request.lifetime = taskExecutor.lifetime; taskExecutor.store.save();
+      await launchTurn(taskExecutor, session!, events);
+    }
+    delete pipe(taskExecutor).launch; taskExecutor.store.save(); return;
+  }
+  if (session) await autoSteps(taskExecutor, session.id);
+  scanEvents(taskExecutor);
   await pipelineTick(taskExecutor); // 교대 뒤 연속 처리: 상태를 읽고 새 이벤트가 있을 때만 현재 메인에게 턴을 준다
   } finally { taskExecutor.ticking = false; }
 }

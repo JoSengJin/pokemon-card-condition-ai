@@ -1,18 +1,41 @@
 // 자동 push 행동의 저장 단계. 각 호출은 저장 상태 하나만 읽어 다음 단계 하나를 기록한다.
 import { finishAction } from './actionState.ts';
-import { confirmPushPlan, executePush, preflight, verifyAutomaticPush } from './push.ts';
+import { confirmPushPlan, executePush, verifyAutomaticPush } from './push.ts';
+import { createPushPlan } from './pushPlan.ts';
+import { collectPushFacts } from './pushFacts.ts';
+import { scanPushHistory } from './pushScan.ts';
+import { associatePushTasks, judgePushFindings, dryRunPush } from './pushJudgment.ts';
 import { UserError, type Executor } from './executor.ts';
 import type { ActionWork, MainSession } from './mainTypes.ts';
 
 export async function advancePushAction(ex: Executor, s: MainSession, work: ActionWork) {
   const stage = work.pushStage, sha = String(work.action.sha ?? '').toLowerCase();
   try {
+    if (ex.stopped || ex.runtime.frozen || ex.runtime.session?.id !== s.id || ex.runtime.generation !== s.generation) return;
     if (stage === 'plan') {
-      const plan = confirmPushPlan(await preflight(ex), sha);
-      work.pushPlanId = plan.id; work.pushStage = 'scope'; ex.store.save(); return;
+      const plan = createPushPlan(ex);
+      ex.state.pushPlan = plan;
+      work.pushPlanId = plan.id; work.pushStage = 'facts'; ex.store.save(); return;
     }
     const plan = ex.state.pushPlan;
     if (!plan || plan.id !== work.pushPlanId) throw new UserError('저장된 push 계획이 없거나 바뀜 — 실행하지 않음');
+    if (stage === 'facts') {
+      await collectPushFacts(ex, plan);
+      work.pushStage = 'scan'; ex.store.save(); return;
+    }
+    if (stage === 'scan') {
+      if (plan.commits.length) {
+        await associatePushTasks(ex, plan);
+        await scanPushHistory(ex, plan);
+        judgePushFindings(ex, plan);
+      }
+      work.pushStage = 'check'; ex.store.save(); return;
+    }
+    if (stage === 'check') {
+      if (!plan.blockers.length) await dryRunPush(ex, plan);
+      confirmPushPlan(plan, sha);
+      work.pushStage = 'scope'; ex.store.save(); return;
+    }
     if (stage === 'scope') {
       work.pushTasks = await verifyAutomaticPush(ex, s.id, plan);
       work.pushStage = 'lock'; ex.store.save(); return;

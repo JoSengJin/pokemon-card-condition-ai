@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Store, appendEvent } from './store.ts';
+import { Store } from './store.ts';
 import { LockDir } from './locks.ts';
 import { realReadiness, type Probe } from './adapters.ts';
 import { scanArgs } from './nocharge.ts';
@@ -157,6 +157,7 @@ export class Executor {
     this.runtime = (this.state.mainRuntime ??= { generation: this.state.main?.generation ?? 0, frozen: false, session: null, history: [], approvals: [], processed: {}, limited: {}, failures: [] });
     this.locks = new LockDir(path.join(cfg.stateDir, 'locks'));
     this.supervisorPath = path.join(cfg.toolRoot, 'src', 'executor', 'supervisor.mjs');
+    this.runtime.pipeline ??= { events: {}, turns: {}, steps: {} };
     this.guard = createExecutorGuard(this, opts);
     this.guardAlert = this.guard.pending();
     recover(this);
@@ -165,7 +166,8 @@ export class Executor {
   get mainAgent(): 'codex' | 'claude' { return this.state.main?.agent ?? 'codex'; }
 
   audit(type: string, data: Record<string, unknown>) {
-    appendEvent(this.cfg.stateDir, { type, lifetime: this.lifetime, ...data });
+    fs.mkdirSync(this.cfg.stateDir, { recursive: true });
+    fs.appendFileSync(path.join(this.cfg.stateDir, 'events.jsonl'), JSON.stringify({ at: new Date().toISOString(), type, lifetime: this.lifetime, ...data }) + '\n');
   }
 
   async launchMainProcess(o: { agent: Agent; bundleDir: string; prompt: string; sessionId: string }): Promise<string> {

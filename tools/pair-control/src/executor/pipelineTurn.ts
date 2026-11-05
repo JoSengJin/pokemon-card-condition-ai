@@ -16,6 +16,8 @@ export async function launchTurn(ex: Executor, s: MainSession, events: PipelineE
   const t: MainTurn = { id: crypto.randomUUID(), sessionId: s.id, generation: s.generation, agent: s.agent, status: 'launching', eventKeys: keys, startedAt: new Date().toISOString(),
     lifetime: ex.lifetime, tokenHash: tokenHash(token), checkpointFile: cp.file, checkpointHash: cp.hash, actionResults: [] };
   pipe(ex).turns[t.id] = t;
+  const request = pipe(ex).launch;
+  if (request?.sessionId === s.id && request.generation === s.generation) request.turnId = t.id;
   for (const e of events) { e.tried.push(s.generation); e.turnId = t.id; }
   mark(ex, keys, 'launched');
   ex.audit('pipeline_turn_started', { turn: t.id, agent: t.agent, generation: t.generation, events: keys });

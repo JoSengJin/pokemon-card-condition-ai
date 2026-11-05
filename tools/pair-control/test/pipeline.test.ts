@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import { grantApproval } from '../src/executor/mainApprovals.ts';
 import { clearAgentLimit, handoverMain } from '../src/executor/mainHandover.ts';
 import { handoverAfterLimit } from '../src/executor/mainLimit.ts';
-import { pipelineTick } from '../src/executor/pipelineTick.ts';
+import { tick as pipelineTick } from '../src/executor/monitorTick.ts';
 import { pipe, register } from '../src/executor/pipelineState.ts';
 import { pipelineView } from '../src/executor/pipelineView.ts';
 import { startTask } from '../src/runtime.ts';

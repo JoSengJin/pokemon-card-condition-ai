@@ -73,7 +73,7 @@ test('실제 저장소: 구조 수정 단계별 측정값(수정 전 6857715 기
   assert.equal(depthOf(out, 'runPush'), 0, 'runPush는 gate 인자로 push 범위를 직접 검증해 4회 이하(초과 목록에 없음)');
   assert.equal(depthOf(out, 'dispatchAction'), 0, 'push·승인·상태 기록 평탄화 뒤 dispatchAction은 4회 이하');
   const direct = JSON.parse(execFileSync(process.execPath, [tool, `--root=${repoRoot}`, '--start=runPush'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })).starts[0].callees as string[];
-  assert.ok(direct.includes('push.ts:preparePush') && direct.includes('push.ts:verifyAutomaticPush') && direct.includes('push.ts:executePush'), '수동 호환 경로도 plan→scope→exec 단계 함수를 직접 호출');
+  assert.ok(direct.includes('pushFacts.ts:collectPushFacts') && direct.includes('pushAuthorization.ts:verifyAutomaticPush') && direct.includes('pushExecution.ts:executePush'), '수동 호환 경로도 사실 수집→scope→exec 단계 함수를 직접 호출');
   assert.equal(depthOf(out, 'onMainEnd'), 0, '종료 관찰·응답 검증·저장을 각각 4회 이하로 평탄화함');
   assert.ok(Array.isArray(out.unresolved) && out.manualEdges >= 3, '제거되지 않은 MainOps 연결 수동 간선과 미확인 목록이 출력됨');
 });

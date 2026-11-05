@@ -16,7 +16,7 @@ export function register(ex: Executor, kind: EventKind, taskId: string, sha: str
 
 /** 이벤트 묶음의 상태를 바꾼다(감사 기록 포함). */
 export function mark(ex: Executor, keys: string[], state: EventState, extra: Partial<PipelineEvent> = {}) {
-  const ev = pipe(ex).events;
+  const ev = ex.runtime.pipeline!.events; // 실행기 생성 시 이전 저장 상태도 초기화한다.
   for (const k of keys) if (ev[k]) {
     Object.assign(ev[k], extra, { state });
     appendEvent(ex.cfg.stateDir, { type: 'pipeline_event_state', lifetime: ex.lifetime, key: k, state, reason: extra.reason });

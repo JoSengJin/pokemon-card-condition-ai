@@ -2,6 +2,7 @@ import * as G from './git.ts';
 import { effectiveGroups, conflicts, type ConflictReason } from './contract.ts';
 import { OCCUPYING, type Check, type Executor } from './executor.ts';
 import { PrepareInput, type Plan } from './prepareInput.ts';
+import { inspectPreparedWorktree } from './prepareResume.ts';
 import { suggestTaskId, planWorktree } from './prepareWorktree.ts';
 import { planContract } from './prepareContract.ts';
 
@@ -30,7 +31,8 @@ export async function planTask(ex: Executor, raw: unknown): Promise<Plan> {
   const baseSubject = (await G.git(repo, 'log', '-1', '--format=%s (%cr)', baseSha)).stdout.trim();
   add('기준 SHA', true, `${baseSha.slice(0, 12)} · ${baseRef} · ${baseSubject}`);
 
-  const location = await planWorktree(ex, input, taskId, baseSha, add);
+  const resume = await inspectPreparedWorktree(ex, input, taskId, baseSha);
+  const location = await planWorktree(ex, input, taskId, baseSha, add, resume);
   if ('error' in location) return fail('기존 worktree', location.error);
   const { branch, worktree, createWorktree } = location;
 

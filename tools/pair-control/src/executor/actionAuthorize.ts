@@ -3,6 +3,7 @@ import { authorize } from './approvalGate.ts';
 import { PENDING, plan, uncertain } from './actionPlan.ts';
 import { finishAction, type ActionOwner } from './actionState.ts';
 import { lock } from './mainSerial.ts';
+import { suggestTaskId } from './prepare.ts';
 import type { Executor } from './executor.ts';
 import type { ActionWork, MainSession } from './mainTypes.ts';
 
@@ -32,7 +33,9 @@ export async function authorizeAction(ex: Executor, s: MainSession, owner: Actio
     if (a.type === 'note') { finishAction(ex, work, true, '기록만 함(상태 변경 없음)'); return; }
     const hold = uncertain(ex, a);
     if (hold) { finishAction(ex, work, false, hold); return; }
-    const p = await plan(ex, a);
+    const plannedAction = a.type === 'assign_task' && !a.input?.taskId && !a.taskId
+      ? { ...a, input: { ...a.input, taskId: await suggestTaskId(ex, String(a.input?.agent ?? 'claude')) } } : a;
+    const p = plan(ex, plannedAction);
     if ('error' in p) { finishAction(ex, work, false, p.error); return; }
     try {
       const ap = authorize(ex, s.id, a.type, p.target, a.sha);

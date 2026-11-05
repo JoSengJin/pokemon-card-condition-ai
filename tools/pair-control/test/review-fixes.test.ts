@@ -19,7 +19,7 @@ import { acceptActions } from '../src/executor/actionState.ts';
 import { authorize, grantApproval, revokeApproval } from '../src/executor/mainApprovals.ts';
 import { handoverMain } from '../src/executor/mainHandover.ts';
 import { handoverAfterLimit } from '../src/executor/mainLimit.ts';
-import { pipelineTick } from '../src/executor/pipelineTick.ts';
+import { tick } from '../src/executor/monitorTick.ts';
 import { pipe } from '../src/executor/pipelineState.ts';
 import { runPush } from '../src/executor/push.ts';
 import { resumeStep, startTask } from '../src/runtime.ts';
@@ -154,14 +154,23 @@ test('B. 승인된 작업의 커밋만 있으면 합성 원격에 push된다', {
   try {
     const s = owner(e); const head = await integratedTaskA(e); pushGrants(e);
     acceptActions(e.ex, s, [{ id: 'p1', type: 'push_main', target: 'main', sha: head }]);
+    s.status = 'applying'; s.actionLifetime = e.ex.lifetime;
     assert.equal(s.actionWork[0].status, 'accepted');
-    await advanceActions(e.ex, s, s); assert.equal(s.actionWork[0].status, 'authorized');
-    await advanceActions(e.ex, s, s); assert.equal(s.actionWork[0].pushStage, 'plan');
-    await advanceActions(e.ex, s, s); assert.equal(s.actionWork[0].pushStage, 'scope');
-    await advanceActions(e.ex, s, s); assert.equal(s.actionWork[0].pushStage, 'lock');
-    await advanceActions(e.ex, s, s); assert.equal(s.actionWork[0].pushStage, 'exec');
-    await advanceActions(e.ex, s, s);
-    assert.equal(s.actionWork[0].status, 'done'); assert.equal(s.actionWork[0].result.ok, true, s.actionWork[0].result.detail);
+    await tick(e.ex); assert.equal(s.actionWork[0].status, 'authorized');
+    await tick(e.ex); assert.equal(s.actionWork[0].pushStage, 'plan');
+    await tick(e.ex); assert.equal(s.actionWork[0].pushStage, 'facts');
+    await tick(e.ex); assert.equal(s.actionWork[0].pushStage, 'scan');
+    assert.equal(e.ex.state.pushPlan?.localHead, head, '사실 수집 결과를 저장');
+    e.ex.stopped = true;
+    await tick(e.ex); assert.equal(s.actionWork[0].pushStage, 'scan', 'stop 뒤에는 미적용');
+    e.ex.stopped = false;
+    await tick(e.ex); assert.equal(s.actionWork[0].pushStage, 'check');
+    await tick(e.ex); assert.equal(s.actionWork[0].pushStage, 'scope');
+    await tick(e.ex); assert.equal(s.actionWork[0].pushStage, 'lock');
+    await tick(e.ex); assert.equal(s.actionWork[0].pushStage, 'exec');
+    await tick(e.ex);
+    assert.equal(s.actionWork, undefined, '완료한 행동은 세션 결과로 옮긴다');
+    assert.equal(s.status, 'completed'); assert.equal(s.actionResults[0].ok, true, s.actionResults[0].detail);
     assert.equal(originHead(e), head);
   } finally { e.cleanup(); }
 });
@@ -226,7 +235,7 @@ async function unverifiedResult(e: Env, name = 'task-a', dir = 'src_a') {
   await finishManual(e.ex, name);
   await waitFor(() => getTask(e.ex, name).status === 'review_pending', `${name} review`);
 }
-const tickUntil = async (e: Env, cond: () => unknown, label: string) => waitFor(async () => { await pipelineTick(e.ex); return cond(); }, label, 30_000);
+const tickUntil = async (e: Env, cond: () => unknown, label: string) => waitFor(async () => { await tick(e.ex); return cond(); }, label, 30_000);
 
 test('C. 자유 문장 조건뿐인 승인: 사람 판단 전 검사·인계·모델 턴이 모두 0회다', { timeout: 60_000 }, async () => {
   const e = setup();
@@ -234,7 +243,7 @@ test('C. 자유 문장 조건뿐인 승인: 사람 판단 전 검사·인계·�
     owner(e, 'codex'); await unverifiedResult(e);
     const checks = countChecks(e), launches = stubLaunch(e);
     grantApproval(e.ex, { basis: '합성: 조건부', actions: ['prepare_checks', 'confirm_handoff', 'approve_task', 'integrate_task'], targets: '*', conditions: '사용자가 확인하기 전에는 자동 처리 금지' });
-    for (let i = 0; i < 4; i++) { await pipelineTick(e.ex); await sleep(150); }
+    for (let i = 0; i < 4; i++) { await tick(e.ex); await sleep(150); }
     assert.equal(checks.length, 0); assert.equal(launches.length, 0);
     assert.equal(getTask(e.ex, 'task-a').verification ?? null, null); assert.equal(getTask(e.ex, 'task-a').handoff ?? null, null);
     assert.equal(Object.keys(pipe(e.ex).steps).length, 0);
@@ -248,16 +257,16 @@ test('C. approve_task 조건부 승인은 준비 권한을 주지 않는다: pre
     owner(e, 'codex'); await unverifiedResult(e);
     const checks = countChecks(e), launches = stubLaunch(e);
     grantApproval(e.ex, { basis: '합성: handoffConfirmed 조건부 승인', actions: ['approve_task'], targets: '*', requires: { handoffConfirmed: true } });
-    for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
+    for (let i = 0; i < 3; i++) { await tick(e.ex); await sleep(100); }
     assert.equal(checks.length, 0, 'approve_task 승인은 검사 권한이 아님'); assert.equal(launches.length, 0);
     grantApproval(e.ex, { basis: '합성: 준비 권한(검사·인계 문서)만', actions: ['prepare_checks'], targets: '*' });
     await tickUntil(e, () => getTask(e.ex, 'task-a').handoff && !getTask(e.ex, 'task-a').handoff!.cancelledAt, '인계 문서 생성');
-    for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
+    for (let i = 0; i < 3; i++) { await tick(e.ex); await sleep(100); }
     assert.equal(checks.length, 1, '검사는 한 번'); assert.equal(launches.length, 0, '확인(confirm_handoff) 승인이 없으면 모델 턴 없음');
     assert.ok(Object.values(pipe(e.ex).events).some((ev) => ev.state === 'held' && /confirm_handoff/.test(ev.reason ?? '')));
     confirmHandoff(e.ex, 'task-a', '사용자가 직접 확인(합성)'); // 사람이 확인하면 다음 행동은 approve_task → 이미 열린 승인
     await tickUntil(e, () => launches.length === 1, '모델 턴 시작');
-    for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
+    for (let i = 0; i < 3; i++) { await tick(e.ex); await sleep(100); }
     assert.equal(launches.length, 1, '턴은 한 번');
   } finally { e.cleanup(); }
 });
@@ -269,7 +278,7 @@ test('C. 열린 confirm_handoff 승인이면 검사→인계→모델 턴이 필
     const checks = countChecks(e), launches = stubLaunch(e);
     grantApproval(e.ex, { basis: '합성: 확인·준비 권한', actions: ['confirm_handoff', 'prepare_checks'], targets: ['task-a'] });
     await tickUntil(e, () => launches.length === 1, '모델 턴 시작');
-    for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
+    for (let i = 0; i < 3; i++) { await tick(e.ex); await sleep(100); }
     assert.equal(checks.length, 1); assert.equal(launches.length, 1);
     const turn = Object.values(pipe(e.ex).turns)[0];
     const req = fs.readFileSync(path.join(e.cfg.stateDir, 'main-sessions', turn.id, 'TURN_REQUEST.md'), 'utf8');
@@ -341,7 +350,7 @@ test('G. stop() 뒤 연속 처리는 새 검사·모델 턴을 시작하지 않�
     const checks = countChecks(e), launches = stubLaunch(e);
     grantApproval(e.ex, { basis: '합성: 열린 승인', actions: ['prepare_checks', 'confirm_handoff'], targets: '*' });
     stop(e.ex, );
-    for (let i = 0; i < 3; i++) { await pipelineTick(e.ex); await sleep(100); }
+    for (let i = 0; i < 3; i++) { await tick(e.ex); await sleep(100); }
     assert.equal(checks.length, 0); assert.equal(launches.length, 0);
   } finally { e.cleanup(); }
 });
@@ -365,7 +374,7 @@ test('재시작: 적용 중(applying)이던 턴은 다시 적용하지 않고 �
     const launches = stubLaunch(e);
     pipe(e.ex).turns['old'] = { id: 'old', sessionId: 'owner-sess', generation: 1, agent: 'codex', status: 'applying', eventKeys: ['k'], startedAt: new Date().toISOString(), lifetime: 'previous-server', execId: 'gone', tokenHash: '', checkpointFile: '', checkpointHash: '', actionResults: [] };
     pipe(e.ex).events['k'] = { key: 'k', kind: 'result_ready', taskId: 'task-a', sha: 'x', at: new Date().toISOString(), state: 'launched', tried: [1] };
-    await pipelineTick(e.ex);
+    await tick(e.ex);
     assert.equal(pipe(e.ex).turns['old'].status, 'unknown'); assert.equal(pipe(e.ex).events['k'].state, 'unknown');
     assert.equal(pipe(e.ex).turns['old'].actionResults.length, 0, '다시 적용하지 않음');
     assert.equal(launches.length, 0, '결과 불명 턴이 있어도 같은 요청을 다시 보내지 않음');

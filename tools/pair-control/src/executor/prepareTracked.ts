@@ -2,7 +2,7 @@ import * as G from './git.ts';
 
 /** 기준 커밋의 추적 파일·폴더 목록(파일 선택 화면용). */
 export async function listTracked(repo: string, ref: string) {
-  const r = await G.git(repo, 'ls-tree', '-r', '-t', '-z', ref);
+  const r = await G.run('git', ['ls-tree', '-r', '-t', '-z', ref], repo);
   const files = new Set<string>(), dirs = new Set<string>();
   for (const entry of r.stdout.split('\0')) {
     const tab = entry.indexOf('\t');

@@ -3,13 +3,8 @@ import { limitFor } from './executorPolicy.ts';
 // 폴링으로 모델을 부르지 않는다: 같은 이벤트·같은 세대에는 턴이 한 번뿐이고, 진행 중 턴·교대 중·한도 중에는 아무것도 하지 않는다.
 import { applyVerified, finishApplied } from './pipelineApply.ts';
 import { authorizeAction } from './actionAuthorize.ts';
-import { dispatchAction } from './actionDispatch.ts';
-import { advancePushAction } from './actionPush.ts';
 import { actionsDone, finishAction, type ActionOwner } from './actionState.ts';
-import { autoSteps } from './pipelineSteps.ts';
-import { scanEvents } from './pipelineEvents.ts';
 import { mark, pipe } from './pipelineState.ts';
-import { launchTurn } from './pipelineTurn.ts';
 import { applyTakenOver, finishSession } from './mainSessionApply.ts';
 import { TURN_IN_FLIGHT, type MainTurn } from './mainTypes.ts';
 import type { Executor } from './executor.ts';
@@ -41,6 +36,7 @@ export async function pipelineTick(ex: Executor): Promise<void> {
   try {
     const rt = ex.runtime, s = rt.session;
     if (!s || rt.frozen) return;
+    if (pipe(ex).launch) return;
     const limited = Object.values(pipe(ex).turns).find((t) => t.status === 'limited' && !t.limitHandledAt);
     if (limited) {
       limited.limitHandledAt = new Date().toISOString(); ex.store.save();
@@ -59,10 +55,10 @@ export async function pipelineTick(ex: Executor): Promise<void> {
       let work;
       for (const row of owner.actionWork ?? []) if (row.status !== 'done') { work = row; break; }
       if (work?.status === 'dispatching') {
-        if (work.action.type === 'push_main' && work.dispatchLifetime === ex.lifetime && work.pushStage) await advancePushAction(ex, s, work);
+        if (work.action.type === 'push_main' && work.dispatchLifetime === ex.lifetime && work.pushStage) return; // 저장된 push는 실행 감시가 진행한다.
         else finishAction(ex, work, false, '서버 재시작 전 수행을 시작한 행동 — 결과 불명, 재시도하지 않음');
       } else if (work?.status === 'accepted') await authorizeAction(ex, s, owner, work);
-      else if (work?.status === 'authorized') await dispatchAction(ex, s, work);
+      else if (work?.status === 'authorized') return; // 실행 감시가 저장된 authorized 행동을 직접 수행한다.
       if (actionsDone(owner)) {
         if (owner === s) finishSession(ex, s); else finishApplied(ex, applying!);
       }
@@ -70,17 +66,18 @@ export async function pipelineTick(ex: Executor): Promise<void> {
     }
     applyVerified(ex);
     if (Object.values(pipe(ex).turns).some((t) => TURN_IN_FLIGHT.includes(t.status))) return;
-    await autoSteps(ex, s.id);
     if (ex.stopped) return;
-    scanEvents(ex);
     const due = Object.values(pipe(ex).events).filter((e) => e.state === 'pending' && e.kind !== 'blocked' && !e.tried.includes(s.generation));
     if (!due.length) return;
+    const eventKeys = [];
+    for (const event of due) eventKeys.push(event.key);
     if (limitFor(ex, s.agent)) {
       const key = `limit-${s.generation}-${s.agent}`;
-      pipe(ex).turns[key] = { id: key, sessionId: s.id, generation: s.generation, agent: s.agent, status: 'limited', eventKeys: due.map((e) => e.key), startedAt: new Date().toISOString(), lifetime: ex.lifetime, tokenHash: '', checkpointFile: '', checkpointHash: '', actionResults: [], limitHandledAt: new Date().toISOString() };
+      pipe(ex).turns[key] = { id: key, sessionId: s.id, generation: s.generation, agent: s.agent, status: 'limited', eventKeys, startedAt: new Date().toISOString(), lifetime: ex.lifetime, tokenHash: '', checkpointFile: '', checkpointHash: '', actionResults: [], limitHandledAt: new Date().toISOString() };
       ex.store.save();
       return;
     }
-    await launchTurn(ex, s, due);
+    pipe(ex).launch = { sessionId: s.id, generation: s.generation, eventKeys, stage: 'queued' };
+    ex.store.save();
   } catch (e) { ex.audit('pipeline_tick_error', { error: (e as Error).message }); } finally { busy.delete(ex); }
 }

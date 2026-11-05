@@ -27,7 +27,7 @@ export interface ActionResult { id: string; type: string; ok: boolean; detail: s
 export type ActionStatus = 'accepted' | 'authorized' | 'dispatching' | 'done';
 export interface ActionWork {
   action: MainAction; status: ActionStatus; target?: string; input?: Record<string, unknown>; selfReview?: boolean;
-  dispatchLifetime?: string; pushStage?: 'plan' | 'scope' | 'lock' | 'exec'; pushPlanId?: string; pushTasks?: string[]; result?: ActionResult;
+  dispatchLifetime?: string; pushStage?: 'plan' | 'facts' | 'scan' | 'check' | 'scope' | 'lock' | 'exec'; pushPlanId?: string; pushTasks?: string[]; result?: ActionResult;
 }
 
 export type SessionStatus = 'launching' | 'taken_over' | 'applying' | 'completed' | 'idle' | 'failed';
@@ -98,6 +98,7 @@ export interface MainTurn {
 export const TURN_IN_FLIGHT: TurnStatus[] = ['launching', 'launched', 'verified', 'applying'];
 export interface PipelineState {
   events: Record<string, PipelineEvent>; turns: Record<string, MainTurn>;
+  launch?: { sessionId: string; generation: number; eventKeys: string[]; stage: 'queued' | 'launching'; lifetime?: string; turnId?: string };
   /** 도구가 모델 없이 한 번만 수행하는 단계(검사·인계 생성)의 시도 기록. 같은 키는 다시 하지 않는다. */
   steps: Record<string, { at: string; ok: boolean; detail: string }>;
 }

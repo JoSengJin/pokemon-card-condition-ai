@@ -6,6 +6,7 @@ import { handoffToMain } from './handoffCreate.ts';
 import { PREP, whyClosed } from './approvalScope.ts';
 import { pipe } from './pipelineState.ts';
 import type { Executor, Task } from './executor.ts';
+import { TURN_IN_FLIGHT } from './mainTypes.ts';
 
 /** 단계 시작을 영속 기록한다. 이미 시도한 키면 false(수행 중 표시만 남은 결과 불명도 다시 하지 않음). */
 function begin(ex: Executor, key: string): boolean {
@@ -33,6 +34,9 @@ function nextStep(t: Task): { key: string; kind: 'checks' | 'handoff' } | null {
 }
 
 export async function autoSteps(ex: Executor, sessionId: string) {
+  const session = ex.runtime.session;
+  if (ex.stopped || ex.runtime.frozen || session?.id !== sessionId || !['completed', 'idle'].includes(session.status)) return;
+  for (const turn of Object.values(pipe(ex).turns)) if (TURN_IN_FLIGHT.includes(turn.status)) return;
   for (const t of Object.values(ex.state.tasks)) {
     if (t.status !== 'review_pending' || whyClosed(ex, sessionId, PREP, t.taskId)) continue;
     const step = nextStep(t);

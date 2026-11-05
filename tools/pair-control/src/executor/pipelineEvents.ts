@@ -4,6 +4,7 @@ import { limitFor } from './executorPolicy.ts';
 import { turnHold } from './approvalScope.ts';
 import { pipe, register } from './pipelineState.ts';
 import type { Executor, Task } from './executor.ts';
+import { TURN_IN_FLIGHT } from './mainTypes.ts';
 
 const STOPPED = ['failed', 'unknown', 'orphan_running', 'exit_observed', 'integrated_check_failed', 'integration_conflict', 'integration_refused', 'rejected'];
 
@@ -23,6 +24,9 @@ function wanted(ex: Executor, t: Task): { kind: 'result_ready' | 'approved' | 'i
 }
 
 export function scanEvents(ex: Executor) {
+  const session = ex.runtime.session;
+  if (ex.stopped || ex.runtime.frozen || !session || !['completed', 'idle'].includes(session.status)) return;
+  for (const turn of Object.values(pipe(ex).turns)) if (TURN_IN_FLIGHT.includes(turn.status)) return;
   const sid = ex.runtime.session?.id;
   for (const e of Object.values(pipe(ex).events)) {
     if (e.state !== 'held' || e.kind === 'blocked') continue;

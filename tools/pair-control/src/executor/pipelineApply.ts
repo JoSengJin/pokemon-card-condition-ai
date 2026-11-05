@@ -2,7 +2,7 @@
 // 적용을 시작하면 applying으로 먼저 저장해, 재시작 뒤에도 같은 응답을 다시 적용하지 않는다(결과 불명으로 보존).
 // 적용 직전에 세션·세대·정지 상태를 다시 확인한다 — 검증 뒤 교대가 일어났으면 이전 세대의 응답은 아무것도 바꾸지 못한다.
 import { acceptActions, actionResults } from './actionState.ts';
-import { endTurn, mark, pipe } from './pipelineState.ts';
+import { mark, pipe } from './pipelineState.ts';
 import type { Executor } from './executor.ts';
 import type { MainTurn } from './mainTypes.ts';
 
@@ -23,8 +23,9 @@ export function applyVerified(ex: Executor) {
     if (t.status !== 'verified') continue;
     const rt = ex.runtime;
     if (rt.session?.id !== t.sessionId || rt.generation !== t.generation || rt.frozen) {
-      delete t.pendingActions;
-      endTurn(ex, t, 'stale', 'pending', '검증 뒤 세션·세대가 바뀜 — 이전 응답은 적용하지 않음(새 메인이 다시 판단)');
+      delete t.pendingActions; t.status = 'stale';
+      t.failure = '검증 뒤 세션·세대가 바뀜 — 이전 응답은 적용하지 않음(새 메인이 다시 판단)';
+      mark(ex, t.eventKeys, 'pending', { reason: t.failure });
       return;
     }
     const actions = t.pendingActions ?? [];
