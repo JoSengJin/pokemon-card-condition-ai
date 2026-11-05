@@ -2,7 +2,7 @@
 
 - task_id: `pair-control-structure-compliance-20261029`
 - owner: Codex (Claude의 `93c1e2b81d4c682fcbaf530b5daf7771593264cd` 체크포인트에서 구현 인수)
-- status: ready_for_review (리팩토링 단계 0~7 구현·검증 완료, main 미통합 — 최종 인계 참조)
+- status: integrated (2026-11-06 main 재검증·일반 push 완료 — 후속 main 채택 기록 참조)
 - base_sha: `6857715afd87c0922d3e0e0510efce0435e156b6` (전달받은 최신 문서 커밋과 실제 HEAD 일치, 작업 트리 변경 없음. 검토 대상 코드 커밋 `0b3341cd8b7a5d3722af94790f79c2f8d0e000f7`)
 - branch: `codex/pair-control-structure-continuation-20261029` (원래 `claude/pair-control` 체크포인트에서 인수한 분리 worktree). 통합·운영 push는 Codex. 실제 모델 호출·학습·사진 추론·운영 push 없음(fake CLI·스텁·임시 bare 원격만).
 - 사용자 결정: **코딩 규칙 준수**. 한정 예외·기준 완화·기존 파일 동결안은 채택하지 않는다. 기본 checkout의 최신 PAIR_CODING.md §2.1을 그대로 적용한다(파일당 정의 ≤7 — 익명 콜백 포함, 호출 전이 ≤4 — 파일·객체·래퍼를 넘어 계산, 임의 경계 없음).
@@ -204,3 +204,6 @@ tools/pair-control의 모든 소스(src/**, scripts/*.mjs)가 위 기준을 충�
 - HTML: `docs/collaboration/reports/pair-control-structure-compliance-20261029.html`을 실제 브라우저에서 열고 렌더 확인했다. 첫 화면의 SHA·정의 수·전체 테스트 결과를 대조하고 미확인 분류 표를 펼쳐 86행·가로 넘침 없음·브라우저 오류/경고 없음도 확인했다. 전체 적용 순서 56개 코드/기존 문서 커밋의 전체 SHA, 변경 파일 301개, 파일별 전후 정의 수, 779개 호출 경로, native 분류 근거/파일 해시, 검증/리스크/롤백을 담았다. 최종 인계 문서 커밋은 검증 코드 SHA와 구분한다.
 - 전체 카드 분석 진척은 기본 checkout의 고정 기준 `usable-card-analysis-v1.13` 장부 78/100(기록값)을 참고로 표시했으며 이 리팩토링에서 재산정·수정하지 않았다. 모델 학습·사진 추론·실제 provider 요청은 없고 모델 성능 변화는 평가하지 않았다. 다음 모델 개발은 시작하지 않았다.
 - 리스크/롤백: 감시·workflow·요청 worker 수명과 결과 불명 복구가 바뀌었다. 실행 직전 철회·세대 변경·중복·재시작·stop·한도·push HEAD/범위를 fake CLI·임시 bare 원격으로 검증했다. 실제 CLI 배포/인증 환경은 미검증이다. 단계와 의존 커밋을 역순으로 `./develop -- git revert <전체 SHA>`하고 dispatching/unknown 장부는 임의 삭제·재실행하지 않는다. 이번 작업의 운영 상태 변경은 없다.
+
+### main 통합 확인 (2026-11-06)
+- 후속 계약 pair-control-integration-20261106의 사용자 지정 절차로 main에 채택했다. 통합 전3c2e0b1882e117fc558073b23a9f543e50ec40fe → 검증·첫 원격353319440d3e17d441b51a64970d9e3c7c3b66ea. main 회귀240/239통과/0실패/1기존건너뜀, typecheck·구조검사 통과. .claude/launch.json 해시 불변. 상세 근거·정리·롤백은 후속 계약과 reports/pair-control-main-adoption-20261106.html. 이전 절의 main 미통합은 당시 기록이다.

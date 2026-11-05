@@ -2,7 +2,7 @@
 
 - task_id: pair-control-integration-20261106
 - owner: Codex
-- status: ready_for_review (후속 브랜치 검증 완료, 기본 checkout 미추적 파일로 main 통합 보류)
+- status: integrated (사용자 지정 보존 조건으로 main 통합·main 전체 회귀·일반 push·worktree 정리 완료)
 - base_sha: c4179271756645882b917c417ac96f97578fa355
 - integration_base_sha: 3c2e0b1882e117fc558073b23a9f543e50ec40fe (fetch 확인 main=origin/main)
 - branch: codex/pair-control-integration-20261106
@@ -45,3 +45,19 @@
 - 남은 의존: 기본 checkout의 미추적 .claude/ 보존 조건과 PAIR_CODING.md §6.2의 깨끗한 checkout 요건이 충돌해 main 통합 보류. 해당 파일 삭제·stash·reset·임의 ignore를 하지 않았다. 이 파일을 그대로 보존한 통합 예외 허용 또는 checkout 정리가 필요하다. 운영 push·실제 모델 CLI 요청은 계속 금지.
 - 리스크: 실제 CLI 인증·배포 환경 미검증. 관제·framework 저장 시점은 비동기이며 독립 저장의 완료를 근거로 대조해야 한다. 롤백은 테스트9629e2c…→보호b8fa28d… 순서로 ./develop -- git revert. 기본 main에는 적용하지 않았고 결과 불명 장부를 삭제·재실행하지 않는다.
 - 보고서 스크린샷 SHA-256 7ad3e5d4281f87921b46f79ce9e125e3c3850e6ad85737f2d58ae7f90b43a2c0
+
+## main 채택 — 사용자 지정 절차 실행 (2026-11-06)
+- 사용자 최신 요청이 이전 main 통합 보류와 저장소 main 일반 push 금지를 대체한다. .claude/launch.json 보존 조건으로 통합을 명시 지시했으며 모델 호출·학습·추론 금지는 유지한다. 상시 .claude 예외 문구 추가는 이번 통합과 분리해 실행하지 않았다.
+- 기록 범위: 이 계약, 구조 준수 계약의 통합 상태, docs/collaboration/reports/pair-control-main-adoption-20261106.html, ignored artifacts/pair-control-main-adoption-20261106/. 제품·모델·worker 추가 수정 없음.
+- 사전 main=origin/main 3c2e0b1882e117fc558073b23a9f543e50ec40fe, 작업 트리 ?? .claude/ 한 줄, 해당 폴더는 미추적 launch.json 하나·ignore 대상 아님. 기준/허용 경로·진행 Git 작업·개발 잠금·관련 실험/자동 검토 실행 부재 확인. 기존 관제 서버와 저장 장부는 읽기 확인만 했다.
+- ./develop -- git merge --ff-only codex/pair-control-integration-20261106 성공 → 353319440d3e17d441b51a64970d9e3c7c3b66ea. 소스 채택364파일, .claude 및 .gitignore 변경0. .claude/launch.json을 stage·커밋·이동·삭제·stash·ignore하지 않았다.
+- launch.json SHA-256 사전=통합 후=첫 push 후: c43a643c3c71c048dc5f8fb30ecfacd53d6b99910eafb48d65376e53fa59e4da.
+- main에서 npm ci --offline --ignore-scripts --no-audit --no-fund(373패키지, 새 다운로드·설치 스크립트 없음), typecheck 통과, structure --check 통과. 전체 npm test 240개/239통과/실패0/취소0/기존건너뜀1, 678515.176ms. 검사 코드 SHA3533194…이며 이후 문서만 변경한다. 모델/실제 CLI 요청·학습·사진 추론 없음.
+- 구조270파일/779정의/파일당 최대7/전이최대4/초과0/순환0. 원시 미확인86·외부2732. 그래프 전체 및 native 감사 근거 파일 해시가 검증 브랜치와 동일함을 main의 새 설치에서 대조했다. 동일 개발자 감사이며 독립 검토가 아니다.
+- push 직전 fetch 결과 원격 기준 불변. 일반 ./develop -- git push origin main 성공, ls-remote로 원격=로컬353319440d3e17d441b51a64970d9e3c7c3b66ea 확인. 이후 인계 문서 커밋은 별도로 일반 push·원격 일치를 확인한다.
+- 정리: A3 롤백용 checkout과 RCI checkout 2개 일반 remove 성공. 모든 대상의 HEAD/미커밋/Git 작업/process cwd/통합 이력 재확인. A3는 ignored0·기존 잠금 없음. RCI는 .venv 재생성 가능, 설정 정본과 바이트 동일·정본 유지, 기존 workspace.lock flock을 제거 반환까지 유지하고 잠금 증거를 먼저 복사·해시 검증. branch ref 불변, force/clean/reset/stash 없음. RCI 1차 분류는 .venv 때문에 보류했으나 파일 목록 대조 후 재생성 환경으로 확인해 제거했다.
+- 유지8개: 최신 완료 Codex pair-control1개, 전체 커밋 대응 미확정5개(adopt-train/card-corner/data-coverage/mobile-label/task-1026-1), 미추적 구현이 있는 normal-coexclusion1개, 서버 사용 중 Claude pair-control1개. 앱 관리 최신 worktree는 유지하며 archive/수동 삭제하지 않았다.
+- 고유 RCI 잠금 증거: artifacts/pair-control-main-adoption-20261106/worktrees/pokemon-card-condition-claude-rci/workspace.lock, SHA-256 716e7514416ffd04028826f283af7053b43047599c4030b13587d08cd87f53c4. 나머지 로그·감사는 SHA256.json/adoption.json에 보존(ignored). 설정 비밀값은 복사/보고서 노출하지 않았다.
+- 남은 검증: Playwright 미설치 자동 UI1건 건너뜀, 실제 CLI 인증/교대 환경과 실제 main rollback 미실행. 합성/fake CLI/임시 bare 검증과 구분한다. 모델 정확도 변화 미평가, 전체 장부 usable-card-analysis-v1.13 78/100 유지.
+- 롤백: reset --hard 미실행·별도 승인 없이 사용 금지. 실제 필요 시 최종 인계 문서 커밋부터 역순 revert, 이후 353319440d3e17d441b51a64970d9e3c7c3b66ea → 9629e2c0f5cc7e83328af8f3ab9aa81caef6509e → b8fa28dbf186cb053cb67364241e5a30d8fc512e 순서, 마지막 d9aa5255f11c875b8f4eb38d21000c79eb50d0b9는 기존 main인 두 번째 부모 기준 git revert -m 2. 충돌은 검토하며 .claude/ 보존·재검증 후 일반 push. 복구를 실제 실행했다는 뜻은 아니다. 제거한 checkout은 보존 branch로 git worktree add, RCI 설정은 정본 해시 대조 후 복원하고 환경 재생성한다.
+- main 채택 HTML 실제 브라우저 렌더 확인: 첫 화면의 코드SHA3533194…·240/239/0/1·구조초과0·worktree2개정리·설정해시불변을 대조했고 오류/경고0. 스크린샷 pair-main-adoption-report-20261106.png, SHA-256 8e9662a6ad35300a437f905c8e4e8f5e828fb9e79d55c7212fbec2bf0addb93e. 보고서·검사·감사 증거는 ignored artifacts/pair-control-main-adoption-20261106/에 보존.
