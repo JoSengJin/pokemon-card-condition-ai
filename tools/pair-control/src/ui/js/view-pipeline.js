@@ -23,7 +23,7 @@ export function renderPipeline(p) {
   if (!p) { el.innerHTML = ''; return; }
   const tk = p.takeover, ev = p.events;
   const takeover = tk ? '메인 인수: ' + esc(tk.from) + ' → <b>' + esc(tk.agent) + '</b> (세대 ' + tk.generation + ') · ' + (tk.acked ? lbl('인수 확인됨', 'ok') : lbl('인수 확인 전', 'info')) : '메인 인수: ' + lbl('진행 중인 교대 세션 없음', 'muted');
-  const last = p.turns.slice(0, -1).reverse(), actions = new Map(), previous = [];
+  const last = p.turns.filter((turn) => turn.id !== p.currentTurn?.id).reverse(), actions = new Map(), previous = [];
   for (const turn of [...p.turns, ...(p.currentTurn ? [p.currentTurn] : [])]) {
     const rows = [];
     for (const action of turn.actions) rows.push(actionHtml(action));
