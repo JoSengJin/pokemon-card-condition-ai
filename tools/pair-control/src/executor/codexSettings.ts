@@ -28,6 +28,7 @@ export function scanCodexConfig(opts: { env?: NodeJS.ProcessEnv; home?: string }
     risks.push({ code: 'settings_api_key', message: `model_provider가 openai가 아님(${top.model_provider.slice(0, 30)}): ${label} — 다른 공급자는 별도 키·요금`, fix: '구독 로그인만 쓰려면 제거' });
   }
   if ('openai_base_url' in top) risks.push({ code: 'settings_api_key', message: `openai_base_url이 설정됨: ${label}`, fix: '구독 로그인만 쓰려면 제거' });
+  if ('profile' in top) risks.push({ code: 'settings_api_key', message: `선택된 Codex profile의 과금 경로를 확인할 수 없음: ${label}`, fix: '구독 전용 기본 설정을 확인하고 profile 선택 해제' });
   return risks;
 }
 

@@ -6,7 +6,7 @@ import { spawnExec } from './taskSpawn.ts';
 import { reserve } from './taskReserve.ts';
 import { preflightChecks } from './taskPreflight.ts';
 import crypto from 'node:crypto';
-import { mockPlan, probe, realPlan, type LaunchPlan } from './adapters.ts';
+import { mockPlan, probe, realPlan, realReadiness, type LaunchPlan } from './adapters.ts';
 import { buildStartPrompt } from './startPrompt.ts';
 import { setStatus, releaseExecLocks } from './taskState.ts';
 import type { ConflictReason } from './contract.ts';
@@ -29,9 +29,10 @@ export async function launch(taskExecutor: Executor, taskId: string, runId: stri
     validateOrigin(taskExecutor, origin);
     t.preflight = checks;
     const failed = checks.filter((c) => !c.ok);
+    const failedDetail = failed.map((c) => `${c.name}(${c.detail})`).join(', ');
     if (t.mode === 'manual') {
       if (failed.length) {
-        const reason = `사전 검사 실패: ${failed.map((c) => `${c.name}(${c.detail})`).join(', ')}`;
+        const reason = `사전 검사 실패: ${failedDetail}`;
         releaseExecLocks(taskExecutor, t, execId);
         setStatus(taskExecutor, t, 'blocked', reason);
         return { ok: false, reason, checks };
@@ -54,7 +55,7 @@ export async function launch(taskExecutor: Executor, taskId: string, runId: stri
       plan = realPlan(t, taskExecutor.probes[t.agent]!, taskExecutor.cfg, start.text);
     }
     if (failed.length || 'refused' in plan) {
-      const reason = failed.length ? `사전 검사 실패: ${failed.map((c) => `${c.name}(${c.detail})`).join(', ')}` : (plan as { refused: string }).refused;
+      const reason = failed.length ? `사전 검사 실패: ${failedDetail}` : (plan as { refused: string }).refused;
       releaseExecLocks(taskExecutor, t, execId);
       setStatus(taskExecutor, t, 'blocked', reason);
       return { ok: false, reason, checks };
@@ -62,8 +63,10 @@ export async function launch(taskExecutor: Executor, taskId: string, runId: stri
     // 사전 검사·CLI 탐색 대기 중 철회된 권한으로 프로세스를 시작하지 않는다.
     validateOrigin(taskExecutor, origin);
     if (taskExecutor.guardAlert) throw new Error(`무료 가드 발동 상태: ${taskExecutor.guardAlert.detail}`);
-    const limit = t.mode === 'real' ? limitFor(taskExecutor, t.agent) : null;
-    if (limit) throw new Error(`구독 한도 도달: ${limit.detail}`);
+    if (t.mode === 'real') {
+      const readiness = realReadiness(t.agent, taskExecutor.probes[t.agent], taskExecutor.cfg, { worktree: t.worktree, limit: limitFor(taskExecutor, t.agent) });
+      if (!readiness.available) throw new Error(`실제 ${t.agent} 실행 차단: ${readiness.blockers.map((b) => b.message).join(', ')}`);
+    }
     t.permission = plan.permission;
     return spawnExec(taskExecutor, t, runId, execId, plan);
   } catch (err) {

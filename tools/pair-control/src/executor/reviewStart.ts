@@ -51,6 +51,7 @@ export async function startReviewJob(taskExecutor: Executor, taskId: string, o: 
 
 판정은 사람 승인을 대신하지 않는다.
 `);
+    const fingerprint = await worktreeFingerprint(t);
     let command: string, args: string[], display: string[];
     if (mode === 'mock') {
       const script = path.join(taskExecutor.cfg.toolRoot, 'mock', 'fake-reviewer.mjs');
@@ -58,7 +59,7 @@ export async function startReviewJob(taskExecutor: Executor, taskId: string, o: 
       display = ['node', 'mock/fake-reviewer.mjs', '--scenario', o.mockScenario ?? 'approve', '--bundle', '<리뷰 묶음>'];
     } else {
       taskExecutor.probes[reviewer] = await probe(reviewer, taskExecutor.cfg);
-      const rr = realReadiness(reviewer, taskExecutor.probes[reviewer], taskExecutor.cfg, { limit: limitFor(taskExecutor, reviewer) });
+      const rr = realReadiness(reviewer, taskExecutor.probes[reviewer], taskExecutor.cfg, { worktree: bundleDir, limit: limitFor(taskExecutor, reviewer) });
       if (!rr.available) throw new UserError(`실제 ${reviewer} 리뷰 차단: ${rr.blockers.map((b) => b.message).join(', ')}`);
       const prompt = 'REVIEW_REQUEST.md를 읽고 판정 JSON을 마지막 줄에 출력하세요. 파일을 수정하지 마세요.';
       // 옵션 이름은 --help로 확인하지만 값(read-only, plan)은 실제 CLI에서 별도 확인 필요.
@@ -67,7 +68,10 @@ export async function startReviewJob(taskExecutor: Executor, taskId: string, o: 
       if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
       command = taskExecutor.probes[reviewer]!.binary!; display = [reviewer, ...args.slice(0, -1).map((a) => (a === bundleDir ? '<리뷰 묶음>' : a)), '<prompt>'];
     }
-    t.review = { reviewId, reviewer, mode, sha, contractHash: t.contractHash, bundleDir, worktreeFingerprint: await worktreeFingerprint(t), status: 'running', startedAt: new Date().toISOString(), ...(o.forHandoff ? { forHandoff: true } : {}) };
+    if (taskExecutor.stopped) throw new UserError('중단 상태 — 리뷰를 실행하지 않음');
+    if (taskExecutor.guardAlert) throw new UserError('과금 신호 감지 상태 — 실행하지 않음');
+    assertMainActive(taskExecutor, '리뷰 시작');
+    t.review = { reviewId, reviewer, mode, sha, contractHash: t.contractHash, bundleDir, worktreeFingerprint: fingerprint, status: 'running', startedAt: new Date().toISOString(), ...(o.forHandoff ? { forHandoff: true } : {}) };
     const ex = spawnSupervised(taskExecutor, t, { kind: 'review', runId: reviewId, cwd: bundleDir, command, args, env: sanitizedChildEnv(), display, sha });
     t.review.execId = ex.execId;
     taskExecutor.audit('review_started', { taskId, reviewId, reviewer, mode, sha });
