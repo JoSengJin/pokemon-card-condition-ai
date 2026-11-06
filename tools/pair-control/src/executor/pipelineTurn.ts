@@ -7,7 +7,9 @@ import { inheritable, modelActions } from './mainApprovals.ts';
 import { probe } from './adapters.ts';
 import { saveCheckpoint } from './mainCheckpoint.ts';
 import { tokenHash } from './mainTakeover.ts';
-import { mark, pipe } from './pipelineState.ts';
+import { endTurn, mark, pipe } from './pipelineState.ts';
+import { turnHold } from './approvalScope.ts';
+import { wanted } from './pipelineEvents.ts';
 import { eventRow, turnDir, writeTurnBundle } from './turnBundle.ts';
 import type { Executor } from './executor.ts';
 import type { MainSession, MainTurn, PipelineEvent } from './mainTypes.ts';
@@ -28,6 +30,27 @@ export async function launchTurn(ex: Executor, s: MainSession, events: PipelineE
     for (const e of events) rows.push(await eventRow(ex, e, turnDir(ex, t)));
     const b = writeTurnBundle(ex, t, token, rows, modelActions(inheritable(ex, s.id)));
     ex.probes[t.agent] = await probe(t.agent, ex.cfg);
+    if (ex.stopped) throw new Error('실행기가 정지됨 — 메인 턴을 시작하지 않음');
+    const active = ex.runtime.session;
+    if (active?.id !== t.sessionId || ex.runtime.generation !== t.generation || ex.runtime.frozen || !['completed', 'idle'].includes(active.status)) {
+      for (const event of events) event.tried = event.tried.filter((generation) => generation !== t.generation);
+      return endTurn(ex, t, 'stale', 'pending', '준비 중 메인 세션·세대·동결 상태가 바뀜 — 모델 요청 전 취소');
+    }
+    let invalid = false;
+    for (const event of events) {
+      const task = ex.state.tasks[event.taskId], current = task && wanted(ex, task);
+      const hold = !current || current.kind !== event.kind || current.sha !== event.sha
+        ? '대상 상태 변경: 저장된 이벤트가 현재 작업 상태·SHA와 다름' : turnHold(ex, active.id, task, event.kind);
+      if (hold) { invalid = true; mark(ex, [event.key], 'held', { reason: hold }); }
+    }
+    if (invalid) {
+      t.status = 'failed'; t.failure = '준비 중 승인·대상 상태가 바뀜 — 모델 요청 전 입력 묶음 취소';
+      for (const event of events) {
+        event.tried = event.tried.filter((generation) => generation !== t.generation);
+        if (event.state !== 'held') mark(ex, [event.key], 'pending', { reason: '실행하지 않은 독립 이벤트 — 최신 입력으로 최초 실행 대기' });
+      }
+      ex.store.save(); return;
+    }
     t.execId = await ex.launchMainProcess({ agent: t.agent, bundleDir: b.bundleDir, prompt: b.prompt, sessionId: t.id });
     t.status = 'launched';
   } catch (e) { t.status = 'failed'; t.failure = `턴 실행 실패: ${(e as Error).message}`; mark(ex, keys, 'held', { reason: `실행 실패: ${t.failure}` }); }

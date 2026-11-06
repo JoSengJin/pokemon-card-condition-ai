@@ -10,7 +10,7 @@ import { setup, task, fakeCli, type Env } from './helpers.ts';
 async function queued() {
   const e = setup({ cli: fakeCli });
   await assign(e.ex, task(e, 'task-a'));
-  const t = e.ex.state.tasks['task-a']; t.status = 'approved';
+  const t = e.ex.state.tasks['task-a']; t.status = 'approved'; t.approval = { sha: t.baseSha } as any;
   const session: any = { id: 'session', generation: 1, agent: 'codex', from: 'claude', status: 'idle', startedAt: new Date().toISOString(), limitRecovery: false, checkpointFile: '', checkpointHash: '', tokenHash: '', actionResults: [] };
   e.ex.runtime.session = session; e.ex.runtime.generation = 1;
   const approval = grantApproval(e.ex, { basis: '합성: 저장된 턴 실행', actions: ['integrate_task'], targets: ['task-a'] });

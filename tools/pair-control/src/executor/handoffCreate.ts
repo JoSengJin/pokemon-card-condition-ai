@@ -1,3 +1,5 @@
+import { PREP, whyClosed } from './approvalScope.ts';
+import type { RuntimeOrigin } from '../runtimeRequests.ts';
 import { getTask } from './executorLookup.ts';
 import { assertMainActive } from './executorPolicy.ts';
 import { startReviewJob } from './reviewStart.ts';
@@ -9,7 +11,7 @@ import { handoffText } from './handoffDocument.ts';
 import { handoffMessage } from './handoffRecords.ts';
 import type { Executor } from './executor.ts';
 
-export async function handoffToMain(ex: Executor, taskId: string) {
+export async function handoffToMain(ex: Executor, taskId: string, origin?: Pick<RuntimeOrigin, 'sessionId' | 'generation' | 'lifetime'>) {
   assertMainActive(ex, '메인 인계');
   const t = getTask(ex, taskId);
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 인계(${t.status})`);
@@ -23,6 +25,17 @@ export async function handoffToMain(ex: Executor, taskId: string) {
   if (t.verification?.status === 'running' || t.review?.status === 'running') throw new UserError('작업 테스트나 리뷰가 실행 중');
   if (t.handoff && !t.handoff.cancelledAt && t.handoff.headSha === head) throw new UserError('이미 인계됨(취소 후 다시 인계 가능)');
   const text = await handoffText(t, head, ex.mainAgent);
+  if (ex.stopped || ex.guardAlert) throw new UserError('실행기 중단 또는 과금 가드 상태 — 메인 인계를 만들지 않음');
+  assertMainActive(ex, '메인 인계');
+  if (t.status !== 'review_pending' || t.result?.headSha !== head) throw new UserError('인계 준비 중 작업 상태·SHA가 바뀜 — 인계하지 않음');
+  const current = ex.state.tasks[taskId];
+  if (current.verification?.status === 'running' || current.review?.status === 'running') throw new UserError('준비 중 작업 테스트나 리뷰가 시작됨 — 인계하지 않음');
+  if (origin) {
+    const rt = ex.runtime;
+    if (ex.lifetime !== origin.lifetime || rt.session?.id !== origin.sessionId || rt.generation !== origin.generation || rt.frozen) throw new UserError('자동 인계 준비 중 메인 세션·세대가 바뀜 — 인계하지 않음');
+    const hold = whyClosed(ex, origin.sessionId, PREP, taskId);
+    if (hold) throw new UserError(hold);
+  }
   const file = path.join(ex.cfg.stateDir, 'handoffs', `${t.taskId}-${head.slice(0, 12)}.md`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, text);

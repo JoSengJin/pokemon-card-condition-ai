@@ -11,7 +11,7 @@ const STOPPED = ['failed', 'unknown', 'orphan_running', 'exit_observed', 'integr
 const pushed = (ex: Executor, id: string) => Object.values(ex.state.pushes ?? {}).some((p) => p.status === 'pushed_verified' && p.tasks.includes(id));
 
 /** 이 작업의 현재 상태가 만드는 이벤트(없으면 null). */
-function wanted(ex: Executor, t: Task): { kind: 'result_ready' | 'approved' | 'integrated' | 'blocked'; sha: string; hold?: string } | null {
+export function wanted(ex: Executor, t: Task): { kind: 'result_ready' | 'approved' | 'integrated' | 'blocked'; sha: string; hold?: string } | null {
   const r = t.result, v = t.verification, h = t.handoff;
   if (STOPPED.includes(t.status)) return { kind: 'blocked', sha: `${t.status}:${r?.headSha ?? t.baseSha}`, hold: `사용자 판단 필요: ${t.status}${t.statusReason ? ` — ${t.statusReason}` : ''}` };
   if (t.status === 'review_pending' && r?.headSha && v?.sha === r.headSha) {
@@ -32,8 +32,10 @@ export function scanEvents(ex: Executor) {
     if (e.state !== 'held' || e.kind === 'blocked') continue;
     const t = ex.state.tasks[e.taskId];
     const scope = e.reason?.startsWith('승인') && !!t && !turnHold(ex, sid, t, e.kind);
+    const current = t && wanted(ex, t);
+    const changed = e.reason?.startsWith('대상 상태 변경:') && current?.kind === e.kind && current.sha === e.sha && !turnHold(ex, sid, t, e.kind);
     const limit = e.reason?.startsWith('한도') && !limitFor(ex, ex.mainAgent);
-    if (!scope && !limit) continue;
+    if (!scope && !limit && !changed) continue;
     e.state = 'pending'; delete e.reason;
     if (limit) e.tried = e.tried.filter((g) => g !== ex.runtime.generation);
     ex.audit('pipeline_event_revived', { key: e.key });

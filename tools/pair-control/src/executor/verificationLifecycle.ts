@@ -4,6 +4,7 @@ import { sanitizedChildEnv } from './freeGuard.ts';
 import type { Executor, Execution, Task, Verification } from './executor.ts';
 
 export async function startNextCheck(taskExecutor: Executor, t: Task): Promise<void> {
+  if (taskExecutor.stopped || taskExecutor.guardAlert) return;
   const v = t.verification!;
   const item = v.items.find((i) => i.status === 'pending');
   if (!item) return finishVerification(taskExecutor, t);

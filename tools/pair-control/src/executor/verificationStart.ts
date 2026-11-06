@@ -1,3 +1,5 @@
+import { PREP, whyClosed } from './approvalScope.ts';
+import type { RuntimeOrigin } from '../runtimeRequests.ts';
 import { getTask } from './executorLookup.ts';
 import { ensureWatcher } from './monitorSchedule.ts';
 import crypto from 'node:crypto';
@@ -7,7 +9,7 @@ import { resolveCheck } from './checkCommand.ts';
 import { UserError } from './errors.ts';
 import type { Executor, CheckRun } from './executor.ts';
 
-export async function runChecks(taskExecutor: Executor, taskId: string) {
+export async function runChecks(taskExecutor: Executor, taskId: string, origin?: Pick<RuntimeOrigin, 'sessionId' | 'generation' | 'lifetime'>) {
   const t = getTask(taskExecutor, taskId);
   if (taskExecutor.guardAlert) throw new UserError('과금 신호 감지 상태 — 실행하지 않음');
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태에서만 작업 테스트를 실행(${t.status})`);
@@ -17,6 +19,14 @@ export async function runChecks(taskExecutor: Executor, taskId: string) {
   if (!head || head !== t.result?.headSha) throw new UserError('Git 계약 검사 이후 코드 SHA가 바뀜 — 결과 재수집 필요');
   if ((await G.dirtyFiles(t.worktree)).length) throw new UserError('worktree에 미커밋 변경이 있음 — 커밋된 코드만 검사');
   const envr = await checkVenv(t.worktree, neededEnv(t, t.usesDevelopLock), t.requiredModules);
+  if (taskExecutor.stopped || taskExecutor.guardAlert) throw new UserError('실행기 중단 또는 과금 가드 상태 — 작업 테스트를 시작하지 않음');
+  if (t.status !== 'review_pending' || t.result?.headSha !== head) throw new UserError('검사 준비 중 작업 상태·SHA가 바뀜 — 시작하지 않음');
+  if (origin) {
+    const rt = taskExecutor.runtime;
+    if (taskExecutor.lifetime !== origin.lifetime || rt.session?.id !== origin.sessionId || rt.generation !== origin.generation || rt.frozen) throw new UserError('자동 검사 준비 중 메인 세션·세대가 바뀜 — 시작하지 않음');
+    const hold = whyClosed(taskExecutor, origin.sessionId, PREP, taskId);
+    if (hold) throw new UserError(hold);
+  }
   t.envReadiness = envr;
   if (!envr.ready) throw new UserError(`실행 환경 미준비: ${envr.checks.filter((c) => !c.ok).map((c) => `${c.name}(${c.detail})`).join(', ')}`);
   const runId = crypto.randomUUID();

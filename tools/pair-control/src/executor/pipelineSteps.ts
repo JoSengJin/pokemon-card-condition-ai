@@ -36,11 +36,12 @@ function nextStep(t: Task): { key: string; kind: 'checks' | 'handoff' } | null {
 export async function autoSteps(ex: Executor, sessionId: string) {
   const session = ex.runtime.session;
   if (ex.stopped || ex.runtime.frozen || session?.id !== sessionId || !['completed', 'idle'].includes(session.status)) return;
+  const origin = { sessionId, generation: session.generation, lifetime: ex.lifetime };
   for (const turn of Object.values(pipe(ex).turns)) if (TURN_IN_FLIGHT.includes(turn.status)) return;
   for (const t of Object.values(ex.state.tasks)) {
     if (t.status !== 'review_pending' || whyClosed(ex, sessionId, PREP, t.taskId)) continue;
     const step = nextStep(t);
     if (!step || !begin(ex, step.key)) continue;
-    try { await (step.kind === 'checks' ? runChecks(ex, t.taskId) : handoffToMain(ex, t.taskId)); finish(ex, step.key); } catch (e) { finish(ex, step.key, e as Error); }
+    try { await (step.kind === 'checks' ? runChecks(ex, t.taskId, origin) : handoffToMain(ex, t.taskId, origin)); finish(ex, step.key); } catch (e) { finish(ex, step.key, e as Error); }
   }
 }

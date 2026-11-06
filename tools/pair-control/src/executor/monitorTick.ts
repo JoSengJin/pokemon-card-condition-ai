@@ -18,7 +18,7 @@ import { finishApplied } from './pipelineApply.ts';
 import { finishSession } from './mainSessionApply.ts';
 import type { MainTurn } from './mainTypes.ts';
 import { autoSteps } from './pipelineSteps.ts';
-import { scanEvents } from './pipelineEvents.ts';
+import { scanEvents, wanted } from './pipelineEvents.ts';
 import { launchTurn } from './pipelineTurn.ts';
 import { turnHold } from './approvalScope.ts';
 import { advanceSessionLaunch } from './mainSessionLaunch.ts';
@@ -90,7 +90,7 @@ export async function tick(taskExecutor: Executor, ) {
       }
     }
   }
-  if (taskExecutor.guardAlert) return;
+  if (taskExecutor.guardAlert || taskExecutor.stopped) return;
   if (Object.values(taskExecutor.state.executions).some((execution) => execution.completion && execution.completion.stage !== 'done')) return;
   for (const t of Object.values(taskExecutor.state.tasks)) {
     const v = t.verification;
@@ -143,6 +143,10 @@ export async function tick(taskExecutor: Executor, ) {
       for (const key of request.eventKeys) {
         const event = pipe(taskExecutor).events[key], task = event && taskExecutor.state.tasks[event.taskId];
         if (!event || !task) continue;
+        const current = wanted(taskExecutor, task);
+        if (!current || current.kind !== event.kind || current.sha !== event.sha) {
+          mark(taskExecutor, [key], 'held', { reason: '대상 상태 변경: 저장된 이벤트가 현재 작업 상태·SHA와 다름' }); continue;
+        }
         const hold = turnHold(taskExecutor, session!.id, task, event.kind);
         if (hold) { mark(taskExecutor, [key], 'held', { reason: hold }); continue; }
         events.push(event);
