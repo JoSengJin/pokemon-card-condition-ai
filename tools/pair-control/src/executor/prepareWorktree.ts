@@ -1,3 +1,6 @@
+import { assertMainActive } from './executorPolicy.ts';
+import { authorize } from './approvalGate.ts';
+import type { RuntimeOrigin } from '../runtimeRequests.ts';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as G from './git.ts';
@@ -25,9 +28,14 @@ export async function suggestTaskId(ex: Executor, agent: string) {
 }
 
 /** git worktree add -b. 기존 경로·브랜치는 덮어쓰지 않는다(git 자체도 거절). */
-export async function createWorktree(ex: Executor, t: TaskInputT) {
+export async function createWorktree(ex: Executor, t: TaskInputT, origin?: RuntimeOrigin) {
+  assertMainActive(ex, 'worktree 생성');
+  if (origin) authorize(ex, origin.sessionId, origin.action, origin.target, origin.sha, origin);
+  const generation = ex.runtime.generation;
   if (fs.existsSync(t.worktree)) throw new Error(`이미 있는 경로: ${t.worktree}`);
   if (await branchExists(ex.cfg.repo, t.branch)) throw new Error(`이미 있는 브랜치: ${t.branch}`);
+  assertMainActive(ex, 'worktree 생성', generation);
+  if (origin) authorize(ex, origin.sessionId, origin.action, origin.target, origin.sha, origin);
   fs.mkdirSync(path.dirname(t.worktree), { recursive: true });
   const r = await G.git(ex.cfg.repo, 'worktree', 'add', '-b', t.branch, t.worktree, t.baseSha);
   if (r.code !== 0) throw new Error(`git worktree add 실패: ${r.stderr.trim()}`);

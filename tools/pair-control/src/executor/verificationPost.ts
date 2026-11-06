@@ -9,6 +9,10 @@ export async function runPostChecks(ex: Executor, t: Task, checkout: string, dev
   const items: CheckRun[] = [];
   if (!t.postChecks.length) return { status: 'not_run' as const, items };
   for (const c of t.postChecks) {
+    if (ex.stopped || ex.guardAlert) {
+      items.push({ id: c.id, name: c.name, display: [], cwd: '.', status: 'not_run', sha: vars.head });
+      continue;
+    }
     const r = resolveCheck(checkout, c, vars);
     const item: CheckRun = { id: c.id, name: c.name, display: ['./develop', '--', ...r.display], cwd: '.', status: 'running', sha: vars.head, startedAt: new Date().toISOString() };
     // 화면이 실행 중에도 로그를 이어받도록: 실행 중 항목을 먼저 통합 기록에 남기고, 출력은 줄 단위로 가려 바로 파일에 쓴다.

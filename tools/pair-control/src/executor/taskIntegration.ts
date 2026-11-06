@@ -1,3 +1,5 @@
+import { authorize } from './approvalGate.ts';
+import type { RuntimeOrigin } from '../runtimeRequests.ts';
 import { getTask } from './executorLookup.ts';
 import { assertMainActive } from './executorPolicy.ts';
 import { integrationState } from './integrationSnapshot.ts';
@@ -13,8 +15,10 @@ import { runPostChecks } from './verificationPost.ts';
 import { UserError } from './errors.ts';
 import type { Executor, Task, TaskStatus } from './executor.ts';
 
-export async function integrate(taskExecutor: Executor, taskId: string): Promise<{ outcome: string; detail: string }> {
+export async function integrate(taskExecutor: Executor, taskId: string, origin?: RuntimeOrigin): Promise<{ outcome: string; detail: string }> {
   assertMainActive(taskExecutor, '통합');
+  if (origin) authorize(taskExecutor, origin.sessionId, origin.action, origin.target, origin.sha, origin);
+  const generation = taskExecutor.runtime.generation;
   const t = getTask(taskExecutor, taskId);
   if (t.status !== 'approved' || !t.approval) throw new UserError(`승인된 상태가 아님(${t.status})`);
   if (taskExecutor.guardAlert) throw new UserError('무료 가드 발동 상태');
@@ -50,6 +54,13 @@ export async function integrate(taskExecutor: Executor, taskId: string): Promise
     const integEnv = await checkVenv(checkout, 'python');
     if (!integEnv.ready) return endIntegration(taskExecutor, t, 'integration_blocked', `통합 checkout 실행 환경 미준비: ${integEnv.checks.filter((c) => !c.ok).map((c) => `${c.name}(${c.detail})`).join(', ')}`, true);
     const commits = await G.commitsBetween(t.worktree, t.baseSha, a.sha);
+    const current = getTask(taskExecutor, taskId);
+    if (current !== t || current.status !== 'integrating' || current.approval !== a) return { outcome: 'integration_refused', detail: '준비 중 작업 상태·승인이 바뀜 — 통합하지 않음' };
+    if (t.verification?.status !== 'passed' || t.verification.sha !== a.sha || t.verification.contractHash !== t.contractHash || a.contractHash !== t.contractHash) return endIntegration(taskExecutor, t, 'integration_refused', '준비 중 작업 테스트·계약이 바뀜 — 승인 무효화');
+    try {
+      assertMainActive(taskExecutor, '통합', generation);
+      if (origin) authorize(taskExecutor, origin.sessionId, origin.action, origin.target, origin.sha, origin);
+    } catch (error) { return endIntegration(taskExecutor, t, 'integration_blocked', (error as Error).message, true); }
     const r = await G.run(develop, ['--', 'git', 'cherry-pick', '-x', ...commits], checkout, 120_000, sanitizedChildEnv());
     if (r.code === 0) {
       const newHead = await G.revParse(checkout, 'HEAD');

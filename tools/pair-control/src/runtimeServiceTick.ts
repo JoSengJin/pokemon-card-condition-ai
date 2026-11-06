@@ -25,11 +25,11 @@ export async function serviceTick(ex: Executor) {
     request.stage = 'dispatching'; request.lifetime = ex.lifetime; ex.store.save();
     const data = request.payload;
     if (request.service === 'plan') request.result = await planTask(ex, data.raw);
-    else if (request.service === 'worktree') request.result = await createWorktree(ex, data.raw as TaskInputT);
-    else if (request.service === 'assign') request.result = await assign(ex, data.raw);
+    else if (request.service === 'worktree') request.result = await createWorktree(ex, data.raw as TaskInputT, request.origin);
+    else if (request.service === 'assign') request.result = await assign(ex, data.raw, request.origin);
     else if (request.service === 'launch') request.result = await launch(ex, data.taskId!, data.runId!, request.origin);
     else if (request.service === 'collect') request.result = await collect(ex, data.taskId!, data.execId ?? null);
-    else if (request.service === 'integrate') request.result = await integrate(ex, data.taskId!);
+    else if (request.service === 'integrate') request.result = await integrate(ex, data.taskId!, request.origin);
     else throw new UserError('지원하지 않는 workflow 서비스');
     if (ex.stopped) return;
     request.result = structuredClone(request.result);

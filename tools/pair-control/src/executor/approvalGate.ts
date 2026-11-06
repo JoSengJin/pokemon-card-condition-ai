@@ -23,7 +23,8 @@ export function unmet(ex: Executor, a: Approval, action: string, target: string,
 }
 
 /** 행동 하나가 승계된 승인 범위 안인지 검사한다. 안이면 근거 승인을, 밖이면 이유를 담은 UserError를 던진다. */
-export function authorize(ex: Executor, sessionId: string | undefined, action: string, target: string, sha?: string): Approval {
+export function authorize(ex: Executor, sessionId: string | undefined, action: string, target: string, sha?: string, context?: { generation: number; lifetime: string }): Approval {
+  if (context && (ex.stopped || ex.runtime.frozen || ex.runtime.session?.id !== sessionId || ex.runtime.generation !== context.generation || ex.lifetime !== context.lifetime)) throw new UserError('이전 세대·수명 또는 교대/정지 중 요청 — 수행하지 않음');
   if ((HARD_DENIED as readonly string[]).includes(action)) throw new UserError(`${action}은(는) 어떤 승인으로도 자동 승계·수행하지 않음(사용자가 직접 지시해야 함)`);
   const reasons: string[] = [];
   let otherSession = false;

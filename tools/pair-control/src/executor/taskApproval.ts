@@ -1,3 +1,5 @@
+import { authorize } from './approvalGate.ts';
+import type { RuntimeOrigin } from '../runtimeRequests.ts';
 import { getTask } from './executorLookup.ts';
 import { assertMainActive } from './executorPolicy.ts';
 import crypto from 'node:crypto';
@@ -7,17 +9,12 @@ import { setStatus } from './taskState.ts';
 import { UserError } from './errors.ts';
 import type { Executor, Approval } from './executor.ts';
 
-export async function approve(taskExecutor: Executor, taskId: string, sha: string, o: { requireHandoff?: boolean } = {}): Promise<Approval> {
+export async function approve(taskExecutor: Executor, taskId: string, sha: string, o: { requireHandoff?: boolean; origin?: RuntimeOrigin } = {}): Promise<Approval> {
   assertMainActive(taskExecutor, '승인');
+  if (o.origin) authorize(taskExecutor, o.origin.sessionId, o.origin.action, o.origin.target, o.origin.sha, o.origin);
+  const generation = taskExecutor.runtime.generation;
   const t = getTask(taskExecutor, taskId);
   if (t.status !== 'review_pending') throw new UserError(`검토 대기 상태가 아님(${t.status})`);
-  if (o.requireHandoff) {
-    if (t.review?.status === 'running') throw new UserError('리뷰가 실행 중 — 끝난 뒤 승인할 수 있음');
-    const h = t.handoff;
-    if (!h || h.cancelledAt) throw new UserError('메인 인계가 끝나지 않음 — 인계하고 확인 완료를 받은 뒤 승인할 수 있음');
-    if (h.headSha !== t.result?.headSha) throw new UserError('인계 후 코드가 바뀜 — 다시 인계하고 확인을 받으세요');
-    if (!h.confirmedAt) throw new UserError('메인 확인이 끝나지 않음 — 확인 완료 후 승인할 수 있음');
-  }
   if (!G.FULL_SHA.test(sha)) throw new UserError('전체 40자 SHA로 승인해야 함');
   if (!t.result?.checksPassed) throw new UserError('Git 계약 검사 실패가 있어 승인할 수 없음');
   const v = t.verification;
@@ -32,6 +29,18 @@ export async function approve(taskExecutor: Executor, taskId: string, sha: strin
   const base = await G.run('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${taskExecutor.cfg.integration.branch}^{commit}`], taskExecutor.cfg.integration.checkout);
   const baseHead = G.FULL_SHA.test(base.stdout.trim()) ? base.stdout.trim() : null;
   if (!baseHead) throw new UserError('통합 기준 브랜치를 읽지 못함');
+  assertMainActive(taskExecutor, '승인', generation);
+  if (o.origin) authorize(taskExecutor, o.origin.sessionId, o.origin.action, o.origin.target, o.origin.sha, o.origin);
+  const current = getTask(taskExecutor, taskId);
+  if (current !== t || current.status !== 'review_pending' || current.result?.headSha !== sha || !current.result.checksPassed) throw new UserError('준비 중 작업 상태·결과가 바뀜 — 승인하지 않음');
+  if (current.verification?.status !== 'passed' || current.verification.sha !== sha || current.verification.contractHash !== current.contractHash) throw new UserError('준비 중 작업 테스트 결과가 바뀜 — 승인하지 않음');
+  if (o.requireHandoff) {
+    if (t.review?.status === 'running') throw new UserError('리뷰가 실행 중 — 끝난 뒤 승인할 수 있음');
+    const h = t.handoff;
+    if (!h || h.cancelledAt) throw new UserError('메인 인계가 끝나지 않음 — 인계하고 확인 완료를 받은 뒤 승인할 수 있음');
+    if (h.headSha !== t.result?.headSha) throw new UserError('인계 후 코드가 바뀜 — 다시 인계하고 확인을 받으세요');
+    if (!h.confirmedAt) throw new UserError('메인 확인이 끝나지 않음 — 확인 완료 후 승인할 수 있음');
+  }
   const filesHash = crypto.createHash('sha256').update(files.join('\0')).digest('hex');
   const rv = t.review && t.review.sha === sha && t.review.contractHash === t.contractHash && t.review.status === 'done' ? t.review.verdict ?? null : null;
   const ho = t.handoff && !t.handoff.cancelledAt && t.handoff.headSha === sha ? t.handoff.confirmedAt ?? null : null;

@@ -1,3 +1,7 @@
+import { assertMainActive } from './executorPolicy.ts';
+import { authorize } from './approvalGate.ts';
+import type { Executor } from './executor.ts';
+import type { RuntimeOrigin } from '../runtimeRequests.ts';
 import { sha256 } from './contentHash.ts';
 export { sha256 } from './contentHash.ts';
 import fs from 'node:fs';
@@ -11,7 +15,7 @@ export const contractPath = (taskId: string) => `docs/collaboration/tasks/${task
 
 export interface ContractCommit { contractSha: string; contractHash: string; reused: boolean }
 
-export async function commitContract(worktree: string, t: TaskInputT): Promise<ContractCommit> {
+export async function commitContract(worktree: string, t: TaskInputT, context?: { ex: Executor; origin?: RuntimeOrigin; generation: number }): Promise<ContractCommit> {
   const rel = contractPath(t.taskId);
   const abs = path.join(worktree, rel);
   const text = renderContract(t);
@@ -29,8 +33,13 @@ export async function commitContract(worktree: string, t: TaskInputT): Promise<C
   if (dirty.length) throw new Error(`worktree에 미커밋 변경이 있어 계약을 커밋하지 않음: ${dirty.slice(0, 5).join(', ')}`);
   const email = (await G.git(worktree, 'config', 'user.email')).stdout.trim();
   if (!email) throw new Error('git user.email 미설정 — 계약 커밋 작성자를 정할 수 없음');
+  if (context) {
+    const { ex, origin, generation } = context;
+    assertMainActive(ex, '작업 계약 쓰기', generation);
+    if (origin) authorize(ex, origin.sessionId, origin.action, origin.target, origin.sha, origin);
+  }
   fs.mkdirSync(path.dirname(abs), { recursive: true });
-  fs.writeFileSync(abs, text);
+  fs.writeFileSync(abs, text, { flag: 'wx' });
   const add = await G.git(worktree, 'add', '--', rel);
   const commit = add.code === 0 ? await G.git(worktree, 'commit', '-q', '-m', `docs(task): ${t.taskId} 작업 계약`, '--', rel) : add;
   if (commit.code !== 0) {

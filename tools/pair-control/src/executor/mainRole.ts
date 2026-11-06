@@ -2,7 +2,7 @@ import { memo } from './mainRoleMemo.ts';
 import { assertMainActive } from './executorPolicy.ts';
 // 메인 역할(통합·푸시·실험 단일 담당) 표시와 이양 기록.
 // 이 도구는 누가 클릭하는지 모르므로 권한을 강제하지 못한다. 하는 일: 이양 전 안전 확인, 이양 기록, 인계 메모, 이후 인계·프롬프트 문구에 현재 메인 반영.
-// PAIR_CODING.md·AGENTS.md는 main 통합·실험을 Codex로 정해 두었다. 그 규칙은 바꾸지 않으며, 이양은 사용자가 규칙을 바꾸거나 한시적으로 허용했을 때만 의미가 있다.
+// 표시 변경은 실행 세션 인수가 아니다. 실제 메인 교대는 PAIR_CODING.md §7의 체크포인트·세대·승인 승계 절차를 따른다.
 import fs from 'node:fs';
 import path from 'node:path';
 import { run } from './git.ts';
@@ -38,12 +38,15 @@ export async function swapBlockers(ex: Executor): Promise<string[]> {
 
 export async function setMain(ex: Executor, agent: string, reason = '') {
   assertMainActive(ex, '메인 표시 변경');
+  const generation = ex.runtime.generation, previous = ex.state.main;
   if (!MAIN_CHOICES.includes(agent as 'codex')) throw new UserError('메인은 codex 또는 claude 중 하나');
   const to = agent as 'codex' | 'claude';
   const from = ex.mainAgent;
   if (to === from) throw new UserError(`이미 ${from}이(가) 메인임`);
   const blockers = await swapBlockers(ex);
   if (blockers.length) throw new UserError(`이양할 수 없음: ${blockers.join(' / ')}`);
+  assertMainActive(ex, '메인 표시 변경', generation);
+  if (ex.state.main !== previous) throw new UserError('준비 중 메인 표시가 바뀜 — 다시 확인하세요');
   const at = new Date().toISOString();
   const role: MainRole = { agent: to, since: at, reason: reason.slice(0, 300), history: [...(ex.state.main?.history ?? []), { agent: from, until: at }] };
   const file = path.join(ex.cfg.stateDir, 'main-handoffs', `${at.replace(/[:.]/g, '-')}-${from}-to-${to}.md`);

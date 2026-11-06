@@ -22,7 +22,7 @@ export async function dispatchAction(ex: Executor, s: MainSession, work: ActionW
     try {
       if (a.type === 'approve_task') {
         if (!ex.resumer) throw new UserError('workflow 재개 서비스가 연결되지 않음');
-        const approval = await approve(ex, target, String(a.sha ?? ''), { requireHandoff: true });
+        const approval = await approve(ex, target, String(a.sha ?? ''), { requireHandoff: true, origin });
         await ex.resumer(getTask(ex, target).runId!, 'review-gate', { decision: 'approve', sha: approval.sha }, origin);
       } else if (a.type === 'integrate_task') {
         const task = getTask(ex, target);
@@ -33,7 +33,7 @@ export async function dispatchAction(ex: Executor, s: MainSession, work: ActionW
         const result = await prepareTask(work.input ?? {}, origin);
         if (work.input?.start !== false) await startTask(result.taskId!, origin);
       }
-      else if (a.type === 'confirm_handoff') await confirmAction(ex, a, target, !!work.selfReview);
+      else if (a.type === 'confirm_handoff') await confirmAction(ex, a, target, !!work.selfReview, origin);
       else if (a.type === 'push_main') {
         const sha = String(a.sha ?? '').toLowerCase();
         if (sha.length < 12) throw new UserError('push 확인 SHA는 앞 12자 이상이어야 함');
