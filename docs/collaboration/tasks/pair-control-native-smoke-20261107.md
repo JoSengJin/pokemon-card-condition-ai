@@ -22,3 +22,8 @@
 - allowed_files 추가: tools/pair-control/src/executor/executor.ts, tools/pair-control/src/executor/reviewStart.ts, tools/pair-control/src/executor/adapterProbe.ts, tools/pair-control/test/fake-cli/codex, tools/pair-control/test/adapter-probe.test.ts, tools/pair-control/test/free-launch.test.ts, tools/pair-control/test/pipeline-start.test.ts, tools/pair-control/test/bundle-cli.test.ts, tools/pair-control/README.md. 제품 변경0 계획을 이 실측 결함의 최소 수정으로 변경한다.
 - 검증 축소: 임시 Git 밖 메인·리뷰 시작과 미지원 CLI 차단 3개만 반례로 검증. 필수 타입·구조 검사는 빠르게 실행한다. 전체320회귀·이미 완료한 실제 Claude 경로는 반복하지 않음. 기존 fake 도움말/필수 옵션 기대값만 새 옵션과 일치시킴.
 - 이번 승인으로 실패한 실제 Codex 요청을 자동 재시도하지 않는다. 수정 후 실계정 Codex 확인은 미실행으로 구분한다.
+
+## 승인 해석 정정
+
+- 사용자는 후속 질문에서 “실제 모델이라면 뭘 말하는거야?”라고 확인했다. 앞선 일반 진행 요청을 실계정 시험 승인 및 계정 추가 사용 꺼짐 확인으로 함께 해석한 것은 부적절했다. 양쪽 계정의 추가 사용 꺼짐 직접 확인을 받은 사실은 없다.
+- 실제 실행 사실: Claude CLI 응답2개, Codex CLI 시작 오류1개, 합계 CLI3개. 추가 실제 호출은 중단했다. 청구/추가 과금0을 확인했다고 보고하지 않는다. 이후 수정 검증은 stub/fake CLI만 사용한다.
