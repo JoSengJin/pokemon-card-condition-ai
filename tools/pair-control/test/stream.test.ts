@@ -121,7 +121,7 @@ test('실제 CLI 계획: 옵션이 확인되고 설정이 켜져 있을 때만 �
   const env = setup();
   try {
     const cfg = { ...env.cfg, allowRealModelCalls: true, confirmedSubscriptionAuth: true };
-    const mk = (agent: 'claude' | 'codex', stream: boolean): Probe => ({ agent, installed: true, binary: `/x/${agent}`, version: '1', verifiedFlags: [], missingFlags: [], note: '', checkedAt: '', stream });
+    const mk = (agent: 'claude' | 'codex', stream: boolean): Probe => ({ agent, installed: true, binary: `/x/${agent}`, version: '1', verifiedFlags: [], missingFlags: [], note: '', checkedAt: '', stream, loginStatus: 'Logged in using ChatGPT' });
     const t = (agent: 'claude' | 'codex') => ({ ...task(env, 'task-a'), agent }) as any;
     const on = (agent: 'claude' | 'codex', cfgX = cfg, st = true) => realPlan(t(agent), mk(agent, st), cfgX as any) as any;
     assert.ok(on('claude').args.includes('--output-format=stream-json') && on('claude').args.includes('--verbose'));

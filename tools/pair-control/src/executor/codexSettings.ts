@@ -32,5 +32,5 @@ export function scanCodexConfig(opts: { env?: NodeJS.ProcessEnv; home?: string }
 }
 
 export function codexLoginIsChatgpt(statusText: string | undefined): boolean {
-  return !!statusText && /logged in using chatgpt/i.test(statusText);
+  return !!statusText && /^\s*logged in using chatgpt\s*$/i.test(statusText);
 }

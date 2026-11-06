@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { scanArgs } from './nocharge.ts';
+import { scanArgs, codexLoginIsChatgpt } from './nocharge.ts';
 import type { TaskInputT } from './contract.ts';
 import type { PairConfig } from './config.ts';
 import type { Probe } from './adapterProbe.ts';
@@ -30,6 +30,7 @@ export function realPlan(task: TaskInputT, p: Probe, cfg: PairConfig, startPromp
   if (!cfg.confirmedSubscriptionAuth) return { refused: '무과금 가드: CLI가 구독 로그인으로 동작하고 추가 크레딧이 꺼져 있음을 확인했다는 표시가 없음(config.confirmedSubscriptionAuth=false).' };
   if (!p.installed || !p.binary) return { refused: `${task.agent} CLI 미설치: ${p.note}` };
   if (p.missingFlags.length) return { refused: `--help에서 확인되지 않은 옵션: ${p.missingFlags.join(', ')}` };
+  if (task.agent === 'codex' && !codexLoginIsChatgpt(p.loginStatus)) return { refused: '무과금 가드: Codex ChatGPT 구독 로그인이 확인되지 않음 — 실행하지 않음' };
   const prompt = startPrompt || agentPrompt(task);
   let plan: LaunchPlan;
   if (task.agent === 'codex') {
