@@ -2,7 +2,7 @@
 
 - task_id: pair-control-api-finalization-20261107
 - owner: Codex
-- status: implementing
+- status: integrated
 - base_sha: 7a3b217845da994a31fd36800eb4813fc6a98c56
 - branch: codex/pair-control-api-finalization-20261107
 - goal: 배정/승인/인계 확인/통합/메인 표시 이양이 준비 await 뒤 오래된 권한·세대로 상태나 Git을 바꾸지 않도록 검증한다.
@@ -21,3 +21,16 @@
 - 구조 검사에서 API의 validateOrigin 중간층을 거친 경로2개가5전으로 확인됐다. 승인 함수 authorize의 기존 실행 맥락 책임에 선택적 generation/lifetime 검사를 넣고, workflow용 validateOrigin은 같은 단일 구현에 위임한다. 도메인 변경 경계는 authorize를 직접 호출하며 승인식/세션 판정 복제 없이4전을 유지한다.
 
 - 전체 회귀에서 기존 control.test.ts의 가드 뒤 배정 가정1건이 실패했다. 가드 전 task-b를 배정해 시작 차단 검사를 유지하고, 가드 뒤 task-c 새 배정 거부를 추가 확인한다. 가드를 완화하거나 실패를 제외하지 않고 전체 검사를 다시 실행한다.
+
+## 최종 검증·인계
+
+- 제품/회귀 소스 SHA: 8352bb51416836cd9e869bd4e7d88f88c1bade96
+- 적용 순서: 7a3b217845da994a31fd36800eb4813fc6a98c56 → c1f783b30c67e188f1f50f8dfb4eb4fb0ef4d741 → a97e1453dacca50484816f78eb5ee975ef16158b → 7f4a05bb720abceff90059eb5bab40235d1864c7 → 3709607e9d67b9137e559b0edd9257716fdc65ed → 7d44037995dad2eddc7b04ce497a3a0e8cc5cdf6 → 8352bb51416836cd9e869bd4e7d88f88c1bade96.
+- 전체320/319통과/0실패/기존건너뜀1. 신규28개 통과. 타입/구조 검사 branch·main 통과, main 관련 회귀 로그 보존. 초기 전체1실패는 가드 뒤 배정을 허용한 구 테스트를 새 배정 차단/기존 작업 시작 차단 모두 검증하도록 수정 후 전체 재실행.
+- 구조270파일/783정의·파일최대7·실제전이최대4·초과0·순환0. 변경 파일 정의 수는 HTML 표 참고. 원시 미확인86 동일·실제 출처 대조 후 미분류0(동일 개발자 검토). 외부2740→2741(표준 CheckRun[] push1개).
+- 변경: 최종 대기 뒤 세대/수명/동결/stop/가드·단일 approvalGate 승인 재검사, 작업/검사/계약 변경 차단, 계약 배타적 쓰기·부분 커밋 재사용, origin 전달 실경로 회귀.
+- 4개 가짜 CLI 절차: 양방향 인수2/연속 턴2/임시 통합2/push0, 원자적 예산. 새 실제 모델 호출0. 절차 초안 실패와 수정 후 통과 근거 보존.
+- 산출물: docs/collaboration/reports/pair-control-api-finalization-20261107.html; artifacts/pair-control-api-finalization-20261107/의 로그·audit·verification·SHA256·native-smoke-plan. HTML IAB 열기·실제 렌더 확인 완료·스크린샷 보존.
+- .claude/ 해시 전후 동일: c43a643c3c71c048dc5f8fb30ecfacd53d6b99910eafb48d65376e53fa59e4da. 운영 서버/설정 보존. worktree 제거0·비기본8유지. 원격 결과는 final-remote.json에 기록.
+- 미검증: 현재 버전의 실계정 메인 교대·연속 턴·추가 크레딧 꺼짐·잔여 한도. 모델 성능 미평가. 실제 CLI 과거 구현/리뷰 근거는 별도 보존하며 재실행하지 않음.
+- 리스크/롤백: 공통 stop/가드 뒤 상태 변경 거부. 이미 시작한 Git 작업 부분 결과 보존. 외부 Git 프로세스 전역 원자성 미보장. 후속 문서부터 역순 git revert·관련 검사·일반 push.
