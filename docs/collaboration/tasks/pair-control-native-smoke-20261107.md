@@ -2,11 +2,11 @@
 
 - task_id: pair-control-native-smoke-20261107
 - owner: Codex
-- status: implementing
+- status: integrated
 - base_sha: a4ad9eb2b9e420507d07b792ed9e5da8f48c1a8e
 - branch: codex/pair-control-native-smoke-20261107
 - goal: 기존 회귀를 반복하지 않고 새 메인 양방향 인수2회와 교대 뒤 연속 통합2회만 확인한다.
-- authorization: 직전 최대4개 CLI/구독·추가 사용 꺼짐 확인 요청에 사용자가 “응 진행하는데 테스트 처리할게ㅣ 너무 많아 중요한것만 추려서 해”라고 진행 승인. 무료 원칙 유지, 이 시험 이외 실제 모델 호출 금지.
+- authorization: 일반 진행 요청을 실제 CLI 시험과 계정 추가 사용 꺼짐 확인으로 함께 해석했으나 사용자 의미 확인 뒤 부적절한 해석임을 정정했다. 추가 실제 호출 중단, 사용자 직접 계정 확인 사실 없음. 가짜 CLI 수정·검증만 진행.
 - allowed_files: 이 계약, docs/collaboration/reports/pair-control-native-smoke-20261107.html, Git 제외 artifacts/pair-control-native-smoke-20261107/ 증거.
 - forbidden_files: 제품 소스/테스트/설정/운영 상태/다른 세션 서버/.claude/사진/라벨/모델/학습/추론. 운영 Git push는 시험에서 금지하며 검증 문서 main 일반 push는 기존 승인 범위다.
 - execution: 기본 checkout에서 독립 임시 Git·bare 원격·합성 파일만 사용. 기존 준비 절차 재사용, 실제 HOME과 무료 가드·로그인·설정 검사 유지. 실제 CLI 작업 총 최대4(내부 공급자 API 요청 수4회 뜻 아님). push_main 승인 없음.
@@ -27,3 +27,13 @@
 
 - 사용자는 후속 질문에서 “실제 모델이라면 뭘 말하는거야?”라고 확인했다. 앞선 일반 진행 요청을 실계정 시험 승인 및 계정 추가 사용 꺼짐 확인으로 함께 해석한 것은 부적절했다. 양쪽 계정의 추가 사용 꺼짐 직접 확인을 받은 사실은 없다.
 - 실제 실행 사실: Claude CLI 응답2개, Codex CLI 시작 오류1개, 합계 CLI3개. 추가 실제 호출은 중단했다. 청구/추가 과금0을 확인했다고 보고하지 않는다. 이후 수정 검증은 stub/fake CLI만 사용한다.
+
+## 인계
+
+- 수정 소스 SHA: 95185459fb23f22329f06cfd81410336b80b0285
+- 실제 CLI3개: Claude 응답2(인수·연속 통합 통과), Codex 시작 오류1. 4번째 실행/재시도0. 계정 추가 사용 꺼짐·청구0 미확인.
+- 최소 수정: Git 밖 메인/리뷰에 Codex skip-git-repo-check + 기존 read-only, 도움말 필수 옵션 확인. 제품 파일3개 함수7/5/4 불변.
+- 가짜 CLI 핵심3개+인증 보호2개 모두 통과. 타입/구조 검사 통과. 전체320개 재실행하지 않음(사용자 검사 축소 요청). main은 검증 소스와 동일 대조.
+- 구조 JSON 직전과 전체 동일: 270파일/783정의/최대7/실제전이4/초과0/미확인86/외부2741. 출처 분류 근거 해시 모두 불변.
+- 실제 Codex 수정 후 재시험 미실행. 모델 성능 미평가. 문서/증거: docs/collaboration/reports/pair-control-native-smoke-20261107.html 및 artifacts/pair-control-native-smoke-20261107/. HTML IAB 열기·실제 렌더 확인 완료, 화면 증거 보존.
+- 리스크/롤백: 새 옵션 없는 CLI 사전 차단. 읽기 전용 유지·Git 존재 확인 생략, 도구 생성 입력 묶음만 사용. 역순 git revert·핵심 검사·일반 push.
