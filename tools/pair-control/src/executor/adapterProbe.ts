@@ -21,7 +21,7 @@ export interface Probe {
 }
 
 export const REQUIRED: Record<'codex' | 'claude', { help: string[]; flags: string[] }> = {
-  codex: { help: ['exec', '--help'], flags: ['--cd', '--sandbox'] },
+  codex: { help: ['exec', '--help'], flags: ['--cd', '--sandbox', '--skip-git-repo-check'] },
   claude: { help: ['--help'], flags: ['--print', '--permission-mode', '--allowedTools'] },
 };
 

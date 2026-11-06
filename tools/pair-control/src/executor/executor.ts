@@ -180,7 +180,7 @@ export class Executor {
     if (this.guardAlert) throw new UserError('과금 신호 감지 상태 — 새 메인을 실행하지 않음');
     const readiness = realReadiness(o.agent, this.probes[o.agent], this.cfg, { worktree: o.bundleDir, limit: limitFor(this, o.agent) });
     if (!readiness.available) throw new UserError(`실제 ${o.agent} 메인 실행 차단: ${readiness.blockers.map((blocker) => blocker.message).join(', ')}`);
-    const args = o.agent === 'codex' ? ['exec', '--cd', o.bundleDir, '--sandbox', 'read-only', o.prompt] : ['--print', '--permission-mode', 'plan', o.prompt];
+    const args = o.agent === 'codex' ? ['exec', '--cd', o.bundleDir, '--sandbox', 'read-only', '--skip-git-repo-check', o.prompt] : ['--print', '--permission-mode', 'plan', o.prompt];
     const argRisks = scanArgs(args);
     if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
     const shown = args.map((a) => (a === o.bundleDir ? '<입력 묶음>' : a === o.prompt ? '<prompt>' : a));

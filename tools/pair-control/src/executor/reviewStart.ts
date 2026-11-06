@@ -63,7 +63,7 @@ export async function startReviewJob(taskExecutor: Executor, taskId: string, o: 
       if (!rr.available) throw new UserError(`실제 ${reviewer} 리뷰 차단: ${rr.blockers.map((b) => b.message).join(', ')}`);
       const prompt = 'REVIEW_REQUEST.md를 읽고 판정 JSON을 마지막 줄에 출력하세요. 파일을 수정하지 마세요.';
       // 옵션 이름은 --help로 확인하지만 값(read-only, plan)은 실제 CLI에서 별도 확인 필요.
-      args = reviewer === 'codex' ? ['exec', '--cd', bundleDir, '--sandbox', 'read-only', prompt] : ['--print', '--permission-mode', 'plan', prompt];
+      args = reviewer === 'codex' ? ['exec', '--cd', bundleDir, '--sandbox', 'read-only', '--skip-git-repo-check', prompt] : ['--print', '--permission-mode', 'plan', prompt];
       const argRisks = scanArgs(args);
       if (argRisks.length) throw new UserError(`무과금 가드: ${argRisks.map((r) => r.message).join('; ')}`);
       command = taskExecutor.probes[reviewer]!.binary!; display = [reviewer, ...args.slice(0, -1).map((a) => (a === bundleDir ? '<리뷰 묶음>' : a)), '<prompt>'];

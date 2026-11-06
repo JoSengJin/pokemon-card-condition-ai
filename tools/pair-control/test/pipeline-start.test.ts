@@ -17,7 +17,7 @@ function gatedCli() {
 import { setTimeout as delay } from 'node:timers/promises';
 const a=process.argv.slice(2);
 if(a.includes('--version')){fs.writeFileSync(${JSON.stringify(entered)},'probe');while(!fs.existsSync(${JSON.stringify(release)}))await delay(10);console.log('fake codex');}
-else if(a.includes('--help'))console.log('--cd --sandbox --json');
+else if(a.includes('--help'))console.log('--cd --sandbox --skip-git-repo-check --json');
 else if(a[0]==='login'&&a[1]==='status')console.log('Logged in using ChatGPT');
 else process.exit(99);
 `);

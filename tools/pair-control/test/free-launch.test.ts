@@ -18,7 +18,7 @@ function cli(agent: 'codex'|'claude', gated=false) {
 import { setTimeout as delay } from 'node:timers/promises';
 const a=process.argv.slice(2);
 if(a.includes('--version')) { if(${gated}) { fs.writeFileSync(${JSON.stringify(marker)},'probe'); while(!fs.existsSync(${JSON.stringify(release)})) await delay(10); } console.log('fake ${agent} 1'); process.exit(0); }
-if(a.includes('--help')) { console.log('--cd --sandbox --json --print --permission-mode --allowedTools'); process.exit(0); }
+if(a.includes('--help')) { console.log('--cd --sandbox --skip-git-repo-check --json --print --permission-mode --allowedTools'); process.exit(0); }
 if(a[0]==='login'&&a[1]==='status') { console.log('Logged in using ChatGPT'); process.exit(0); }
 fs.writeFileSync(${JSON.stringify(invoked)},'fake model command'); process.exit(0);
 `);fs.chmodSync(binary,0o755);

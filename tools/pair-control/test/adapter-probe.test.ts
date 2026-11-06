@@ -20,7 +20,7 @@ function fake(options: { helpCode?: number; loginCode?: number; loginText?: stri
   fs.writeFileSync(binary, `#!${process.execPath}\nimport fs from 'node:fs';
 const args=process.argv.slice(2);
 if(args.includes('--version')) { console.log('fake-codex 1'); process.exit(0); }
-if(args[0]==='exec' && args.includes('--help')) { console.log('--cd <DIR> --sandbox <MODE> --json'); process.exit(${options.helpCode ?? 0}); }
+if(args[0]==='exec' && args.includes('--help')) { console.log('--cd <DIR> --sandbox <MODE> --skip-git-repo-check --json'); process.exit(${options.helpCode ?? 0}); }
 if(args[0]==='login' && args[1]==='status') { console.log(${JSON.stringify(options.loginText ?? 'Logged in using ChatGPT')}); process.exit(${options.loginCode ?? 0}); }
 fs.writeFileSync(${JSON.stringify(invoked)}, 'unexpected model command'); process.exit(88);
 `);fs.chmodSync(binary, 0o755);
@@ -34,7 +34,7 @@ test('help가 실패하면 출력에 옵션 이름이 있어도 확인된 옵션
   try {
     const p=await probe('codex',f.cfg);
     assert.deepEqual(p.verifiedFlags,[]);
-    assert.deepEqual(p.missingFlags,['--cd','--sandbox']);
+    assert.deepEqual(p.missingFlags,['--cd','--sandbox','--skip-git-repo-check']);
     assert.equal(p.stream,false);
     assert.ok('refused' in realPlan(f.input,p,f.cfg));
     assert.equal(fs.existsSync(f.invoked),false);
