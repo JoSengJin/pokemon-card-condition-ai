@@ -298,13 +298,14 @@ test('모델·worker 경로 작업은 worktree의 ./develop 잠금 안에서 실
 test('무료 가드: 과금 신호 로그·API 키 환경변수 → 실행 중단·알림 파일·이후 시작 차단', async () => {
   const env = setup();
   try {
+    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'] }));
     await assign(env.ex, task(env, 'task-a', { mockScenario: 'paid-message' }));
     await startTask('task-a');
     await waitFor(() => env.trips.length > 0, 'trip');
     assert.match(env.trips[0].detail, /credit balance/i);
     await waitFor(() => ['cancelled'].includes(status(env, 'task-a')), 'cancelled by guard');
     assert.ok(fs.existsSync(env.ex.guard.alertFile));
-    await assign(env.ex, task(env, 'task-b', { allowedFiles: ['src_b/'] }));
+    await assert.rejects(assign(env.ex, task(env, 'task-c', { allowedFiles: ['src_c/'] })), /무료 가드/, '가드 뒤 새 배정도 차단');
     const r = await launch(env.ex, 'task-b', 'x');
     assert.equal(r.ok, false);
     assert.match((r as any).reason, /무료 가드/);
