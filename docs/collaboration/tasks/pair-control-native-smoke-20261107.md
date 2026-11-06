@@ -14,3 +14,11 @@
 - checks: source SHA/잠금/.claude 해시 → 무료 사전 조건 → 인수/연속 처리 최대4CLI → 실제 종료/응답/상태/Git 근거 확인 → HTML 렌더·증거 보존. 소스 무변경이면 전체320회귀/typecheck/구조 검사를 반복하지 않음(직전 검증 재사용으로 표시).
 - structure: 제품 소스 변경0, 문서 함수0. 직전270파일/783정의/최대7/전이4 결과를 재사용, 이번 실행으로 새 검사 통과 주장 금지.
 - rollback: 운영 변경 없음. 시험 fixture/결과 불명 증거 보존. 문서만 필요 시 git revert, force/reset/다른 프로세스 종료 금지.
+
+## 실측에 따른 최소 수정 범위
+
+- 실계정 CLI3개에서 Claude 인수·후속 통합은 통과. Codex는 Git 밖 입력 폴더를 거부해 종료1, 즉시 중단·재요청0·4번째 작업 미실행.
+- 설치 Codex exec --help의 --skip-git-repo-check 지원을 모델 호출 없이 확인했다. 이 옵션으로 메인/리뷰의 독립 입력 묶음을 지원하고 read-only를 유지한다.
+- allowed_files 추가: tools/pair-control/src/executor/executor.ts, tools/pair-control/src/executor/reviewStart.ts, tools/pair-control/src/executor/adapterProbe.ts, tools/pair-control/test/fake-cli/codex, tools/pair-control/test/adapter-probe.test.ts, tools/pair-control/test/free-launch.test.ts, tools/pair-control/test/pipeline-start.test.ts, tools/pair-control/test/bundle-cli.test.ts, tools/pair-control/README.md. 제품 변경0 계획을 이 실측 결함의 최소 수정으로 변경한다.
+- 검증 축소: 임시 Git 밖 메인·리뷰 시작과 미지원 CLI 차단 3개만 반례로 검증. 필수 타입·구조 검사는 빠르게 실행한다. 전체320회귀·이미 완료한 실제 Claude 경로는 반복하지 않음. 기존 fake 도움말/필수 옵션 기대값만 새 옵션과 일치시킴.
+- 이번 승인으로 실패한 실제 Codex 요청을 자동 재시도하지 않는다. 수정 후 실계정 Codex 확인은 미실행으로 구분한다.
