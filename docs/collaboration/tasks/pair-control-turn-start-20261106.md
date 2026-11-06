@@ -6,7 +6,7 @@
 - base_sha: 9e58aa28d113cc3802484c343f9b39916dcd0f57
 - branch: codex/pair-control-turn-start-20261106
 - goal: 준비 대기 중 메인 세션/세대/동결/승인/대상 상태가 바뀌면 오래된 메인 턴을 실행하지 않고, 실행하지 않은 독립 작업은 최신 유효 상태에서 이어가게 한다.
-- allowed_files: tools/pair-control/src/executor/pipelineTurn.ts, tools/pair-control/src/executor/pipelineEvents.ts, tools/pair-control/src/executor/monitorTick.ts, tools/pair-control/src/executor/verificationStart.ts, tools/pair-control/src/executor/verificationLifecycle.ts, tools/pair-control/test/verification-stop.test.ts, tools/pair-control/test/pipeline-start.test.ts, tools/pair-control/test/pipeline-launch.test.ts, tools/pair-control/README.md, 이 계약, docs/collaboration/reports/pair-control-turn-start-20261106.html.
+- allowed_files: tools/pair-control/src/executor/pipelineTurn.ts, tools/pair-control/src/executor/pipelineEvents.ts, tools/pair-control/src/executor/monitorTick.ts, tools/pair-control/src/executor/verificationStart.ts, tools/pair-control/src/executor/verificationLifecycle.ts, tools/pair-control/src/executor/pipelineSteps.ts, tools/pair-control/src/executor/handoffCreate.ts, tools/pair-control/test/auto-prep-start.test.ts, tools/pair-control/test/verification-stop.test.ts, tools/pair-control/test/pipeline-start.test.ts, tools/pair-control/test/pipeline-launch.test.ts, tools/pair-control/README.md, 이 계약, docs/collaboration/reports/pair-control-turn-start-20261106.html.
 - forbidden_files: .claude/·운영 설정/상태/장부·모델/worker·사진/라벨/진척·다른 checkout/서버. 실제 모델 요청·학습·추론 금지.
 - contract: 기존 approvalGate/turnHold의 단일 승인 판정과 기존 이벤트 생성 조건을 재사용. 세션/세대 변경은 stale로 보존, 철회/현재 대상 불일치는 해당 이벤트만 보류. 아직 실행하지 않은 유효 이벤트는 같은 세대에서도 최초 실행 가능해야 하며 실제 시작/결과 불명 요청은 재시도하지 않음.
 - structure: 시작270파일/781정의/최대7·실제전이4. 함수 추가로 책임 숨기기·예외 경계 추가 금지. 변경 전후 파일별 정의·경로 및 원시 미확인/외부 호출 근거 대조.
@@ -19,3 +19,5 @@
 
 ## 실행 안전성 범위 보완
 - runChecks는 준비 await 후 stop/guard를 다시 보지 않고 새 검사 기록·감시를 등록한다. startNextCheck와 monitorTick의 다음 검사 분기도 stop을 보지 않아 대기하던 검사를 시작할 수 있다. 검사를 새로 등록/시작하는 경계에 같은 중단 조건을 적용하고, 기존 실행의 종료 관찰·결과 불명 보존은 유지한다. 허용 파일에 이 경로와 합성 반례를 추가한 뒤 수정한다.
+
+- 자동 준비의 runChecks/handoffToMain도 내부 Git await 동안 승인·세션이 바뀔 수 있으므로 호출자가 메인 맥락을 전달하고 저장 직전 기존 whyClosed/PREP로 재검사한다. 수동 호출은 별도 승인 장부를 요구하지 않으며 stop/guard 및 현재 작업 상태는 동일하게 보호한다.
