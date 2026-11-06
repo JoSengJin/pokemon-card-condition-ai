@@ -6,7 +6,7 @@
 - base_sha: 7a3b217845da994a31fd36800eb4813fc6a98c56
 - branch: codex/pair-control-api-finalization-20261107
 - goal: 배정/승인/인계 확인/통합/메인 표시 이양이 준비 await 뒤 오래된 권한·세대로 상태나 Git을 바꾸지 않도록 검증한다.
-- allowed_files: tools/pair-control/src/executor/executorPolicy.ts, tools/pair-control/src/executor/verificationPost.ts, tools/pair-control/src/executor/taskAssign.ts, tools/pair-control/src/executor/contractStorage.ts, tools/pair-control/src/executor/prepareWorktree.ts, tools/pair-control/src/executor/taskApproval.ts, tools/pair-control/src/executor/taskIntegration.ts, tools/pair-control/src/executor/mainDispatch.ts, tools/pair-control/src/executor/mainRole.ts, tools/pair-control/src/executor/actionDispatch.ts, tools/pair-control/src/runtimeServiceTick.ts, tools/pair-control/test/api-finalization.test.ts, tools/pair-control/test/api-git-gate.ts, tools/pair-control/README.md, 이 계약, docs/collaboration/reports/pair-control-api-finalization-20261107.html.
+- allowed_files: tools/pair-control/src/executor/approvalGate.ts, tools/pair-control/src/runtimeRequestPolicy.ts, tools/pair-control/src/executor/executorPolicy.ts, tools/pair-control/src/executor/verificationPost.ts, tools/pair-control/src/executor/taskAssign.ts, tools/pair-control/src/executor/contractStorage.ts, tools/pair-control/src/executor/prepareWorktree.ts, tools/pair-control/src/executor/taskApproval.ts, tools/pair-control/src/executor/taskIntegration.ts, tools/pair-control/src/executor/mainDispatch.ts, tools/pair-control/src/executor/mainRole.ts, tools/pair-control/src/executor/actionDispatch.ts, tools/pair-control/src/runtimeServiceTick.ts, tools/pair-control/test/api-finalization.test.ts, tools/pair-control/test/api-git-gate.ts, tools/pair-control/README.md, 이 계약, docs/collaboration/reports/pair-control-api-finalization-20261107.html.
 - forbidden_files: 운영 설정/상태/장부·.claude/·모델/worker·사진/라벨/진척·다른 worktree/서버. 실제 모델 요청/학습/추론 금지.
 - contract: 자동 행동의 origin을 서비스까지 전달하고 기존 approvalGate의 authorize 또는 validateOrigin 재사용. 수동 요청은 자동 승인 장부를 새로 요구하지 않으며, 동결/메인 세대/stop/guard와 현재 작업 상태는 최종 변경 직전 확인. 이미 시작한 계약 커밋 등 부분 결과는 삭제/이력 재작성하지 않고 재사용 가능하게 보존.
 - structure: 시작270파일/783정의·파일당최대7·실제전이4. 새 호출 경로를 직접 측정하며 승인식 복제·콜백/async로 깊이 숨기기 금지.
@@ -17,3 +17,5 @@
 ## 변경 경계
 - 작업 승인 기록, 인계 확인 기록, Git cherry-pick 시작, 새 worktree 생성, 계약 파일 쓰기/커밋 시작, 작업 등록, 메인 표시 변경 각각의 마지막 await 뒤 현재 맥락을 확인한다.
 - 기존 계약이 이미 커밋된 뒤 메인이 바뀌면 등록만 차단하고 커밋/브랜치는 보존한다. 실행 중 요청을 되감아 같은 작업을 자동 재실행하지 않는다.
+
+- 구조 검사에서 API의 validateOrigin 중간층을 거친 경로2개가5전으로 확인됐다. 승인 함수 authorize의 기존 실행 맥락 책임에 선택적 generation/lifetime 검사를 넣고, workflow용 validateOrigin은 같은 단일 구현에 위임한다. 도메인 변경 경계는 authorize를 직접 호출하며 승인식/세션 판정 복제 없이4전을 유지한다.
