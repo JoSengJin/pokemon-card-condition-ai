@@ -2,7 +2,7 @@
 
 - task_id: pair-control-response-commit-20261107
 - owner: Codex
-- status: ready_for_review
+- status: integrated
 - base_sha: 819ca70bde57728e26b0c83507b318dc2853ad9b
 - branch: codex/pair-control-response-commit-20261107
 - goal: Git 인수 확인 await 뒤 현재 세션/세대/정지/가드/한도를 재확인하고, 이전 턴 종료가 새 턴 소유 이벤트를 되돌리지 않게 한다.
@@ -30,3 +30,14 @@
 - 롤백: 문서 커밋→코드47a19fa99775e6910073d3d1d7f9820783c1ea21→계약183f471eaf84f13b9ee6d4cf3632e40834f12bdc 순으로 git revert, 핵심 검사 후 일반 push. 실제 롤백 미실행. force/reset/.claude 수정/결과 불명 재실행 금지.
 
 - HTML: IAB 열기·실제 렌더 확인 완료, report-render.png 보존. 검증 SHA/24통과/통합 대기 표시 대조. 등록 worktree9개(기본1+비기본8) 보존·제거0: 현재 앱 checkout/기본 저장소·미통합/미확인/고유 근거·기존 운영 서버 보호. Git SHA/status를 worktree-audit.json에 기록. 통합/원격 완료를 뜻하지 않음.
+
+## main 최종 반영
+
+- 다른 세션 문서 커밋 e083827766cdcc0298a360ee48afd1a50671290f가 정상 push된 뒤, 상태가 .claude/만 남고 실제 권한 환경에서 잠금 사용 가능함을 재확인했다. 원격 fetch 후 기준 분기로 인해 cherry-pick -x로 위3개를 순서대로 반영. 대응 SHA: 계약 bdf6fdd58902d850aefcf1f0c7fddf721060290d → 코드650267764279d43e8bc9208adcb3cd2f20a865f8 → 보고서 f5bc8e5a2d922cc31e8fe4ed4db2915f0230c916. 다른 세션 e083827 조상 보존.
+- main에서도 핵심23+대표1=24/24통과(새 고유24건을 두 실행 위치에서 확인한 것이며48개 별도 테스트가 아님). 타입/구조 통과. main 구조 JSON과 분리 작업 구조 JSON 전체 동일. 도구 파일은 source47a19fa99775e6910073d3d1d7f9820783c1ea21과 diff0. 전체 회귀 반복 안 함.
+- 일반 push origin main 성공 e083827→f5bc8e5. ls-remote/main/origin/main 모두 f5bc8e5a2d922cc31e8fe4ed4db2915f0230c916 일치 확인. 이 문서 갱신도 별도 일반 push로 마무리하고 최종 SHA는 ignored final-remote.json 및 사용자 보고에 기록한다. force/이력 재작성 없음.
+- main 전후 .claude/launch.json 해시 c43a643c3c71c048dc5f8fb30ecfacd53d6b99910eafb48d65376e53fa59e4da 동일, .claude 변경 경로0, 미추적 상태 보존. main canonical artifacts에 로그/출처/구조/렌더/통합 매핑 복사 및 SHA256 검증. 정리: 최근 완료 Codex 앱 checkout1개 보존, 나머지 미통합/미커밋/고유 근거/기존 서버 사용 또는 근거 불명7개 보존, 제거0. 실제 HEAD·상태·조상/정확한 cherry-pick 대응을 worktree-audit.json에 기록.
+- 통합 대기는 해소됐다. 현재 요청의 실제 모델 호출 없는 구현/핵심 검증/통합은 완료. 실계정 무료 과금 여부·수정 후 실제 Codex 교대·운영 서버 배포는 완료 범위가 아니며 실행하지 않았다. 과거 실계정3CLI의 정정은 native-smoke 계약에 보존, 이번 실제 호출0.
+- main 롤백은 최종 문서부터 역순 revert한 뒤 보고서 f5bc8e5a2d922cc31e8fe4ed4db2915f0230c916 → 코드650267764279d43e8bc9208adcb3cd2f20a865f8 → 계약bdf6fdd58902d850aefcf1f0c7fddf721060290d를 반전한다. 다른 세션 e083827는 보존. 실제 rollback 미실행.
+
+- 최종 통합 HTML도 IAB reload 후 실제 화면에서 구현/main 통합/일반 push 완료·검증 SHA·24/24·구조 한도·실계정 미검증 표시를 대조했다. report-integrated-render.png 보존. 이 최종 갱신은 task/HTML만 변경하며 도구 소스 동일, 검사 반복 없음.
