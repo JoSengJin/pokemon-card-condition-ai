@@ -1,6 +1,6 @@
 # surface-global-rank-inner0-20261107
 owner: Codex
-status: implementing
+status: completed_experiment_failed
 base_sha: 4a00b38
 branch: main, serial basic-checkout execution
 Goal: exactly one authorized retry with internal line-search tolerance0 and existing-evaluation logs; no subsequent retry.
@@ -12,3 +12,7 @@ Checks: compile, synthetic controlled fit/trial log/count/restoration and AST fu
 Risk: private PyTorch API wrapper is restricted to this isolated serial worker/version; zero tolerance can consume entire budget; guard terminates before1251st closure. No smoothing/threshold relaxation or new trial direction.
 HTML: artifacts/surface-global-rank-inner0-20261107/report.html. Failed run uses clearly marked historical baseline photos; complete run shows actual both scores.
 Rollback: original_wolfe restored in finally; no installed package/production change. Revert new source/docs only, retain records.
+
+Handoff: source ddbac13; artifacts/experiments/20261107T094656-f5f8ae4d/record.json failed; fold0,iteration159,actual1250evaluations,noOOF/noRetry. Originalfunctionrestored. HTMLgenerated.
+
+HTML open exit0: 열기 요청 성공, 실제 렌더 미확인. git diff --check 통과.
