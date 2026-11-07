@@ -1,6 +1,6 @@
 # surface-global-rank-amax-20261107
 owner: Codex
-status: implementing
+status: completed_experiment_failed
 base_sha: 4a65e12
 branch: main, serial execution on basic checkout
 Goal: authorized one retry only, amax tie gradients and failure diagnostics, no optimization/metric relaxation.
@@ -13,3 +13,7 @@ Checks: py_compile, amax value/tie-gradient tests, diagnostics serialization syn
 Risk: non-smooth objective can still fail. Exact optimizer stop reason inferred conservatively from saved counters/state, not asserted without proof. No independent generalization claim.
 HTML: artifacts/surface-global-rank-amax-20261107/report.html; actual candidate scores only if completed; otherwise baseline photos explicitly marked.
 Rollback: production unchanged; retain failed evidence; revert this new source/docs only if necessary.
+
+Handoff: source06d21fb, artifacts/experiments/20261107T071429-0922604e/record.json failed. First fold gradient0.0011471033770301623>1e-5; finite;160iterations/212evaluations. No completed candidate metrics, no retry. HTML generated.
+
+HTML open exit0: 열기 요청 성공, 실제 렌더 미확인. git diff --check 통과.
