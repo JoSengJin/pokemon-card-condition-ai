@@ -1,6 +1,6 @@
 # surface-patch-evidence-backend-20261108
 owner: Codex
-status: implementing
+status: completed
 base_sha: 951654f
 branch: main, serial default checkout
 Goal: finish authorized frozen-model diagnosis with original backend matched; first2failed score replay records retained, no training/no acceptance relaxation.
@@ -13,3 +13,5 @@ Checks: all originalscore/geometry/HTML/workspace/AST checks, originalbackend me
 HTML: artifacts/experiments/<record>/report.html; summarylinks artifactssurface-patch-evidence-backend-20261108/report.html aftercompletion, localphoto paths retained.
 Risk: sourcebackend matters for float32 reproducibility. Matchingoriginalbackends preserves model histories but is not evidence that CPU/MPS differences caused prior quality changes; no new quality comparison or retraining.
 Rollback: revert newsource/docs only; preservefailedrecords/source/featurecache and finaldiagnosis/logits; originalmodels/labels/scores unchanged.
+
+Handoff: common runner record 20261107T225236-81b0b12a completed; all4model scoreerrors0, predictions unchanged, training0. analysis.json input hashes all unchanged; HTML172details/688panels,CSV688rows,688localimage references exist. Source SHA efebd13. Synthetic checks passed. HTML opening attempted but browser security blocks file protocol; rendering not verified, no bypass. Final report docs/collaboration/reports/surface-patch-evidence-20261108.md; summary artifacts/surface-patch-evidence-backend-20261108/report.html. No production adoption or score change.
