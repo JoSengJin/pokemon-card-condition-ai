@@ -38,7 +38,16 @@ export async function observeExit(taskExecutor: Executor, ex: Execution) {
     else setStatus(taskExecutor, t, 'unknown', 'exit.json 토큰 불일치');
     return;
   }
-  if (groupAlive(taskExecutor, ex.pgid)) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } } // 남은 손자 정리
+  if (groupAlive(taskExecutor, ex.pgid)) {
+    const leader = ownsLeader(taskExecutor, ex);
+    if (leader !== true && groupAlive(taskExecutor, ex.pgid)) {
+      ex.status = 'unknown';
+      if ((ex.kind ?? 'agent') !== 'agent') { ex.completion = { stage: 'observed', code: null, cancelled: false, unknown: true }; taskExecutor.store.save(); }
+      else setStatus(taskExecutor, t, 'unknown', '종료 기록은 있으나 남은 프로세스 그룹 소유권 미확인 — 정리/자동 결과 반영 보류');
+      return;
+    }
+    if (leader === true) { try { process.kill(-ex.pgid, 'SIGKILL'); } catch { /* gone */ } }
+  }
   const cancelled = ex.cancelRequested || res.cancelRequested;
   ex.exitCode = res.code; ex.signal = res.signal; ex.spawnError = res.spawnError ?? null; ex.endedAt = res.endedAt;
   ex.status = cancelled ? 'cancelled' : 'exited';
