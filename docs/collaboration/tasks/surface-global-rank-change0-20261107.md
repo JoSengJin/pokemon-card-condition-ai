@@ -1,6 +1,6 @@
 # surface-global-rank-change0-20261107
 owner: Codex
-status: implementing
+status: completed_experiment_failed
 base_sha: 9a41805
 branch: main, serial main checkout experiment
 Goal: one authorized tolerance_change0 retry; no automatic subsequent retry.
@@ -13,3 +13,7 @@ Checks: compile; synthetic log serialization/loss difference and default1250 cap
 Risk: disabling progress stop can consume budget without convergence; exact zero-step and non-descent stopping remain. No convergence/generalization guarantee.
 HTML: artifacts/surface-global-rank-change0-20261107/report.html. If failed, baseline photos explicitly identified with no candidate outputs. Open/render recorded separately.
 Rollback: no production modification; revert new source/docs only, retain evidence.
+
+Handoff: sourcea4370c6; artifacts/experiments/20261107T092650-fd09886a/record.json failed.161iterations/221evaluations;step0/loss difference0/gradient0.0011471. No candidate metrics/no retry. HTML generated.
+
+HTML open exit0: 열기 요청 성공, 실제 렌더 미확인. git diff --check 통과.
