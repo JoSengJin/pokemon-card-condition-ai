@@ -1,6 +1,6 @@
 # surface-patch-evidence-20261108
 owner: Codex
-status: implementing
+status: first_diagnostic_replay_failed
 base_sha: ab24ed07e549ecaed15c3254c409692e717ff3a4
 branch: main, serial default checkout
 Goal: implement score-preserving patch evidence/overlays/comparison, synthetic checks then frozen-model inference only for requested error cohorts; no retraining/optimizer step/label update.
@@ -15,3 +15,5 @@ Checks: extractedactuallegacyfunction/random/boundary/ties/highpadding/singleval
 Artifacts: plan/reference/selection frozen before run; rawpatch-logits.pt/evidenceJSON/comparisonCSV/reportHTML/diagnostics. HTML references local original photos by relativepath, no network/upload/CDN or duplicatedimages. Newcodebaseline=null. Snapshot/model source hashes frozen inplan.
 Risk: token geometry reflects lattice support, not limited ViT receptivefield/verifieddefectlocation; selectederror-only cohort cannot support populationrates. Real float32 replay tolerance reported explicitly. No correction of humantruth based on score.
 Rollback: revert newsource/docs only, preserve diagnosticrecord/logits/evidence, existingmodels unchanged.
+
+First diagnostic record20261107T224514-9d5d1879 failed: baseline subset score difference1.4901161193847656e-6>1e-6. No tolerance relaxation/no training. Preserved source/record; batch-shape followup uses new source directory/task.
