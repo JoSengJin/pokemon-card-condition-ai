@@ -14,10 +14,10 @@ export function register(ex: Executor, kind: EventKind, taskId: string, sha: str
   return true;
 }
 
-/** 이벤트 묶음의 상태를 바꾼다(감사 기록 포함). */
-export function mark(ex: Executor, keys: string[], state: EventState, extra: Partial<PipelineEvent> = {}) {
+/** 이벤트 묶음의 상태를 바꾼다. 턴 호출자는 소유 ID를 전달해 다른 턴의 이벤트를 보존한다. */
+export function mark(ex: Executor, keys: string[], state: EventState, extra: Partial<PipelineEvent> = {}, owner?: string) {
   const ev = ex.runtime.pipeline!.events; // 실행기 생성 시 이전 저장 상태도 초기화한다.
-  for (const k of keys) if (ev[k]) {
+  for (const k of keys) if (ev[k] && (!owner || !ev[k].turnId || ev[k].turnId === owner)) {
     Object.assign(ev[k], extra, { state });
     appendEvent(ex.cfg.stateDir, { type: 'pipeline_event_state', lifetime: ex.lifetime, key: k, state, reason: extra.reason });
   }
@@ -27,5 +27,5 @@ export function mark(ex: Executor, keys: string[], state: EventState, extra: Par
 /** 턴을 끝내고 이벤트 상태를 맞춘다. */
 export function endTurn(ex: Executor, t: MainTurn, status: MainTurn['status'], ev: 'pending' | 'held' | 'unknown', why: string) {
   t.status = status; t.failure = why;
-  mark(ex, t.eventKeys, ev, { reason: why });
+  mark(ex, t.eventKeys, ev, { reason: why }, t.id);
 }

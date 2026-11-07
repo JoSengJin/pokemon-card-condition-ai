@@ -26,7 +26,7 @@ function recoverTurns(ex: Executor) {
     const running = t.status === 'launched' && execution && (['running', 'cancelling'].includes(execution.status) || (execution.completion && execution.completion.stage !== 'done'));
     if (running) continue;
     t.status = 'unknown'; t.failure = '서버 재시작 전 진행 중이던 턴 — 결과 불명, 재시도하지 않음';
-    mark(ex, t.eventKeys, 'unknown', { reason: t.failure });
+    mark(ex, t.eventKeys, 'unknown', { reason: t.failure }, t.id);
   }
 }
 

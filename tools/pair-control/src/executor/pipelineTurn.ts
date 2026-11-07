@@ -22,7 +22,7 @@ export async function launchTurn(ex: Executor, s: MainSession, events: PipelineE
   const request = pipe(ex).launch;
   if (request?.sessionId === s.id && request.generation === s.generation) request.turnId = t.id;
   for (const e of events) { e.tried.push(s.generation); e.turnId = t.id; }
-  mark(ex, keys, 'launched');
+  mark(ex, keys, 'launched', {}, t.id);
   ex.audit('pipeline_turn_started', { turn: t.id, agent: t.agent, generation: t.generation, events: keys });
   try {
     fs.mkdirSync(turnDir(ex, t), { recursive: true });
@@ -41,18 +41,18 @@ export async function launchTurn(ex: Executor, s: MainSession, events: PipelineE
       const task = ex.state.tasks[event.taskId], current = task && wanted(ex, task);
       const hold = !current || current.kind !== event.kind || current.sha !== event.sha
         ? '대상 상태 변경: 저장된 이벤트가 현재 작업 상태·SHA와 다름' : turnHold(ex, active.id, task, event.kind);
-      if (hold) { invalid = true; mark(ex, [event.key], 'held', { reason: hold }); }
+      if (hold) { invalid = true; mark(ex, [event.key], 'held', { reason: hold }, t.id); }
     }
     if (invalid) {
       t.status = 'failed'; t.failure = '준비 중 승인·대상 상태가 바뀜 — 모델 요청 전 입력 묶음 취소';
       for (const event of events) {
         event.tried = event.tried.filter((generation) => generation !== t.generation);
-        if (event.state !== 'held') mark(ex, [event.key], 'pending', { reason: '실행하지 않은 독립 이벤트 — 최신 입력으로 최초 실행 대기' });
+        if (event.state !== 'held') mark(ex, [event.key], 'pending', { reason: '실행하지 않은 독립 이벤트 — 최신 입력으로 최초 실행 대기' }, t.id);
       }
       ex.store.save(); return;
     }
     t.execId = await ex.launchMainProcess({ agent: t.agent, bundleDir: b.bundleDir, prompt: b.prompt, sessionId: t.id });
     t.status = 'launched';
-  } catch (e) { t.status = 'failed'; t.failure = `턴 실행 실패: ${(e as Error).message}`; mark(ex, keys, 'held', { reason: `실행 실패: ${t.failure}` }); }
+  } catch (e) { t.status = 'failed'; t.failure = `턴 실행 실패: ${(e as Error).message}`; mark(ex, keys, 'held', { reason: `실행 실패: ${t.failure}` }, t.id); }
   ex.store.save();
 }

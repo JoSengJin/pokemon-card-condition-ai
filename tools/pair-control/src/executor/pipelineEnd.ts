@@ -27,8 +27,13 @@ export async function onTurnEnd(ex: Executor, t: MainTurn, exec: Execution, r: {
   if (rt.limited[t.agent] && rt.limited[t.agent]!.at >= t.startedAt) return endTurn(ex, t, 'limited', 'pending', `메인(${t.agent}) 한도`);
   if (r.unknown) return endTurn(ex, t, 'unknown', 'unknown', '턴 프로세스가 종료 기록 없이 사라짐(결과 불명) — 재시도하지 않음');
   if (r.cancelled || r.code !== 0) return endTurn(ex, t, 'failed', 'held', r.cancelled ? '턴이 중단됨' : `턴 종료코드 ${r.code}`);
-  let res: Awaited<ReturnType<typeof verifyResponse>>;
-  try { res = await verifyResponse(ex, t, exec); } catch (e) { return endTurn(ex, t, 'failed', 'held', (e as Error).message); }
+  let res: Awaited<ReturnType<typeof verifyResponse>> | undefined, failure: string | undefined;
+  try { res = await verifyResponse(ex, t, exec); } catch (e) { failure = (e as Error).message; }
+  // 성공과 실패 모두 대기 뒤의 현재 소유권을 확인해야 이전 응답이 새 상태를 덮지 못한다.
+  if (t.status !== 'launched' || t.execId !== exec.execId || rt.pipeline?.turns[t.id] !== t) { ex.audit('main_stale_result_rejected', { execId: exec.execId, turn: t.id }); return; }
+  if (rt.session?.id !== t.sessionId || rt.generation !== t.generation || rt.frozen) return endTurn(ex, t, 'stale', 'pending', '확인 중 세대/세션/동결 변경 — 응답을 적용하지 않음');
+  if (rt.limited[t.agent] && rt.limited[t.agent]!.at >= t.startedAt) return endTurn(ex, t, 'limited', 'pending', `메인(${t.agent}) 한도`);
+  if (!res) return endTurn(ex, t, 'failed', 'held', failure ?? '응답 확인 실패');
   t.status = 'verified'; t.pendingActions = res.actions ?? []; // 검증된 응답을 저장한다. 적용은 다음 연속 처리가 이 저장 상태를 읽어 한다(재시작 뒤에도 최초 1회만).
   ex.store.save();
 }

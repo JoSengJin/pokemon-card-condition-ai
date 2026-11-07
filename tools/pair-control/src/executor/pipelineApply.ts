@@ -11,7 +11,7 @@ export function finishApplied(ex: Executor, t: MainTurn) {
   let ok = 0;
   for (const r of t.actionResults) if (r.ok) ok++;
   t.status = 'applied';
-  mark(ex, t.eventKeys, 'applied', { reason: `행동 ${ok}/${t.actionResults.length} 성공` });
+  mark(ex, t.eventKeys, 'applied', { reason: `행동 ${ok}/${t.actionResults.length} 성공` }, t.id);
   ex.audit('pipeline_turn_finished', { turn: t.id, ok, total: t.actionResults.length });
   ex.store.save();
 }
@@ -25,7 +25,7 @@ export function applyVerified(ex: Executor) {
     if (rt.session?.id !== t.sessionId || rt.generation !== t.generation || rt.frozen) {
       delete t.pendingActions; t.status = 'stale';
       t.failure = '검증 뒤 세션·세대가 바뀜 — 이전 응답은 적용하지 않음(새 메인이 다시 판단)';
-      mark(ex, t.eventKeys, 'pending', { reason: t.failure });
+      mark(ex, t.eventKeys, 'pending', { reason: t.failure }, t.id);
       return;
     }
     const actions = t.pendingActions ?? [];
