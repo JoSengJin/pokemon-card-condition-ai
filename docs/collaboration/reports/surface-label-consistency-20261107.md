@@ -38,7 +38,7 @@ sr1107z1=결함은 별도 응답으로 보존했다. 기존 정상과의 불일�
 - `tools/experiments/surface-label-consistency-20261107/plan.json` (신규): 가설·새 근거1구역·단일 변수·수치 기준·원본 해시·평가 제외 자료·AI 호출0 동결 계약. ignored 입력·원사진·사람 응답은 Git에 포함하지 않는다.
 - `tests/test_surface_label_consistency_20261107.py` (신규): 라벨 원본 보존/불가 양쪽 제외/미확인·모르는ID 거절, 동률·가중 AUC 쌍계수 대조, 같은 그룹 재표집과 지표 검산3개 합성 검사.
 - `docs/collaboration/tasks/surface-label-consistency-20261107.md`: 범위·소유 파일·구조·실제 결과/검증/인계.
-- `docs/collaboration/reports/surface-label-consistency-20261107.md`·`.html`: 실측 보고·진척·한계. Git 추적 HTML은 공개 가능한 요약만 담고 사진은 넣지 않는다.
+- `docs/collaboration/reports/surface-label-consistency-20261107.md`·`.html`: 실측 보고·진척·한계. Git 추적 HTML은 공개 가능한 합성 검사 결과와 상대경로만 담고, 실측 수치/사진은 로컬 report.html에 둔다.
 - ignored `artifacts/surface-label-consistency-20261107/`: 새 라벨 뷰/계획/출처·검사/인계/실사진1776구역 report.html. ignored 실험 폴더는 실행기 증거다.
 
 ## 실행한 검사·미검증
