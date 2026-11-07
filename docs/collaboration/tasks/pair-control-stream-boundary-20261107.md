@@ -2,7 +2,7 @@
 
 - task_id: pair-control-stream-boundary-20261107
 - owner: Codex
-- status: ready_for_review
+- status: integrated
 - base_sha: f2fd68a34ad824c204e1f2190d16864e24e9e9bd
 - branch: codex/pair-control-stream-boundary-20261107
 - goal: 청크로 나뉜 비밀값/UTF-8을 가려 기록하고, 1MB 밖 JSON도 내용 이벤트와 실제 과금 신호를 혼동하지 않는다.
@@ -23,3 +23,5 @@
 - 기본 checkout 다른 개발 잠금·변경 발견: main 통합 대기, 건드리지 않음. 독립 worktree에서 증거/보고 보존.
 - 보고서: docs/collaboration/reports/pair-control-stream-boundary-20261107.html; 증거: artifacts/pair-control-stream-boundary-20261107/. HTML IAB 열기·실제 렌더 확인 완료. 화면 증거 보존.
 - 미실행/리스크/롤백: 보고서 참조. 코드소스 검증과 실제 모델/운영 채택을 구분.
+
+- 통합 후 기록: 다른 개발 커밋8e2fb7d 보존 후 -x 적용. 로그 코드 원본48a716e/통합d1dbf22, 이후 소유권 보완 포함 최종 제품 46a8996542edaac864cab3bf1426042735d892f4. 모델 호출0, 원격 최종 결과는 해당 증거 final-remote.json.
