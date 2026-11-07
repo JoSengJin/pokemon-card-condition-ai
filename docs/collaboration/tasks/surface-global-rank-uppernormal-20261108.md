@@ -1,6 +1,6 @@
 # surface-global-rank-uppernormal-20261108
 owner: Codex
-status: implementing
+status: completed_criteria_not_met
 base_sha: 40ddb98
 branch: main, serial basic-checkout experiment
 Goal: synthetic verification then exactly one unnormalized normal-ranking experiment; no further retry on failure/criterion miss.
@@ -14,3 +14,7 @@ Snapshots: newfilesbaseline=null, originalobjectivebefore.py saved; actual impor
 Risk: count-dependent upper bound may overweight bags with more valid patches and stronger normal pressure may increase FN. Smoothing vs outputmax differs though upper bound controls local score. No guaranteed AUC/FPR gain or independent generalization.
 HTML: artifacts/surface-global-rank-uppernormal-20261108/report.html; completed run actual204photos/1776truth+scores; failure marked baseline only.
 Rollback: revert newsource/docs only, retainrecords/snapshots/models/logs/checkpoints; productionunchanged.
+
+Handoff: source989d618; artifacts/experiments/20261107T155555-84dbfe36/record.json completed, acceptancefalse/evaluationcriterionfalse.5foldconverged,FN55/370,FP177/1406,AUC0.92570067 delta+0.00905002/CI[0.00452131,0.01392209].FPcap/AUCdeltafail;noadoption/noretry. HTML204photos1776zonesverified.
+
+HTML open exit0: 열기 요청 성공, 실제 렌더 미확인. git diff --check 통과.
