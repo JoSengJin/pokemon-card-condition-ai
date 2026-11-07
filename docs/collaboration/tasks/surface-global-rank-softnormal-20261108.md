@@ -1,6 +1,6 @@
 # surface-global-rank-softnormal-20261108
 owner: Codex
-status: implementing
+status: completed_criteria_not_met
 base_sha: 8f15533
 branch: main, serial basic-checkout experiment
 Goal: synthetic checks then exactly one negative-ranking-pooling experiment; failure reports only, no extra retry.
@@ -14,3 +14,7 @@ Snapshots: newfilesbaseline=null; originalobjective saved before.py. Source chan
 Risk: normalized smoothing can dilute localized normal-bag signals and changes training-vs-output pooling; positive hardmax nonsmoothness remains. This is changed training objective, not optimizer fix or independent generalization evidence.
 HTML: artifacts/surface-global-rank-softnormal-20261108/report.html; completed comparison shows actual scores/photos; failure shows clearly historical baseline photos only.
 Rollback: revert new source/docs only; preserve record/snapshots/checkpoints/logs, no production changes.
+
+Handoff: source87b0cc5; artifacts/experiments/20261107T151448-1bcde981/record.json completed, acceptancefalse/evaluationcriterionfalse.5foldconverged,FN56/370,FP188/1406,AUC0.92517973 delta+0.00852908/CI[0.00440684,0.01327528].FPcap/AUCdeltafail;noadoption/noretry. HTML204photos1776zonesverified.
+
+HTML open exit0: 열기 요청 성공, 실제 렌더 미확인. git diff --check 통과.
