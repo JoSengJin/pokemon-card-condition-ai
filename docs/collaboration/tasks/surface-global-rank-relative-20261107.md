@@ -1,6 +1,6 @@
 # surface-global-rank-relative-20261107
 owner: Codex
-status: implementing
+status: completed_experiment_failed
 base_sha: 8ee0a91
 branch: main, serial basic-checkout experiment
 Goal: exactly one relative curvature gate experiment after synthetic verification; failure reports only, no further retry.
@@ -14,3 +14,7 @@ Experiment snapshots: new files baseline=null; original direction/objective pres
 Risk: relative gate may accept small unreliable curvature near max transitions; H_diag may become unstable. Finite positive gate is not a convergence guarantee. No criterion relaxation/retry.
 HTML: artifacts/surface-global-rank-relative-20261107/report.html. Candidate output only if actual completed inference; failures show explicitly historical baseline photos.
 Rollback: no production edits; revert new source/docs if needed, preserve all experiment evidence.
+
+Handoff: sourced7a19ea; artifacts/experiments/20261107T130918-738ab3ed/record.json failed.651iterationentry/650accepted/1250evaluations;gradient0.001616523441034068. Curvature650/650updates incl288belowoldthreshold; checkpoint verified. No retry/criterion change. HTML generated.
+
+HTML open exit0: 열기 요청 성공, 실제 렌더 미확인. git diff --check 통과.
