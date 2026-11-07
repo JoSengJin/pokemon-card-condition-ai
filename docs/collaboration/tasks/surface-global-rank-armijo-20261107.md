@@ -1,6 +1,6 @@
 # surface-global-rank-armijo-20261107
 owner: Codex
-status: implementing
+status: experiment_failed_diagnostics_completed
 base_sha: 3dd1e5d
 branch: main, serial basic checkout
 Goal: fixed-budget flat L-BFGS direction with Armijo and exact duplicate rejection; synthetic checks then exactly one real experiment. If failed, evidence-based code/diagnostic followup only, no second real experiment.
@@ -13,3 +13,7 @@ Checks: 35direction steps including history eviction match installed torchLBFGS;
 Risk: Armijo may approach a nonsmooth minimum without satisfying raw gradient gate. Flat implementation direction parity tested but changing step selection is not guaranteed to improve performance. Strict loss decrease prevents rounded non-decrease acceptance.
 HTML: artifacts/surface-global-rank-armijo-20261107/report.html; failure uses explicitly historical baseline photos; completed model comparison uses actual scores.
 Rollback: no operational state changed; revert new source/docs only, retain all records/snapshots. Followup corrections must not rewrite experiment snapshots.
+
+Handoff: source7b19527; artifacts/experiments/20261107T102832-b7c09a39/record.json failed.347iterations/1250evaluations;gradient0.00146498;unique1249trial/346accepted. No completed scores. Postfailure objective/checks add ULP/active indices/diagnostic checkpoint, synthetic-only verified; actual rerun0. Function limits and4transition path unchanged. HTML generated.
+
+HTML open exit0: 열기 요청 성공, 실제 렌더 미확인. git diff --check 통과.

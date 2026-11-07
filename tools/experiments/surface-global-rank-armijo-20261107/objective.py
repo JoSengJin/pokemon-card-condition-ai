@@ -95,8 +95,12 @@ def fit_detail_head(features, masks, targets, point_tokens, weights, penalty=1.0
                 trace.write(json.dumps(dict(event='trial',iteration=iteration,evaluations=evaluations,
                     step=step,step_hex=step.hex(),parameter_sha256=hashlib.sha256(candidate.numpy().tobytes()).hexdigest(),
                     parameter_step_max=float((candidate-theta).abs().max()),loss=trial_loss,loss_hex=trial_loss.hex(),
-                    loss_change=trial_loss-loss,armijo_bound=bound,armijo_passed=accepted,
+                    loss_change=trial_loss-loss,loss_ulp=math.ulp(loss),
+                    loss_decrease_ulps=(loss-trial_loss)/math.ulp(loss),
+                    armijo_required_decrease=-1e-4*step*gtd,armijo_bound_rounded_to_loss=bound==loss,
+                    armijo_bound=bound,armijo_passed=accepted,
                     directional_derivative=float(trial_gradient.dot(d)),gradient_max=float(trial_gradient.abs().max()),
+                    active_patch_change_indices=(trial_active!=active).nonzero().flatten().tolist(),
                     active_patch_changes=int((trial_active!=active).sum())))+'\n');trace.flush()
                 if accepted:
                     state['t']=step
@@ -113,7 +117,11 @@ def fit_detail_head(features, masks, targets, point_tokens, weights, penalty=1.0
             duplicate_trials_blocked=duplicates,converged=max_gradient<=1e-5,
             parameter_sha256=hashlib.sha256(theta.numpy().tobytes()).hexdigest())
         (out/('fit-diagnostics-fold'+str(fold)+'.json')).write_text(json.dumps(diagnostics,indent=2,allow_nan=False))
-    if max_gradient>1e-5:raise ValueError('Armijo detail head did not converge')
+    if max_gradient>1e-5:
+        # Diagnostic state only: not an adopted model or permission to resume training.
+        torch.save(dict(theta=theta,center=center,gradient=gradient,active=active,lbfgs_state=state,
+            iteration=iteration,evaluations=evaluations,reason=reason),out/('failure-state-fold'+str(fold)+'.pt'))
+        raise ValueError('Armijo detail head did not converge')
     weight=theta[:-1].float();intercept=(theta[-1]-center@theta[:-1]).float()
     return weight,intercept,dict(converged=True,train_objective=loss,max_gradient=max_gradient,
         point_positive_bags=int(((y==1)&(points>=0)).sum()),presence_positive_bags=int(((y==1)&(points<0)).sum()))

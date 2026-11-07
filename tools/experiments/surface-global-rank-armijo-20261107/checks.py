@@ -28,6 +28,7 @@ with tempfile.TemporaryDirectory() as d:
  logs=[json.loads(s) for s in Path(d,'armijo-fold0.jsonl').read_text().splitlines()];summary=json.loads(Path(d,'fit-diagnostics-fold0.json').read_text())
  assert c['max_gradient']<=1e-5 and summary['total_evaluations']==1+sum(a['event']=='trial' for a in logs)
  assert summary['n_iter']<=1000 and summary['total_evaluations']<=1250
+ assert all('loss_decrease_ulps' in a and 'active_patch_change_indices' in a for a in logs if a['event']=='trial')
  assert all(a['loss_change']<0 and a['loss']<=a['armijo_bound'] for a in logs if a.get('armijo_passed'))
 # Constant objective fixture forces no-progress duplicate guard without real model evaluation.
 original=m.loss_and_grad;calls=0
@@ -61,6 +62,8 @@ with tempfile.TemporaryDirectory() as d:
  try:m.fit_detail_head(xx,mask,torch.tensor([0,1]),torch.tensor([-1,-1]),torch.ones(2),normal_reduction='max_bound')
  except ValueError:pass
  else:raise AssertionError('Must stop budget fixture')
+ snapshot=torch.load(Path(d,'failure-state-fold0.pt'),weights_only=True)
+ assert snapshot['evaluations']==1250 and torch.isfinite(snapshot['gradient']).all() and snapshot['reason']=='evaluation_budget'
  summary=json.loads(Path(d,'fit-diagnostics-fold0.json').read_text());assert summary['reason']=='evaluation_budget' and summary['total_evaluations']==calls==1250 and summary['n_iter']<=1000
 m.loss_and_grad=original
 print('PASS: strict1250 evaluation budget fixture')
