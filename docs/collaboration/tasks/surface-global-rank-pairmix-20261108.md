@@ -1,6 +1,6 @@
 # surface-global-rank-pairmix-20261108
 owner: Codex
-status: implementing
+status: completed_criteria_not_met
 base_sha: d4b0881
 branch: main, serial basic-checkout experiment
 Goal: synthetic verification then exactly one fixed50:50 normal-pair aggregation experiment; no extra retry after failure/criterion miss.
@@ -14,3 +14,7 @@ Snapshots: newfilesbaseline=null, priorobjective-before.py preserved; actualimpo
 Risk: mixture may trade away LME's AUC gain or arithmetic's FN benefit; no guarantee of largeFP reduction. Labels unchanged. RepeateddevelopmentCVnotindependent.
 HTML: artifacts/surface-global-rank-pairmix-20261108/report.html; completed actual204photos1776truth+scores, failure explicitbaselineonly.
 Rollback: revert newsource/docs only; preserve record/snapshot/models/log/checkpoints; productionunchanged.
+
+Handoff: sourcef9e5d7b; artifacts/experiments/20261107T214559-491d835f/record.json completed, acceptancefalse/evaluationcriterionfalse.5foldconverged,FN57/370,FP176/1406,AUC0.92919726 delta+0.01254661/CI[0.00736720,0.01838428].FPcap/AUCdeltafail;noadoption/noretry. HTML204photos1776zonesverified.
+
+HTML open exit0: 열기 요청 성공, 실제 렌더 미확인. git diff --check 통과.
