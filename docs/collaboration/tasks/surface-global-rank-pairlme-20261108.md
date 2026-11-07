@@ -1,6 +1,6 @@
 # surface-global-rank-pairlme-20261108
 owner: Codex
-status: implementing
+status: completed_criteria_not_met
 base_sha: 1569bfe
 branch: main, serial basic-checkout experiment
 Goal: synthetic verification then exactly one normal-pair reduction experiment; no further retry on failure/criterion miss.
@@ -14,3 +14,7 @@ Snapshots: newfilesbaseline=null, originalobjective-before.py saved; actualimpor
 Risk: stronger pressure on high-loss normal pairs may increase FN or overfit ambiguous normals; fixed labels preserved. Smooth aggregation doesn't guarantee AUC/FPR improvement or independent generalization.
 HTML: artifacts/surface-global-rank-pairlme-20261108/report.html; completed actual204photos/1776truth+scores; failure explicitbaselineonly.
 Rollback: revert newsource/docs only, retainrecord/snapshots/models/logs/checkpoints; productionunchanged.
+
+Handoff: source6a71917; artifacts/experiments/20261107T164913-be5e859b/record.json completed, acceptancefalse/evaluationcriterionfalse.5foldconverged,FN59/370,FP176/1406,AUC0.92923379 delta+0.01258314/CI[0.00673871,0.01897883].FPcap/AUCdeltafail;noadoption/noretry. HTML204photos1776zonesverified.
+
+HTML open exit0: 열기 요청 성공, 실제 렌더 미확인. git diff --check 통과.
