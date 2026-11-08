@@ -1,6 +1,6 @@
 # surface-global-rank-globalmix-console-20261108
 owner: Codex
-status: implementing
+status: completed_criteria_not_met
 base_sha: 37f3abc
 branch: main / serial default checkout
 Goal: synthetic checks then1 newly-authorized logged experiment; no retry after failure/interruption/gate miss.
@@ -12,3 +12,5 @@ Checks: synthetic parent+child unbuffered stdout/stderr live before exit; inheri
 Risk: persistent log is not survival protection against external cancellation; buffered OS tail may be lost. Repeated development CV not independent. No operational adoption.
 HTML: artifacts/surface-global-rank-globalmix-console-20261108/report.html; actual completed scores and frozen truth or explicit baselineonly failure. Opening/render limitations recorded.
 Rollback: revert newsource/docs only; preserve unique console/record/snapshots/models/traces; production/labels/folds unchanged.
+
+Handoff: sourceb6f4f6c; record20261108T133726-586d9cdd completed/exit0, acceptancefalse/evaluationcriterionfalse.5foldconverged within1000/1250; FN51/370 FP179/1406 AUC0.930927300 delta+0.014276652/CI[0.007979489,0.021023437]. FPcap/AUCdelta fail; noadoption/noretry. Unique console retained feature/5fold/evaluation/supervisor-completion; sha inoutcome.json. Fixedinputs100 unchanged, trialcounts checked. HTML204photos1776truthzones andcomparison.csv1776rows verified; opening/render not performed under currenttool/policy limits.
