@@ -4,7 +4,7 @@
 
 - task_id: surface-global-lme-only-20261109
 - owner: 사용자가 별도 대화에서 시작할 구현 세션(모델명과 무관). 사용자에게 전달하는 계약이며 이 문서 생성만으로 실행 세션을 시작하지 않는다.
-- status: ready_for_review
+- status: integrated
 - base_sha: e52e4e7d669d553b549daef7b94e8226ed142cfa (검증된 과학/실행 소스 기준)
 - checkout_base: 현재 배정용 전달 프롬프트의 최종 커밋. `git log -1 --format=%H -- docs/collaboration/prompts/surface-global-lme-only-20261109.md`로 확인한다. 실제 전체 SHA는 전달 시 별도로 제공한다. base_sha 이후 checkout_base까지는 두 배정 문서만 추가·보완하며 Python 소스 차이는0이다. 구현 세션은 전달 프롬프트를 수정하지 않으므로 이 기준은 작업 중에도 고정된다.
 - branch: codex/surface-global-lme-only-20261109
@@ -111,3 +111,10 @@ tip을 전달한 뒤 같은 브랜치에 추가 커밋하지 않고 현재 메�
 - 상세 명령·결과·파일목록·해시·리스크·롤백: `docs/collaboration/reports/surface-global-lme-only-20261109.md`.
 - 전체진척78/100(v1.13) 유지. 실제 품질/일반화·실데이터 수렴·메모리·속도 미평가. 산술floor 제거로 극단 underflow0 가능, 학습계수/점수/trace가50:50과 달라질 수 있음. epsilon/clipping 없음.
 - 롤백: 미통합 후보 미채택으로 기존50:50 유지. 이후 원래 메인만 통합SHA를 develop 잠금 안에서 일반 revert. 기존 데이터/모델 복원이나 증거 삭제는 필요하지 않다.
+
+## main 통합 인계 — 2026-11-09
+
+- 후보 `4996d74da79e117049a88016c209c6e41aae52cf`를 직접검토하고 `ba0eee9893d8fc912dac07aa90d2044f6956340a`로 develop잠금 안에서 cherry-pick -x했다. main 재검증 checks8/PASS묶음·components11/PASS묶음,14목적함수/24유한차분/3합성fit,compile/pip/diff/해시/함수수·4전이 검사 모두통과. 후보source 수정0.
+- 통합 소스의 일반push/원격SHA일치확인. 검토상 차단지적없음. 메인 근거 `docs/collaboration/reports/surface-global-lme-only-main-review-20261109.md`, `artifacts/surface-global-lme-only-main-review-20261109/`. 후보worktree·브랜치·기존증거보존, 후보보고서원문수정0.
+- 실제실험/worker/사진·캐시추론/외부AI호출0, 실험미승인. 계획은code_changes=[]/execution_authorized=false의실행차단초안. 품질/일반화미평가·진척78/100유지.
+- 롤백은 현재메인만 통합SHA를일반revert/push. 운영모델/라벨복원불필요.

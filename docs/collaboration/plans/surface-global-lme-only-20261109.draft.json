@@ -1,7 +1,7 @@
 {
-  "draft_status": "awaiting_candidate_review_integration_and_execution_approval",
+  "draft_status": "reviewed_integrated_awaiting_execution_approval_and_runtime_freeze",
   "execution_authorized": false,
-  "integration_performed": false,
+  "integration_performed": true,
   "hypothesis_id": "surface-frozen-global-region-rank-global-lme-only-20261109",
   "hypothesis": "Measured final training-fold gradients showed normal-bag vs arithmetic-rank opposition in all5 folds and normal-bag vs global-LME alignment. Test the fixed alpha0 endpoint as one variable: it may reduce false positives but may increase defect misses. Local gradient signs do not establish OOF causality or generalization.",
   "change": "Only alpha changes from0.5 to0.0 in B+alpha*M+(1-alpha)*G; total rank coefficient1, all training pairs, global flattened LME. B, features, outputs, threshold, labels, folds, masses, regularization and optimizer remain unchanged.",
@@ -244,14 +244,14 @@
     "report_original_and_latest_auc_deltas_separately": true,
     "efficacy_refutation": "If FP>=179, the intended FP reduction is unsupported; FP<179 alone does not pass the fixed quality gates."
   },
-  "source_sha": null,
+  "source_sha": "ba0eee9893d8fc912dac07aa90d2044f6956340a",
   "revision_bindings": {
     "source_baseline": "e52e4e7d669d553b549daef7b94e8226ed142cfa",
     "assignment_checkout": "00f6372e8912d9145972caa3951c0919042e077e",
-    "reviewed_candidate_tip": null,
-    "integration_commit": null,
-    "tested_main_sha": null,
-    "review_artifact": null
+    "reviewed_candidate_tip": "4996d74da79e117049a88016c209c6e41aae52cf",
+    "integration_commit": "ba0eee9893d8fc912dac07aa90d2044f6956340a",
+    "tested_main_sha": "ba0eee9893d8fc912dac07aa90d2044f6956340a",
+    "review_artifact": "docs/collaboration/reports/surface-global-lme-only-main-review-20261109.md"
   },
   "runtime_binding": {
     "execution_directory": null,
@@ -283,5 +283,13 @@
     "shell_noclobber": true
   },
   "known_biases": "Repeated development/model-selection CV; partial model-score-selected rejudgments; folds share training data. Not independent generalization evidence. Never use OOF error IDs for training selection, weighting or labels.",
-  "approval_boundary": "Preparation only. Existing prior-run authorization does not authorize alpha0 training. Fill candidate bindings after review/integration, obtain explicit execution approval, freeze a new run plan, then execute once in the default checkout. Metadata flags/max_executions are not enforced by the common runner; empty code_changes is the current fail-closed prepare guard."
+  "approval_boundary": "Preparation only. Existing prior-run authorization does not authorize alpha0 training. Fill candidate bindings after review/integration, obtain explicit execution approval, freeze a new run plan, then execute once in the default checkout. Metadata flags/max_executions are not enforced by the common runner; empty code_changes is the current fail-closed prepare guard.",
+  "reviewed_candidate_source_sha256": {
+    "tools/experiments/surface-global-lme-only-20261109/checks_components.py": "1d43c30245cc38c85817bd95d7d29ea3cb3b7f82cddf35b7ade95933e230dc9f",
+    "tools/experiments/surface-global-lme-only-20261109/worker.py": "445a96260b059fe198fbd8e5c0b51d13685d72e954390b5f56fd60945c30fd80",
+    "tools/experiments/surface-global-lme-only-20261109/metrics.py": "b6322300e2e17226c5508f22580af6399ff57e07948f10af68a3f0ac044f698b",
+    "tools/experiments/surface-global-lme-only-20261109/objective.py": "1f7043f4579b88b188655975aa3446afdd59ec1f333f5843ad86d706ae18ea93",
+    "tools/experiments/surface-global-lme-only-20261109/checks.py": "62fe3deddbec685006f6df4f4c81dc235dc5e6f5a47d14793813798ec52e37d5",
+    "tools/experiments/surface-global-lme-only-20261109/armijo_direction.py": "789269c2bf2b50c032b8c7aeece26ec76a91bcfbce3bdafe68f1ac013e9d6a32"
+  }
 }
