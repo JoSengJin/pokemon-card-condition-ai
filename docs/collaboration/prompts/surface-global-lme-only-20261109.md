@@ -2,9 +2,11 @@
 
 사용자가 별도로 전달한 신규 worktree를 작업 폴더로 열고 아래를 수행해라. 기본 checkout에서 구현하지 마라. 작업은 사용자가 이 프롬프트를 전달한 뒤에만 시작한다.
 
-1. `git status --short`, `git branch --show-current`, `git rev-parse HEAD`와 AGENTS.md·PAIR_CODING.md를 먼저 읽어라. 브랜치는 `codex/surface-global-lme-only-20261109`여야 한다. source 기준은 `e52e4e7d669d553b549daef7b94e8226ed142cfa`다. 최초 checkout HEAD는 사용자에게 전달된 배정 커밋이며, 이 파일을 처음 추가한 커밋(`git log -1 --diff-filter=A --format=%H -- docs/collaboration/prompts/surface-global-lme-only-20261109.md`)과 같아야 한다. 이미 미커밋/진행 작업이 있거나 기준이 다르면 reset/stash/강제 checkout하지 말고 확인 결과를 보고해라.
+1. `git status --short`, `git branch --show-current`, `git rev-parse HEAD`와 AGENTS.md·PAIR_CODING.md를 먼저 읽어라. 브랜치는 `codex/surface-global-lme-only-20261109`여야 한다. source 기준은 `e52e4e7d669d553b549daef7b94e8226ed142cfa`다. 최초 checkout HEAD는 사용자에게 전달된 배정 커밋이며, 이 전달 프롬프트의 최종 커밋(`git log -1 --format=%H -- docs/collaboration/prompts/surface-global-lme-only-20261109.md`)과 같아야 한다. 이 파일은 구현 세션에서 수정하지 않는다. 이미 미커밋/진행 작업이 있거나 기준이 다르면 reset/stash/강제 checkout하지 말고 확인 결과를 보고해라.
 2. `docs/collaboration/tasks/surface-global-lme-only-20261109.md`를 **작업 계약**으로 읽고 소유 파일·금지 범위·합성 검사·handoff를 따라라. 메인 통합과 실제 실험 담당은 이 작업을 배정한 원래 Codex 대화다. 너는 구현 담당이며 메인 역할을 인수하지 않는다.
 3. 자기 `.venv`와 기존 고정 의존성을 준비하고 `card_condition.__file__`이 자기 worktree를 가리키는지 확인해라. 다른 checkout의 환경·data·artifacts·모델·비밀 설정을 복사/연결하지 마라. 모델 다운로드나 provider 초기화도 하지 마라. 모델·worker 수정은 자기 checkout의 `./develop -- <수정 명령>` 안에서만 수행해라.
+
+Git이 추적하는 일부 과거 artifacts는 checkout에 이미 존재할 수 있다. 그대로 보존하고 학습/합성 fixture의 입력으로 쓰지 마라. 다른 checkout의 ignored 실자료를 추가로 복사·연결하지 말고, 계약의 자기 신규 합성 산출물만 작성해라.
 
 **구현 목표는 변수 하나다.** 기준 `tools/experiments/surface-globalmix-gradient-recording-20261108/`를 읽고 계약의 신규 `tools/experiments/surface-global-lme-only-20261109/`에만 구현해라.
 

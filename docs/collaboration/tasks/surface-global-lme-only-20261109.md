@@ -6,7 +6,7 @@
 - owner: 사용자가 별도 대화에서 시작할 구현 세션(모델명과 무관). 사용자에게 전달하는 계약이며 이 문서 생성만으로 실행 세션을 시작하지 않는다.
 - status: assigned
 - base_sha: e52e4e7d669d553b549daef7b94e8226ed142cfa (검증된 과학/실행 소스 기준)
-- checkout_base: 이 계약과 전달 프롬프트를 처음 추가한 커밋. `git log -1 --diff-filter=A --format=%H -- docs/collaboration/prompts/surface-global-lme-only-20261109.md`로 유일하게 확인한다. 실제 전체 SHA는 전달 시 별도로 제공한다. base_sha 이후 checkout_base까지는 두 배정 문서만 추가하며 Python 소스 차이는0이다.
+- checkout_base: 현재 배정용 전달 프롬프트의 최종 커밋. `git log -1 --format=%H -- docs/collaboration/prompts/surface-global-lme-only-20261109.md`로 확인한다. 실제 전체 SHA는 전달 시 별도로 제공한다. base_sha 이후 checkout_base까지는 두 배정 문서만 추가·보완하며 Python 소스 차이는0이다. 구현 세션은 전달 프롬프트를 수정하지 않으므로 이 기준은 작업 중에도 고정된다.
 - branch: codex/surface-global-lme-only-20261109
 - worktree: 위 브랜치의 신규 전용 checkout. 실제 로컬 절대경로는 커밋하지 않고 현재 메인 세션이 사용자에게 별도로 전달한다. 기본 checkout 및 기존 타인 worktree를 사용하지 않는다.
 - main_owner: 이 계약을 만든 현재 Codex 대화. 실제 학습/모델 비교/사진 추론/라벨 기록/모델 채택/main 통합/원격 push는 이 세션에서만 담당한다. 이 배정은 메인 역할 이양이 아니다.
@@ -38,6 +38,8 @@
 - 합성 fit이 만드는 진단/trace는 자기 worktree 환경의 임시 디렉터리에만 작성한다. 실제 `artifacts/experiments/` 기록은 만들지 않는다.
 
 그 밖의 파일, 특히 기존 `card_condition/`·기존 tools 실험·다른 task/보고서·본 작업 전달 프롬프트·AGENTS/PAIR_CODING·의존성 명세·진척 기준·운영 설정은 쓰기 금지다. `.claude/`, 실제 사진/라벨/모델/캐시/실험 기록, `.backups`, provider 비밀 설정은 보존하고 구현 worktree로 복사·연결하지 않는다. 실자료를 가져와 검증하지 않는다.
+
+Git에 이미 추적된 일부 `artifacts/` 자료는 정상 checkout에 포함된다. 이 추적 자료를 삭제·수정하지 말고 실제 학습/합성 검사 입력으로도 사용하지 않는다. 다른 checkout의 ignored 실자료·모델·캐시를 추가로 복사하거나 심볼릭 링크로 공유하지 않는다는 경계다. 자기 신규 합성 산출물 경로만 작성한다.
 
 ## 변경 변수 하나
 
