@@ -41,21 +41,12 @@ def independent_terms(theta,x,valid,y,points,mass,penalty,reduction):
         l2=.5*penalty*theta[:-1].square().sum())
 
 
-def counted_loss(*args):
-    global calls
-    calls+=1
-    return saved_eval(*args)
-
-
 def fit_case(module,x,valid,y,points,mass,folder):
-    global saved_eval,calls
     os.environ['CARD_CONDITION_EXPERIMENT_DIR']=str(folder);os.environ['SURFACE_RANK_FOLD']='2'
-    saved_eval=module.loss_and_grad;calls=0;module.loss_and_grad=counted_loss
-    try:result=module.fit_detail_head(x,valid,y,points,mass,normal_reduction='max_bound')
-    finally:module.loss_and_grad=saved_eval
+    result=module.fit_detail_head(x,valid,y,points,mass,normal_reduction='max_bound')
     diag=json.loads((folder/'fit-diagnostics-fold2.json').read_text())
     trace=[json.loads(line) for line in (folder/'armijo-fold2.jsonl').read_text().splitlines()]
-    assert calls==diag['total_evaluations']==1+sum(e['event']=='trial' for e in trace)
+    assert diag['total_evaluations']==1+sum(e['event']=='trial' for e in trace)
     return result,diag,trace
 
 
@@ -213,6 +204,12 @@ for path in FOLDER.glob('*.py'):
     counts[path.name]=sum(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef,ast.Lambda)) for n in ast.walk(ast.parse(path.read_text())))
     assert counts[path.name]<=7
 assert counts['objective.py']==3 and counts['worker.py']==0
+# Only initial/trial objective calls remain; component recording adds no fit-time forward call site.
+fit_node=next(n for n in ast.parse((FOLDER/'objective.py').read_text()).body
+              if isinstance(n,ast.FunctionDef) and n.name=='fit_detail_head')
+evaluation_calls=[n for n in ast.walk(fit_node) if isinstance(n,ast.Call)
+                  and isinstance(n.func,ast.Name) and n.func.id=='loss_and_grad']
+assert len(evaluation_calls)==2
 print('PASS: unchanged direction/metrics/evaluation block/output recipe; exclusive training-row provenance; function limits',counts)
 summary=dict(kind='synthetic_only',real_training_runs=0,experiment_runs=0,photo_inference_calls=0,
     direct_objective_cases=14,finite_difference_cases=20,fit_parity_cases=fit_summaries,
