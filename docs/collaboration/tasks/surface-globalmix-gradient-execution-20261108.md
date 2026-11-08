@@ -1,7 +1,7 @@
 # surface-globalmix-gradient-execution-20261108
 
 - owner: Codex, 기본 checkout 단일 실행 담당
-- status: assigned
+- status: integrated
 - base_sha: 6822908be10f37cea614c8821c451dcab2afd001 (fetch 후 origin/main 동일)
 - goal: 소스 변경 없이 공통 실행기 1회로 실제 학습fold의 5성분 gradient를 기록하고 최신 완료 실험과 대조·충돌 분석한다.
 - allowed_files: 이 task, docs/collaboration/reports/surface-globalmix-gradient-execution-20261108.md. tracked Python 소스 변경 금지.
@@ -13,3 +13,5 @@
 - hypothesis: 실제 최종 학습fold의 centered 파라미터 공간에서 정상bag 대 두rank합의 내적/코사인을 조사. 전fold 음수면 체계적 반대방향의 근거, 전fold 비음수면 해당충돌 주장 반증, 혼합이면 fold별 현상. L2와 data의 stationarity 상쇄만으로 L2 과다를 결론내리지 않는다. OOF 오류 집합을 학습 gradient로 대체하거나 학습 선별/가중/라벨수정에 사용하지 않는다.
 - structure: 기존 코드 함수수 objective3/worker0/direction1/metrics4, 최장 worker→fit→loss_and_grad→detail_bag_loss→point_bag_loss 4전이. 소스/호출 경로 추가 변경0.
 - checks/handoff: 반환 후 실제 record 상태·handoff·판정·source SHA·모델/점수/오류ID/수렴·성분norm/코사인/합오차를 대조. 실패는 성능으로 추정하지 않는다. 분석/사진별HTML/CSV와 보존·리스크·롤백 보고. 이전 file: 브라우저 보안정책 차단을 우회하지 않고 렌더 미확인을 명시한다. 진척78/100(v1.13) 유지, 반복개발CV를 독립일반화로 보고하지 않는다.
+- result: 20261108T145825-59681012/record.json completed/exit0, 실행1회/재시도0. 5fold 최종gradient2.41e-8~9.68e-8,385차원,성분합 오차최대3.39e-15. 실제 학습행/target/mass/mask5fold·204사진SHA·116입력해시 확인. 직전1776점수/5모델/전체trace/fit진단 정확동일, FN51/370·FP179/1406·AUC0.930927300, 직전대비0%p/AUC0. 품질기준 미달/운영미채택 유지. N↔산술 및 산술↔LME는5fold음수, N↔LME 및 N↔rank합은5fold양수. 분석은 최종centered 파라미터 공간의 국소 관계이며 오류별인과/독립일반화 미확인.
+- final_handoff: reports/surface-globalmix-gradient-execution-20261108.md 및 ignored analysis.json/report.html/comparison.csv/console.log. 사진별HTML204장/1776구역과CSV1776행의정답/점수/누락오탐/경로를정적대조. 기존file:보안정책차단을존중해열기재시도0/렌더미확인. tracked Python 수정0/경로4전이 유지, 기존자료보존. 이번문서커밋만revert가능하며모델복원불필요. 자동후속차단/실제외부AI호출0. 최종원격SHA는세션완료결과에서확인한다.
