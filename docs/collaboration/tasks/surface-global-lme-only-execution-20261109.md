@@ -1,0 +1,21 @@
+# α=0 단일 공통 실험 — 2026-11-09
+
+- owner: 현재 메인 Codex 세션, 기본 checkout 단일 실행 담당
+- status: assigned
+- approval: 사용자가 이번 대화에서 α=0 계획 확정·공통실행기1회·최신50:50/성분gradient 비교를 명시 승인했다. 추가수정·자동재시도·탐색 금지. 모델 운영 채택 승인은 아니다.
+- source_sha: 7d98b3d844155bd56f9474192efbc1699e8e9849 (검증 과학 소스는 ba0eee9893d8fc912dac07aa90d2044f6956340a와 동일)
+- candidate_tip: 4996d74da79e117049a88016c209c6e41aae52cf, 통합/합성 검증 완료
+- plan: artifacts/surface-global-lme-only-execution-20261109-61e14c8c7a46/plan.json
+- plan_sha256: 23281ba4936ac47038cfff464557149607b62de51c0923b297e9f8ec02d26443
+- goal: α만0.5→0으로 바꾼 고정 후보를1회 실행해 품질 게이트와 실제5fold 성분gradient를 비교한다.
+- allowed_tracked: 이 task, docs/collaboration/reports/surface-global-lme-only-evaluation-20261109.md, 메인 체크리스트의 실행 결과/인계 상태만. Python 소스·다른 세션 worktree/후보보고서·초안·기존 자료는 변경하지 않는다.
+- ignored_outputs: 위 고유 준비폴더의 바이트동일 runtime4개/plan/preflight/console/analysis/report.html/comparison.csv/opening-status, 공통 실행기가 새로 만드는 artifacts/experiments/<고유ID>/의 record/snapshot/점수/모델/trace/학습행/성분gradient/결과. 실제 데이터·과거 산출물은 보존.
+- code_changes: 공통 실행기 tools경로 계약 때문에 기존 검증 runtime4개를 develop잠금 안에서 새 artifacts폴더로 바이트동일 복사했다. 새mirror는baseline=null이며 추가 구현/수정이 아니다. 고정 입력147개 SHA와 mirror/source, CPU backend, 동일가설기록0·running기록0·잠금을 확인했다.
+- command: PYTHONUNBUFFERED=1 CARD_CONDITION_AUTO_CHILD=1 ./experiment --plan artifacts/surface-global-lme-only-execution-20261109-61e14c8c7a46/plan.json -- .venv/bin/python artifacts/surface-global-lme-only-execution-20261109-61e14c8c7a46/worker.py
+- execution: 단1회, console은고유파일noclobber, Gemini/Codex 호출허용0·자동후속0. 실패/중단/결과불명 시수정·재실행·다른계획추가실행없음. 반환 전 다른개발명령 병렬실행없음.
+- fixed_contract: maskedmax→sigmoid/threshold0.5/정답·mask·fold/1776행·370/1406/백본·CPU·seed·mass·L2/optimizer·내부gradient1e-7·수용1e-5·1000반복/초기평가포함1250평가 유지. 산술0은graph연결·성분0, 전체G계수1, 총rank계수1. 출력식은동일하지만 학습후계수/점수/trace는달라질수있다.
+- quality_gate: FN≤67/370 AND FP≤112/1406 AND 원래기준AUC0.9166506478028527대비증가≥0.03 AND paired photo bootstrap하한>0. 공통acceptance와worker AUC/수렴·근거를모두대조. 결과후기준변경없음.
+- controls: 품질 원래reference20261106T210640-0eb1bdc0 유지, 최신50:50비교20261108T145825-59681012(FN51/370,FP179/1406,AUC0.9309272999884665), 실제gradient5fold 비교. 기존0.5계수LME와신규1계수LME의norm차이를구분하고 산술0cosine=None. OOF오류를학습선별/가중/라벨수정에사용하지않음.
+- checks: 반환후record실제상태·hash·학습행/target/mask/mass·성분합/최종theta·5foldgradient·단일실행·최신대비오류ID/%p/AUC를확인. 실패를성능으로추정하지않음. 훈련폴드중복/반복개발CV를독립일반화로보고하지않음.
+- reporting: 진척78/100(v1.13) 유지. record.json/실제판정·변경·근거·리스크·롤백과사진별정답/출력/FN/FP·분모·%p HTML/CSV. 이전file:보안정책거절우회·재시도없음, 렌더미확인명시. 실행실패시저장되지않은점수/gradient를채우지않음.
+- preservation: 초안은고정입력해시에포함하므로수정하지않고확정계획을별도보존한다. 다른세션의소유파일/worktree와비소유.claude/를보존. 운영모델/라벨/fallback변경없음. 소스추가변경없어복원할코드/모델없고필요시이번문서만revert한다. 결과/실패증거삭제없음.
