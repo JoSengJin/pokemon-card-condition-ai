@@ -1,6 +1,6 @@
 # surface-global-rank-globalmix-20261108
 owner: Codex
-status: implementing
+status: completed_experiment_interrupted
 base_sha: 83a1e76
 branch: main / serial default checkout
 Goal: synthetic checks then exactly1 authorized experiment; no retries after failure or quality miss.
@@ -12,3 +12,5 @@ Checks: independent algebraic loss/gradient;globalallpairvalue/gradient/floor,ax
 HTML: artifacts/surface-global-rank-globalmix-20261108/report.html with actual photos1776zones/204groups on completed run or explicit baselineonly on failure.
 Risk: hard-positive outliers may dominate LME half, convergence or normal falsepeaks may worsen. Repeated development CV, not independent. No operational adoption authorized by criterion completion alone.
 Rollback: revert newsource/docs only; preserve record/snapshot/models/traces/checkpoint. Production/labels/folds unchanged.
+
+Handoff: source70d7ac9; record20261108T002449-6e4ad830 interrupted/orphaned_process after waiting connection interruption; parent57813/child57817 absent, exact termination cause/exitcode unknown. LaststageCPUfeatures1776; completedfits0; noactualtrainingdiagnostics/models/observations/evaluation/result. CandidateFN/FP/AUC/gates unknown. No retry/no adoption. Inputhashes unchanged; syntheticpassed. HTML baselineonly204photos1776zones; opening/render not performed due prior fileprotocolpolicy denial/currentCUA unavailable.
