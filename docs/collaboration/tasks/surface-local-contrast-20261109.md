@@ -23,3 +23,14 @@
 - risks: 인쇄/반사 대비 강조로오탐증가, 768차원과메모리/수렴부담 증가. 개발CV 반복이며 독립일반화미확인. 실패시추가설정탐색 없음.
 - rollback: 격리후보이며운영모델/fallback불변; 미채택시근거보존. 코드복원필요시본작업SHA만 ./develop -- git revert <SHA> 후일반push. 과거snapshot덮어쓰기/force/reset없음.
 - handoff: 구현·검사·실험·HTML 및 SHA를 완료후 갱신. 기존다른세션 worktree/증거 보존; 이번작업 신규 worktree 없음.
+
+
+## 실행 자원 보완 (첫 실행 후, 성능 결과 없음)
+
+첫 공통기록20261109T103853-3fa5c0b6은 interrupted/-15. 특징 변환1776×1024×768 완료 후 첫fold 로그 전에16GiB RAM/시스템swap44272.75MiB 확인, 사용자 Mac 부담을 줄이기 위해 Codex가 worker에SIGTERM. OOM/성능실패로 추정하지 않는다. 기존 코드와 기록은 공통 snapshot/최초 runtime mirror에 보존.
+
+사용자의 “진행해” 구현·검증 범위에서 입력/가설/손실/기준을 바꾸지 않고 메모리 구현만 보완한다. 앞선 계약의 단1회/재시도0은 Codex가 정한 실행계획이며 사용자가 별도로 요구한 제한이 아니다. 성능결과가 없는 자원중단을 해결하기 위한 추가1회 시도만 허용(총시도2회), 자동반복/설정탐색 없음. 수치 판정 기준은 불변.
+
+추가 allowed_files: 같은폴더 objective.py(기존α0 수식 그대로, dtype확장·center빼기만8bag 청크), streamed_linear.py(custom autograd forward/backward3함수), checks_streamed.py(≤7함수). 기존worker/feature/check는 유지. 새 runtime artifacts/surface-local-contrast-streamed-20261109/{worker.py,features.py,objective.py,streamed_linear.py,armijo_direction.py,metrics.py,plan.json,preflight.json,checks.log,console.log,postflight.json,analysis.json,report.html,comparison.csv,opening-status.txt}; 최종보고는 이 경로 사용.
+
+float64 투영/gradient를 청크별로 계산하고 원본float32특징을 저장한다. 원래와 같은theta·center에서 logits/전체loss/gradient/성분gradient·합성fit을 대조하며 합계순서의 부동소수 오차만 허용한다. subset/center 요약의 dtype은 기존float64와 동일. 전체float64특징 복제·positive mass전체재복제 제거; 수식·mass·center정의·dtype·출력·최대반복·정지기준불변. 프로젝트호출 depth: worker→fit→loss_and_grad→StreamedLinear.apply→forward/backward의 custom autograd 경로는 framework 경계를포함4전이. 기존bag경로4전이. 새objective3함수/streamed2메서드.
