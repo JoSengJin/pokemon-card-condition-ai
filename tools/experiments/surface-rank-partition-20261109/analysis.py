@@ -18,7 +18,7 @@ def validate(rows,scores,folds):
             raise ValueError('One-photo group identity required')
         images[r['image_sha256']]=r['group'];groups[r['group']]=(r['image_sha256'],r['image'])
         box=np.asarray(r['box'],dtype=float)
-        if box.shape!=(4,) or not np.isfinite(box).all() or (box<0).any() or (box>1).any() or box[0]>=box[2] or box[1]>=box[3]:
+        if box.shape!=(4,) or not np.isfinite(box).all() or (box < -1e-12).any() or (box > 1+1e-12).any() or box[0]>=box[2] or box[1]>=box[3]:
             raise ValueError('Normalized nonempty region box required')
     if len({r['target'] for r in rows})!=2:raise ValueError('Both classes required')
     return values

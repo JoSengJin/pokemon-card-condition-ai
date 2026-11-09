@@ -46,6 +46,12 @@ if __name__=='__main__':
         try:partition(rows,scores,folds)
         except ValueError:pass
         else:raise AssertionError('Invalid inputs accepted')
+    rounded=[row(0,1,'g'),row(1,0,'g')];rounded[0]['box'][3]=1.0000000000000002
+    assert partition(rounded,[.5,.5],{'g':0})[0]['auc']==.5
+    rounded[0]['box'][3]=1.01
+    try:partition(rounded,[.5,.5],{'g':0})
+    except ValueError:pass
+    else:raise AssertionError('Out-of-range box accepted')
     bad=[row(0,1,'a'),row(1,0,'b')];bad[1]['image_sha256']='a'
     try:partition(bad,[.1,.5],{'a':0,'b':1})
     except ValueError:pass
