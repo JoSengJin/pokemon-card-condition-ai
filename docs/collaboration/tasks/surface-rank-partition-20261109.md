@@ -1,7 +1,7 @@
 # Saved OOF ranking partition and Claude viewer contract
 
 - task_id: surface-rank-partition-20261109
-- owner/status: Codex main, diagnostic implementation/execution/integration, implementing. Claude owns a separate viewer worktree only.
+- owner/status: Codex main, diagnostic implementation/execution/integration, completed. Claude owns a separate viewer worktree only.
 - base_sha: 58ad67d0b9ce4b1e90b1c54ef6ebaaf435b39d00
 - authorization: User requested a Claude pair-coding prompt and independent Codex development. This task uses saved scores only. No new training, inference, feature statistics fit, external AI calls, labels or loss changes.
 - goal: Partition all520220 positive-negative region pairs by photo/fold relationship; verify exact identities and produce a diagnostic artifact before selecting another representation.
@@ -30,3 +30,8 @@ examples: bucket(string),defect_id(string),normal_id(string),defect_score(number
 Claude CLI: python render.py --input rank_report.json --output report.html. Read JSON only; no network/CDN/JS/API/training/inference. Test with synthetic fixture only; visibly mark missing synthetic images. Show total/3buckets and denominators/AUC/credit/loss_share, all human region truth/scores/predictions/outcomes with photo overlays/tables, and both photos for each example. Real paths/photos/truth belong only in ignored artifacts, never tracked fixtures. Escape HTML and handle local image paths explicitly. No schema changes without coordinating with Codex. Do not add a generic UI framework.
 
 Boundary correction: first diagnostic20261109T123119-8d52c6c6 failed before output because9 saved boxes have1.0000000000000002 boundaries. No model result. Preserve coordinates, permit1e-12 validation roundoff, test both near-boundary acceptance and real1.01 rejection. New revision gets a separate preserved record; no blind retry. Claude may visually clip SVG to the photo without rewriting input.
+
+
+## Completion / Claude handoff
+
+Codex source2cd12bb1975c5d5374b2b3a14ac5cf176246d32c; common diagnostic20261109T123217-c4241d83 completed/exit0. Actual corrected runtime artifacts/surface-rank-partition-20261109-boundary/{analysis.py,worker.py,plan.json,console.log}; synthetic boundary log checks-boundary.log and preflight-boundary.json reside under the original artifact directory. Initial failed record preserved. All11 frozen inputs/204photos/1776rows/saved score identity and520220 pair identities passed. TotalAUC unchanged0.931924954826804. Diagnostic valid, model improvement/adoption not claimed. Full report at docs/collaboration/reports/surface-rank-partition-20261109.md. HTML204photos/1776zones/15example links parsed; open exit0, rendering unconfirmed because file observation was previously blocked and not retried. Claude viewer is assigned via prompt, not executed by Codex and not yet integrated. Await actual Claude commit before any integration claim. All model/truth/feature/loss/threshold settings unchanged; training/inference0; progress78/100v1.13 retained.

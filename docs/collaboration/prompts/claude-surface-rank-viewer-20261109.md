@@ -1,4 +1,4 @@
-다음 작업을 Claude 페어코딩 구현으로 맡아줘. 계약 포함 기준 커밋은 463c892이며 git rev-parse 463c892로 전체 SHA를 확인해 고정해라. AGENTS.md·PAIR_CODING.md와 docs/collaboration/tasks/surface-rank-partition-20261109.md의 고정 JSON schema를 먼저 읽어라.
+다음 작업을 Claude 페어코딩 구현으로 맡아줘. 계약·좌표보완 포함 기준 커밋은 2cd12bb1975c5d5374b2b3a14ac5cf176246d32c다. 이 SHA로 별도 worktree를 만들고 고정해라. AGENTS.md·PAIR_CODING.md와 docs/collaboration/tasks/surface-rank-partition-20261109.md의 고정 JSON schema를 먼저 읽어라.
 
 목표: Codex가 만드는 rank_report.json을 읽어 오순위 사진쌍을 검토하는 정적 HTML 생성기를 구현한다. Codex는 별도 analysis.py/worker.py/checks.py를 개발 중이므로 그 파일을 수정하지 않는다.
 
@@ -29,3 +29,14 @@
 - 결과를보고threshold/계수/성공기준을바꾸거나추가실험하지않는다.
 
 좌표 검증 보완: 실제 저장 box9개가 경계에서1.0000000000000002다. normalized0..1 검사에는1e-12 허용오차를 두고 원본 좌표를 변경하지 마라. 사진 밖 SVG 표시만 clip할 수 있다. 합성fixture에도 이 경계 사례를 포함해라. 고정schema의 필드/버전은 같다.
+
+Codex 완료 진단(새 학습/추론0, viewer 개발과 독립):
+- 공통기록 artifacts/experiments/20261109T123217-c4241d83/record.json completed/exit0.
+- 실제입력 artifacts/experiments/20261109T123217-c4241d83/rank_report.json. 이 파일/사진은 기본checkout의ignored증거이므로 자기worktree로복사/링크하지말고 schema만보고합성fixture를만들어라. 실제입력검증은반환후Codex가담당한다.
+- 전체520220쌍/35414오순위/동점0,저장AUC0.931924954826804 재현.
+- same_photo:1520쌍/173오순위/AUC0.886184211,전체쌍비중0.2922%/오류비중0.4885%.
+- cross_photo_same_fold:100493쌍/6923오순위/AUC0.931109630,쌍비중19.3174%/오류비중19.5488%.
+- cross_fold:418207쌍/28318오순위/AUC0.932287121,쌍비중80.3904%/오류비중79.9627%.
+- 전체AUC는조건부AUC의단순평균이아니다. cross_fold의오류수가많다는사실만으로calibration원인확정금지. 같은사진오류만직접없애고다른쌍은불변이라는산술가정의전체AUC상한증가는0.000332552이며실제훈련예측이아니다.
+- 15examples는bucket별최대margin5쌍씩,대표성/인과/훈련선별주장금지.
+- Codex진단구현은이미완료됐다. Claude범위는별도viewer/합성검사이며새진단알고리즘·모델학습을추가하지않는다.
