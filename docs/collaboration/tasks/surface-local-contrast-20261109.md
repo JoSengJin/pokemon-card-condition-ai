@@ -7,7 +7,7 @@
 - approval: 사용자가 국소 대비 특징 추가 단일 가설 설명 뒤 “진행해”로 구현·검증·공통 실행기 단일 실험을 승인.
 - goal: 원본384차원과 주변3×3 유효토큰 평균에서의 절대잔차384차원을 연결한 입력만 바꾸어 동일1776구역 개발CV의 순위 분리력을 검증.
 - allowed_files: 신규 tools/experiments/surface-local-contrast-20261109/{worker.py,features.py,checks.py}, 이 task, docs/collaboration/reports/surface-local-contrast-20261109.md.
-- ignored_outputs: artifacts/surface-local-contrast-20261109/{plan.json,worker.py,features.py,checks.log,preflight.json,console.log,analysis.json,postflight.json,report.html,comparison.csv,opening-status.txt}, 공통 실행기 신규 artifacts/experiments/<ID>/.
+- ignored_outputs: artifacts/surface-local-contrast-20261109/{plan.json,worker.py,features.py,objective.py,metrics.py,armijo_direction.py,checks.log,preflight.json,console.log,analysis.json,postflight.json,report.html,comparison.csv,opening-status.txt}, 공통 실행기 신규 artifacts/experiments/<ID>/.
 - forbidden_files: 기존 모델·worker·소스·사진·라벨·캐시·과거기록·기준·다른 worktree·비소유 .claude/. 기존 파일 덮어쓰기/삭제 없음.
 - scientific_change: x → concat(x,abs(x-valid_local_mean3x3)). 32×32 patch grid, 자기 자신 포함, grid 밖과 mask=false는 이웃 평균 제외. 원본384차원 그대로 보존, invalid 위치의 추가특징은0. 추가 정규화/스케일 조정 없음. 768차원 선형 head; 백본 동결.
 - control: alpha0/normal weight1/defect weight1, artifacts/experiments/20261108T215307-941b3aaa/ (FN57/370 FP167/1406 AUC0.931924954826804). 같은 α0 objective/direction와 기존 metrics를 그대로 호출. 최신 정상계수2는 대조 학습식으로 사용하지 않음.
