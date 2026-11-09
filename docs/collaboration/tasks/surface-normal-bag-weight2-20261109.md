@@ -2,7 +2,7 @@
 
 - task_id: surface-normal-bag-weight2-20261109
 - owner: 현재 메인 Codex 단독, 기본 checkout main. 병렬 에이전트/별도 구현 세션 없음.
-- status: ready_for_execution
+- status: integrated / completed / quality_failed / not_adopted
 - base_sha: a3beb55860f8d3f9e559d84b4c5f4d170d14ab4d
 - approval: α0 실제 결과 뒤 사용자가 정상 bag 손실 가중치만 높이는 후보 제안에 “진행해”로 구현·검증을 승인했다. 이번 고정값1→2 후보1회이며 탐색·재시도·외부AI 호출 승인 아님.
 - goal: α0의 출력·threshold0.5·라벨·분할·기준을 유지하며 정상 bag 계수만1→2로 바꾼 격리 후보를 합성 검증하고 공통 실행기로1회 평가한다.
@@ -27,3 +27,7 @@
 ## 구현·합성 확인
 
 신규 Python6개만 추가했다. objective는 정상bag 기여1→2 한 변수, worker는가설ID만 변경, direction/metrics는α0와바이트동일. 독립수식14·유한차분24·합성fit3 및 총19 PASS그룹 통과. 독립loss/gradient최대오차8.882e-16, 함수수6/0/4/3/3/1·호출4전이 유지. 컴파일 통과. 근거: artifacts/surface-normal-bag-weight2-20261109/{checks.log,checks-components.log,synthetic-checks.json}. 실제실험은아직0회이며이후최종계획과소스SHA를고정해1회만실행한다.
+
+## 실제 실행 인계
+
+소스67847d7716ba1cc54613aa090cb5e0dccad5a179·계획SHA fb61212fc89b2ed623ccfa0123710966b8a818f024d7276a269390af95db0a16을 동결했다. 공통기록 artifacts/experiments/20261109T093529-05b9f35a/record.json은 completed/exit0. 1회·재시도0·추가소스수정0·탐색0·자동후속0. FN105/370 FP92/1406 AUC0.9305313136749837, α0 대비 FN+48(+12.9730%p) FP−75(−5.3343%p) AUC−0.001393641. 누락·AUC 기준미달로 미채택. 5fold 내부gradient1e-7·188입력·204사진·실제학습행/mass/target/mask·성분합/최종theta검증통과. 근거는 결과보고서와 analysis/postflight/HTML/CSV. HTML 정적검증만 수행, 기존 정책차단 때문에 열기·렌더미확인. 진척78/100유지. 기존모델/자료·다른worktree/소유파일·.claude/보존.
