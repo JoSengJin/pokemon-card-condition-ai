@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "kind": "saved_oof_rank_partition",
+  "source_record": "synthetic-only",
+  "source_sha": "synthetic-no-model",
+  "independent": false,
+  "new_training_calls": 0,
+  "new_inference_calls": 0,
+  "threshold": 0.5,
+  "rows_count": 5,
+  "groups_count": 3,
+  "positive": 2,
+  "negative": 3,
+  "total": {
+    "pairs": 6,
+    "strict_inversions": 3,
+    "ties": 1,
+    "error_credit": 3.5,
+    "auc": 0.41666666666666663,
+    "loss_share": 1.0
+  },
+  "buckets": [
+    {
+      "key": "same_photo",
+      "pairs": 2,
+      "strict_inversions": 1,
+      "ties": 0,
+      "error_credit": 1.0,
+      "auc": 0.5,
+      "loss_share": 0.2857142857142857
+    },
+    {
+      "key": "cross_photo_same_fold",
+      "pairs": 2,
+      "strict_inversions": 1,
+      "ties": 0,
+      "error_credit": 1.0,
+      "auc": 0.5,
+      "loss_share": 0.2857142857142857
+    },
+    {
+      "key": "cross_fold",
+      "pairs": 2,
+      "strict_inversions": 1,
+      "ties": 1,
+      "error_credit": 1.5,
+      "auc": 0.25,
+      "loss_share": 0.42857142857142855
+    }
+  ],
+  "photos": [
+    {
+      "group": "<A & \"group\">",
+      "fold": 0,
+      "image": "images/normal #?.png",
+      "image_sha256": "synthetic-a",
+      "zones": [
+        {
+          "id": "defect<&\"",
+          "area": "upper <left>",
+          "box": [
+            0.0,
+            0.0,
+            0.5,
+            1.0000000000000002
+          ],
+          "target": 1,
+          "score": 0.2,
+          "prediction": 0,
+          "outcome": "FN"
+        },
+        {
+          "id": "normal-a",
+          "area": "right",
+          "box": [
+            0.5,
+            0.0,
+            1.0,
+            1.0
+          ],
+          "target": 0,
+          "score": 0.8,
+          "prediction": 1,
+          "outcome": "FP"
+        }
+      ]
+    },
+    {
+      "group": "B",
+      "fold": 0,
+      "image": "images/missing <one>.png",
+      "image_sha256": "synthetic-b",
+      "zones": [
+        {
+          "id": "defect-b",
+          "area": "left",
+          "box": [
+            0.0,
+            0.0,
+            0.5,
+            1.0
+          ],
+          "target": 1,
+          "score": 0.9,
+          "prediction": 1,
+          "outcome": "TP"
+        },
+        {
+          "id": "normal-b",
+          "area": "right",
+          "box": [
+            0.5,
+            0.0,
+            1.0,
+            1.0
+          ],
+          "target": 0,
+          "score": 0.3,
+          "prediction": 0,
+          "outcome": "TN"
+        }
+      ]
+    },
+    {
+      "group": "C",
+      "fold": 1,
+      "image": "images/missing-two.png",
+      "image_sha256": "synthetic-c",
+      "zones": [
+        {
+          "id": "normal-c",
+          "area": "center",
+          "box": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ],
+          "target": 0,
+          "score": 0.9,
+          "prediction": 1,
+          "outcome": "FP"
+        }
+      ]
+    }
+  ],
+  "examples": [
+    {
+      "bucket": "same_photo",
+      "defect_id": "defect<&\"",
+      "normal_id": "normal-a",
+      "defect_score": 0.2,
+      "normal_score": 0.8,
+      "normal_minus_defect": 0.6000000000000001
+    },
+    {
+      "bucket": "cross_photo_same_fold",
+      "defect_id": "defect<&\"",
+      "normal_id": "normal-b",
+      "defect_score": 0.2,
+      "normal_score": 0.3,
+      "normal_minus_defect": 0.09999999999999998
+    },
+    {
+      "bucket": "cross_fold",
+      "defect_id": "defect<&\"",
+      "normal_id": "normal-c",
+      "defect_score": 0.2,
+      "normal_score": 0.9,
+      "normal_minus_defect": 0.7
+    }
+  ]
+}
