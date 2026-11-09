@@ -13,12 +13,12 @@
 - scientific_change: x→concat(x,d),d=sqrt(mean_j((x_j-mu_j)^2/max(var_j,1e-6))),385D. 원본384D 보존,valid=false의추가거리0. variance하한1e-6/거리식/스케일선택고정,다른표현추가없음.
 - statistics_contract: 각 outer학습fold의명시적target0구역과valid토큰만사용. alpha0와동일훈련행/사진group질량을정상구역끼리정규화,각구역은valid토큰평균/2차moment로요약. float64 mu=sum(w*mean(x)),variance=sum(w*mean(x²))-mu²,1e-6floor. 평가사진/정답을추정/정규화/feature선택에쓰지않음. 정상/결함을거리로재라벨하지않음. 통계사용행/ID/group/photoSHA/massSHA/normalmaskSHA/평가분리기록. eval에는훈련통계만적용,추가fit없음.
 - control: 직접α0=artifacts/experiments/20261108T215307-941b3aaa/ (AUC0.931924954826804,FN57/370,FP167/1406). 원래품질reference=20261106T210640-0eb1bdc0 (AUC0.9166506478028527,FN67/FP201). 최신실패국소대비/계수2로대조군교체없음.
-- fixed_contract: N+D+G+L2,α0/정상bag1/결함bag1/L2=1/정상tau0.1/출력max→sigmoid/threshold0.5/라벨/mask/1776행(370/1406)/5fold/seed20261031/CPU백본/初期zero/mass/center定義/1000反復1250評価/最終gradient1e-5/内部1e-7不変. 実装は既存chunkedfloat64計算を再利用. 独立試験使用なし.
-- success: 表現改善は直接α0 AUC差>0 AND 写真group paired bootstrap95%下限>0. 採択はさらに既存 FN≤67/370 AND FP≤112/1406 AND 元reference AUC差≥0.03 AND 元reference比較CI下限>0 AND 全5fold収束/証拠/漏洩検査成功. 結果後の基準変更なし.
-- failure: 表現gate未達は仮説未支持、採択gate一つでも未達は未採択。中断/失敗/不明を性能に変換しない。実評価後追加の係数/特徴/threshold探索なし。自動review/外部AI0。
-- structure: 新規features2/worker0/checks≤7関数。worker→fit_normal_distribution1遷移、worker→append_normal_distance1遷移。既存worker→fit→loss_and_grad→detail_bag_loss→point_bag_loss4遷移；streamed apply/forward/backward経路4遷移。既存objective3/streamed2/direction1/metrics4変更なし。
-- checks: 手計算重み付きnormalmoment oracle、positive/masked/held変更不変、eval統計流入拒否、variancefloor/finite/singleton、原本保存、385D loss/gradient parity、合成fit、AST/diff/全入力SHA、実行後学習行/mass/target/mask/統計出所/分割を対照。
-- execution: 合成後 ./experiment --plan artifacts/surface-normal-distance-20261109/plan.json -- .venv/bin/python artifacts/surface-normal-distance-20261109/worker.py。PYTHONUNBUFFERED=1 CARD_CONDITION_AUTO_CHILD=1。単一固定仮説、追加設定探索/自動再試行なし。
-- HTML: artifacts/surface-normal-distance-20261109/report.html。写真上区画別humantruth/alpha0/候補score/FNFP/分母/%p、開発CV区分、変更/検証/リスク/rollback。生成/静的照合/ローカルopen/実renderを区別。
-- risks: 稀な正常印刷/反射を異常とみなすFP、正常多峰分布を対角分散で表す限界。統計推定を含む反復開発CV、一般化未確認。385D化によるparameter/L2geometry変更は表現変更の一部。speed/peakmemory未測定。
-- rollback/handoff: 隔離候補、運用変更なし。採択不可でも記録保存。本taskcommitのみ依存/lock確認後一般gitrevert/push。force/reset/証拠削除なし。実SHA/record/status/gates/checks/HTMLを結果reportに記す。78/100v1.13固定基準確認後報告。新worktreeなし、既存他session保全。
+- fixed_contract: N+D+G+L2,α0/정상bag1/결함bag1/L2=1/정상tau0.1/출력max→sigmoid/threshold0.5/라벨/mask/1776행(370/1406)/5fold/seed20261031/CPU백본/초기값zero/mass/center정의/1000반복1250평가/최종gradient1e-5/내부1e-7 불변. 기존chunked float64계산 재사용. 독립시험사용없음.
+- success: 표현개선은 직접α0 AUC차>0 AND 사진group paired bootstrap95%하한>0. 채택은 추가로 기존 FN≤67/370 AND FP≤112/1406 AND 원래reference AUC차≥0.03 AND 원래reference비교CI하한>0 AND 전체5fold수렴/근거/누수검사통과. 결과뒤기준변경없음.
+- failure: 표현gate미달은가설미지지,채택gate하나라도미달은미채택.중단/실패/불명을성능으로추정하지않음.실제평가뒤추가계수/특징/threshold탐색없음.자동review/외부AI0.
+- structure: 신규features2/worker0/checks≤7함수. worker→fit_normal_distribution1전이,worker→append_normal_distance1전이. 기존worker→fit→loss_and_grad→detail_bag_loss→point_bag_loss4전이;streamed apply/forward/backward경로4전이. 기존objective3/streamed2/direction1/metrics4불변.
+- checks: 독립수식가중normalmoment oracle,positive/masked/held변경불변,eval통계유입거절,variancefloor/finite/singleton,원본보존,385D loss/gradient일치,합성fit,AST/diff/전체입력SHA,실제학습행/mass/target/mask/통계출처/분할대조.
+- execution: 합성후 ./experiment --plan artifacts/surface-normal-distance-20261109/plan.json -- .venv/bin/python artifacts/surface-normal-distance-20261109/worker.py. PYTHONUNBUFFERED=1 CARD_CONDITION_AUTO_CHILD=1. 단일고정가설,추가설정탐색/자동재시도없음.
+- HTML: artifacts/surface-normal-distance-20261109/report.html. 사진위구역별사람정답/alpha0/후보score/FNFP/분모/%p,개발CV구분,변경/검증/리스크/롤백. 생성/정적대조/로컬open/실제render구분.
+- risks: 희귀정상인쇄/반사에서FP증가,정상다봉분포를대각분산으로표현하는한계.통계추정포함반복개발CV,일반화미확인.385D화의parameter/L2기하변경은표현변경의일부.통제속도/peakmemory미측정.
+- rollback/handoff: 격리후보/운영변경없음.미채택도기록보존.본task커밋만의존/lock확인후일반gitrevert/push.force/reset/증거삭제없음.실제SHA/record/status/gates/checks/HTML을결과report에기록.78/100v1.13고정기준확인후보고.새worktree없음,기존다른세션보존.
