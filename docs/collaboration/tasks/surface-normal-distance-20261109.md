@@ -1,7 +1,7 @@
 # 정상 분포 거리 입력 단일 가설 계약
 
 - task_id: surface-normal-distance-20261109
-- owner/status: 현재 메인 Codex 단독 / implementing, 기본 checkout main. 병렬 에이전트 없음.
+- owner/status: 현재 메인 Codex 단독 / integrated, completed, quality_failed, not_adopted, 기본 checkout main. 병렬 에이전트 없음.
 - base_sha: 05b82a818a9f310d32a470462cc1a97ce920d274
 - approval: 사용자가 “진행해. 정상 분포 통계는 각 학습 fold에서만 계산하고, 손실 가중치·대조군·성공 기준은 그대로 유지해. 합성 검증 후 공통 실행기로 이 가설만 평가해줘.”라고 승인.
 - goal: 정상 학습 분포와의 거리1개를 원본384차원에 붙인385차원 선형표현 하나를 누수 합성 검증 후 공통 실행기로 평가.
@@ -22,3 +22,10 @@
 - HTML: artifacts/surface-normal-distance-20261109/report.html. 사진위구역별사람정답/alpha0/후보score/FNFP/분모/%p,개발CV구분,변경/검증/리스크/롤백. 생성/정적대조/로컬open/실제render구분.
 - risks: 희귀정상인쇄/반사에서FP증가,정상다봉분포를대각분산으로표현하는한계.통계추정포함반복개발CV,일반화미확인.385D화의parameter/L2기하변경은표현변경의일부.통제속도/peakmemory미측정.
 - rollback/handoff: 격리후보/운영변경없음.미채택도기록보존.본task커밋만의존/lock확인후일반gitrevert/push.force/reset/증거삭제없음.실제SHA/record/status/gates/checks/HTML을결과report에기록.78/100v1.13고정기준확인후보고.새worktree없음,기존다른세션보존.
+
+
+## 최종 인계
+
+검증/실행소스878eeb45e3d647576e7e695d3d81f6f4e809b231. 합성checks.py 통과후 공통실행단1회. artifacts/experiments/20261109T115137-dab89dcc/record.json completed/exit0. AUC0.9313252085656069,직접α0차−0.0005997462611971871,paired95%[-0.0026284536487215515,0.0012174943922762527]. FN56/370,FP174/1406. 표현개선/채택gate미달,운영미채택. 기준/손실/대조변경0,추가실험/자동retry/외부AI0.
+
+학습fold만의normal통계/정상ID/사진group/질량,기존훈련행/mass/target/mask,215동결입력/204사진SHA,5fold내부수렴/성분합 검증통과. 실제통계정상행수1162/1116/1099/1132/1115,모든평가사진/group겹침0. 상세는동명결과보고서/analysis/postflight. HTML204사진/1776구역정적검증통과,open exit0. 보고서tab제목/URL은관찰했으나file: URL정책이콘텐츠접근차단,Mac잠금도있어실제render미확인. 우회/외부서버/터널없음. 진척78/100v1.13유지,기존다른작업보존.
