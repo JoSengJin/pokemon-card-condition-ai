@@ -1,7 +1,7 @@
 # 오순위 사진쌍 viewer — Codex 인수
 
 - task_id: claude-surface-rank-viewer-20261109
-- owner/status: Codex main 단독 / implementing. Claude 미전달, 구현/리뷰/합의 없음.
+- owner/status: Codex main 단독 / integrated, completed. Claude 미전달, 구현/리뷰/합의 없음.
 - base_sha: 3b67f12cf0be0a0cf7a20d2cb99d570f74f0c0fe
 - authorization: 사용자 “클로드에게 못넘겼어 다음 진행”. 이전 viewer 범위를 Codex가 인수하며 별도 Claude 호출/에이전트 없음.
 - goal: 고정rank_report.json으로15개오순위사례의두사진/관련구역/사람정답/점수/fold/margin과전체사진갤러리를보는재사용CLI를구현·검증.
@@ -15,3 +15,12 @@
 - checks: 합성fixture의동점/빈bucket/null AUC/HTMLescape/공백#?사진경로/missing/같은사진두구역/다른fold/경계오차/잘못된schema/입력덮어쓰기거절/CLI/함수수. 실제204사진SHA/원본JSONhash·1776구역/15사례30패널/저장점수출력대조. 실제렌더는관찰가능할때만확인,이전file정책차단우회없음.
 - reporting: PROGRESS_CRITERIA.md/development-progress.json78/100v1.13유지. 변경/핵심diff/실행검증/미검증/리스크/롤백/HTML open-render상태기록. 합성·표시완료를성능개선으로간주하지않음.
 - risk/rollback: 사례는margin상위선택이라대표성/인과증명아님. 기존원격모델변경없고본viewer코드만의존·실행잠금확인후일반revert/push. 기존증거/다른worktree삭제없음. 새worktree없음.
+
+
+## 최종 인계
+
+구현/검증소스 e89935306c6b7ebc23c56946d7edf7353923633d. renderer6/checks1함수,main→render_document→photo_panel→zone_table3전이. 합성fixture/CLI/동점/null/escaping/특수경로/missing/원본덮어쓰기거절/잘못된입력검사통과. macOS /var→/private/var 별칭에대해입출력경로를resolve한뒤상대URL을계산하도록합성검사에서보완했다.
+
+실제rank_report의15쌍/30패널·204사진/1776구역·234이미지경로·204사진SHA·모든저장점수/margin검증통과. 공통recordmanifest는rank_report.json을직접포함하지않으므로원래11개동결입력·저장점수로전체JSON의total/buckets/examples/photos를재구성해일치를확인했다. 새학습/추론/통계fit0,원본JSON/좌표/정답불변,기존AUC0.931924954826804/FN57/370/FP167/1406그대로.
+
+HTML artifacts/surface-rank-viewer-20261109/report.html,검증verification.json/checks.log. open exit0. 이대화의file:콘텐츠관찰보안정책차단을존중하여우회/재시도없고실제render미확인. Claude미전달·미실행을유지하며Codex단독완료. 진척78/100v1.13유지. 상세는docs/collaboration/reports/surface-rank-viewer-20261109.md.

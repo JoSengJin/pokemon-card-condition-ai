@@ -1,7 +1,7 @@
 # Saved OOF ranking partition and Claude viewer contract
 
 - task_id: surface-rank-partition-20261109
-- owner/status: Codex main, diagnostic implementation/execution/integration, completed. Claude owns a separate viewer worktree only.
+- owner/status: Codex main, diagnostic implementation/execution/integration, completed. The original Claude viewer assignment was not started; Codex took it over at the user request and completed it under the separate viewer task.
 - base_sha: 58ad67d0b9ce4b1e90b1c54ef6ebaaf435b39d00
 - authorization: User requested a Claude pair-coding prompt and independent Codex development. This task uses saved scores only. No new training, inference, feature statistics fit, external AI calls, labels or loss changes.
 - goal: Partition all520220 positive-negative region pairs by photo/fold relationship; verify exact identities and produce a diagnostic artifact before selecting another representation.
@@ -38,3 +38,5 @@ Codex source2cd12bb1975c5d5374b2b3a14ac5cf176246d32c; common diagnostic20261109T
 
 
 Ownership override: user could not hand this to Claude and requested continuation. Codex takes over viewer implementation under docs/collaboration/tasks/claude-surface-rank-viewer-20261109.md. No Claude work was started or merged. Prior assignment text is historical; do not run the old prompt concurrently.
+
+Viewer completion: Codex implemented renderer source e89935306c6b7ebc23c56946d7edf7353923633d; no Claude work occurred. Synthetic and actual saved-data checks passed, 15paired examples/204photos/1776regions rendered to artifacts/surface-rank-viewer-20261109/report.html. See viewer task/report for exact verification and unconfirmed visual rendering. No new models/scores/training/inference.
