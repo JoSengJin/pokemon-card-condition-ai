@@ -1,7 +1,7 @@
 # 위치 조건부 표현 단일 가설 — 2026-11-10
 
 - task_id: surface-position-interaction-20261110
-- owner/status: Codex main, implementing; no parallel agents or Claude implementation.
+- owner/status: Codex main, integrated/completed/quality_failed/not_adopted; no parallel agents or Claude implementation.
 - base_sha: 3d88060cdc7b900676636502dcbe3cfeb43fa3ca
 - authorization: User approved changing only position-conditional representation, retaining weights/control/success criteria, checking1152D memory, synthetic validation then common-runner evaluation of this hypothesis only.
 - goal: Evaluate logical features[x,u*x,v*x] once after exact dense-vs-factored synthetic checks, without storing full1152D training bags.
@@ -23,3 +23,12 @@
 - HTML: artifacts/surface-position-interaction-20261110/report.html: all204photos/1776regions, human truth/direct-alpha0/candidate scores/FNFP/denominators/%p/AUC/CI, developmentCV labels, memory/checks/risks/rollback. Static validation/open command distinguished from actual rendering; respect previous file-protocol observation policy block, no workaround/network serving.
 - reporting: verify current78/100v1.13 from fixed progress files; no score gain from synthetic/convergence/developmentCV. Read actual record/evaluation/development-cycle pointer after runner returns. Log sourceSHA,files/diff/checks/risks/rollback and unperformed independent tests.
 - rollback: isolated candidate, preserve production and evidence if rejected. Revert only this task's commits after checking dependencies/lock, ordinary push. No force/reset/evidence deletion or changes to other sessions. No new worktree.
+
+
+## Actual handoff
+
+Source efe63c34c5a5c9ce4191a3a7500417b6cc2dc3a3. Common record artifacts/experiments/20261109T210729-0a9c06cc/record.json completed/exit0; one hypothesis execution,5fold fits, no retries/extra learning/review/API calls. AUC0.9099630925377725, direct-alpha0 difference-0.02196186228903152, paired95%[-0.03106573172654925,-0.013991562126642765]. FN88/370,FP169/1406. Representation/adoption gates failed; no production adoption or fallback changes.
+
+Synthetic dense/factored max output error9.99e-16, gradient4.97e-14; full/component/baseline/scoring/fit/memory checks passed. Actual229inputs/204photos/position mapping/training rows,mass,target,mask/final component audits passed. All5folds reached internal1e-7. Logical1152D stored as386D, bounded8-bag projection. Recorded process resident high-water5.002838GiB through feature preparation and all5fold training/scoring completions; no separate post-bootstrap sample. System swap4059.94→7490.44MiB; per-worker swap not measured, attribution unknown. Do not claim zero memory burden or controlled savings.
+
+HTML artifacts/surface-position-interaction-20261110/report.html,204photos/1776regions/CSV,static checks passed/open exit0/render unconfirmed because earlier file-protocol observation block was respected. Progress78/100v1.13 unchanged. Final report docs/collaboration/reports/surface-position-interaction-20261110.md contains exact gates/checks/risks/rollback. Preserve all previous data and other sessions.
