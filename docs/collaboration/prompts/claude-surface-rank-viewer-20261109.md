@@ -1,4 +1,4 @@
-다음 작업을 Claude 페어코딩 구현으로 맡아줘. AGENTS.md·PAIR_CODING.md와 docs/collaboration/tasks/surface-rank-partition-20261109.md의 고정 JSON schema를 먼저 읽어라.
+다음 작업을 Claude 페어코딩 구현으로 맡아줘. 계약 포함 기준 커밋은 463c892이며 git rev-parse 463c892로 전체 SHA를 확인해 고정해라. AGENTS.md·PAIR_CODING.md와 docs/collaboration/tasks/surface-rank-partition-20261109.md의 고정 JSON schema를 먼저 읽어라.
 
 목표: Codex가 만드는 rank_report.json을 읽어 오순위 사진쌍을 검토하는 정적 HTML 생성기를 구현한다. Codex는 별도 analysis.py/worker.py/checks.py를 개발 중이므로 그 파일을 수정하지 않는다.
 
@@ -19,7 +19,7 @@
 - 입력schema는고정task의rank_report.json v1을그대로따른다. total/buckets에는pairs,strict_inversions,ties,error_credit,auc,loss_share가있다. AUC는1-error_credit/pairs,동률0.5,빈bucket auc=null이다.
 - photos에는group/fold/image/image_sha256/zones,zone에는id/area/normalized box/target/score/prediction/outcome이있다. examples에는bucket/defect_id/normal_id와두score/margin이있다.
 - 첫화면에저장점수진단·새학습/추론0·독립평가아님·개발진척78/100(고정관리점수)을표시한다. AUC/쌍분모/오순위credit과FN/FP구역분모를혼동하지마라.
-- 3bucket요약,전체사진구역overlay/표,최대15개오순위사례의두사진/관련구역/사람정답/score/fold/margin을표시한다. 구역박스를사람결함점이나최고patch로부르지않는다.
+- 3bucket요약에서 전체쌍비중(pairs/total.pairs)과오순위비중(loss_share)을함께표시해큰bucket이라는이유만으로문제집중을주장하지마라. 전체사진구역overlay/표,최대15개오순위사례의두사진/관련구역/사람정답/score/fold/margin을표시한다. 구역박스를사람결함점이나최고patch로부르지않는다.
 - raw이미지경로는실제ignored HTML에만쓰며Git fixture에실제사진/정답/개인경로를넣지않는다. 입력문자열HTMLescape·출력HTML기준상대사진경로를검사한다. 합성사진이없으면missing을명시한다.
 - 합성fixture로tie/auc=null/escaping/상대경로/동일사진의두zone/다른fold사례와함수수/호출경로를검증한다. 실제사진렌더는미검증으로적는다.
 
