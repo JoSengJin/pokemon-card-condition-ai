@@ -1,3 +1,5 @@
+보관 상태: 사용자가 Claude에 전달하지 못해 Codex가 viewer 구현을 인수했다. 이 프롬프트를 새로 실행하지 말고 docs/collaboration/tasks/claude-surface-rank-viewer-20261109.md의 현재 소유권을 확인한다. 아래는 이전 인계 기록이다.
+
 다음 작업을 Claude 페어코딩 구현으로 맡아줘. 계약·좌표보완 포함 기준 커밋은 2cd12bb1975c5d5374b2b3a14ac5cf176246d32c다. 이 SHA로 별도 worktree를 만들고 고정해라. AGENTS.md·PAIR_CODING.md와 docs/collaboration/tasks/surface-rank-partition-20261109.md의 고정 JSON schema를 먼저 읽어라.
 
 목표: Codex가 만드는 rank_report.json을 읽어 오순위 사진쌍을 검토하는 정적 HTML 생성기를 구현한다. Codex는 별도 analysis.py/worker.py/checks.py를 개발 중이므로 그 파일을 수정하지 않는다.
