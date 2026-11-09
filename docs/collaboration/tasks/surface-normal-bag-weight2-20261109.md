@@ -2,7 +2,7 @@
 
 - task_id: surface-normal-bag-weight2-20261109
 - owner: 현재 메인 Codex 단독, 기본 checkout main. 병렬 에이전트/별도 구현 세션 없음.
-- status: implementing
+- status: ready_for_execution
 - base_sha: a3beb55860f8d3f9e559d84b4c5f4d170d14ab4d
 - approval: α0 실제 결과 뒤 사용자가 정상 bag 손실 가중치만 높이는 후보 제안에 “진행해”로 구현·검증을 승인했다. 이번 고정값1→2 후보1회이며 탐색·재시도·외부AI 호출 승인 아님.
 - goal: α0의 출력·threshold0.5·라벨·분할·기준을 유지하며 정상 bag 계수만1→2로 바꾼 격리 후보를 합성 검증하고 공통 실행기로1회 평가한다.
@@ -23,3 +23,7 @@
 - risks: 정상억제로 FN증가·AUC악화·수렴부담 가능. 단일seed개발CV이며선형특징한계/개별patch원인미확인. 가중gradient증가자체를개선으로부르지않음.
 - rollback: 격리후보·운영미변경. 미채택시기존운영경로유지하고증거보존. 통합코드복원필요시현재메인에서 ./develop -- git revert <후보SHA> 후일반push. force/reset/실험증거삭제없음.
 - handoff: 구현/검사/단일실행후 실제SHA·결과·HTML정적검증/렌더미확인·미검증을갱신한다. 기존 다른세션 checkout은정리하지않는다.
+
+## 구현·합성 확인
+
+신규 Python6개만 추가했다. objective는 정상bag 기여1→2 한 변수, worker는가설ID만 변경, direction/metrics는α0와바이트동일. 독립수식14·유한차분24·합성fit3 및 총19 PASS그룹 통과. 독립loss/gradient최대오차8.882e-16, 함수수6/0/4/3/3/1·호출4전이 유지. 컴파일 통과. 근거: artifacts/surface-normal-bag-weight2-20261109/{checks.log,checks-components.log,synthetic-checks.json}. 실제실험은아직0회이며이후최종계획과소스SHA를고정해1회만실행한다.
