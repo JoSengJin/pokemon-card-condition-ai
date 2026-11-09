@@ -1,0 +1,24 @@
+# 정상 분포 거리 입력 단일 가설 계약
+
+- task_id: surface-normal-distance-20261109
+- owner/status: 현재 메인 Codex 단독 / implementing, 기본 checkout main. 병렬 에이전트 없음.
+- base_sha: 05b82a818a9f310d32a470462cc1a97ce920d274
+- approval: 사용자가 “진행해. 정상 분포 통계는 각 학습 fold에서만 계산하고, 손실 가중치·대조군·성공 기준은 그대로 유지해. 합성 검증 후 공통 실행기로 이 가설만 평가해줘.”라고 승인.
+- goal: 정상 학습 분포와의 거리1개를 원본384차원에 붙인385차원 선형표현 하나를 누수 합성 검증 후 공통 실행기로 평가.
+- allowed_files: 신규 tools/experiments/surface-normal-distance-20261109/{features.py,worker.py,checks.py}, 이 task, docs/collaboration/reports/surface-normal-distance-20261109.md.
+- ignored_outputs: artifacts/surface-normal-distance-20261109/의 runtime mirror worker.py/features.py/objective.py/streamed_linear.py/armijo_direction.py/metrics.py,plan.json,preflight.json,checks.log,console.log,analysis.json,postflight.json,report.html,comparison.csv,opening-status.txt; 공통 실행기 신규 artifacts/experiments/<ID>/의 record/snapshot/diff/observations/model/trace/normal-statistics-foldN.json. 보고 생성용 임시script는/tmp만 사용.
+- forbidden_files: 기존 소스/worker/모델/사진/라벨/캐시/과거실험/평가기준/다른worktree/.claude/. 삭제/덮어쓰기 없음. PokeCollector/Gemini fallback 불변.
+- hypothesis_id: surface-frozen-global-lme-normal-distance-20261109
+- rationale: 국소대비 후보 AUC0.925992849는α0 0.931924955보다낮고 FN/FP악화. 지역평균제거/정규화/층/백본/해상도변경은반복하지않음. 정상분포거리의학습입력화는확인한기록에서미시도(과거최근접정상은진단만). 카드상의효과/선형표현한계는미증명.
+- scientific_change: x→concat(x,d),d=sqrt(mean_j((x_j-mu_j)^2/max(var_j,1e-6))),385D. 원본384D 보존,valid=false의추가거리0. variance하한1e-6/거리식/스케일선택고정,다른표현추가없음.
+- statistics_contract: 각 outer학습fold의명시적target0구역과valid토큰만사용. alpha0와동일훈련행/사진group질량을정상구역끼리정규화,각구역은valid토큰평균/2차moment로요약. float64 mu=sum(w*mean(x)),variance=sum(w*mean(x²))-mu²,1e-6floor. 평가사진/정답을추정/정규화/feature선택에쓰지않음. 정상/결함을거리로재라벨하지않음. 통계사용행/ID/group/photoSHA/massSHA/normalmaskSHA/평가분리기록. eval에는훈련통계만적용,추가fit없음.
+- control: 직접α0=artifacts/experiments/20261108T215307-941b3aaa/ (AUC0.931924954826804,FN57/370,FP167/1406). 원래품질reference=20261106T210640-0eb1bdc0 (AUC0.9166506478028527,FN67/FP201). 최신실패국소대비/계수2로대조군교체없음.
+- fixed_contract: N+D+G+L2,α0/정상bag1/결함bag1/L2=1/정상tau0.1/출력max→sigmoid/threshold0.5/라벨/mask/1776행(370/1406)/5fold/seed20261031/CPU백본/初期zero/mass/center定義/1000反復1250評価/最終gradient1e-5/内部1e-7不変. 実装は既存chunkedfloat64計算を再利用. 独立試験使用なし.
+- success: 表現改善は直接α0 AUC差>0 AND 写真group paired bootstrap95%下限>0. 採択はさらに既存 FN≤67/370 AND FP≤112/1406 AND 元reference AUC差≥0.03 AND 元reference比較CI下限>0 AND 全5fold収束/証拠/漏洩検査成功. 結果後の基準変更なし.
+- failure: 表現gate未達は仮説未支持、採択gate一つでも未達は未採択。中断/失敗/不明を性能に変換しない。実評価後追加の係数/特徴/threshold探索なし。自動review/外部AI0。
+- structure: 新規features2/worker0/checks≤7関数。worker→fit_normal_distribution1遷移、worker→append_normal_distance1遷移。既存worker→fit→loss_and_grad→detail_bag_loss→point_bag_loss4遷移；streamed apply/forward/backward経路4遷移。既存objective3/streamed2/direction1/metrics4変更なし。
+- checks: 手計算重み付きnormalmoment oracle、positive/masked/held変更不変、eval統計流入拒否、variancefloor/finite/singleton、原本保存、385D loss/gradient parity、合成fit、AST/diff/全入力SHA、実行後学習行/mass/target/mask/統計出所/分割を対照。
+- execution: 合成後 ./experiment --plan artifacts/surface-normal-distance-20261109/plan.json -- .venv/bin/python artifacts/surface-normal-distance-20261109/worker.py。PYTHONUNBUFFERED=1 CARD_CONDITION_AUTO_CHILD=1。単一固定仮説、追加設定探索/自動再試行なし。
+- HTML: artifacts/surface-normal-distance-20261109/report.html。写真上区画別humantruth/alpha0/候補score/FNFP/分母/%p、開発CV区分、変更/検証/リスク/rollback。生成/静的照合/ローカルopen/実renderを区別。
+- risks: 稀な正常印刷/反射を異常とみなすFP、正常多峰分布を対角分散で表す限界。統計推定を含む反復開発CV、一般化未確認。385D化によるparameter/L2geometry変更は表現変更の一部。speed/peakmemory未測定。
+- rollback/handoff: 隔離候補、運用変更なし。採択不可でも記録保存。本taskcommitのみ依存/lock確認後一般gitrevert/push。force/reset/証拠削除なし。実SHA/record/status/gates/checks/HTMLを結果reportに記す。78/100v1.13固定基準確認後報告。新worktreeなし、既存他session保全。
