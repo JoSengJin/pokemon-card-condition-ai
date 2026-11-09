@@ -1,7 +1,7 @@
 # α=0 단일 공통 실험 — 2026-11-09
 
 - owner: 현재 메인 Codex 세션, 기본 checkout 단일 실행 담당
-- status: assigned
+- status: completed / quality_failed / not_adopted
 - approval: 사용자가 이번 대화에서 α=0 계획 확정·공통실행기1회·최신50:50/성분gradient 비교를 명시 승인했다. 추가수정·자동재시도·탐색 금지. 모델 운영 채택 승인은 아니다.
 - source_sha: 7d98b3d844155bd56f9474192efbc1699e8e9849 (검증 과학 소스는 ba0eee9893d8fc912dac07aa90d2044f6956340a와 동일)
 - candidate_tip: 4996d74da79e117049a88016c209c6e41aae52cf, 통합/합성 검증 완료
@@ -19,3 +19,7 @@
 - checks: 반환후record실제상태·hash·학습행/target/mask/mass·성분합/최종theta·5foldgradient·단일실행·최신대비오류ID/%p/AUC를확인. 실패를성능으로추정하지않음. 훈련폴드중복/반복개발CV를독립일반화로보고하지않음.
 - reporting: 진척78/100(v1.13) 유지. record.json/실제판정·변경·근거·리스크·롤백과사진별정답/출력/FN/FP·분모·%p HTML/CSV. 이전file:보안정책거절우회·재시도없음, 렌더미확인명시. 실행실패시저장되지않은점수/gradient를채우지않음.
 - preservation: 초안은고정입력해시에포함하므로수정하지않고확정계획을별도보존한다. 다른세션의소유파일/worktree와비소유.claude/를보존. 운영모델/라벨/fallback변경없음. 소스추가변경없어복원할코드/모델없고필요시이번문서만revert한다. 결과/실패증거삭제없음.
+
+## 실제 완료 인계
+
+공통 기록 `artifacts/experiments/20261108T215307-941b3aaa/record.json`: completed / return_code0. 실행1회, 재시도0, 추가 소스 수정0, 자동 후속0. FN57/370·FP167/1406·AUC0.931924954826804. 최신50:50 대비 FN+6(+1.6216%p), FP−12(−0.8535%p), AUC+0.000997655. FP상한과 원래 기준 AUC 증가량 미달로 미채택. 모든fold gradient≤9.22445e-8, 산술 성분 정확히0, 입력147개·사진204장·1776 mask·학습5fold provenance 검증 통과. 보고서/analysis.json/report.html/comparison.csv에 근거 보존. HTML 정적 생성·대조 완료, 기존 브라우저 정책 차단 때문에 열기·렌더 미확인. 운영 모델·기존 자료·다른 worktree 보존.
