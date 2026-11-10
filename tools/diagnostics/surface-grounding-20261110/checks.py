@@ -83,9 +83,15 @@ if __name__=='__main__':
         changed=copy.deepcopy(packet);changed['entries'][0]['row']['target']=1-changed['entries'][0]['row']['target'];rejects(validate_answers,changed,answer)
         already=copy.deepcopy(packet);already['entries'][entry['parent_index']]['known_points']=[response['point']];already['packet_id']=packet_digest(already)
         old=copy.deepcopy(answer);old['packet_id']=already['packet_id'];rejects(validate_answers,already,old)
+        entry['evidence']=dict(top_index=7,top_geometry=dict(box=[.2,.3,.5,.7]))
+        packet['packet_id']=packet_digest(packet);answer['packet_id']=packet['packet_id']
         pp=directory/'packet.json';ap=directory/'answers.json';result=directory/'validated.json';pp.write_text(json.dumps(packet));ap.write_text(json.dumps(answer,ensure_ascii=False));before=ap.read_bytes()
         ingested=ingest(pp,ap,result);assert len(ingested['pending_ids'])==19 and not ingested['region_truth_changed'] and ingested['answers']==answer
+        assert ingested['model_support_comparisons'][0]['top_patch_support_contains_human_point'] is True and not ingested['causal_attribution_proven']
         rejects(ingest,pp,ap,result);rejects(ingest,pp,ap,ap);assert ap.read_bytes()==before
+        unknown['packet_id']=packet['packet_id'];up=directory/'unknown.json';up.write_text(json.dumps(unknown))
+        unclear=ingest(pp,up,directory/'unclear-sidecar.json')
+        assert unclear['model_support_comparisons'][0]['top_patch_support_contains_human_point'] is None and unclear['cannot_localize_ids']==[row['id']]
         for e in packet['entries']:
             e['image_size']=[448,448]
             if e['selected']:

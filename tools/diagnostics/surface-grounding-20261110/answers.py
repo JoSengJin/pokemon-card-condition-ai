@@ -39,7 +39,15 @@ def validate_answers(packet,answers):
 def ingest(packet_path,answers_path,output):
     packet=json.loads(Path(packet_path).read_text());answers=json.loads(Path(answers_path).read_text());validate_answers(packet,answers)
     index={e['row']['id']:e for e in packet['entries']};reviewed={r['id'] for r in answers['responses']}
+    comparisons=[]
+    for response in answers['responses']:
+        evidence=index[response['id']].get('evidence',{});geometry=evidence.get('top_geometry');point=response['point'];contains=None
+        if response['status']=='located' and geometry:
+            l,t,r,b=geometry['box'];contains=l<=point['x']<=r and t<=point['y']<=b
+        comparisons.append(dict(id=response['id'],status=response['status'],top_token_index=evidence.get('top_index'),
+            top_patch_support_contains_human_point=contains,meaning='geometric_support_only_not_causal_or_localization_accuracy'))
     record=dict(schema_version=1,kind='validated_grounding_sidecar',packet_id=packet['packet_id'],answers=answers,
+        model_support_comparisons=comparisons,causal_attribution_proven=False,
         annotation_applied_to_training=False,region_truth_changed=False,
         pending_ids=[key for key,e in index.items() if e['selected'] and not e['known_points'] and key not in reviewed],
         cannot_localize_ids=[r['id'] for r in answers['responses'] if r['status']=='cannot_localize'],
