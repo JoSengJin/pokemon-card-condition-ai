@@ -1,8 +1,10 @@
 # Restore candidate visibility checkbox — 2026-11-10
 
-owner Codex main;solo;base6a438915ade6c9ca0bf228acb2811cbc51ef1bd8;status implementing.
+owner Codex main;solo;base6a438915ade6c9ca0bf228acb2811cbc51ef1bd8;status ready_for_review/phone_toggle_pending.
 User requests 미확인체크박스다시돌려 plus10slotJSON. Receivedrawsavedseparately:7defect/2unknown/1null;only9arecompletedjudgments,nullremainsunreviewed. Earlierreceipts/regiontruth/model/loss unchanged. Goal nativecheckboxpercard controls only candidateborder/label,defaultchecked preservespriorview;10onefile/oneJSON remains. NoJS/network/tunnel/localStorage.
 Allowed tools/diagnostics/mobile-point-review-20261110/{ten.py,ten_checks.py};this task;docs/collaboration/reports/mobile-ten-toggle-20261110.md. Ignored artifacts/mobile-ten-toggle-20261110/ and receivedartifacts/mobile-candidate-human-response-20261110-batch03/ +candidateledger. Generate next10excluding29completeduniqueIDs,include1pending(idtoken843)plus9new;do not reask7defect/2unknown.
 Structure ten2→2/checks0→0;render→combined_editor→draft_response2transitions. NativeCSS sibling toggle input:checked~rawframe candidate;doesnotchangeJSONscope/token/box/judgment. Checks10checkboxes/labelbindings/defaulton/checkedCSS/uncheckhidden,CSSradio/copyregression76vectors,imagesidentical/10slots/onefield. Actualnativephonecheckboxvisualunverified;no browserpolicyworkaround. Progress78unchanged,noexperiment/modelcall/newtruth. Reportfiles/diff/checks/risk/rollback;ordinarypushSHA. Revert UIcommit only,preservehumanresponses/receipts/artifacts.
 
 Checkpoint ten_checks PASS:10nativecheckboxes/checkeddefault/labelassociation/direct-siblingCSS hide-show;76JSONvectors;photoidentity/copyfield/unknown/null protection. Functions2/0 unchanged;no realphone observation. Rawreceived10slots validated and saved;9nonnull IDs markedreviewed,1nullpending retained;priorpacket/receipts unchanged.
+
+Handoff source a848fb13923f369641889c384d45e4afac31062f;artifacts/mobile-ten-toggle-20261110/review-10-checkbox.html/status.html;report docs/collaboration/reports/mobile-ten-toggle-20261110.md. Actualpostflight10checkboxes/oneJSON/4samplesvalid/6,872,204bytes;indices23+30..38. Humananswers7defect2unknown1nullpreserved;no retraining.
