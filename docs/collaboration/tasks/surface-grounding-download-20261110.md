@@ -12,3 +12,7 @@
 - checks: existing syntheticPython/Node checks; Node actualBlob/fetch download payload matches exact submitted JSON/notes, identity/filename/count and empty-disabled state; static actual313case/newanchor/embeddedpacket/relativepaths checks. No model evaluation.
 - HTML: artifacts/surface-grounding-download-20261110/report.html, new URL to protect old open-tab input; open same OS path with host permission, record opening versus render verification. No browser/file-content policy bypass.
 - risks/rollback: unsaved old-tab input remains there; user must copy/export before refreshing it. Some browsers differ in file-save behavior; copy textarea fallback retained. Rollback this UI commit only, preserve diagnostics/packet/humananswers. Ordinarypush and remoteSHA confirmation. No new worktree/other-worktree/.claude changes.
+
+## Checks before report generation
+
+Existing Python/Node grounding contracts passed. New NodeVM test executes actual refreshExport with native Blob/objectURL and fetch, verifies exact UTF-8 JSON/notes/packet identity, filename/count, disabled empty state and revoked previous URL. No browser render/download claim. JSproduction7functions unchanged; Nodechecks5definitions (async check+3DOMmethods+catch arrow),Pythonreport3. Native anchor retains link keyboard semantics. Source changes3files,37lines mostly new meaningful download test. No model/worker/runtime/packet/oldHTML edits. New313case HTML generated after UI source commit; original old-tab state unaffected.

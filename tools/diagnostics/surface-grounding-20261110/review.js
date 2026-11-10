@@ -49,6 +49,16 @@ function refreshExport() {
   validateAnswers(packet, value);
   document.getElementById("export").value = JSON.stringify(value, null, 2);
   document.getElementById("answered").textContent = String(value.responses.length);
+  const download = document.getElementById("download");
+  if (download.dataset.objectUrl) URL.revokeObjectURL(download.dataset.objectUrl);
+  delete download.dataset.objectUrl; download.removeAttribute("href");
+  download.setAttribute("aria-disabled", String(value.responses.length === 0));
+  download.tabIndex = value.responses.length ? 0 : -1;
+  if (value.responses.length) {
+    download.href = URL.createObjectURL(new Blob([document.getElementById("export").value], {type: "application/json;charset=utf-8"}));
+    download.dataset.objectUrl = download.href;
+    download.download = `surface-grounding-${packet.packet_id.slice(0, 12)}-${value.responses.length}.json`;
+  }
 }
 
 async function handleClick(event) {

@@ -32,3 +32,28 @@ const normal=structuredClone(packet);normal.entries[0].row.target=0;
 const normalAnswer=structuredClone(answer);normalAnswer.responses[0].target=0;normalAnswer.responses[0].category="print_pattern";normalAnswer.responses[0].point.label="normal_explanation";
 assert.equal(validateAnswers(normal,normalAnswer).responses[0].point.label,"normal_explanation");
 console.log("PASS: JavaScript crop-coordinate mapping; explicit/unknown/normal explanations; exact note export; packet/truth/kind/bounds/duplicate/existing-evidence guards");
+
+
+async function checkDownload() {
+  const fs = require("node:fs"), vm = require("node:vm");
+  const context = vm.createContext({module:{exports:{}}, Blob, URL});
+  vm.runInContext(fs.readFileSync(require.resolve("./review.js"), "utf8"), context);
+  const nodes = {export:{value:""}, answered:{textContent:""}, download:{dataset:{}, attrs:{},
+    setAttribute(name,value){this.attrs[name]=value;},
+    removeAttribute(name){delete this.attrs[name];delete this[name];}}};
+  context.document = {getElementById(id){return nodes[id];}};
+  context.fixturePacket = packet; context.fixtureResponses = {[row.id]:answer.responses[0]};
+  vm.runInContext("packet=fixturePacket; responses=fixtureResponses; refreshExport();", context);
+  const url = nodes.download.href;
+  assert.ok(url.startsWith("blob:")); assert.equal(nodes.download.download,"surface-grounding-packet-1.json");
+  assert.equal(nodes.download.attrs["aria-disabled"],"false"); assert.equal(nodes.download.tabIndex,0);
+  const payload = JSON.parse(await (await fetch(url)).text());
+  assert.deepEqual(payload, answer); assert.equal(payload.responses[0].note,answer.responses[0].note);
+  context.fixtureResponses = {};
+  vm.runInContext("responses=fixtureResponses; refreshExport();", context);
+  assert.equal(nodes.download.href,undefined); assert.equal(nodes.download.attrs["aria-disabled"],"true");
+  assert.equal(nodes.download.tabIndex,-1); assert.equal(nodes.answered.textContent,"0");
+  let revoked=false;try{await fetch(url);}catch{revoked=true;}assert.ok(revoked);
+  console.log("PASS: native Blob JSON download preserves exact UTF-8 responses and packet,filename/count; empty export disabled; previous URL revoked");
+}
+checkDownload().catch(error => {console.error(error);process.exitCode=1;});
