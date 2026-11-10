@@ -1,7 +1,7 @@
 # 모바일 원본 픽셀 위치 검토 — 2026-11-10
 
 - task_id: surface-grounding-mobile-20261110
-- owner/status: Codex main / implementing,solo primary main.
+- owner/status: Codex main / integrated/tooling_completed/human_evidence_pending,solo primary main.
 - base_sha: 61ca7daec044b5409b7430618685fd0dc6497b87.
 - authorization: User confirmed inline native-pixel display-check looks good and requested next development. Fix actual review using confirmed ordinary embedded img approach; no model experiment/training/new labels.
 - goal: Preserve original native crop pixels in self-contained ordinary images, exact click inversion and visible point markers; generate313selected cases in≤5case mobile HTML pages with JSON export/resume same original packet/schema.
@@ -20,3 +20,7 @@
 Python/Node synthetic checks passed. Raw PNG contains original RGB bytes including single-pixel fixture detail; fractional nativecrop[55,91,347,405] matches292×314pixels and bounds exactly. Javascriptclick inverse usesactualintegercropbounds,rejectsoutsideoriginalregion. Model overlays rasterized separately;raw untouched. View projection preserves all1776id/target/imageSHA/box/selected/knownpoints atoriginalindices and originalpacket_id;notcanonicalreplacement. Perpage subset guardrejectsduplicate/nonselectedids. JSONBlob roundtrip/emptydisable/packetbinding/unicode/partialresponses remainvalid; filename addsbatchID only inbatchviews. Countsreport3/reviewJS7/checks4/Nodechecks5/builder0,depthmax3. Existingregionlabels/pastfeedback/oldHTML/runtime/packet unchanged. All generation uses saveddata only; no replay/training. CurrentpageUI not visuallyverified yet; user confirmed onlypreviousinline displayfixture.
 
 Image trust boundary refinement: read each original once,verify SHA before decoding/embed,so crop/context cannot come from different image bytes; latestsource also preserves first-screen78/100progress inbatchheader/index. Initialunpublishedpackagingf65927e retained underartifacts/surface-grounding-mobile-20261110-initial-f65927e; finalnativepackaging regenerated with latestsource,no newmodel execution. Old reports/userinputs remain untouched.
+
+## Final handoff
+
+Finalsourceca79c77c8eae9ce180f9cdc41aa7da64a9544000,baseimplementationf65927e3395741a8a1fbea034c990aa70dd78e22. Python/Node tests passed;63pages/313cases exactcoverage;all313nativePNGRGBbytes exact;all1776projected identity/truth/imageSHA/box/selected/knownpoints preserved;originalpacket/HTML/frozenruntime unchanged. First4.6522MiB/max9.1283MiB. Openedreview-02.html(FN3FP2)hostOSexit0. NewmobileUI/input/download unverified;onlypreviousdisplayfixture userconfirmed. No labels/training/inference/model/qualitygatechange,78/100v1.13 maintained. Remainingdependencynewhumanpoint/explanation/cannot_localize,partialanswersaccepted. 7changedfiles/checks/risks/rollback in matchingreport. Ordinarypush/remoteSHAevidence in artifacts/surface-grounding-mobile-20261110/remote-sync.json. Existing.claude/retainedworktrees untouched.
