@@ -1,7 +1,7 @@
 # 검토 JSON 파일로 전달 — 2026-11-10
 
 - task_id: surface-grounding-download-20261110
-- owner/status: Codex main / implementing; solo primary checkout, main.
+- owner/status: Codex main / integrated/completed; solo primary checkout, main.
 - base_sha: 2de1dfaa394a90df827f888bfc01066dc3c2bb36.
 - authorization: User requested an easier way to provide reviewed JSON. Add a native JSON download beside existing copy/export, keep answer schema/packet/labels/model unchanged.
 - goal: One recorded review can be downloaded as UTF-8 JSON and attached to chat; empty responses cannot be downloaded; submitted notes/packet identity preserved; old open report/runtime untouched.
@@ -16,3 +16,7 @@
 ## Checks before report generation
 
 Existing Python/Node grounding contracts passed. New NodeVM test executes actual refreshExport with native Blob/objectURL and fetch, verifies exact UTF-8 JSON/notes/packet identity, filename/count, disabled empty state and revoked previous URL. No browser render/download claim. JSproduction7functions unchanged; Nodechecks5definitions (async check+3DOMmethods+catch arrow),Pythonreport3. Native anchor retains link keyboard semantics. Source changes3files,37lines mostly new meaningful download test. No model/worker/runtime/packet/oldHTML edits. New313case HTML generated after UI source commit; original old-tab state unaffected.
+
+## Handoff
+
+Source7eb2636ba380057a06857aa0ec2bf5eab4dd4e2a. Existing grounding+new nativeBlob UTF-8 download test passed. Actual313case HTML+samepacket/paths/oldHTMLhash/frozenruntime checked. New artifacts/surface-grounding-download-20261110/report.html opened with same host OSopen exit0; render/browserdownload unobserved,securitypolicyunchanged. Original open report untouched; no inferred current user input. Total5files changed,JS7functions/Pythonreport3/Nodechecks5,max3projecttransitions. Fullcheck/risk/rollback in matchingreport. No training/inference/model/label/criterion/progresschange;78/100v1.13 maintained. Ordinarypush/remoteSHA evidence at artifacts/surface-grounding-download-20261110/remote-sync.json. No newworktree; old retained checkouts/.claude unchanged.
