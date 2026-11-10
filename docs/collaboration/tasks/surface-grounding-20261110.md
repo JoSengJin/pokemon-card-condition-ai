@@ -1,7 +1,7 @@
 # α0 손상 위치 근거 진단 — 2026-11-10
 
 - task_id: surface-grounding-20261110
-- owner/status: Codex main / implementing; primary checkout, branch main, no parallel agents.
+- owner/status: Codex main / integrated/tooling_completed/human_evidence_pending; primary checkout, branch main, no parallel agents.
 - base_sha: b76d40f1e2b1825745c59fc0315549ad68e5222f.
 - authorization: User approved developing the identified top priority: connect existing human truth/typed locations with actual model responses, inspect all alpha0 errors plus correct controls, prepare missing-evidence human review. No retraining, label correction, model selection, loss/control/criterion changes or externalAI.
 - goal: Produce a hash-bound diagnostic packet covering1776existing regions, all57FN+167FP and deterministic correct controls across5fold×9area; audit reusable exact-image typed surface points; replay frozen alpha0 heads and expose original crops/top-token support/heatmaps; collect only missing location/explanation as an append-only diagnostic sidecar.
@@ -27,3 +27,7 @@
 ## Replay checkpoint and answer-tool completion
 
 Common record artifacts/experiments/20261109T234706-4aeb730c/record.json completed/exit0,diagnostic reproduction acceptance=true,original model quality acceptance=false.1776same predictions,max saved-score error5.960464477539063e-8; all224errors+89controls=313HTMLreview entries.281input hashes/204photos verified as-run at2026-11-10T01:24:47Z before follow-up. Frozen runtime7Python+JS/CJS/plan/snapshots untouched. After that checkpoint, tracked answers.py/checks.py alone additionally compute geometric top-patch-support containment for submitted human points and preserve unknown for cannot_localize; no replay/inference/training rerun. This follow-up is answer-tool development, not a change to the completed worker or any model. Source boundary recorded separately in final report/postflight. Explicit causal_attribution_proven=false; no label/training edits.
+
+## Completed tooling handoff
+
+Replay source4f82bfbf43bcae8dd644b5003cca1ca614f778f4,answer-tool source06f49c6ce32f81b12d54e085c7629de3f4513224. Commonrecord20261109T234706-4aeb730c completed/exit0,diagnosticacceptance=true,modelquality=false; originalAUC0.931924954826804/FN57/370/FP167/1406 unchanged. Score maxerror5.960464477539063e-8. Packet1776/204photos;review313/147photos=FN57+FP167+TP44+TN45. Same-image typed reusablepoints0 in21inspected sources,actualhumanresponses0. Python/Node tests and actualpacket/HTML/logits/selection/hash/postflight passed. HTML artifacts/surface-grounding-20261110/report.html, originalrun HTML retained and previousroot report-replay-only.html retained. Same OSopen hostpermission exit0, openingrequestaccepted/renderunverified; priorfilecontentpolicyunchanged. report MD records9changedfiles/core diff/checks/memory/risks/rollback. No production/labels/loss/criteria changes. Remainingdependency: new human locations/explanations/cannot_localize, partialanswersaccepted, never request completed regiontruth. No further replay/training/AI; existing worktrees untouched. Ordinarypush and remoteSHA evidence recorded in artifacts/surface-grounding-20261110/remote-sync.json.
