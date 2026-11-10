@@ -1,5 +1,5 @@
 "use strict";
-let packet, responses = Object.create(null);
+let packet, responses = Object.create(null), pointerStart = null, lastPointer = null;
 
 function exactKeys(value, keys) {
   return value !== null && typeof value === "object" && !Array.isArray(value) &&
@@ -61,7 +61,27 @@ function refreshExport() {
 
 function handleClick(event) {
   try {
-    const button=event.target.closest("button"), card=event.target.closest("article[data-index]");
+    const target=event.target && event.target.nodeType===3 ? event.target.parentElement : event.target;
+    if (!target || typeof target.closest !== "function") return;
+    const tappedImage=target.closest("img[data-locate]"), stamp=typeof event.timeStamp === "number" ? event.timeStamp : Date.now();
+    if (event.type === "pointerdown") {
+      pointerStart=tappedImage && event.isPrimary !== false ? {image:tappedImage,id:event.pointerId,x:event.clientX,y:event.clientY,time:stamp} : null;return;
+    }
+    if (event.type === "pointermove") {
+      if (pointerStart && pointerStart.id===event.pointerId && Math.hypot(event.clientX-pointerStart.x,event.clientY-pointerStart.y)>8) pointerStart.moved=true;
+      return;
+    }
+    if (event.type === "pointercancel") {
+      if (pointerStart) lastPointer={image:pointerStart.image,time:stamp};pointerStart=null;return;
+    }
+    if (event.type === "pointerup") {
+      const start=pointerStart;pointerStart=null;
+      if (!start || start.image!==tappedImage || start.id!==event.pointerId) return;
+      lastPointer={image:tappedImage,time:stamp};
+      if (start.moved || event.isPrimary === false || Math.hypot(event.clientX-start.x,event.clientY-start.y)>8 || stamp-start.time>800) return;
+    }
+    if (event.type === "click" && tappedImage && lastPointer && lastPointer.image===tappedImage && stamp>=lastPointer.time && stamp-lastPointer.time<800) {lastPointer=null;return;}
+    const button=target.closest("button"), card=target.closest("article[data-index]");
     if (button && button.id === "copy") {
       const field=document.getElementById("export");field.focus();field.select();field.setSelectionRange(0,field.value.length);
       let copied=false;try{copied=document.execCommand("copy");}catch{}
@@ -77,7 +97,7 @@ function handleClick(event) {
       fields.dataset.judgment=button.dataset.judgment;
       for (const choice of fields.querySelectorAll("button[data-judgment]")) choice.setAttribute("aria-pressed",String(choice===button));
     }
-    const image=event.target.closest("img[data-locate]");
+    const image=tappedImage;
     if (image) {
       const point=pointFromClick(entry.row,image.getBoundingClientRect(),event.clientX,event.clientY,image.dataset.viewBox.split(",").map(Number));
       card.querySelector('[name="x"]').value=point.x;card.querySelector('[name="y"]').value=point.y;drawPoint(card,point);
@@ -117,7 +137,16 @@ async function handleChange(event) {
 }
 
 if (typeof document !== "undefined") {
-  packet = JSON.parse(document.getElementById("packet").textContent);
-  document.addEventListener("click", handleClick); document.addEventListener("change", handleChange); refreshExport();
+  const status=document.getElementById("input-status");
+  try {
+    packet=JSON.parse(document.getElementById("packet").textContent);refreshExport();
+    document.addEventListener("click",handleClick,true);document.addEventListener("change",handleChange,true);
+    for (const type of ["pointerdown","pointermove","pointerup","pointercancel"]) document.addEventListener(type,handleClick,true);
+    for (const control of document.querySelectorAll("[data-requires-js]")) control.disabled=false;
+    status.dataset.state="ready";status.textContent="입력 준비 완료 · 사진을 짧게 터치해 점을 찍고 판정 후 기록하세요.";
+  } catch(error) {
+    status.dataset.state="error";status.textContent="입력 초기화 오류: "+error.message+" · 아직 기록하지 마세요.";
+  }
 }
+
 if (typeof module !== "undefined") module.exports = {pointFromClick, validateAnswers};

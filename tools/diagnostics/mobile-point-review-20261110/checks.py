@@ -60,6 +60,7 @@ if __name__=='__main__':
         up=out/'unknown.json';up.write_text(json.dumps(unknown));unclear=ingest(pp,up,out/'unknown-sidecar.json');assert unclear['human_point_labels']==[] and unclear['unknown_ids']==[r['id']]
         render(packet,[0],out,'test.html','synthetic-only');text=(out/'test.html').read_text();a=Audit();a.feed(text)
         assert a.forms==1 and a.choices==['normal','defect','unknown'] and a.svg==0 and len(a.images)==3
+        assert 'id="input-status"' in text and 'data-state="pending"' in text and '<fieldset disabled data-requires-js>' in text
         assert all(i['src'].startswith('data:image/') for i in a.images) and '미확인' in text and 'min-height:44px' in text
         raw=next(i for i in a.images if 'data-locate' in i)
         with Image.open(io.BytesIO(base64.b64decode(raw['src'].split(',')[1]))) as decoded:assert decoded.convert('RGB').tobytes()==im.tobytes()
@@ -68,6 +69,7 @@ if __name__=='__main__':
         js=(HERE/'review.js').read_text();assert 'execCommand("copy")' in js and 'navigator.clipboard' not in js and 'localStorage' not in js
         assert js.count('function ')==7
     subprocess.run(['node',str(HERE/'checks.cjs')],check=True)
+    subprocess.run(['node',str(HERE/'touch_checks.cjs')],check=True)
     counts={p.name:sum(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef,ast.Lambda)) for n in ast.walk(ast.parse(p.read_text()))) for p in HERE.glob('*.py')};assert max(counts.values())<=7
     print('PASS: explicit-point truth only,unknown/pending not binary,conflicts preserved without region overwrite,no overwrite,completed not reasked,native pixels,≤5 static inline img/mobile controls')
     print(json.dumps(dict(function_counts=counts,javascript_functions=7,model_calls=0,human_answers_created=0)))

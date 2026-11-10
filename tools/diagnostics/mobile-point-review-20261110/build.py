@@ -10,7 +10,7 @@ sys.path.insert(0,str(HERE))
 from review import make_packet,render
 
 if __name__=='__main__':
-    source=ROOT/'artifacts/surface-grounding-20261110/packet.json';before=source.read_bytes();packet=make_packet(json.loads(before));out=ROOT/'artifacts/mobile-point-review-20261110';out.mkdir(exist_ok=True)
+    source=ROOT/'artifacts/surface-grounding-20261110/packet.json';before=source.read_bytes();packet=make_packet(json.loads(before));out=Path(sys.argv[1]).resolve() if len(sys.argv)>1 else ROOT/'artifacts/mobile-point-review-20261110';out.mkdir(exist_ok=True)
     with (out/'packet.json').open('x') as f:json.dump(packet,f,ensure_ascii=False)
     sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip();pages=[]
     for start in range(0,len(packet['entries']),5):
