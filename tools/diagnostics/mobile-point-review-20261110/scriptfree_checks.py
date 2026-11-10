@@ -10,6 +10,7 @@ import re
 import tempfile
 from scriptfree import ROOT,HERE,STATES,render
 from review import digest,validate
+from manual import SCOPE,validate_manual
 
 
 class Audit(HTMLParser):
@@ -40,7 +41,8 @@ if __name__=='__main__':
             assert selector+f' #result-{suffix}'+'{display:block}' in text
             for e,state in zip(packet['entries'][5:10],combination):
                 if state[2] is not None:expected.append(dict(id=e['id'],image_sha256=e['row']['image_sha256'],region_target=e['row']['target'],judgment=state[2],point=None,location_description=''))
-            assert draft==dict(schema_version=1,kind='surface_point_review_manual_draft',packet_id=packet['packet_id'],responses=expected)
+            assert draft==dict(schema_version=1,kind='surface_point_review_manual_draft',scope=SCOPE,packet_id=packet['packet_id'],responses=expected)
+            if suffix in ('pending-pending-pending-pending-pending','unknown-unknown-unknown-unknown-unknown','defect-defect-defect-defect-defect'):validate_manual(packet,draft)
             try:validate(packet,draft)
             except ValueError:pass
             else:raise AssertionError('Draft accepted as exact point truth')
@@ -49,6 +51,10 @@ if __name__=='__main__':
         assert '@supports selector(:has(*)){#manual-fallback{display:none}' in text and 'localStorage' not in text
         assert 'href="#results"' in text and 'href="#answers-' not in text and '선택 전 항목은 JSON에서 빠집니다' in text
         assert len(text.encode())<8*1024*1024
+        assert '점선 안팎과 무관하게' in text and 'white-space:nowrap' in text
+        reviewed={packet['entries'][5]['id']:dict(judgment='defect')}
+        assert render(packet,list(range(5,10)),out,'reviewed.html','synthetic-check',reviewed)==4
+        assert '<article data-index="5">' not in (out/'reviewed.html').read_text()
         completed=copy.deepcopy(packet);completed['entries'][5]['completed']=True;completed['packet_id']=digest(completed)
         assert render(completed,list(range(5,10)),out,'done.html','synthetic-check')==4
         assert '<article data-index="5">' not in (out/'done.html').read_text()
@@ -56,6 +62,6 @@ if __name__=='__main__':
         except ValueError:pass
         else:raise AssertionError('More than five allowed')
     assert digest(packet)==before
-    counts={name:sum(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef,ast.Lambda)) for n in ast.walk(ast.parse((HERE/name).read_text()))) for name in ('scriptfree.py','scriptfree_checks.py')};assert max(counts.values())<=7
+    counts={name:sum(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef,ast.Lambda)) for n in ast.walk(ast.parse((HERE/name).read_text()))) for name in ('scriptfree.py','scriptfree_checks.py','manual.py','manual_checks.py')};assert max(counts.values())<=7
     print('PASS: all1024 combinations map to one selected full JSON;pending omitted/unknown explicit;draft rejected by exactpoint validator;CSS :has mapping/support fallback;completed skipped;max5;10 native images identical;noJS;under8MiB;no labels/model calls')
     print(json.dumps(dict(function_counts=counts,device_render_verified=False)))
