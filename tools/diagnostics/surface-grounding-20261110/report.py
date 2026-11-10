@@ -1,5 +1,6 @@
 """Local diagnostic report: raw crop first, model support separate, missing-only review."""
 import base64
+import hashlib
 import html
 import io
 import json
@@ -10,7 +11,9 @@ from PIL import Image,ImageOps,ImageDraw
 
 def crop_view(entry,out,model=False):
     row=entry['row'];width,height=entry['image_size'];l,t,r,b=row['box']
-    with Image.open(row['image']) as source:
+    original_bytes=Path(row['image']).read_bytes()
+    if hashlib.sha256(original_bytes).hexdigest()!=row['image_sha256']:raise ValueError('Original photo hash changed')
+    with Image.open(io.BytesIO(original_bytes)) as source:
         mime=Image.MIME[source.format];original=ImageOps.exif_transpose(source).convert('RGB')
     if original.size!=(width,height):raise ValueError('Original photo dimensions changed')
     box=(math.floor(l*width),math.floor(t*height),math.ceil(r*width),math.ceil(b*height))
@@ -38,7 +41,7 @@ def crop_view(entry,out,model=False):
         value+=f'<span class="known-point" style="left:{x}%;top:{y}%" title="기존 확정 표면점"></span>'
     value+='</div></div>'
     if not model:
-        value+=f'<p>원본 구역 {native_size[0]}×{native_size[1]}px · 픽셀 보정/확대 없음</p><details class="original-context"><summary>원사진 전체 보기</summary><img alt="원사진 전체" width="{width}" height="{height}" src="data:{mime};base64,{base64.b64encode(Path(row['image']).read_bytes()).decode()}"></details>'
+        value+=f'<p>원본 구역 {native_size[0]}×{native_size[1]}px · 픽셀 보정/확대 없음</p><details class="original-context"><summary>원사진 전체 보기</summary><img alt="원사진 전체" width="{width}" height="{height}" src="data:{mime};base64,{base64.b64encode(original_bytes).decode()}"></details>'
     return value
 
 
@@ -77,7 +80,7 @@ def render_report(packet,summary,out,script,case_indices=None,filename="report.h
     projection=dict(kind='surface_grounding_display_projection',packet_id=packet['packet_id'],entries=[dict(row={k:e['row'][k] for k in ('id','target','image_sha256','box')},selected=e['selected'],known_points=e['known_points']) for e in packet['entries']])
     if summary.get('batch_number'):
         projection['batch_name']=f"{summary['batch_number']:02d}"
-        page=page.replace('<h1>개발78/100(v1.13) · α0 손상 위치 근거 검토</h1>',f"<h1>원본 픽셀 검토 · 묶음 {summary['batch_number']:02d}/{summary['batch_total']}</h1><p>이 파일은 {len(selected)}구역입니다. 기록 후 JSON을 저장해 채팅에 첨부하세요. 이전 묶음의 JSON을 불러오면 답을 합쳐 저장할 수 있습니다.</p>")
+        page=page.replace('<h1>개발78/100(v1.13) · α0 손상 위치 근거 검토</h1>',f"<h1>원본 픽셀 검토 · 묶음 {summary['batch_number']:02d}/{summary['batch_total']}</h1><p>개발 진척78/100(v1.13) 유지 · 모델 개선 미평가.</p><p>이 파일은 {len(selected)}구역입니다. 기록 후 JSON을 저장해 채팅에 첨부하세요. 이전 묶음의 JSON을 불러오면 답을 합쳐 저장할 수 있습니다.</p>")
     encoded=json.dumps(projection,ensure_ascii=False,separators=(',',':'),allow_nan=False).replace('<',chr(92)+'u003c')
     page+='<script type="application/json" id="packet">'+encoded+'</script><script>'+Path(script).read_text()+'</script></html>'
     assert page.count('<article data-index=')==len(selected)

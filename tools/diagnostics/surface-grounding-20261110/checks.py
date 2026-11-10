@@ -121,6 +121,7 @@ if __name__=='__main__':
         rejects(render_report,packet,dict(source_sha='synthetic'),directory,HERE/'review.js',[selected[0],selected[0]],'bad.html')
         rejects(render_report,packet,dict(source_sha='synthetic'),directory,HERE/'review.js',[-1],'bad.html')
         sample=copy.deepcopy(packet['entries'][selected[0]]);sample['row']['box']=[.1234,.2045,.7744,.9033]
+        bad_photo=copy.deepcopy(sample);bad_photo['row']['image_sha256']='changed';rejects(crop_view,bad_photo,directory)
         fragment=crop_view(sample,directory)
         parser=NativeImages();parser.feed(fragment);native=parser.images[0]
         bounds=tuple(map(int,(55,91,347,405)))
