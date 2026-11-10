@@ -6,13 +6,15 @@ function exactKeys(value, keys) {
     JSON.stringify(Object.keys(value).sort()) === JSON.stringify(keys.slice().sort());
 }
 
-function pointFromClick(row, rect, clientX, clientY) {
+function pointFromClick(row, rect, clientX, clientY, bounds = row.box) {
   if (!(rect.width > 0 && rect.height > 0)) throw Error("원본 표시 크기를 확인하세요.");
   const u = (clientX - rect.left) / rect.width, v = (clientY - rect.top) / rect.height;
   if (![u, v].every(Number.isFinite) || u < 0 || u > 1 || v < 0 || v > 1) throw Error("구역 안의 위치를 선택하세요.");
-  return {x: row.box[0] + u * (row.box[2] - row.box[0]),
-    y: row.box[1] + v * (row.box[3] - row.box[1]),
+  const point = {x: bounds[0] + u * (bounds[2] - bounds[0]),
+    y: bounds[1] + v * (bounds[3] - bounds[1]),
     label: row.target ? "surface_defect" : "normal_explanation"};
+  if (point.x < row.box[0] || point.x > row.box[2] || point.y < row.box[1] || point.y > row.box[3]) throw Error("구역 경계 안쪽을 선택하세요.");
+  return point;
 }
 
 function validateAnswers(p, a) {
@@ -37,11 +39,12 @@ function validateAnswers(p, a) {
 }
 
 function drawPoint(card, point) {
-  const svg = card.querySelector("svg[data-locate]"), size = card.dataset.size.split(",").map(Number);
-  let circle = svg.querySelector(".new-point");
-  if (!circle) { circle = document.createElementNS("http://www.w3.org/2000/svg", "circle"); circle.setAttribute("class", "new-point"); svg.appendChild(circle); }
-  circle.setAttribute("cx", point.x * size[0]); circle.setAttribute("cy", point.y * size[1]);
-  circle.setAttribute("r", Math.max(2, Number(svg.dataset.radius)));
+  const image = card.querySelector("img[data-locate]"), bounds = image.dataset.viewBox.split(",").map(Number);
+  const layer = image.parentElement.querySelector(".point-layer");
+  let marker = layer.querySelector(".new-point");
+  if (!marker) { marker = document.createElement("span"); marker.setAttribute("class", "new-point"); layer.appendChild(marker); }
+  marker.style.left = `${100 * (point.x - bounds[0]) / (bounds[2] - bounds[0])}%`;
+  marker.style.top = `${100 * (point.y - bounds[1]) / (bounds[3] - bounds[1])}%`;
 }
 
 function refreshExport() {
@@ -57,7 +60,8 @@ function refreshExport() {
   if (value.responses.length) {
     download.href = URL.createObjectURL(new Blob([document.getElementById("export").value], {type: "application/json;charset=utf-8"}));
     download.dataset.objectUrl = download.href;
-    download.download = `surface-grounding-${packet.packet_id.slice(0, 12)}-${value.responses.length}.json`;
+    const batch = packet.batch_name ? `-${packet.batch_name}` : "";
+    download.download = `surface-grounding-${packet.packet_id.slice(0, 12)}${batch}-${value.responses.length}.json`;
   }
 }
 
@@ -76,9 +80,9 @@ async function handleClick(event) {
       card.querySelector(".response-state").textContent = "미복사 설명 수정 중 · 기존 정답 유지"; refreshExport(); return;
     }
     if (!fields || fields.disabled) return;
-    const row = entry.row, svg = event.target.closest("svg[data-locate]");
-    if (svg) {
-      const point = pointFromClick(row, svg.getBoundingClientRect(), event.clientX, event.clientY);
+    const row = entry.row, image = event.target.closest("img[data-locate]");
+    if (image) {
+      const point = pointFromClick(row, image.getBoundingClientRect(), event.clientX, event.clientY, image.dataset.viewBox.split(",").map(Number));
       card.querySelector('[name="x"]').value = point.x; card.querySelector('[name="y"]').value = point.y; drawPoint(card, point);
     }
     if (button && button.dataset.action === "record") {

@@ -49,6 +49,9 @@ async function checkDownload() {
   assert.equal(nodes.download.attrs["aria-disabled"],"false"); assert.equal(nodes.download.tabIndex,0);
   const payload = JSON.parse(await (await fetch(url)).text());
   assert.deepEqual(payload, answer); assert.equal(payload.responses[0].note,answer.responses[0].note);
+  context.fixturePacket = {...packet,batch_name:"01"};
+  vm.runInContext("packet=fixturePacket; refreshExport();", context);
+  assert.equal(nodes.download.download,"surface-grounding-packet-01-1.json");
   context.fixtureResponses = {};
   vm.runInContext("responses=fixtureResponses; refreshExport();", context);
   assert.equal(nodes.download.href,undefined); assert.equal(nodes.download.attrs["aria-disabled"],"true");
@@ -57,3 +60,11 @@ async function checkDownload() {
   console.log("PASS: native Blob JSON download preserves exact UTF-8 responses and packet,filename/count; empty export disabled; previous URL revoked");
 }
 checkDownload().catch(error => {console.error(error);process.exitCode=1;});
+
+const fractionalRow={...row,box:[.201,.301,.599,.899]};
+const croppedPoint=pointFromClick(fractionalRow,{left:50,top:20,width:292,height:314},196,177,[.2,.3,.6,.9]);
+assert.ok(Math.abs(croppedPoint.x-.4)<1e-14 && Math.abs(croppedPoint.y-.6)<1e-14);
+let edgeRejected=false;try{pointFromClick(fractionalRow,{left:50,top:20,width:292,height:314},50,20,[.2,.3,.6,.9]);}catch{edgeRejected=true;}assert.ok(edgeRejected);
+const projected={kind:"surface_grounding_display_projection",packet_id:packet.packet_id,entries:packet.entries};
+assert.equal(validateAnswers(projected,answer).packet_id,packet.packet_id);
+console.log("PASS: native integer-crop bounds invert to original normalized coordinates; outside original region rejected; projected packet retains answer binding");

@@ -1,5 +1,7 @@
 """Synthetic grounding/audit/answer/renderer contracts; no real inference."""
 import ast
+import base64
+import io
 import copy
 import hashlib
 from html.parser import HTMLParser
@@ -16,7 +18,7 @@ HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[2]
 sys.path.insert(0,str(ROOT));sys.path.insert(0,str(HERE))
 from audit import audit_points,make_packet,packet_digest
 from answers import validate_answers,ingest
-from report import render_report
+from report import render_report,crop_view
 
 
 def load(name,path):
@@ -27,6 +29,12 @@ def rejects(function,*args):
     try:function(*args)
     except (ValueError,FileExistsError):return
     raise AssertionError('Invalid or overwriting operation accepted')
+
+
+class NativeImages(HTMLParser):
+    def __init__(self):super().__init__();self.images=[]
+    def handle_starttag(self,tag,attrs):
+        if tag=='img':self.images.append(dict(attrs))
 
 
 if __name__=='__main__':
@@ -45,7 +53,7 @@ if __name__=='__main__':
             except ValueError:continue
             assert 0<g['coverage']<=1 and all(0<=v<=1 for v in g['box'])
     with tempfile.TemporaryDirectory() as temp:
-        directory=Path(temp);image=directory/'original #?.png';Image.new('RGB',(448,448)).save(image);sha=hashlib.sha256(image.read_bytes()).hexdigest()
+        directory=Path(temp);image=directory/'original #?.png';fixture_image=Image.new('RGB',(448,448));fixture_image.putpixel((123,234),(255,0,0));fixture_image.save(image);sha=hashlib.sha256(image.read_bytes()).hexdigest()
         rows=[dict(id='positive',side='back',group='g',target=1,image=str(image),image_sha256=sha,box=[0.,0.,.5,1.],area='middle_left'),dict(id='normal',side='back',group='g',target=0,image=str(image),image_sha256=sha,box=[.5,0.,1.,1.],area='middle_right')]
         annotation=dict(id='card',group='g',reviewed_by='J',side_annotations=dict(back=dict(image=str(image),labels=dict(surface_defect=1),defect_points=[dict(label='surface_defect',x=.25,y=.5)])))
         documents=[annotation,copy.deepcopy(annotation)]
@@ -100,10 +108,29 @@ if __name__=='__main__':
         packet['packet_id']=packet_digest(packet)
         render_report(packet,dict(source_sha='synthetic-only'),directory,HERE/'review.js')
         page=(directory/'report.html').read_text();HTMLParser().feed(page)
-        assert page.count('<article data-index=')==20 and page.count('<fieldset>')==20 and 'original%20%23%3F.png' in page
+        assert page.count('<article data-index=')==20 and page.count('<fieldset>')==20 and '<svg' not in page and 'src="../' not in page
         assert 'data:image/png;base64,' in page and 'data-locate="true"' in page and 'value="">선택 전' in page
         assert 'innerHTML' not in (HERE/'review.js').read_text()
-        embedded=page.split('<script type="application/json" id="packet">')[1].split('</script>')[0];assert json.loads(embedded)==packet
+        embedded=json.loads(page.split('<script type="application/json" id="packet">')[1].split('</script>')[0]);assert embedded['packet_id']==packet['packet_id']
+        assert embedded['kind']=='surface_grounding_display_projection' and len(embedded['entries'])==len(packet['entries'])
+        for actual,original in zip(embedded['entries'],packet['entries']):
+            assert actual['row']=={k:original['row'][k] for k in ('id','target','image_sha256','box')} and actual['selected']==original['selected'] and actual['known_points']==original['known_points']
+        selected=[e['parent_index'] for e in packet['entries'] if e['selected']]
+        render_report(packet,dict(source_sha='synthetic'),directory,HERE/'review.js',case_indices=selected[:5],filename='batch.html')
+        assert (directory/'batch.html').read_text().count('<article data-index=')==5
+        rejects(render_report,packet,dict(source_sha='synthetic'),directory,HERE/'review.js',[selected[0],selected[0]],'bad.html')
+        rejects(render_report,packet,dict(source_sha='synthetic'),directory,HERE/'review.js',[-1],'bad.html')
+        sample=copy.deepcopy(packet['entries'][selected[0]]);sample['row']['box']=[.1234,.2045,.7744,.9033]
+        fragment=crop_view(sample,directory)
+        parser=NativeImages();parser.feed(fragment);native=parser.images[0]
+        bounds=tuple(map(int,(55,91,347,405)))
+        with Image.open(io.BytesIO(base64.b64decode(native['src'].split(',')[1]))) as decoded:
+            assert decoded.size==(292,314) and decoded.convert('RGB').tobytes()==fixture_image.crop(bounds).tobytes()
+        assert list(map(float,native['data-view-box'].split(',')))==[55/448,91/448,347/448,405/448]
+        assert (native['width'],native['height'])==('292','314')
+        sample['known_points']=[dict(x=.3,y=.4,label='surface_defect')];fragment=crop_view(sample,directory)
+        assert 'class="known-point"' in fragment and '<svg' not in fragment
+
     subprocess.run(['node',str(HERE/'review_checks.cjs')],check=True)
     counts={p.name:sum(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef,ast.Lambda)) for n in ast.walk(ast.parse(p.read_text()))) for p in HERE.glob('*.py')}
     assert max(counts.values())<=7
