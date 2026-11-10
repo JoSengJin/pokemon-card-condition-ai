@@ -1,6 +1,6 @@
 # 모바일 터치/실행 상태 수정 — 2026-11-10
 
-- task_id mobile-point-touch-fix-20261110; owner Codex main;status implementing;solo main;base32595305bb51991a044a6de32dc295e06cfef410.
+- task_id mobile-point-touch-fix-20261110; owner Codex main;status tooling_ready/device_confirmation_pending;solo main;base32595305bb51991a044a6de32dc295e06cfef410.
 - authorization: user reports 클릭이안먹혀. Diagnose custom script execution versus image touch; fix legitimate event handling within single-file/no server/tunnel/localStorage constraints,never bypass viewer security.
 - allowed_files: tools/diagnostics/mobile-point-review-20261110/{review.js,review.py,build.py,checks.py,touch_checks.cjs};this task;docs/collaboration/reports/mobile-point-touch-fix-20261110.md. Outputs artifacts/mobile-point-touch-fix-20261110/{packet.json,review-*.html,checks.log,postflight.json,opening-status.txt,remote-sync.json}.
 - goal: visible non-JS startup state +disabled inputs until successful JS boot;pointer tap selects correct coordinates;drag/longpress/cancel ignored;following synthetic click not duplicated;click-only fallback works;judgment→record→JSON interaction exercised. Existing completed/unknown/readonly labels/packet/schema preserved.
@@ -13,3 +13,6 @@
 ## Synthetic integration checkpoint
 
 Actual production JS boot exercised inNodeVM DOMfixture: packetparse→exportinitialization→capturelisteners→enablecontrols/readybadge. Buttonchoice→pointerdown/up coordinate+marker→record→JSON passed. Pointermove-out-and-return,drag>8px,cancel,longpress>800ms ignored;subsequentclick within800ms suppressed;click-only andTextNode targets fallback work. Unknownrecord clearsmarker/nullpoint. InvalidJSONstartup reports error,registersnohandlers,leavescontrolsdisabled. Existing schema/unknown/completed/copyfallback/Blobtests passed. JSproduction7,Nodefixture6functions;no modelcalls. This is synthetic interaction coverage,not actual phone reproduction. Rootcause remains pending user report of badge/button scope.
+
+## Packaging checkpoint
+63pages/313cases built from source2d34c61457fc2817028f20a83469e0197408bf3d. Prior packet bytes and all image tags identical;startup markers present in all pages. New alias review-02-touch-fixed.html. Report docs/collaboration/reports/mobile-point-touch-fix-20261110.md; ignored report artifacts/mobile-point-touch-fix-20261110/status.html. Device confirmation pending;no human answers or model calls.
