@@ -1,9 +1,11 @@
 # Mobile single-copy JSON — 2026-11-10
 
-owner Codex main;status implementing;solo;basef6d19b3901d7b30c904149d6fdd172399149396c.
+owner Codex main;status ready_for_review/device_confirmation_pending;solo;basef6d19b3901d7b30c904149d6fdd172399149396c.
 User: 마치고 Json 한번에 복붙하게 개선해. Goal native radios across≤5cases → final single selected JSON textarea, noJS/server/tunnel/localStorage. Keep raw photos/current readonly labels/unknown protection. No individual exports. Notes entered once in final JSON;no false promise automatic free-text merging withoutJS.
 Allowed tools/diagnostics/mobile-point-review-20261110/{scriptfree.py,scriptfree_checks.py};this task;docs/collaboration/reports/mobile-single-copy-20261110.md. Ignored artifacts/mobile-single-copy-20261110/ page/checks/postflight/status/open/remote-sync.
 Use precomputed4^N combinations and CSS form:has radios,existing tools/mobile_assisted_review_page.py pattern. Radios remain in-flow directly after photos. Final link ordinary anchor;no submit. Pending omitted from responses;unknown remains explicitunknown/pointnull;all outputs kind manualdraft rejected by exactpoint validator;completed omitted. Unsupported :has shows one editable manual JSON with null values and clear warning;no incorrect selected export. Actual mobileCSS interaction not verified.
 Structure scriptfree1→2functions,checks2→≤4functions. main→render→combined_outputs2/main→render→crop_view2. No recursion. Static checks all1024combinations correctness,CSS mapping,imagesparity,unknown/pending/completed,max5/fallback;bounded output size and actual opening result. No modelcalls or labels changed. Progress78/100unchanged. Rollback ordinaryrevert preservesoldartifacts and humananswers.
 
 Checkpoint: all1024 selected combinations statically matched their full JSON exactly;pending responses omitted,unknown retained,all drafts rejected by exactpoint validator;fallback nulls,completedskip,max5,unchanged10embeddedimages and <8MiB passed. scriptfree.py2functions/checks2methods. Actual CSS/device render unverified. Initial test hit list/string join error;corrected before successful full run. No human answers or modelcalls.
+
+Handoff source b9e7442fdcf2ef2690d3613f94fa6ed8af34350c;artifact artifacts/mobile-single-copy-20261110/review-02-onecopy.html;report docs/collaboration/reports/mobile-single-copy-20261110.md;static checks pass;phone confirmation pending.
