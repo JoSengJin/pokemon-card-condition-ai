@@ -25,6 +25,12 @@ if __name__=='__main__':
             old=Audit();old.feed(crop_view(entry,out));expected.append(old.images[0])
             if entry['row']['image_sha256'] not in seen:expected.append(old.images[1]);seen.add(entry['row']['image_sha256'])
         assert audit.images==expected and len(set(audit.ids))==len(audit.ids)
+        articles=re.findall(r'<article data-index="[0-9]+">(.*?)</article>',text,re.S);assert len(articles)==10
+        for n,article in enumerate(articles,1):
+            checkbox=f'<input class="overlay-toggle" id="overlay-{n}" type="checkbox" checked>'
+            assert checkbox in article and f'for="overlay-{n}"' in article and article.index(checkbox)<article.index('<div class="raw-frame"')
+        assert '.candidate{display:none;' in text and '.overlay-toggle:checked~.raw-frame .candidate{display:block}' in text
+        assert '미확인 모델 후보 보기 · 점선 켜기/끄기' in text
         assert text.count('id="copy-json"')==1 and 'contenteditable="true"' in text and 'role="textbox"' in text
         content=re.search(r'<div id="copy-json"[^>]*>(.*?)</div>',text,re.S)[1]
         matches=list(re.finditer(r'<span class="response-variant" id="json-([0-9]+)-([^"]+)" data-position="[0-9]+" data-choice="[^"]+">(.*?)</span>',content,re.S));assert len(matches)==40
@@ -46,5 +52,5 @@ if __name__=='__main__':
         assert '선택 전은 judgment:null이며 정답으로 저장하지 않습니다' in text and '점선 밖 결함은 이번 답에 포함하지 않습니다' in text and '점선 안만 확인합니다' in text
         assert result['bytes']<7_000_000
     counts={name:sum(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef,ast.Lambda)) for n in ast.walk(ast.parse((HERE/name).read_text()))) for name in ('ten.py','ten_checks.py')};assert max(counts.values())<=7
-    print('PASS:10 cases/one editable JSON field/40 native choices;76 choice vectors yield valid bound candidateJSON;null pending/unknown preserved;CSS mapping/support fallback;16 native image URIs exact/6 shared fullphotos;noJS/SVG;under7MB')
+    print('PASS:10 native overlay checkboxes/label bindings/defaulton/CSS hide-show;10 cases/one editable JSON field/40 native choices;76 choice vectors yield valid bound candidateJSON;null pending/unknown preserved;CSS mapping/support fallback;16 native image URIs exact/6 shared fullphotos;noJS/SVG;under7MB')
     print(json.dumps(dict(function_counts=counts,actual_phone_selection_and_copy_verified=False)))
