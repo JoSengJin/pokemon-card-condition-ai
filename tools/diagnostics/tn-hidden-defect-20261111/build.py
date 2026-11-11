@@ -12,13 +12,14 @@ sys.path.insert(0, str(ROOT / 'tools/diagnostics/mobile-point-review-20261110'))
 from review import digest
 from ten import render_ten
 OUT = ROOT / 'artifacts/tn-hidden-defect-20261111'
-N, PER_FILE, SEED = 60, 10, 20261111
+N, PER_FILE, SEED = 60, 5, 20261111
 
 
 def sample():
     grounding = json.load(open(ROOT / 'artifacts/surface-grounding-20261110/packet.json'))['entries']
     seen = {a['id'].split('/point-review/')[0] for a in json.load(open(ROOT / 'artifacts/mobile-candidate-review-complete-20261111/candidate-answers.json'))['responses']}
-    pool = [e for e in grounding if e['outcome'] == 'TN' and not e['known_points'] and e['row']['id'] not in seen]
+    on_card = {r['id'] for r in json.load(open(ROOT / 'artifacts/card-foreground-diagnostic-20261111/rows2.json')) if r['outcome'] == 'TN' and not r['bad'] and not r['center_out']}
+    pool = [e for e in grounding if e['row']['id'] in on_card and not e['known_points'] and e['row']['id'] not in seen]
     rng = random.Random(SEED); rng.shuffle(pool); groups, chosen = set(), []
     for e in pool:
         if e['row']['group'] not in groups and len(chosen) < N:
@@ -39,13 +40,14 @@ def packet(chosen):
 
 
 def slim(page):
+    page = re.sub(r'<details class="original-context".*?</details>', '', page, flags=re.S)
+    page = re.sub(r'<p><a href="#photo-\d+">.*?</a></p>', '', page)
     from PIL import Image
     def one(m):
         im = Image.open(io.BytesIO(base64.b64decode(m.group(2)))); buf = io.BytesIO()
         if m.group(1) == 'png':
-            im.save(buf, 'WEBP', lossless=True); kind = 'webp'
-        else:
-            im.thumbnail((1100, 1100)); im.convert('RGB').save(buf, 'WEBP', quality=80); kind = 'webp'
+            return m.group(0)
+        im.thumbnail((1100, 1100)); im.convert('RGB').save(buf, 'JPEG', quality=78); kind = 'jpeg'
         return f'data:image/{kind};base64,' + base64.b64encode(buf.getvalue()).decode()
     return re.sub(r'data:image/(png|jpeg);base64,([A-Za-z0-9+/=]+)', one, page)
 
