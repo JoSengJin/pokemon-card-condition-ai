@@ -8,7 +8,7 @@ from report import OUT, tile
 
 RING = 0.018  # half-size of the visible red ring in normalized photo units
 PER_GROUP = 15
-CHOICES = (('in', '카드 위', '안'), ('out', '카드 밖', '밖'), ('unsure', '애매', '애매'))
+CHOICES = (('in', '네', '네'), ('out', '아니요', '아니요'), ('unsure', '모르겠음', '모름'))
 
 
 def ring(box):
@@ -34,7 +34,7 @@ def page(chosen):
     for n, r in enumerate(chosen, 1):
         img = tile(r['image'], [], [(ring(packet[r['id']]['evidence']['top_geometry']['box']), (255, 0, 0))], 420)
         radios = ''.join(f'<input type="radio" id="r{n}{k}" name="p{n}"{" checked" if k == "in" else ""}><label for="r{n}{k}">{label}</label>' for k, label, _ in CHOICES)
-        cards.append(f'<article><p><b>{n}</b></p><img src="data:image/jpeg;base64,{img}"><div class="ch">{radios}</div></article>')
+        cards.append(f'<article><p><b>{n}.</b> 빨간 동그라미가 카드 위에 있나요?</p><img src="data:image/jpeg;base64,{img}"><div class="ch">{radios}</div></article>')
         for k, _, short in CHOICES:
             spans.append(f'<span class="n" id="s{n}{k}">{n}{short} </span>'); rules.append(f'body:has(#r{n}{k}:checked) #s{n}{k}{{display:inline}}')
     style = ('body{font:18px/1.5 system-ui;max-width:560px;margin:auto;padding:12px 12px 150px}article{border:1px solid #99a;margin:14px 0;padding:8px}'
@@ -43,8 +43,8 @@ def page(chosen):
              '.n{display:none}#out{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:2px solid #14a;padding:10px;font-size:17px}'
              '.fb{display:none}@supports not selector(:has(*)){.fb{display:block}#out{display:none}}' + ''.join(rules))
     return ('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>빨간 고리 위치</title>'
-            f'<style>{style}</style><h2>빨간 고리가 카드 위인가요? · {len(chosen)}장</h2><p>사진마다 <b>빨간 고리</b>가 실제 카드 위인지 카드 밖(배경·케이스·받침)인지만 고르세요. 처음엔 "카드 위"로 선택돼 있고, 다르면 바꾸세요.</p>'
-            + ''.join(cards) + '<p class="fb">이 뷰어는 선택 연결을 지원하지 않습니다. 카드 밖이거나 애매한 사진 번호를 채팅에 적어 주세요.</p>'
+            f'<style>{style}</style><h2>빨간 동그라미가 카드 위? ({len(chosen)}장)</h2><p>카드 위면 그대로 두고, 카드 밖이면 "아니요"를 누르세요.</p>'
+            + ''.join(cards) + '<p class="fb">이 뷰어는 선택 연결을 지원하지 않습니다. "아니요"나 "모르겠음"인 사진 번호를 채팅에 적어 주세요.</p>'
             '<div id="out">아래 줄을 길게 눌러 복사해 채팅에 붙여넣기<br><span contenteditable="true">' + ''.join(spans) + '</span></div>')
 
 
