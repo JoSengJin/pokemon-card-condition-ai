@@ -1,0 +1,111 @@
+{
+ "id": "label-noise-floor-20261112",
+ "frozen_at": "2026-11-12T07:46:08+09:00",
+ "status": "frozen_before_computation",
+ "question": "Q1: 현재 라벨(target) 잡음만으로 FP<=112/1406, FN<=67/370 게이트가 원리상 달성 가능한가",
+ "scope": "진단 전용. 학습·추론·라벨·게이트 변경 0. 같은 사람 재판정 기반, 독립 검증 아님.",
+ "inputs": {
+  "artifacts/experiments/20261108T215307-941b3aaa/observations.json": "738fc26248a4127e6bad4e98f931eb29984dc1c73683eec866e10645fa149e09",
+  "artifacts/card-foreground-diagnostic-20261111/rows2.json": "1df3a58437a8e24beed38b74f7987bb59b51fa1f8f54d5cea881b176f763ca77",
+  "artifacts/severity-repro-20261112/sample.json": "ff9c176e72de6b715774c4828f693f12a57a1e3a0cfcc8dcd483acb61cf78117",
+  "artifacts/severity-repro-20261112/responses/sev01.json": "4d0c4952ec3fd89f0c97ca501d9d70f5ea190e4f904384b7ca5f874ce9e258ec",
+  "artifacts/severity-repro-20261112/responses/sev02.json": "78f6c293710c7d11898a731ec2d2312415bdf69a21d3087cc68c69a1633a60c0",
+  "artifacts/severity-repro-20261112/responses/sev03.json": "835dbf24842cfeb0c4c465e59eb936d17ac1b3729e804f29ebbd9cd919e5b42d",
+  "artifacts/severity-repro-20261112/responses/sev04.json": "bcab963cd058f8deb8de4b58044845b679088d30aed59d2f2d1177a53ab61c0b",
+  "artifacts/severity-repro-20261112/responses/sev05.json": "239e8dbb7edab4dd20a7547d3c3c0b0e29594183062b2710c9d7f81a601a02ee",
+  "artifacts/severity-repro-20261112/responses/sev06.json": "d521e9ac72f22c5dba8b8bc7778300208b4d4d5ea9e87790e3514bb3319beddc",
+  "artifacts/severity-repro-20261112/responses/sev07.json": "a1e99d5d396b8b30458e580dc3a5ebf6b901b1609647a6f65d213c2dddc6cae9",
+  "artifacts/severity-repro-20261112/responses/sev08.json": "3f1df0ff65afee7c5a0b3ad278f66d44a19679578fc3a9354914685be18d8f64",
+  "artifacts/severity-repro-20261112/responses/sev09.json": "c4d4cba3123a233279e63cbae376f7e22fccb7603f459f73eb934fab59c471a6",
+  "artifacts/severity-repro-20261112/responses/sev10.json": "309fde0e9a7e95e4ea9a6cec6078a168ee39495b55ba14bdd69f95cf9ec754e4",
+  "artifacts/severity-repro-20261112/responses/sev11.json": "5bd7fc4798556044ecbd5cc19fb57164564c0b400dd6723ea0eefee3f50e5689",
+  "artifacts/severity-repro-20261112/responses/sev12.json": "6052bd294111fe834a0523ec35cd4a7f6a02399e77bee1abed234a0c00b7f824",
+  "artifacts/zone-eval-set-20261112/sample.json": "a9dcc0f55c7df46c89ea19aa716f1500ac5a44e482e961b1dd9cf750920b66f7",
+  "artifacts/zone-eval-set-20261112/responses/zone01.json": "dc75823f66ed9cd95704de658b342c5c1fb422762936f741d4467a2f3ff3d5a5",
+  "artifacts/zone-eval-set-20261112/responses/zone02.json": "7abb8bb50cf6cdae98b32d22e3e20370d735bcba6f85c373826071abf9237472",
+  "artifacts/zone-eval-set-20261112/responses/zone03.json": "c3535717007649f6c2705ee763cc1a7f189d663a07c55a0d1c1e2493817d2dc1",
+  "artifacts/zone-eval-set-20261112/responses/zone04.json": "9f69d760529d099b5a8e7fb69abc77cfe39045fc309194a785bb5cb8962e3744",
+  "artifacts/zone-eval-set-20261112/responses/zone05.json": "28344e80da4cad03b6a36b2a477c8ef516059b7712d7bbcd003ab7a04a108652",
+  "artifacts/zone-eval-set-20261112/responses/zone06.json": "7d86218239069e318a49882667f4bf5bf3bef5df436c3c82f5a31ede0418d246",
+  "artifacts/zone-eval-set-20261112/responses/zone07.json": "2fe5c60a57b4c362e4b4153bfb8409b1b62bb3d42b0ffdbbaa6dc90493e4321c",
+  "artifacts/zone-eval-set-20261112/responses/zone08.json": "964d3a01fea044e8166696600d0f44a39ecc30a9889df10891b3ef0f007984b3",
+  "artifacts/zone-eval-set-20261112/responses/zone09.json": "694a4960af4aa4e79792b64ec96645ce7f8636139c4ce1dc4440488b59e347c1",
+  "artifacts/zone-eval-set-20261112/responses/zone10.json": "bd324c40d61ff9b315be37e17f9e9b57d62fa745107647368ab12477304f2d11",
+  "artifacts/zone-eval-set-20261112/responses/zone11.json": "826b986eab4a5057a1bb41d442e00310a14a83b1dc2ac95502ae7f9a0c89bb2b",
+  "artifacts/zone-eval-set-20261112/responses/zone12.json": "08eaff281436d84a42f0c184bde43ae31f6df0ab1da44654feec7c0f263633ca",
+  "artifacts/zone-eval-set-20261112/responses/zone13.json": "850d0f2c683b87001e721027bcb3cbbf7c5dec12644ee6c01f7ceefe68087f65",
+  "artifacts/zone-eval-set-20261112/responses/zone14.json": "d16856a01f7a251ddabc7b5ea949ee5441bbc81469dd260a8c4aa8f9298bed7c",
+  "artifacts/zone-eval-set-20261112/responses/zone15.json": "f802a0470a13f2a7481b2d3c448d23bf4bcda91e34f242762f10b00a3c198493",
+  "artifacts/zone-eval-set-20261112/responses/zone16.json": "7049ad324ca3ccaf1a8aa0d78ce410e3fb94707572540aae643fee152bc6c5e6",
+  "artifacts/zone-eval-set-20261112/responses/zone17.json": "c06c7998049f4af9389a4355c7a28c3bfc42a8e87d54e48cffb6edb093716efc",
+  "artifacts/zone-eval-set-20261112/responses/zone18.json": "ed1adfcf1e4eb4b555777bf097ae08f51802425a4e02a1e6193cab4839b775b8",
+  "artifacts/zone-eval-set-20261112/responses/zone19.json": "c8873fd357c81e46d697a570aab950c499f925906e2c2b94c2c2a45a9c3ce35f",
+  "artifacts/zone-eval-set-20261112/responses/zone20.json": "174aeaa43fe1f3251633f3b7300f98e63c2e4200140ed2aab67335e6f69f6cca"
+ },
+ "disclosure": "심각도 결과 요약(target0 가중 단계0 35.9%, 단계0~1 84.6%, target1 100% 단계>=1)은 이미 severity-repro-result-20261112.md에 공개되어 있다. 이 사전 등록은 입력에 대해 눈을 가린 것이 아니며, 고정하는 것은 정의·가중·판단불가 처리·부트스트랩·판정 문장이다.",
+ "population": {
+  "rows": 1776,
+  "original_label": "observations.rows[].target",
+  "cell": "(target, score>=0.5)",
+  "card_on": "rows2.json에서 not (bad or center_out) -> 1323곳",
+  "card_off": "나머지 453곳(재판정 표본 없음)"
+ },
+ "primary_source": {
+  "name": "severity-repro-20261112 본 판정 60곳(칸당 15, 카드 위)",
+  "rejudge_defect": "level in {1,2}",
+  "rejudge_normal": "level == 0",
+  "reason": "인쇄면 안쪽 표면만 보는 유일한 구역 단위 재판정이며 LABELING_PROTOCOL의 표면 정의·확대 관찰과 같다(단계1=확대해야 보임도 결함)."
+ },
+ "sensitivity_sources": [
+  {
+   "name": "severity, 결함=level 2만",
+   "rejudge_defect": "level == 2"
+  },
+  {
+   "name": "zone-eval-set-20261112 100곳(칸당 25)",
+   "rejudge_defect": "judgment == defect",
+   "caveat": "\"보이는 모든 흔적\" 기준, 표면 target과 범위가 달라 판정에 쓰지 않음"
+  }
+ ],
+ "not_used": {
+  "candidate_retest_40": "후보 박스 단위라 구역 target과 비교 불가",
+  "tn_hidden_45": "후보 박스 단위",
+  "repeat_judgments": "반복 판정은 같은 구역 중복이므로 본 판정만 사용"
+ },
+ "flip": {
+  "target0_cells": "TN(0/0), FP(0/1): 재판정 결함이면 뒤집힘",
+  "target1_cells": "FN(1/0), TP(1/1): 재판정 정상이면 뒤집힘"
+ },
+ "weighting": "칸별 뒤집힘률 x 카드 위 칸 크기(0/0 946, 0/1 107, 1/0 43, 1/1 227). 표본 단순 합계는 쓰지 않는다.",
+ "unknown_handling": {
+  "primary": "판단불가는 그 칸 분모에서 제외",
+  "sensitivity": "판단불가 = 뒤집히지 않음(원 라벨 유지)"
+ },
+ "floor_definition": {
+  "primary_gate_scale": "재판정이 정답인 상태를 완벽히 맞히는 모델을 원 라벨로 채점할 때: FP_floor = sum_{c in 0/0,0/1} N_c * P(재판정 결함|c), FN_floor = sum_{c in 1/0,1/1} N_c * P(재판정 정상|c). 게이트 분모(1406/370)와 같은 척도.",
+  "literal_prompt_reading": "원 라벨을 완벽히 맞히는 모델을 재판정으로 채점: FP=target1&재판정 정상, FN=target0&재판정 결함. 두 정의는 같은 불일치 칸을 이름만 바꿔 센다. 참고로만 보고하고 판정은 primary_gate_scale로 한다.",
+  "card_off": "카드 밖 453곳은 기여 0으로 둔다(하한). 참고로 카드 밖이 카드 위 칸 비율과 같다고 가정한 외삽값도 보고하되 판정에 쓰지 않는다."
+ },
+ "bootstrap": {
+  "method": "칸별 층화 사진 그룹 군집 부트스트랩: 각 칸 안에서 표본 사진 그룹을 복원 추출(그룹의 구역 전부), 칸 크기는 고정",
+  "B": 10000,
+  "seed": 20261112,
+  "interval": "2.5/97.5 백분위"
+ },
+ "decision_rules": {
+  "FP": [
+   "FP_floor 95% 하한 > 112 -> \"현 라벨로는 FP 게이트 달성 불가 -> 표현 가설 재개 금지\"",
+   "FP_floor 95% 구간이 112 포함 -> \"판단 불가\"",
+   "FP_floor 95% 상한 < 112 -> \"라벨 잡음만으로 설명되지 않음 -> 모델 측 개선 여지 있음\""
+  ],
+  "FN": "같은 규칙, 기준 67",
+  "note": "표본이 작아 구간이 넓어도 기준을 바꾸지 않는다. 결과는 \"같은 사람 재판정 기반, 독립 검증 아님\"으로 표시한다."
+ },
+ "known_limits": [
+  "같은 사람 같은 날 판정",
+  "심각도 반복 가중 kappa 0.234(단 >=1 vs 0 이진은 반복 11/12 일치)",
+  "오류 칸(0/1,1/0)은 후보 제외 해제로 기억 효과 가능",
+  "비오류 칸(0/0,1/1)은 후보 303곳·구역평가 100곳 제외 풀에서 추출(0/0 890/946, 1/1 171/227)",
+  "칸당 15곳"
+ ]
+}
