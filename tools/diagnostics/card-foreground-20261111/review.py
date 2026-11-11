@@ -16,8 +16,8 @@ def ring(box):
     return [cx - RING, cy - RING, cx + RING, cy + RING]
 
 
-def pick():
-    rows = [r for r in json.load(open(OUT / 'rows2.json')) if r['outcome'] == 'FP' and not r['bad']]
+def pick(outcome='FP'):
+    rows = [r for r in json.load(open(OUT / 'rows2.json')) if r['outcome'] == outcome and not r['bad']]
     rng = random.Random(20261111); chosen = []
     for out in (1, 0):
         pool = [r for r in rows if r['center_out'] == out]; rng.shuffle(pool); seen = set()
@@ -49,9 +49,11 @@ def page(chosen):
 
 
 def main():
-    chosen = pick()
-    (OUT / 'ring-review-30.html').write_text(page(chosen))
-    (OUT / 'ring-review-30.map.json').write_text(json.dumps({n: dict(id=r['id'], mask_out=r['center_out']) for n, r in enumerate(chosen, 1)}))
+    outcome = sys.argv[1] if len(sys.argv) > 1 else 'FP'
+    tag = '' if outcome == 'FP' else '-' + outcome.lower()
+    chosen = pick(outcome)
+    (OUT / f'ring-review{tag}-30.html').write_text(page(chosen))
+    (OUT / f'ring-review{tag}-30.map.json').write_text(json.dumps({n: dict(id=r['id'], mask_out=r['center_out']) for n, r in enumerate(chosen, 1)}))
 
 
 if __name__ == '__main__':
