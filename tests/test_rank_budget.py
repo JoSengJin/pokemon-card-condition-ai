@@ -3,7 +3,7 @@ import math
 from pathlib import Path
 import unittest
 
-from card_condition.rank_budget import rank_budget_report
+from card_condition.rank_budget import card_operating_points, card_scores, rank_budget_report
 
 REL = (0.234, 0.688)
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +50,27 @@ class RankBudgetTest(unittest.TestCase):
         tree = ast.parse((ROOT / 'card_condition/rank_budget.py').read_text())
         names = {n.module or '' for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)} | {a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         self.assertEqual(names, {'math'})
+
+
+class CardLevelTest(unittest.TestCase):
+    S, G, T = [.9, .2, .4, .6, .1, .3], ['a', 'a', 'b', 'b', 'c', 'c'], [1, 0, 0, 0, 0, 0]
+
+    def test_card_score_is_max(self):
+        self.assertEqual(card_scores(self.S, self.G), {'a': .9, 'b': .6, 'c': .3})
+
+    def test_operating_points(self):
+        r = card_operating_points(self.S, self.G, self.T, [.5, .95], label_reliability_interval=REL)
+        self.assertEqual((r['defect_cards'], r['normal_cards'], r['unit']), (1, 2, 'card'))
+        self.assertEqual(r['points'][0]['defect_cards_found'], '1/1')
+        self.assertEqual(r['points'][0]['normal_cards_flagged'], '1/2')
+        self.assertEqual(r['points'][1]['defect_cards_found'], '0/1')
+        self.assertIs(r['independent_validation'], False)
+        self.assertGreater(r['points'][0]['false_alarm_upper95'], r['points'][0]['false_alarm'])
+
+    def test_rejects_bad_card_input(self):
+        for s, g, t in (([], [], []), ([math.nan], ['a'], [1]), ([.1, .2], ['a', 'b'], [1, 2]), ([.1, .2], ['a', 'b'], [1, 1])):
+            with self.assertRaises(ValueError):
+                card_operating_points(s, g, t, [.5], label_reliability_interval=REL)
 
 
 if __name__ == '__main__':
