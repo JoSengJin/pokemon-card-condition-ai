@@ -1,0 +1,31 @@
+{
+  "id": "D-LOC",
+  "base": "3cbf778e6ebb8f237684989177896f4367ebd140",
+  "question": "A 결함 경보 카드에서 최고 점수 구역이 기본 표시 A 결함인가?",
+  "inputs": {
+    "oof": "artifacts/experiments/20261108T215307-941b3aaa/observations.json",
+    "a": "artifacts/card-a-eval-20261113",
+    "files": "sample_meta.json, R{1,2,3}_b{1..14}.json and corresponding responses/",
+    "rule_source_read_only": "tools/diagnostics/card-a-eval-20261113/analyze.py",
+    "foreground": "artifacts/card-foreground-diagnostic-20261111/rows2.json",
+    "candidate": "artifacts/candidate-score-audit-20261111/audit.json"
+  },
+  "join": "Pair equal-length rows and scores in original order before selecting 70 sample groups. Require unique IDs, complete group and zone coverage; compare shared group, target and raw score. Normalize candidate ID before /point-review/. Absent candidate is distinct from human unknown. Foreground flag is bad or center_out > 0.",
+  "consensus": "Use non-null existing. Otherwise verify batch code sequence and one vote per rater and code. Majority of 3 or split. Any defect makes a defect card; otherwise at most two unknown+split makes normal, else undetermined.",
+  "ranking": "Maximum unrounded score, then lexicographically smallest zone ID. Report exact maximum ties. Score >= threshold. Unweighted.",
+  "expected": {"cards":70,"zones":615,"card_a":{"defect":26,"normal":40,"undetermined":4},"defect_zones":45,"by_threshold":{"0.5":[24,22,2,2],"0.8":[18,16,2,8]},"order":["alert","assessable","unknown_plus_split","miss"]},
+  "metrics": {
+    "L1": "A defect at top / assessable top among A defect alerts. Two-sided 95% Wilson.",
+    "L2": "Any alerted A defect / all A defect alerts including unknown/split top. Two-sided 95% Wilson.",
+    "L3": "Alerted A defect zones / all 45 A defect zones on 26 cards including misses. Sort group IDs, resample 26 cards with replacement including all zones, sum hits / sum defect zones per replicate. NumPy default_rng seed 20261114, same 2000 draws both thresholds. Linear 2.5 and 97.5 percentiles.",
+    "context": "2x2 human target x A defect/normal on L1; unknown and split separate. Chance = mean across L1 cards of A defect zones / all present zones including unassessed. Descriptive only. L1 by top foreground flag. Candidate distribution for A defect alerted tops, and L1 subset separately. Report assessable/alerts and missed/26 side by side."
+  },
+  "decision": {
+    "primary":0.5,"secondary":0.8,"product_default":0.8,
+    "1":"Stop on missing/duplicate/conflicting required joins or expected denominator mismatch; report IDs, expected, observed. Also mark unmeasurable if >=7 unknown/split among 24 alerts.",
+    "2":"L1 numerator >=14 of exactly 22: design surface false-alarm reduction.",
+    "3":"L1 numerator <=8 of exactly 22: among A-normal tops, strict human-defect majority -> review separate zoom prompt for [0.5,0.8); strict human-normal majority -> design location evidence, defer training; exact tie -> mixed, defer.",
+    "4":"9 through 13 of exactly 22: mixed, defer. No secondary metric overrides branch."
+  },
+  "limits":"Region only, zero click coordinates. No same-mark or point inference, no extrapolation of error-selected candidates, no independent test, no new judgments/inference/training or protected inputs. Stop after recommendation."
+}
