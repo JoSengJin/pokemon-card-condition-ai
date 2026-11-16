@@ -6,7 +6,7 @@
 
 저장된 선택/채점/정답 연결에서 불일치는 발견하지 않았다. **삭제해도 유지되는 점수 묶음은 정상 참조를 보증하지 않는다.** 혼입12곳은 모두 기존 B0 음성 오류에 포함되며 10사진의 안정된 L에 들어 있다. 혼합118장 중 거부89장은 최초 사유 기준 지지수63/삭제 불안정16/낮은 묶음 최고점10으로 설명된다. 조건을 완화한 가상 성능은 계산하지 않았다.
 
-혼입12곳 중 이전 라벨과 현재 라벨이 일치하는 곳이10곳, 변경 이력이 있는 곳이2곳이다. 변경 이력만으로 전체 혼입을 설명하는 주장은 성립하지 않는다. 그러나 두 버전 일치는 독립 사람 재확인도, 물리적 결함의 증명도 아니다. **관찰조건/라벨 의미 차이와 모델 점수 표현 오류는 현재 패킷으로 식별 불가**다. 다음 검증은 이 식별 조건을 확인하는 출처 대조 하나로 한정하되, 필수 독립 판정 원문이 없어 `not_executable_missing_evidence`로 제출한다. 유효한 무인 검증을 확보했다고 주장하지 않는다.
+혼입12곳 중 이전 라벨과 현재 라벨이 일치하는 곳이10곳, 변경 이력이 있는 곳이2곳이다. 변경 이력만으로 전체 혼입을 설명하는 주장은 성립하지 않는다. 그러나 두 버전 일치는 독립 사람 재확인도, 물리적 결함의 증명도 아니다. **관찰조건/라벨 의미 차이와 모델 점수 표현 오류는 현재 패킷으로 식별 불가**다. 다음 검증은 이 식별 조건을 확인하는 출처 대조 하나로 한정하되, 기존 원문104곳은 기본 저장소에서 연결했지만 별도 독립 판정의 동일 조건·시점·비노출 요건을 확보하지 못해 `not_executable_missing_evidence`를 유지한다. 유효한 무인 검증을 확보했다고 주장하지 않는다.
 
 ## 2. 범위·근거·방법
 
@@ -38,7 +38,7 @@
 
 아래 P번호는 다음 사진표와 결합한다. 모든 행은 그 사진의 **봉인 reference_rows = candidate_low인 L**에 속하며, 삭제 결과는 사진 내 모든 구역을 하나씩 뺀 저장 검사 통과 수/전체다. 순위는 사진 전체 저장 점수 오름차순(1=최저), gap은 기존 L의 최대값과 H의 최소값 차이를 검산한 값이다. gap은 표에9자리로 표시하며 선택/동률 판정에는 반올림값을 쓰지 않았다. 해당12행 점수는 각 사진 안에서 동률이 없음을 최종 검산했다.
 
-라벨 출처는 모두 `B/observations.json`의 같은 `(id,image_sha256)` 행 및 `original_rows`다. **유지**는 두 저장 버전의 일치, **변경**은 기존 변경 이력이며 사람 원문에 대한 독립 확인이 아니다. A/관찰조건은12행 모두 정확 연결 자료 미수록/미확인이다.
+라벨 출처는 모두 `B/observations.json`의 같은 `(id,image_sha256)` 행 및 `original_rows`다. **유지**는 두 저장 버전의 일치, **변경**은 기존 변경 이력이며 사람 원문에 대한 독립 확인이 아니다. 최초 동결 패킷에는 A/관찰조건 원문이 미수록이었다. 후속 탐색에서12행 모두 기존 판정 원문과 정확히 연결했으며, 아래 출처표에 반영했다. 독립 판정 여부와 실제 관찰조건은 별도 미확인이다.
 
 |구역ID|opaque rowID|사진|fold|순위/구역수|L/H|최대 gap|삭제 안정|라벨 이력|
 |---|---|---|---:|---:|---:|---:|---:|---|
@@ -91,11 +91,11 @@ L 목록은 아래 group의 `back/surface/<area>`로 펼친 정확한 구역 목
 
 선택 target0 총334 = 혼합151 + 정상 전용183. 같은 혼입사진은 선택59 = 혼입12 + target0 47. FN57 = 혼입12 + 나머지45. 이 분모는 서로 대체하지 않는다. 12/163의 혼합 참조 혼입을12/346으로만 보고 정상 전용을 섞으면 사용 대상의 위험을 축소한다.
 
-모두 B에서 정확한 ID/SHA로 연결되지만, target0 유지 이력은 관찰조건/사람 원문 출처가 동질임을 보증하지 않는다. target0 대조군에는 이진 라벨로 표시되지 않은 불확실성이 있을 수 있으며 그 유무도 미확인이다. 같은 사진47곳도 구역별 재질·손상·관찰조건은 통제하지 못한다. 현재 패킷에 독립 A 판정 원문·관찰조건이 없으므로 A 일치율을 만들지 않았다.
+모두 B에서 정확한 ID/SHA로 연결되지만, target0 유지 이력은 관찰조건/사람 원문 출처가 동질임을 보증하지 않는다. target0 대조군에는 이진 라벨로 표시되지 않은 불확실성이 있을 수 있으며 그 유무도 미확인이다. 같은 사진47곳도 구역별 재질·손상·관찰조건은 통제하지 못한다. 기본 저장소 후속 탐색에서는104곳 원문 연결을 확보했지만, 별도 독립 판정/실제 관찰조건 요건은 충족하지 못해 A 일치율이나 새 판정 검증 결과를 만들지 않았다.
 
 점수 범위는 겹치며 범위만으로 분포·오류의 물리적 원인을 설명하지 않는다. 혼입은 “낮은 안정 묶음”에 사후 선택된 FN이고 나머지45는 그 바깥이므로, 이 둘의 변경 비중 차이를 원인 효과로 해석하지 않는다. 183곳은 정답상 정상만 있는 사진에서 선택되어 혼입0이 구조적으로 보장되는 집합이다. 적용률과 정상성/정답 정확도는 다른 양이다. 5fold 모두 혼입이 있어도 fold 효과가 없다는 증명은 아니다.
 
-사진 출처 폴더별 저장 구역수는 다음과 같다. 이 이름은 B의 image 경로 metadata에서만 읽었고 사진은 열지 않았다. **사진 수집 출처와 라벨 판정 출처는 다르다.** 판정 원문/작성자/관찰조건 출처는 패킷에서 확인할 수 없으며 아래 표로 대체하지 않는다.
+사진 출처 폴더별 저장 구역수는 다음과 같다. 이 이름은 B의 image 경로 metadata에서만 읽었고 사진은 열지 않았다. **사진 수집 출처와 라벨 판정 출처는 다르다.** 판정 원문은 후속 기본 저장소 탐색에서 연결했으며 아래 별도 출처표에 기록한다. 작성자 독립성/실제 관찰조건은 미확인이고 사진 수집 폴더로 대체하지 않는다.
 
 |사진 수집 폴더|혼입12|같은사진47|혼합151|정상전용183|나머지FN45|
 |---|---:|---:|---:|---:|---:|
@@ -110,6 +110,156 @@ L 목록은 아래 group의 `back/surface/<area>`로 펼친 정확한 구역 목
 |`ebay-intake-20261102-ai`|3|15|23|7|5|
 
 수집 폴더 구성도 대조군마다 다르다. 예를 들어 ai는 혼입3/12·정상 전용7/183, ad는 혼입1/12·나머지FN10/45다. 소표본·사후 선택 차이여서 특정 수집 조건을 원인으로 확정하지 않는다.
+
+### 기본 저장소 원문 후속 탐색 — 2026-11-16
+
+사용자의 추가 읽기 전용 탐색 승인으로 동결38개 밖의 기존 개발 기록을 따라갔다. **원문이 없는 것이 아니라, 원문은 있으나 이 설계가 요구하는 독립 판정 근거가 확보되지 않은 상태**로 정정한다. 원래 패킷/manifest는 수정·확장하지 않았다. 아래 파일은 기본 checkout 기준의 추가 탐색 근거이며 새 packet_path를 생성하지 않았다.
+
+|집합|동일 구역ID·사진SHA 연결|원문 응답 연결|별도 §93 기록 연결|§97 기록 연결|
+|---|---:|---:|---:|---:|
+|혼입12|12/12|12/12|0|2|
+|같은사진47|47/47|47/47|0|0|
+|나머지FN45|45/45|45/45|1|18|
+
+연결 사슬은 E/scored-rows의 `(id,image_sha256,group,area)` → `artifacts/surface-label-audit-20261107/audit.json`의 동일 키 → `original_response.path/line` → 원문 줄의 `group/back`와 구역명이다. `surface-corrected-labels-cv-20261104/rows.json`의 같은 ID·사진SHA·box도 대조했다. **원문 TXT 자체에 사진SHA가 들어 있는 것은 아니며**, 저장된 구역 metadata와 출처 매핑을 거친 연결이다. 원사진 파일을 다시 열거나 해시하지 않았다. 원출처7파일의 현재 SHA는 기존 `surface-label-audit-20261107/preserved-inputs.json` 보존값과 모두 일치했다. 이는 저장 출처 연결 확인이지 새 판정 검증 실행이 아니다.
+
+혼입10곳은 현재 라벨을 만든 원판정 자체에 연결된다. 나머지2곳은 `ebay-pair-8b712018d115e4/back/surface/middle_right`의 z73와 `ebay-pair-8f73d488e2832d/back/surface/middle_left`의 z161이며, `zone-relabel-20261104/answers-61-275.lines`의13·101줄에 원문이 있다. 두 구역의 selection number/이미지 경로/box도 같은 사진SHA의 기존 rows metadata와 연결했다. 이 재판정은 이미 현재 라벨에 반영된 출처여서 새 독립 대조 정답이 아니다. 혼입12와 같은사진47에는 별도 §93 재판정 연결이 없고, 나머지FN45의 `ebay-pair-05704a31e488bb/back/surface/lower_right`1곳에만 §93 기록이 있다. 1곳을104곳의 독립 근거로 확장하지 않는다.
+
+§97은 점수·이전 라벨이 없는 화면에서 답했으나, **대상 선정은 모델 점수 기반**이었다(`docs/collaboration/reports/performance-top3-consensus-20261030.md:748-751`). 점수 기반 선정과 판정 화면의 점수 노출은 다르므로 “점수를 보고 답했다”고 바꾸어 쓰지 않는다. §93도 같은 사람의 반복 판정이며 그 자체로 객관적 독립 정답을 뜻하지 않는다(같은 문서:710-716). 최종 선택/규약 확인은 `surface-protocol-finalization-20261107/effective-decisions.json`에 보존돼 있으나 기존 답의 사용 선택을 확인한 기록이지104곳의 새 독립 판정이 아니다.
+
+기존 감사의 `source_guides`에는 표면 손상·엣지/모서리·반사 제외에 관한 안내 원문이 있다. 이 안내의 존재는 확인됐지만, 모든104곳의 실제 조명/확대/관찰조건·판정 시각·점수 비노출을 독립적으로 증명하지 않는다. 폴더 날짜가 실제 판정 시각이라는 보장도 없다. 확인한 출처 사슬에서 설계 요건을 충족하는 독립 판정을 확보하지 못했다는 뜻이며 저장소 전체에 어떤 기록도 없다는 전역 부재 증명은 아니다.
+
+#### 원출처 파일·SHA-256
+
+|코드|기본 checkout 상대경로|현재 SHA-256(기존 보존값과 일치)|
+|---|---|---|
+|R1|`artifacts/ebay-intake-20261102-ad/surface-answers.txt`|`5dc776a8fdf3c234a35561684c071449f047aa289a952e069e4efc9bcbb66814`|
+|R2|`artifacts/ebay-intake-20261102-ae/surface-answers.txt`|`ef06cf4c16172eb93e4869b6be920f518963ff90c4f3f5e7cec2ce128b6742a1`|
+|R3|`artifacts/ebay-intake-20261102-af/surface-answers.txt`|`ce283fb4026e5dce514dae567983c20c5cf747968688a62fbea1a0add179fa65`|
+|R4|`artifacts/ebay-intake-20261102-ag/surface-answers.txt`|`7dfde66d0a038ad3b3c75052a4732c3b0611e5fd75ec7913790387a7f2706a00`|
+|R5|`artifacts/ebay-intake-20261102-ah/surface-answers.txt`|`5963dd5e7f05968b33ba19ba3d5ae05119e26f313cd26162fc3e9062d72148b2`|
+|R6|`artifacts/ebay-intake-20261102-ai/surface-answers.txt`|`850287289cd83d2ba81c50033c02bacd1c207e8120d5eb2bd5c8d25f05f6f9b5`|
+|R7|`artifacts/surface-back-holdout-20261101/surface-answers.txt`|`747d32ff6d3ef57868c398b28a84f86f72686edde10176a4bc64eedb80448715`|
+
+추가 탐색의 연결 metadata SHA-256(원문 판정값/사진은 문서에 복제하지 않음):
+
+- `artifacts/surface-label-audit-20261107/audit.json`: `e696e69235a5d554a2f8eaf720a187c828257db4877cb377f1dd024b7f5fe621`
+- `artifacts/surface-label-audit-20261107/preserved-inputs.json`: `298babced09c488febd50d06ef0aeccf5978f717240bdd88e84672e9b02392e8`
+- `artifacts/surface-protocol-finalization-20261107/effective-decisions.json`: `cbf761d67f0cde64424690fb2715df4846c30fcfbd1a69c2b4c69ebdcc7bc056`
+- `artifacts/surface-corrected-labels-cv-20261104/rows.json`: `d23999c3f26f87538b716c225f158513969a9c0f28663287a45cb5b042138b44`
+- `artifacts/zone-relabel-20261104/selection.json`: `875ee6d9b3604c2b5109acff03c964a26303d4e7af10ea6896e535e250c34b9a`
+- `artifacts/zone-relabel-20261104/answers-61-275.lines`: `e4f1ed68d225fb975e4ddf57afc4f34cf8804af9fec9242d8bfa1b68b2f5a878`
+
+#### 104곳 원문 연결 목록
+
+아래는 원문 라벨값/점수를 옮기지 않은 출처 추적표다. 구역ID에 면·구역이 포함된다. R코드/줄은 위 원출처 TXT의 위치이며, §97은 별도 재판정의 저장 선택 번호다. `—`는 해당 audit 행에 기록이 없다는 뜻이며 정상/독립성 확인을 뜻하지 않는다. §93/§97 존재로 S/D/U를 채점하지 않았다.
+
+|집합|구역ID|image_sha256|원출처/줄|§93 기록|§97 번호|
+|---|---|---|---|---|---|
+|혼입12|`ebay-pair-ef6332f853348b/back/surface/middle_left`|`4ea344a2290d2c6d9079f33c54ca4426c1033fd3e7770a4894631473a136445c`|R4:1|—|—|
+|혼입12|`ebay-pair-ef6332f853348b/back/surface/center`|`4ea344a2290d2c6d9079f33c54ca4426c1033fd3e7770a4894631473a136445c`|R4:1|—|—|
+|혼입12|`ebay-pair-9eacfb8240a175/back/surface/upper_center`|`b8b0d95c23c4bd445e3ba79c4400ca3050683db14c68ac9d88805fe3ebc67a84`|R7:25|—|—|
+|혼입12|`ebay-pair-c5713f37809d71/back/surface/lower_left`|`f2a6f6a464acc67a36c1f6a151e85b3a4cc59a8765579113ab004b7e3b6f7b12`|R6:15|—|—|
+|혼입12|`ebay-pair-f9fbd5669f2646/back/surface/upper_left`|`3d47a0eb728b737c69fea78d72c5780e230812f5c4595c91da50c4f3b47e3c98`|R3:8|—|—|
+|혼입12|`ebay-pair-f9fbd5669f2646/back/surface/lower_right`|`3d47a0eb728b737c69fea78d72c5780e230812f5c4595c91da50c4f3b47e3c98`|R3:8|—|—|
+|혼입12|`ebay-pair-0bf24b72066933/back/surface/center`|`f34f4e49e0e0ae7013e824185766fe894609cbf1721e1aaa91d5facdeb4d1cc2`|R6:12|—|—|
+|혼입12|`ebay-pair-8f73d488e2832d/back/surface/middle_left`|`a067dfb2df9b50f02aaba4810e6ed76ee09b15caf85cf85ac633f00c89decf46`|R7:47|—|z161|
+|혼입12|`ebay-pair-3b3a43b176da9f/back/surface/lower_left`|`45f3ee3cb639a8f04e95075f5139c9a424127bd86dd71e4f3e793f1932619422`|R6:1|—|—|
+|혼입12|`ebay-pair-858f5a4f342cec/back/surface/upper_center`|`dbed3ad3f1cd49b3c857f3822218141f17c5ae0c8b27fe7ea4da12b4d28bd50c`|R1:18|—|—|
+|혼입12|`ebay-pair-b26fe718a8a0ff/back/surface/upper_left`|`b22a158b61dcae8ecd41bfee135f092f654280030cfca716875d0adeddbed674`|R7:6|—|—|
+|혼입12|`ebay-pair-8b712018d115e4/back/surface/middle_right`|`df85ad1dd0cd98a81091b314225f3e54ee897a1f6fca7e40c3fe78fee279f125`|R7:30|—|z73|
+|같은사진47|`ebay-pair-ef6332f853348b/back/surface/middle_right`|`4ea344a2290d2c6d9079f33c54ca4426c1033fd3e7770a4894631473a136445c`|R4:1|—|—|
+|같은사진47|`ebay-pair-ef6332f853348b/back/surface/lower_left`|`4ea344a2290d2c6d9079f33c54ca4426c1033fd3e7770a4894631473a136445c`|R4:1|—|—|
+|같은사진47|`ebay-pair-ef6332f853348b/back/surface/lower_center`|`4ea344a2290d2c6d9079f33c54ca4426c1033fd3e7770a4894631473a136445c`|R4:1|—|—|
+|같은사진47|`ebay-pair-ef6332f853348b/back/surface/lower_right`|`4ea344a2290d2c6d9079f33c54ca4426c1033fd3e7770a4894631473a136445c`|R4:1|—|—|
+|같은사진47|`ebay-pair-9eacfb8240a175/back/surface/upper_left`|`b8b0d95c23c4bd445e3ba79c4400ca3050683db14c68ac9d88805fe3ebc67a84`|R7:25|—|—|
+|같은사진47|`ebay-pair-9eacfb8240a175/back/surface/middle_left`|`b8b0d95c23c4bd445e3ba79c4400ca3050683db14c68ac9d88805fe3ebc67a84`|R7:25|—|—|
+|같은사진47|`ebay-pair-9eacfb8240a175/back/surface/lower_center`|`b8b0d95c23c4bd445e3ba79c4400ca3050683db14c68ac9d88805fe3ebc67a84`|R7:25|—|—|
+|같은사진47|`ebay-pair-9eacfb8240a175/back/surface/lower_right`|`b8b0d95c23c4bd445e3ba79c4400ca3050683db14c68ac9d88805fe3ebc67a84`|R7:25|—|—|
+|같은사진47|`ebay-pair-c5713f37809d71/back/surface/upper_left`|`f2a6f6a464acc67a36c1f6a151e85b3a4cc59a8765579113ab004b7e3b6f7b12`|R6:15|—|—|
+|같은사진47|`ebay-pair-c5713f37809d71/back/surface/upper_right`|`f2a6f6a464acc67a36c1f6a151e85b3a4cc59a8765579113ab004b7e3b6f7b12`|R6:15|—|—|
+|같은사진47|`ebay-pair-c5713f37809d71/back/surface/middle_left`|`f2a6f6a464acc67a36c1f6a151e85b3a4cc59a8765579113ab004b7e3b6f7b12`|R6:15|—|—|
+|같은사진47|`ebay-pair-c5713f37809d71/back/surface/lower_right`|`f2a6f6a464acc67a36c1f6a151e85b3a4cc59a8765579113ab004b7e3b6f7b12`|R6:15|—|—|
+|같은사진47|`ebay-pair-f9fbd5669f2646/back/surface/upper_center`|`3d47a0eb728b737c69fea78d72c5780e230812f5c4595c91da50c4f3b47e3c98`|R3:8|—|—|
+|같은사진47|`ebay-pair-f9fbd5669f2646/back/surface/upper_right`|`3d47a0eb728b737c69fea78d72c5780e230812f5c4595c91da50c4f3b47e3c98`|R3:8|—|—|
+|같은사진47|`ebay-pair-f9fbd5669f2646/back/surface/middle_left`|`3d47a0eb728b737c69fea78d72c5780e230812f5c4595c91da50c4f3b47e3c98`|R3:8|—|—|
+|같은사진47|`ebay-pair-f9fbd5669f2646/back/surface/center`|`3d47a0eb728b737c69fea78d72c5780e230812f5c4595c91da50c4f3b47e3c98`|R3:8|—|—|
+|같은사진47|`ebay-pair-f9fbd5669f2646/back/surface/middle_right`|`3d47a0eb728b737c69fea78d72c5780e230812f5c4595c91da50c4f3b47e3c98`|R3:8|—|—|
+|같은사진47|`ebay-pair-0bf24b72066933/back/surface/upper_left`|`f34f4e49e0e0ae7013e824185766fe894609cbf1721e1aaa91d5facdeb4d1cc2`|R6:12|—|—|
+|같은사진47|`ebay-pair-0bf24b72066933/back/surface/upper_center`|`f34f4e49e0e0ae7013e824185766fe894609cbf1721e1aaa91d5facdeb4d1cc2`|R6:12|—|—|
+|같은사진47|`ebay-pair-0bf24b72066933/back/surface/upper_right`|`f34f4e49e0e0ae7013e824185766fe894609cbf1721e1aaa91d5facdeb4d1cc2`|R6:12|—|—|
+|같은사진47|`ebay-pair-0bf24b72066933/back/surface/middle_left`|`f34f4e49e0e0ae7013e824185766fe894609cbf1721e1aaa91d5facdeb4d1cc2`|R6:12|—|—|
+|같은사진47|`ebay-pair-0bf24b72066933/back/surface/lower_left`|`f34f4e49e0e0ae7013e824185766fe894609cbf1721e1aaa91d5facdeb4d1cc2`|R6:12|—|—|
+|같은사진47|`ebay-pair-0bf24b72066933/back/surface/lower_center`|`f34f4e49e0e0ae7013e824185766fe894609cbf1721e1aaa91d5facdeb4d1cc2`|R6:12|—|—|
+|같은사진47|`ebay-pair-8f73d488e2832d/back/surface/upper_left`|`a067dfb2df9b50f02aaba4810e6ed76ee09b15caf85cf85ac633f00c89decf46`|R7:47|—|—|
+|같은사진47|`ebay-pair-8f73d488e2832d/back/surface/upper_center`|`a067dfb2df9b50f02aaba4810e6ed76ee09b15caf85cf85ac633f00c89decf46`|R7:47|—|—|
+|같은사진47|`ebay-pair-8f73d488e2832d/back/surface/lower_left`|`a067dfb2df9b50f02aaba4810e6ed76ee09b15caf85cf85ac633f00c89decf46`|R7:47|—|—|
+|같은사진47|`ebay-pair-8f73d488e2832d/back/surface/lower_center`|`a067dfb2df9b50f02aaba4810e6ed76ee09b15caf85cf85ac633f00c89decf46`|R7:47|—|—|
+|같은사진47|`ebay-pair-8f73d488e2832d/back/surface/lower_right`|`a067dfb2df9b50f02aaba4810e6ed76ee09b15caf85cf85ac633f00c89decf46`|R7:47|—|—|
+|같은사진47|`ebay-pair-3b3a43b176da9f/back/surface/upper_left`|`45f3ee3cb639a8f04e95075f5139c9a424127bd86dd71e4f3e793f1932619422`|R6:1|—|—|
+|같은사진47|`ebay-pair-3b3a43b176da9f/back/surface/upper_center`|`45f3ee3cb639a8f04e95075f5139c9a424127bd86dd71e4f3e793f1932619422`|R6:1|—|—|
+|같은사진47|`ebay-pair-3b3a43b176da9f/back/surface/center`|`45f3ee3cb639a8f04e95075f5139c9a424127bd86dd71e4f3e793f1932619422`|R6:1|—|—|
+|같은사진47|`ebay-pair-3b3a43b176da9f/back/surface/lower_center`|`45f3ee3cb639a8f04e95075f5139c9a424127bd86dd71e4f3e793f1932619422`|R6:1|—|—|
+|같은사진47|`ebay-pair-3b3a43b176da9f/back/surface/lower_right`|`45f3ee3cb639a8f04e95075f5139c9a424127bd86dd71e4f3e793f1932619422`|R6:1|—|—|
+|같은사진47|`ebay-pair-858f5a4f342cec/back/surface/upper_left`|`dbed3ad3f1cd49b3c857f3822218141f17c5ae0c8b27fe7ea4da12b4d28bd50c`|R1:18|—|—|
+|같은사진47|`ebay-pair-858f5a4f342cec/back/surface/upper_right`|`dbed3ad3f1cd49b3c857f3822218141f17c5ae0c8b27fe7ea4da12b4d28bd50c`|R1:18|—|—|
+|같은사진47|`ebay-pair-858f5a4f342cec/back/surface/middle_left`|`dbed3ad3f1cd49b3c857f3822218141f17c5ae0c8b27fe7ea4da12b4d28bd50c`|R1:18|—|—|
+|같은사진47|`ebay-pair-858f5a4f342cec/back/surface/middle_right`|`dbed3ad3f1cd49b3c857f3822218141f17c5ae0c8b27fe7ea4da12b4d28bd50c`|R1:18|—|—|
+|같은사진47|`ebay-pair-858f5a4f342cec/back/surface/lower_center`|`dbed3ad3f1cd49b3c857f3822218141f17c5ae0c8b27fe7ea4da12b4d28bd50c`|R1:18|—|—|
+|같은사진47|`ebay-pair-858f5a4f342cec/back/surface/lower_right`|`dbed3ad3f1cd49b3c857f3822218141f17c5ae0c8b27fe7ea4da12b4d28bd50c`|R1:18|—|—|
+|같은사진47|`ebay-pair-b26fe718a8a0ff/back/surface/upper_center`|`b22a158b61dcae8ecd41bfee135f092f654280030cfca716875d0adeddbed674`|R7:6|—|—|
+|같은사진47|`ebay-pair-b26fe718a8a0ff/back/surface/middle_right`|`b22a158b61dcae8ecd41bfee135f092f654280030cfca716875d0adeddbed674`|R7:6|—|—|
+|같은사진47|`ebay-pair-b26fe718a8a0ff/back/surface/lower_center`|`b22a158b61dcae8ecd41bfee135f092f654280030cfca716875d0adeddbed674`|R7:6|—|—|
+|같은사진47|`ebay-pair-b26fe718a8a0ff/back/surface/lower_right`|`b22a158b61dcae8ecd41bfee135f092f654280030cfca716875d0adeddbed674`|R7:6|—|—|
+|같은사진47|`ebay-pair-8b712018d115e4/back/surface/upper_center`|`df85ad1dd0cd98a81091b314225f3e54ee897a1f6fca7e40c3fe78fee279f125`|R7:30|—|—|
+|같은사진47|`ebay-pair-8b712018d115e4/back/surface/middle_left`|`df85ad1dd0cd98a81091b314225f3e54ee897a1f6fca7e40c3fe78fee279f125`|R7:30|—|—|
+|같은사진47|`ebay-pair-8b712018d115e4/back/surface/lower_left`|`df85ad1dd0cd98a81091b314225f3e54ee897a1f6fca7e40c3fe78fee279f125`|R7:30|—|—|
+|같은사진47|`ebay-pair-8b712018d115e4/back/surface/lower_center`|`df85ad1dd0cd98a81091b314225f3e54ee897a1f6fca7e40c3fe78fee279f125`|R7:30|—|—|
+|나머지FN45|`ebay-pair-02170c802a45b2/back/surface/lower_left`|`e9e0f7016f1a184403a6644b6dc727735dab6cef53231bd94367bd8badace9ed`|R4:12|—|—|
+|나머지FN45|`ebay-pair-02170c802a45b2/back/surface/lower_right`|`e9e0f7016f1a184403a6644b6dc727735dab6cef53231bd94367bd8badace9ed`|R4:12|—|—|
+|나머지FN45|`ebay-pair-ba1c588f1093ca/back/surface/lower_right`|`0b64a9c7b434a74dce08d2998d3bf64f3cdf3d66befd85ec3b89bc58eb469a5c`|R7:42|—|z176|
+|나머지FN45|`ebay-pair-a1eda100ac6e20/back/surface/upper_center`|`25fedbc158bc0b4da049a8f6c87b54e4ba2692ad08600e37a05a78e937de98e2`|R2:15|—|—|
+|나머지FN45|`ebay-pair-4e32857c4919a9/back/surface/upper_right`|`eafbe97d26fd9e357924c789aec27e737f4dba968fa4faa02cee6adfe15298be`|R7:37|—|z1|
+|나머지FN45|`ebay-pair-a8272f9ea217b0/back/surface/middle_right`|`a9b0fcb0adc40db11c0bfb353d2c1436ac44febf41dd7c2cd8c12399e430fbad`|R7:57|—|—|
+|나머지FN45|`ebay-pair-83d2433a5374d2/back/surface/upper_center`|`af281dc7657d265f5fecf07788b64c4f1b8292174cbc7da068fe5e18d60e11b1`|R6:10|—|—|
+|나머지FN45|`ebay-pair-83d2433a5374d2/back/surface/upper_right`|`af281dc7657d265f5fecf07788b64c4f1b8292174cbc7da068fe5e18d60e11b1`|R6:10|—|—|
+|나머지FN45|`ebay-pair-5eb308b036ff51/back/surface/upper_center`|`b9a2289f21b0c9de99baf664aa778f1e926606ce0fcf4b38a4783c90327540e7`|R5:12|—|—|
+|나머지FN45|`ebay-pair-2ea06a1e89a680/back/surface/center`|`c150c2f7bf7d11ae7c2804126614605bce3ca41443e0a73337c9c281226aa11c`|R2:29|—|—|
+|나머지FN45|`ebay-pair-05704a31e488bb/back/surface/lower_right`|`845057d4dfa7bd220b706ca3181a3c3afbd55017c169dc6bd8dca39d4029a561`|R1:24|있음|—|
+|나머지FN45|`ebay-pair-08e1afb7f248d9/back/surface/lower_left`|`3a8946a53afc502ad8ba8b69bda482f2caaeb34c7c1393e6547ebdb441d48348`|R7:50|—|—|
+|나머지FN45|`ebay-pair-08e1afb7f248d9/back/surface/lower_center`|`3a8946a53afc502ad8ba8b69bda482f2caaeb34c7c1393e6547ebdb441d48348`|R7:50|—|—|
+|나머지FN45|`ebay-pair-08e1afb7f248d9/back/surface/lower_right`|`3a8946a53afc502ad8ba8b69bda482f2caaeb34c7c1393e6547ebdb441d48348`|R7:50|—|—|
+|나머지FN45|`ebay-pair-c5751d71bc4072/back/surface/middle_left`|`798f4fddc4544805a79e99b84d28d7c0ac3874aae38dd6bfa35e3eea218cd22a`|R1:7|—|—|
+|나머지FN45|`ebay-pair-c5751d71bc4072/back/surface/middle_right`|`798f4fddc4544805a79e99b84d28d7c0ac3874aae38dd6bfa35e3eea218cd22a`|R1:7|—|z255|
+|나머지FN45|`ebay-pair-c5751d71bc4072/back/surface/lower_right`|`798f4fddc4544805a79e99b84d28d7c0ac3874aae38dd6bfa35e3eea218cd22a`|R1:7|—|z86|
+|나머지FN45|`ebay-pair-e7d7987b6879d2/back/surface/lower_right`|`a29593098dd9d6c3163a83afab4de41c6ce7845d208beee1b2c499c371954957`|R1:17|—|z125|
+|나머지FN45|`ebay-pair-437c25d2b6161a/back/surface/upper_left`|`d60626728d2313a216c1f5c1dd14ed4b0b10eb996abded02ae76733d2fe2ac3e`|R7:49|—|z114|
+|나머지FN45|`ebay-pair-437c25d2b6161a/back/surface/middle_right`|`d60626728d2313a216c1f5c1dd14ed4b0b10eb996abded02ae76733d2fe2ac3e`|R7:49|—|—|
+|나머지FN45|`ebay-pair-9d3e6b22db7bad/back/surface/lower_right`|`0d37fd763e876b7067f08fb9b045a36bdf355ed6c20920fa8cfaa83f184fd87a`|R4:25|—|—|
+|나머지FN45|`ebay-pair-2792f7f5843a18/back/surface/lower_left`|`9887b703e32d5c0b6fd47c93e905bb695a50d81d60a6d38ee9273c06c399d77c`|R7:40|—|z137|
+|나머지FN45|`ebay-pair-af379b8eda0561/back/surface/lower_center`|`d9d17be42ad722985fd6a72b602bfad9cd5d796d2b9dd7c2bf8432877f09cd17`|R7:45|—|z206|
+|나머지FN45|`ebay-pair-858f5a4f342cec/back/surface/center`|`dbed3ad3f1cd49b3c857f3822218141f17c5ae0c8b27fe7ea4da12b4d28bd50c`|R1:18|—|—|
+|나머지FN45|`ebay-pair-bb523f319b49b2/back/surface/upper_right`|`6a47a35d31656fb579b1471e88bc9f184ba3cb804e844f331ab486118d1ca4ed`|R6:2|—|—|
+|나머지FN45|`ebay-pair-8f4dba6a9c52eb/back/surface/lower_right`|`b14de0b1d2bf0ca4ee90dcf4078ebf0225d2ab6939aa06e227b053698156b9ae`|R7:46|—|z214|
+|나머지FN45|`ebay-pair-c141bce426d0ad/back/surface/middle_left`|`a9cb2642ee2fb5ad54a8b6c112af7efb41a629d112376835d1c168884cc6f17e`|R4:11|—|z105|
+|나머지FN45|`ebay-pair-533058b8573da1/back/surface/upper_center`|`7628ab2a4ea703a38bd54bec3caa20409a1ca5eeff2b1902bd52dcd890e83921`|R2:2|—|z236|
+|나머지FN45|`ebay-pair-77fde2eaab6169/back/surface/lower_right`|`ee7c6748af6d6e5044053ceb3f060ad1ba79354d3f7cb6d3ac6085bf656af577`|R7:4|—|—|
+|나머지FN45|`ebay-pair-9a4d114851c961/back/surface/middle_left`|`e597599022e1372c929810751e4de276e280f6440a89f95e5216128b26ce4a6d`|R1:22|—|—|
+|나머지FN45|`ebay-pair-9a4d114851c961/back/surface/lower_left`|`e597599022e1372c929810751e4de276e280f6440a89f95e5216128b26ce4a6d`|R1:22|—|—|
+|나머지FN45|`ebay-pair-2cf43268f5db04/back/surface/lower_right`|`f521eeaf55d8e167f89d9360770c0d5de3b401618f203b126d1fa7f31b5f63d4`|R4:18|—|—|
+|나머지FN45|`ebay-pair-fc8b2605607a5d/back/surface/lower_left`|`3ed8d74b1d9cdba9592bef4c8bf23c2786ef8d51a4a44244fe266863108d450a`|R1:19|—|—|
+|나머지FN45|`ebay-pair-b4b20d9851016c/back/surface/middle_right`|`64498373665e908ba06b3fd73f1d22971edfa5e346c3f537776f917a7ee3fe6b`|R3:17|—|z21|
+|나머지FN45|`ebay-pair-6863e6760d0cbc/back/surface/upper_right`|`def4d603e18b04841b011e1872280f88db6252ccc42f03e5a1eea3b4a3cd766a`|R6:7|—|z244|
+|나머지FN45|`ebay-pair-e169ee45a9507e/back/surface/lower_left`|`aa4ccc091e3a552a9c60d51d398f9624664415750ffa9573a19b800e64ed72e0`|R2:18|—|—|
+|나머지FN45|`ebay-pair-0bfd194e23ca2b/back/surface/center`|`9230a9775693501416675da67a415aaa3828b5cd0a39af5c536f7a4318f0c408`|R7:58|—|z10|
+|나머지FN45|`ebay-pair-8aec026c3585f7/back/surface/upper_right`|`478269ef98924306dc8fef360334a636ee0acb198b16d7dbb6c120db7e9a0abc`|R3:13|—|z216|
+|나머지FN45|`ebay-pair-8aec026c3585f7/back/surface/lower_left`|`478269ef98924306dc8fef360334a636ee0acb198b16d7dbb6c120db7e9a0abc`|R3:13|—|z3|
+|나머지FN45|`ebay-pair-2ba279a56e0323/back/surface/middle_right`|`f330cee569085a78715fe0466b2a772fa0ee6a65e61ae5d7428c0e3a2c0e298b`|R7:17|—|—|
+|나머지FN45|`ebay-pair-3babd9fcfe1802/back/surface/lower_right`|`ffe415aa8f0503d54721a575c2385a99a38580b96168e5bd32da485537047dfb`|R7:21|—|z128|
+|나머지FN45|`ebay-pair-b26fe718a8a0ff/back/surface/middle_left`|`b22a158b61dcae8ecd41bfee135f092f654280030cfca716875d0adeddbed674`|R7:6|—|—|
+|나머지FN45|`ebay-pair-6a8abb37502417/back/surface/middle_left`|`8b3f851a387d44e1f3a7f828e59899f5c6526ada3ee01bd2374cdb31dd3a18e5`|R6:8|—|—|
+|나머지FN45|`ebay-pair-c65d9a14e07512/back/surface/lower_right`|`13a59cffc753a8e3ba8acc3257cf26c65887161445fe37e86e346da48dd8ca4d`|R1:9|—|z142|
+|나머지FN45|`ebay-pair-fb29e2064d5396/back/surface/middle_left`|`29fbab8073db633c83e43d3b017a0d63525704a9a3f2f2f93e53e7836d93884f`|R5:16|—|—|
 
 ## 5. 혼합118사진 적용/거부 감사
 
@@ -146,7 +296,7 @@ L 목록은 아래 group의 `back/surface/<area>`로 펼친 정확한 구역 목
 |분류|내용|경계/반례|
 |---|---|---|
 |사실|정확한 연결1776/204 일치, 봉인 후 채점, 혼입12·적용29|기록 밖 실행의 독립 증명은 아님|
-|사실|혼입10곳 라벨 유지·2곳 변경, same-photo target0 47|라벨 원문/관찰조건 동질성 미확인|
+|사실|혼입10곳 라벨 유지·2곳 변경, same-photo target0 47|기존 원문104곳 연결; 독립성/실제 관찰조건 동질성 미확인|
 |추론|낮은 점수·큰 간격·삭제 안정성만으로 정상성이 식별되지 않음|실패한 고정 규칙의 충분성 반례이며 모든 무정답 규칙의 불가능 증명은 아님|
 |추론|가용 구역 수보다 후보 분할 불균형이 지지수 거부를 직접 설명|임계 완화의 효용·물리 원인은 모름|
 |미확인 H_L|기존 target1과 현재 사용하려는 정상 참조 의미/관찰조건 사이 차이가 일부 혼입을 설명|변경 이력만으로 확인 불가; 관찰제한도 원래 target1의 유효 범위일 수 있음|
@@ -178,11 +328,11 @@ H_L와 H_M은 동시에 성립할 수 있다. 같은 `(score,target,선택/삭�
 
 ### 필요한 저장 자료·키·진입 조건
 
-현재 E scored-rows/scored-photos/sealed-references와 B observations/original_rows, folds, 학습 명부는 있다. **104구역에 대한 점수와 독립적인 기존 A/사람 판정 원문, 사진SHA·면·구역/box·관찰조건·판정 정의/버전·작성 시각·점수 노출 여부·원문 해시를 현재 동결38개에서 확보하지 못했다.** 정확한 원문 packet_path/SHA는 존재를 확인하지 못했으므로 만들어 적지 않는다. 이 부재는 외부 저장소에도 없다는 뜻은 아니다.
+현재 E/B와 folds/학습 명부 외에 기본 저장소의 기존 감사·원응답·최종 선택 기록을 찾았다. **104/104구역은 동일 ID·사진SHA의 출처 사슬로 원문에 연결되며 원출처7개 해시도 기존 보존값과 일치한다.** 추가 상대경로/줄/해시는 위104행 표에 고정했다. 이는 최초 동결38개의 구성 변경이 아니다. **여전히 확보하지 못한 것은 현재 라벨의 원출처와 구별되는 독립 판정 및 그 동일 관찰조건·시점·점수 비노출 근거다.** 원문 미존재를 실행 불가 사유로 사용하지 않는다.
 
 필수 연결은 `(id, image_sha256, side, area/동일 box, 판단기준 버전, 관찰조건)`이고 group/fold를 보존한다. 파일 이름·비슷한 카드·구역명만 같은 연결, 다른 사진SHA, 면 전체 판정의 구역 전파는 불허한다. 원문이 관찰제한을 유효 target1로 정의했다면 “손상 아님”만으로 라벨 불일치로 분류하지 않는다. 정답을 바꾸지 않고 두 출처의 주장만 비교한다.
 
-진입 조건은 사전에 존재한 독립 원문을 합법적인 범위에서104/104 정확히 연결하고 정의·시각·점수 비노출을 확인하는 것이다. 이 조건을 통과하기 전 새 검증을 시작하지 않는다. 현 패킷은 이를 충족하지 않으므로 현재 판정은 식별 불가이며 실행하지 않는다. 자료 경로의 신규 열람/추가 동결은 이 설계 제출로 승인되지 않는다.
+진입 조건은 사전에 존재한 독립 원문을 합법적인 범위에서104/104 정확히 연결하고 정의·시각·점수 비노출을 확인하는 것이다. 이 조건을 통과하기 전 새 검증을 시작하지 않는다. 추가 원문 연결104/104만으로 이 조건을 충족하지 않는다. 혼입10곳은 원판정 자체,2곳은 현재 라벨에 반영된 점수 기반 표적 재판정이며, 혼입12곳을 별도 독립 판정과 대조할 수 없다. 따라서 상태는 `not_executable_missing_evidence`로 유지하되 reason은 `independent_judgment_and_observation_provenance_unestablished`로 구체화한다. 이는 새 검증 실행 결과나 H_L-all 반증이 아니다. 사용자는 기존 출처의 읽기 전용 탐색과 문서 반영만 추가 승인했으며 실행·보호자료 접근·추가 동결/사람 요청은 승인하지 않았다.
 
 ### 입력/채점 분리와 봉인 순서(미래에 별도 승인될 경우)
 
@@ -198,7 +348,7 @@ H_L와 H_M은 동시에 성립할 수 있다. 같은 `(score,target,선택/삭�
 
 - **제한적 지지:** D=12, S=0, U=0이고 필수 출처/대조104/104 진입 검사를 통과한 경우에만 H_L-all을 지지한다. 이것은 “현재 두 출처가12곳 모두 불일치”를 뜻하며 어느 쪽이 진짜 정답인지/성능 개선인지는 증명하지 않는다.
 - **반증:** 유효한 S≥1/12이면 H_L-all을 반증한다. 최소1은 “전부 의미 차이”라는 보편 주장을 반박하는 논리적 수치이며 통계적 검정력/검증된 임상 기준이 아니다. S≥1과D≥1이면 두 문제 공존 가능성을 기록한다. H_M의 물리 원인 확정이나 새 학습 채택으로 연결하지 않는다.
-- **판정불가:** S=0이고U≥1, 또는 독립성/동일 조건 미확인으로 주장을 구별할 수 없으면 판정불가. 좋은 사례만 남겨12를 줄이지 않는다. 현재 원문 미확보는 이 범주의 **진입 차단**이며 검증 실행 결과로 기록하지 않는다.
+- **판정불가:** S=0이고U≥1, 또는 독립성/동일 조건 미확인으로 주장을 구별할 수 없으면 판정불가. 좋은 사례만 남겨12를 줄이지 않는다. 현재는 원문104곳이 있어도 독립 판정/동일 조건 요건이 미충족인 **진입 차단**이며 검증 실행 결과로 기록하지 않는다.
 - 출처 SHA/ID 불일치·중복 키·실행 오류는 `stopped_integrity_error` 등 절차 중단으로 구분하고 가설 반증/성능0으로 쓰지 않는다. 자동 재시도하지 않는다. 이미 검증된 일부 반례가 있더라도 완결된 검증 성공으로 포장하지 않는다.
 
 12/12와1/12는 현재 실패안의 Q=0 보편 요구를 설명하는 충분성 반증 논리에서 온 값이다. 적용률60/118이나 기존 제품 FN/FP 게이트를 대체하지 않는다. 비교 후 임계값·판정 문장을 바꾸지 않는다.
@@ -220,7 +370,7 @@ H_L와 H_M은 동시에 성립할 수 있다. 같은 `(score,target,선택/삭�
 
 ### writing-plans 적용: 미실행 단계의 인계 체크리스트
 
-- [ ] 메인이 별도 실행 승인 및 누락 원문의 허용 경로/해시/독립성/정의를 먼저 확정한다. 현재는 이 단계 전에서 멈춘다.
+- [ ] 메인이 별도 실행 승인 및 원문과 구별되는 독립 판정 근거/동일 관찰조건·시점·비노출·정의를 먼저 확정한다. 기존104곳 원문 연결만으로 진입시키지 않는다. 현재는 이 단계 전에서 멈춘다.
 - [ ] 고정104키 연결 및 익명 판정/역할 분리 계약을 만들고, 출처 충돌·결측·관찰제한 포함 정의를 고정한다.
 - [ ] 봉인된 출처 대응표 이후에만12/47/45를 각 분모로 채점한다. 사전 상태/가설 판정을 분리한다.
 - [ ] 중단/판정불가를 포함한 전행 표와 결과별 결정만 보고한다. 기준 미달 뒤 새 임계/반복 검증을 이어가지 않는다.
@@ -229,16 +379,18 @@ H_L와 H_M은 동시에 성립할 수 있다. 같은 `(score,target,선택/삭�
 
 ## 8. 실제 검사·미실행·리스크·롤백·handoff
 
-변경 문서는 task 계약과 이 보고서 두 개뿐이다. 핵심 diff는 혼입12행 추적/사진별 L, 대조군 집계, 혼합118 교차표와 사실/추론 구분, 조건부 검증1개의 사전 기준·진입 차단을 추가한 것이다. 함수 수/호출 깊이 변경 없음.
+변경 문서는 task 계약과 이 보고서 두 개뿐이다. 최초 diff는 혼입12행 추적/사진별 L, 대조군 집계, 혼합118 교차표와 단일 조건부 설계다. 사용자 추가 요청에 따른 이번 diff는 기존 원문104행 연결표·원출처7개 해시·§93/§97 범위와 독립성 한계를 반영하고, 실행 불가 사유를 원문 부재에서 독립 판정/관찰조건 출처 요건 미확보로 갱신한 것이다. 함수 수/호출 깊이 변경 없음.
 
 실제 검사는 Python 표준 라이브러리로38개 해시,1776/204 연결,기존 값/분모/집계,봉인 순서,5fold 실제 명부를 대조한 읽기 전용 감사다. 새 검증/공통 실험/selector/worker/analyze import·실행/학습/추론/보정/가상 성능/라벨 변경/사람 요청/외부AI 호출/설치·모델 테스트는 모두 미실행이다. D1·표면 보충시험·폐기105·예약보류9그룹 열람 없음. main 통합·push 없음.
 
-리스크: 라벨 원문/관찰조건이 없는 상태의 과도한 인과 해석, 기존 점수·오류 선택/반복 개발 편향, 같은 사진 구역의 상관, 독립 판정처럼 보이는 복사/점수노출 기록. 따라서 일반화 개선·모델 정확도 향상·절감률을 주장하지 않는다. 기존 성능은 B0 FN57/370·FP167/1406의 기록이며 이번 새 성능 수치/%p 비교는 생성하지 않았다.
+리스크: 원문 연결을 독립 판정/실제 관찰조건 확인으로 오인하는 과도한 인과 해석, 기존 점수·오류 선택/반복 개발 편향, 같은 사진 구역의 상관, 독립 판정처럼 보이는 복사/점수노출 기록. 따라서 일반화 개선·모델 정확도 향상·절감률을 주장하지 않는다. 기존 성능은 B0 FN57/370·FP167/1406의 기록이며 이번 새 성능 수치/%p 비교는 생성하지 않았다.
 
 고정 상태: 진척78/100(기준 파일 확인·점수 갱신 없음), 제품 FN≤67/370·FP≤112/1406·AUC 개선+0.03·사진그룹 bootstrap 하한>0·유효5fold 유지. D-LOC12/22·결정표④·후속 과제 선정 보류 유지. 이 출처 대조 설계가 D-LOC 후속 과제 채택이라는 뜻은 아니다.
 
 HTML: 이번 명시 소유 파일은 Markdown2개뿐이고 지침/설계 준비 범위다. 새 성능 평가가 없으며 HTML 생성/열기/렌더 확인은 **미실행**. 기존 HTML을 이번 실행 성과로 인용하지 않았다.
 
 롤백: main에 통합되지 않은 전용 브랜치의 두 문서 추가만 되돌린다. 필요 시 최종 문서 커밋을 `git revert <최종 SHA>`로 되돌리고, 계약까지 철회할 때에만 선행 계약 커밋도 역순으로 revert한다. 다른 worktree/브랜치/원본 artifacts/.claude는 삭제·복원하지 않는다. 이 브랜치는 미통합 상태로 보존한다.
+
+이번 문서 반영 검사는 앞선 읽기 전용 탐색의104/104 출처 사슬/원출처7개 보존해시 일치 결과를 대조하고 허용 문서2개 범위·원문 라벨/점수 미복제·홈 경로 제외·diff 공백을 검사했다. 104행 키/포인터·집합12/47/45·원출처7개 보존해시 일치, 홈 경로 제외 및 `git diff --check` 통과를 확인했다. 새 검증/실험의 실행이 아니다. 이번 후속 보완만 롤백할 때는 이 보완 커밋만 revert하여 최초 설계 커밋 `85f8a43ca375b821b155ad65237be6aaa5fd0621`의 문서 상태로 되돌린다. 기본 저장소 원문과 다른 작업은 보존한다.
 
 계약 로컬 커밋: `84d5506` (전체 SHA는 task에 기록). 최종 설계 커밋은 자기 SHA를 자기 본문에 넣을 수 없으므로 최종 응답과 `git log -1`을 정본으로 전달한다. 최종 확인 결과는 task handoff에 기록한다.
