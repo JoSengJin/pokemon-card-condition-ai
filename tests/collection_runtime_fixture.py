@@ -7,7 +7,7 @@ from card_condition.observation_collection_contract import contract_digest
 
 def candidate_fixture(mode="H"):
     packet,assets=fixture(mode);c=contract_fixture(mode)
-    c["zoom_policy"].update(scale_min=1,scale_max=2,pan_x_limit=8,pan_y_limit=8);c["assignment_ref"]="fixture-assignment"
+    c["zoom_policy"].update(scale_min=1,scale_max=2,pan_x_limit=8,pan_y_limit=8);c["assignment_ref"]="fixture-assignment";c["seal_policy_ref"]="fixture-seal";c["access_policy_ref"]="fixture-policy"
     c["contract_id"]=contract_digest(c)
     base=response_fixture(packet);base["observations"]["events"][0]["at"]="2026-11-18T00:00:00Z"
     view=dict(seq=0,event="ready",at="2026-11-18T00:00:00Z",layout=[800,600],visual=None,dpr=1,orientation=None,visibility="visible")
@@ -22,3 +22,9 @@ def candidate_fixture(mode="H"):
     assignment=dict(assignment_id=c["assignment_ref"],contract_id=c["contract_id"],session_id=base["session_id"],rater_id="fixture-rater",observation_mode=mode,evidence_origin="synthetic_fixture")
     context=dict(source_type="synthetic_fixture",assignment_id=c["assignment_ref"],contract_id=c["contract_id"],session_id=base["session_id"],rater_id="fixture-rater",received_at="2026-11-18T00:00:01Z")
     return packet,assets,c,copy.deepcopy(body),context,assignment
+
+
+def access_fixture(contract):
+    policy=dict(policy_id="fixture-policy",contract_id=contract["contract_id"],evidence_origin="synthetic_fixture",grants={"keeper":"custodian","builder":"developer","judge":"evaluator","rater":"rater"})
+    actors={role:dict(principal_id=principal,role=role,evidence_origin="synthetic_fixture") for principal,role in policy["grants"].items()}
+    return policy,actors

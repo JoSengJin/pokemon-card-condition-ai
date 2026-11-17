@@ -19,7 +19,7 @@ spec: collection-runtime-plan-20261117.md 및 new-observation-independent-evalua
 - [x] S1 휴대폰 관측
 - [x] S2 H 확대
 - [x] S3 출처/수신
-- [ ] S4 봉인/접근
+- [x] S4 봉인/접근
 - [ ] S5 실제 브라우저 합성 연결·최종 회귀
 후속 단계 소유 파일/경로는 시작 전에 여기에 추가하고 커밋한다. ignored 산출물 artifacts/collection-runtime-synthetic-20261118/의 stage별 RED/GREEN/review/브라우저 원문·화면/report.html. 기존 artifacts 탐색/덮어쓰기 금지. HTML은 이번 실제 개발 결과로 갱신·열기와 렌더를 구분한다. 진척 두 정본은 유지하며 최종 보고 전 읽는다.
 
@@ -50,3 +50,7 @@ S3 완료: source2/receipt4 RED→GREEN, 누적47회귀통과. reviewer는저장
 새 card_condition/observation_seal.py, observation_access.py, tests/test_observation_seal.py, tests/test_observation_access.py. 수정 tests/collection_runtime_fixture.py(가짜권한fixture),wire문서/ledger. read helpers는S3의synthetic/hash검사재사용, v1모델release불변.
 Ruling: S4 seal은검증한인수증/원문참조의불변보관봉인이고사람truthseal이아니다. S5의최상위에서S3 load_semantics를먼저검사한후seal을호출한다. sealAPI는ledger의해시·합성guard를직접재대조하고임의subset/partial을거부하며truth_status=unresolved_synthetic/false로고정. semantic→seal을래핑해호출깊이를늘리지않는다. 실제신원/파일접근인증은R2미구현이다.
 seal_receipts(contract,receipt_refs,ledger,output), load_seal(contract,ledger,output,seal_id), seal_state(seal,output), transition_seal(seal,output,action,actor,policy,freeze_ref=None). access authorize(actor,action,state,policy), aggregate_projection(actor,state,policy,receipts). 새파일각최대4/2정의. 주요경로transition→seal_state→digest 또는transition→authorize→exact_keys 최대3, seal→read_collection_records→strict_json_loads 최대4이내.
+
+S4 검토반례: output만잠그면읽기뒤새접수로subset봉인이가능. 게시hook에서별도fd의ledger LOCK_EX|LOCK_NB가실패해야하는회귀를추가해RED1실패로재현. receipt→seal순서잠금을전체게시까지유지하는방식으로보완. seal_state는이벤트가있을때외부policy가필요한서명으로구체화했고read/replay에서권한도재검사한다.
+
+S4 완료: access2/seal4통과+기존새관련16회귀통과. reviewer경쟁조건1건RED→양잠금게시보호GREEN·재검토잔여없음. 새access2/seal5정의, 최대transition→seal_state→authorize→exact_keys=3. 원답참조seal은unresolved/false이고역할검사actual_access_verified=false. 실제OS/에이전트권한분리미검증.
