@@ -54,3 +54,7 @@ seal_receipts(contract,receipt_refs,ledger,output), load_seal(contract,ledger,ou
 S4 검토반례: output만잠그면읽기뒤새접수로subset봉인이가능. 게시hook에서별도fd의ledger LOCK_EX|LOCK_NB가실패해야하는회귀를추가해RED1실패로재현. receipt→seal순서잠금을전체게시까지유지하는방식으로보완. seal_state는이벤트가있을때외부policy가필요한서명으로구체화했고read/replay에서권한도재검사한다.
 
 S4 완료: access2/seal4통과+기존새관련16회귀통과. reviewer경쟁조건1건RED→양잠금게시보호GREEN·재검토잔여없음. 새access2/seal5정의, 최대transition→seal_state→authorize→exact_keys=3. 원답참조seal은unresolved/false이고역할검사actual_access_verified=false. 실제OS/에이전트권한분리미검증.
+
+## S5 소유 파일·실제브라우저 연결
+새 tests/observation_collection_browser_fixture.py, tests/test_observation_collection_flow.py, docs/collaboration/reports/collection-runtime-synthetic-20261117.md. 수정 pyproject.toml의package-data에추가JS3개만등록, 이ledger. 필요한검토결함보완은기존S0–S4소유파일안에서반례와함께기록. 실제브라우저생성출력만사용, 합성H/A4상태·한글메모·H확대/A차단·unknown범위잠금·viewport불일치·변조/누락/decode·CSS복원latch를확인. 실제textarea원문UTF8+브라우저TextEncoder/SHA→receipt raw.bin비교→S3load의미검사→seal→모의release/개발집계/격리. 실패단계는사람판정/모델개선으로보고하지않는다.
+HTML/브라우저증거는ignored artifacts/collection-runtime-synthetic-20261118/에새로생성. loopback43188은해당pages만서비스하고최종종료·viewport원복. 새fixture script0정의/flow tests최대5정의, top-level조립으로API최대4유지. 독립최종diff검토를거친다.
