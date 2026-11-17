@@ -18,7 +18,7 @@ spec: collection-runtime-plan-20261117.md 및 new-observation-independent-evalua
 - [x] S0 계약
 - [x] S1 휴대폰 관측
 - [x] S2 H 확대
-- [ ] S3 출처/수신
+- [x] S3 출처/수신
 - [ ] S4 봉인/접근
 - [ ] S5 실제 브라우저 합성 연결·최종 회귀
 후속 단계 소유 파일/경로는 시작 전에 여기에 추가하고 커밋한다. ignored 산출물 artifacts/collection-runtime-synthetic-20261118/의 stage별 RED/GREEN/review/브라우저 원문·화면/report.html. 기존 artifacts 탐색/덮어쓰기 금지. HTML은 이번 실제 개발 결과로 갱신·열기와 렌더를 구분한다. 진척 두 정본은 유지하며 최종 보고 전 읽는다.
@@ -43,3 +43,5 @@ S2 완료: zoom4+contract3+mobile3/기존관련19통과. 검토P2두건회귀RED
 ## S3 소유 파일·수신 계약
 새 card_condition/observation_source.py, observation_collection_response.py, observation_collection_receipt.py, tests/collection_runtime_fixture.py, tests/test_observation_source.py, tests/test_observation_collection_receipt.py. 수정 observation_page.py/observation_collection_response.js(합성출처주장dropdown),wire문서/ledger. 기존v1receipt/validator는수정하지않음.
 Ruling: packet메타데이터를독립수신검사하려면 API에packet이필요하므로 capture_collection_receipt(packet,contract,raw_bytes,custody_context,assignment,ledger), load_collection_receipts(packet,contract,assignment,ledger)로정확서명고정. v1 validate_response와v2 sidecar검사는 capture/load에서나란히직접호출하여v1최장4전이를늘리지않는다. read helper는IO/hash검사만하고semantic검사는capture/load에서각각수행. 새파일함수최대7.
+
+S3 완료: source2/receipt4 RED→GREEN, 누적47회귀통과. reviewer는저장된human source재해시재분류1건지적, 반례RED1→공통read의syntheticguard보완→GREEN/재검토잔여없음. 신규source1/response2/receipt5정의. v1base검사는load/capture직접호출최장4. 실제human소스거부/합성human주장비인증/별도context/bytes/partial/status재검사유지.

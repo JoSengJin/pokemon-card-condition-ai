@@ -35,7 +35,7 @@ def render_page(packet, assets, collection_contract=None):
                     f'<button id="zoom-{identifier}-apply" data-entry="{identifier}" disabled>H 확대 적용</button></section>')
         candidate = ('<style>body{max-width:100%;box-sizing:border-box}main{max-width:100%;overflow:auto}'
                      'select,textarea,button{max-width:100%;box-sizing:border-box}</style>'
-                     '<div id="zoom-root">' + ''.join(zoom_controls) + '</div><p>합성 후보 전용 · 실제 수집 불가</p><button id="collection-export">합성 후보 내보내기</button>'
+                     '<div id="zoom-root">' + ''.join(zoom_controls) + '</div><p>합성 후보 전용 · 실제 수집 불가</p><label>합성 출처 주장<select id="collection-actor"><option value="unknown">미확인</option><option value="human">사람 주장(합성 시험)</option><option value="ai">AI 주장(합성 시험)</option></select></label><button id="collection-export">합성 후보 내보내기</button>'
                      '<textarea id="collection-out" readonly aria-label="합성 후보 원응답"></textarea>'
                      '<script id="collection-contract" type="application/json">' + encoded_contract + '</script>'
                      '<script id="viewport-code">' + viewport_script + '</script>'
