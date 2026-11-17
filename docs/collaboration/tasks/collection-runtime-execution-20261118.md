@@ -17,7 +17,7 @@ spec: collection-runtime-plan-20261117.md 및 new-observation-independent-evalua
 ## 실행 ledger
 - [x] S0 계약
 - [x] S1 휴대폰 관측
-- [ ] S2 H 확대
+- [x] S2 H 확대
 - [ ] S3 출처/수신
 - [ ] S4 봉인/접근
 - [ ] S5 실제 브라우저 합성 연결·최종 회귀
@@ -37,3 +37,5 @@ S1 완료: 미구현 RED→mobile3 GREEN, 기존page/response/receipt/p2 19회�
 새 card_condition/observation_zoom.js, observation_zoom.py, tests/observation_zoom.test.cjs, tests/test_observation_zoom.py. 수정 observation_page.py, observation_collection_response.js, wire문서/ledger. v1display/response불변. H확대는원본baseimg를변환하지않는별도lens에서동일Blob을표시하여base CSS gate를완화하지않는다. lens ref/SHA/URL/decode/natural/transform을독립대조하고누적실패 latch. null범위는H컨트롤잠금, A컨트롤없음. 함수JS최대7/Python최대2. candidate exporter→finishZoom→recordZoom→snapshotZoom=3전이(더깊어지지않음).
 
 S2 검토 보완: CSS/transform 일시 변조·복원과 scale_min2/max3·초기1 모순을 확인. CSS JS회귀1실패·범위 계약1실패로 재현. S2 소유에 observation_collection_contract.py/test_observation_collection_contract.py 추가. Ruling: 기준뷰의 항등 배율1을 명시 합성 구간에 포함하는 schema 정합 조건으로 제한하며 제품 확대 수치를 승인하지 않는다. style/width/height 감시와 자체 transform 기록의 동기 소비를 구현한다.
+
+S2 완료: zoom4+contract3+mobile3/기존관련19통과. 검토P2두건회귀RED→GREEN, 재검토중요잔여없음. 실제Chrome H배율2/원이미지X1 로그·A컨트롤없음·자체transform정상·CSS오류복원후잠금확인. JS6/Python1정의, 주요최장exportCollection→finishZoom→invalidateZoom→invalidate→observe=4. src/style mutation과크기누적판정, 범위는1포함정합조건만추가.

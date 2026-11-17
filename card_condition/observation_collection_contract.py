@@ -31,7 +31,7 @@ def validate_collection_contract(contract):
                                   (value<=0 if key.startswith("scale") else value<0)):
             raise ValueError("invalid zoom policy")
     if ((zoom["scale_min"] is None)!=(zoom["scale_max"] is None) or
-        (zoom["scale_min"] is not None and zoom["scale_min"]>zoom["scale_max"])):raise ValueError("invalid scale interval")
+        (zoom["scale_min"] is not None and not zoom["scale_min"]<=1<=zoom["scale_max"])):raise ValueError("invalid scale interval")
     for key in REFS:
         if contract[key] is not None and (not isinstance(contract[key],str) or not contract[key].strip()):raise ValueError("invalid contract reference")
     if contract["contract_id"]!=contract_digest(contract):raise ValueError("contract hash mismatch")

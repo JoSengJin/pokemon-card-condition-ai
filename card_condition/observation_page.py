@@ -21,13 +21,25 @@ def render_page(packet, assets, collection_contract=None):
         encoded_contract = json.dumps(collection_contract, ensure_ascii=True, allow_nan=False).replace('<', r'\u003c')
         viewport_script = Path(__file__).with_name('observation_viewport.js').read_text()
         candidate_script = Path(__file__).with_name('observation_collection_response.js').read_text()
+        zoom_script = Path(__file__).with_name('observation_zoom.js').read_text()
+        zoom_controls = []
+        if profile['observation_mode'] == 'H':
+            for entry in packet['entries']:
+                identifier = entry['entry_id']
+                asset = next(a for a in entry['assets'] if a['kind'] == 'region')
+                zoom_controls.append(f'<section><h2>{identifier} H 합성 확대</h2><div style="overflow:auto;height:180px">'
+                    f'<img id="zoom-{identifier}-image" data-zoom-ref="{asset["ref"]}" alt="H 확대 구역"></div>'
+                    f'<label>H 배율<input id="zoom-{identifier}-scale" type="number" value="1" step="any"></label>'
+                    f'<label>H 원본 X 이동<input id="zoom-{identifier}-x" type="number" value="0" step="any"></label>'
+                    f'<label>H 원본 Y 이동<input id="zoom-{identifier}-y" type="number" value="0" step="any"></label>'
+                    f'<button id="zoom-{identifier}-apply" data-entry="{identifier}" disabled>H 확대 적용</button></section>')
         candidate = ('<style>body{max-width:100%;box-sizing:border-box}main{max-width:100%;overflow:auto}'
                      'select,textarea,button{max-width:100%;box-sizing:border-box}</style>'
-                     '<p>합성 후보 전용 · 실제 수집 불가</p><button id="collection-export">합성 후보 내보내기</button>'
+                     '<div id="zoom-root">' + ''.join(zoom_controls) + '</div><p>합성 후보 전용 · 실제 수집 불가</p><button id="collection-export">합성 후보 내보내기</button>'
                      '<textarea id="collection-out" readonly aria-label="합성 후보 원응답"></textarea>'
                      '<script id="collection-contract" type="application/json">' + encoded_contract + '</script>'
                      '<script id="viewport-code">' + viewport_script + '</script>'
-                     '<script id="collection-response-code">' + candidate_script + '</script><script>attachViewport();</script>')
+                     '<script id="zoom-code">' + zoom_script + '</script><script id="collection-response-code">' + candidate_script + '</script><script>attachViewport();</script>')
     articles = []
     for entry in packet["entries"]:
         images = []
@@ -55,4 +67,4 @@ def render_page(packet, assets, collection_contract=None):
             '<div id="response-controls">' + ''.join(controls) + '</div><button id="export">합성 응답 내보내기</button><textarea id="out" readonly aria-label="내보낸 원응답"></textarea>'
             '<script id="packet" type="application/json">' + public_packet + '</script>'
             '<script id="assets" type="application/json">' + public_assets + '</script>'
-            '<script id="display-code">' + script + '</script><script id="response-code">' + response_script + '</script>' + candidate + '<script>attachResponseControls();initialize();</script></html>')
+            '<script id="display-code">' + script + '</script><script id="response-code">' + response_script + '</script>' + candidate + '<script>attachResponseControls();initialize()' + ('.then(attachZoomControls)' if collection_contract is not None else '') + ';</script></html>')

@@ -51,6 +51,8 @@ class CollectionContractTests(unittest.TestCase):
                 b=contract_fixture(complete=True);b["zoom_policy"][field]=value
                 if value!=float("inf"):b["contract_id"]=api.contract_digest(b)
                 with self.assertRaises(ValueError):api.validate_collection_contract(b)
+        b=contract_fixture(complete=True);b["zoom_policy"].update(scale_min=2,scale_max=3);b["contract_id"]=api.contract_digest(b)
+        with self.assertRaises(ValueError):api.validate_collection_contract(b)
         c["assignment_ref"]="tampered"
         with self.assertRaises(ValueError):api.validate_collection_contract(c)
 

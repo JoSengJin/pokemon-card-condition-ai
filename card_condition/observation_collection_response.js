@@ -1,6 +1,7 @@
 "use strict";
 function exportCollection(){
  observeViewport({type:"export"});
+ if(typeof finishZoom==="function")finishZoom();
  if(COLLECTION.invalidated)invalidate({type:"candidate-export"});
  exportResponse();
  const contract=COLLECTION.contract;
