@@ -4,14 +4,30 @@ import html
 import json
 from pathlib import Path
 from .observation_assets import verify_assets
+from .observation_collection_contract import validate_collection_contract
 
 
-def render_page(packet, assets):
+def render_page(packet, assets, collection_contract=None):
     verified = verify_assets(packet, assets)
     profile = packet["profile"]
     if (profile["renderer_version"] != "synthetic-observation-v1" or
             profile["resize"] not in (None, "none") or profile["interpolation"] is not None):
         raise ValueError("unsupported synthetic renderer profile")
+    candidate = ""
+    if collection_contract is not None:
+        validate_collection_contract(collection_contract)
+        if collection_contract["packet_id"] != packet["packet_id"] or collection_contract["display_profile"] != profile:
+            raise ValueError("candidate contract packet/profile mismatch")
+        encoded_contract = json.dumps(collection_contract, ensure_ascii=True, allow_nan=False).replace('<', r'\u003c')
+        viewport_script = Path(__file__).with_name('observation_viewport.js').read_text()
+        candidate_script = Path(__file__).with_name('observation_collection_response.js').read_text()
+        candidate = ('<style>body{max-width:100%;box-sizing:border-box}main{max-width:100%;overflow:auto}'
+                     'select,textarea,button{max-width:100%;box-sizing:border-box}</style>'
+                     '<p>합성 후보 전용 · 실제 수집 불가</p><button id="collection-export">합성 후보 내보내기</button>'
+                     '<textarea id="collection-out" readonly aria-label="합성 후보 원응답"></textarea>'
+                     '<script id="collection-contract" type="application/json">' + encoded_contract + '</script>'
+                     '<script id="viewport-code">' + viewport_script + '</script>'
+                     '<script id="collection-response-code">' + candidate_script + '</script><script>attachViewport();</script>')
     articles = []
     for entry in packet["entries"]:
         images = []
@@ -39,4 +55,4 @@ def render_page(packet, assets):
             '<div id="response-controls">' + ''.join(controls) + '</div><button id="export">합성 응답 내보내기</button><textarea id="out" readonly aria-label="내보낸 원응답"></textarea>'
             '<script id="packet" type="application/json">' + public_packet + '</script>'
             '<script id="assets" type="application/json">' + public_assets + '</script>'
-            '<script id="display-code">' + script + '</script><script id="response-code">' + response_script + '</script><script>attachResponseControls();initialize();</script></html>')
+            '<script id="display-code">' + script + '</script><script id="response-code">' + response_script + '</script>' + candidate + '<script>attachResponseControls();initialize();</script></html>')

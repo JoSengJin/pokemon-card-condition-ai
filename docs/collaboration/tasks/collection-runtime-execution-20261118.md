@@ -16,7 +16,7 @@ spec: collection-runtime-plan-20261117.md 및 new-observation-independent-evalua
 
 ## 실행 ledger
 - [x] S0 계약
-- [ ] S1 휴대폰 관측
+- [x] S1 휴대폰 관측
 - [ ] S2 H 확대
 - [ ] S3 출처/수신
 - [ ] S4 봉인/접근
@@ -30,3 +30,5 @@ S0 완료: RED3실패→GREEN3통과, 기존31회귀통과. 독립 reviewer 중�
 ## S1 소유 파일·선행 계약
 새 card_condition/observation_viewport.js, card_condition/observation_collection_response.js, tests/observation_viewport.test.cjs, tests/test_observation_mobile.py. 수정 card_condition/observation_page.py, 위 wire 문서, 이ledger. display.js는v1그대로 보존. render_page(packet,assets,collection_contract=None)의 선택 경로만 후보 UI/스크립트 추가. viewport관측은 별도 candidate log, v1키 불변. exporter는 S1에 viewport후보를 조립하고 S2/S3에서 zoom/출처 연결. 새 JS최대5정의, page1정의 유지. render_page→verify_assets→validate_packet→validate_profile→exact_keys=4 유지.
 Ruling: 모바일 대응은 승인수치 없는 자동 이미지축소가 아니라 고정 이미지 영역 스크롤/컨트롤 폭 제한으로 한다. v1 출력은 선택인자없을때 bytes동일. 후보 export는 기존export를 호출하고 base_response를 그대로 묶으며 추가로그는sidecar다.
+
+S1 완료: 미구현 RED→mobile3 GREEN, 기존page/response/receipt/p2 19회귀통과. 실제Chrome에서후보export/메모/viewport sidecar와false flags 확인(s1.raw/s1.jpg). reviewer 중요잔여없음, viewport4/exporter1/page1정의. 최장 exportCollection→exportResponse→buildResponse→invalidate→observe=4. 실제휴대폰미검증.
