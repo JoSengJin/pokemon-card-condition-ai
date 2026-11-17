@@ -15,7 +15,7 @@ def candidate_fixture(mode="H"):
     if mode=="H":
         a=packet["entries"][0]["assets"][1]
         z=dict(seq=0,event="initial",at=view["at"],entry_id="r1",ref=a["ref"],asset_sha256=a["sha256"],scale=1,pan=[0,0],
-               source_size=a["size"],base_css=a["size"],transformed_css=a["size"],source_matches=True)
+               source_size=a["size"],base_css=a["size"],transformed_css=a["size"],geometry_edges=[0,0,*a["size"]],source_matches=True)
         zoom=[z,dict(z,seq=1,event="export")]
     body=dict(schema_version=2,kind="synthetic_collection_response",contract_id=c["contract_id"],packet_id=packet["packet_id"],data_origin="synthetic_fixture",
               collection_status=packet["collection_status"],human_truth=False,eligible_for_collection=False,base_response=base,viewport_events=viewport,zoom_events=zoom,claimed_actor="human")

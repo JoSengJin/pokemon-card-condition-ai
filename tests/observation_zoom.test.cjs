@@ -1,7 +1,7 @@
 "use strict";
 const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
 const {makeHarness}=require("./observation_browser_fixture.cjs");
-function lensBox(){const scale=Number(this.style.transform.match(/scale\(([^)]+)\)/)[1]);return {width:this.badWidth||4*scale,height:4*scale};}
+function lensBox(){const scale=Number(this.style.transform.match(/scale\(([^)]+)\)/)[1]);return {width:this.badWidth||4*scale,height:4*scale,left:0,top:0,right:this.badWidth||4*scale,bottom:4*scale};}
 async function main(){
  const page=fs.readFileSync(process.argv[2],"utf8"),h=makeHarness(page);
  const contract=page.match(/<script id="collection-contract" type="application\/json">([^]*?)<\/script>/)[1];

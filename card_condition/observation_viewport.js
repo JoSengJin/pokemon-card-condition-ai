@@ -6,11 +6,12 @@ function readViewport(){
  dpr:window.devicePixelRatio??null,orientation:window.screen?.orientation?.type??null,visibility:document.visibilityState||"unknown"};
 }
 function matchesViewport(required,measured){
- if(measured.layout.some(n=>!Number.isFinite(n)||n<=0)||measured.dpr!==null&&(!Number.isFinite(measured.dpr)||measured.dpr<=0))return false;
+ for(const n of measured.layout)if(!Number.isFinite(n)||n<=0)return false;
+ if(measured.dpr!==null&&(!Number.isFinite(measured.dpr)||measured.dpr<=0))return false;
  if(required.viewport_css!==null&&(required.viewport_css[0]!==measured.layout[0]||required.viewport_css[1]!==measured.layout[1]))return false;
  if(required.device_pixel_ratio!==null&&required.device_pixel_ratio!==measured.dpr)return false;
- if(measured.visual&&([measured.visual.width,measured.visual.height,measured.visual.scale].some(n=>!Number.isFinite(n)||n<=0)||
- [measured.visual.offset_left,measured.visual.offset_top].some(n=>!Number.isFinite(n))))return false;
+ if(measured.visual){for(const n of [measured.visual.width,measured.visual.height,measured.visual.scale])if(!Number.isFinite(n)||n<=0)return false;
+ for(const n of [measured.visual.offset_left,measured.visual.offset_top])if(!Number.isFinite(n))return false;}
  return true;
 }
 function observeViewport(event){

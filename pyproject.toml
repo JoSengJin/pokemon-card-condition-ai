@@ -21,4 +21,4 @@ card-condition-back-triage = "card_condition.back_triage_cli:main"
 include = ["card_condition*"]
 
 [tool.setuptools.package-data]
-card_condition = ["review.html", "review_chat.html", "nvidia_dashboard.html", "observation_display.js", "observation_response.js"]
+card_condition = ["review.html", "review_chat.html", "nvidia_dashboard.html", "observation_display.js", "observation_response.js", "observation_viewport.js", "observation_zoom.js", "observation_collection_response.js"]

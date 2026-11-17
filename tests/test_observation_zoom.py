@@ -14,7 +14,7 @@ from test_observation_collection_contract import contract_fixture
 def zoom_events(packet):
     asset=packet["entries"][0]["assets"][1]
     event=dict(seq=0,event="initial",at="2026-11-18T00:00:00Z",entry_id="r1",ref=asset["ref"],asset_sha256=asset["sha256"],
-               scale=1,pan=[0,0],source_size=asset["size"],base_css=[64,64],transformed_css=[64,64],source_matches=True)
+               scale=1,pan=[0,0],source_size=asset["size"],base_css=[64,64],transformed_css=[64,64],geometry_edges=[0,0,64,64],source_matches=True)
     last=copy.deepcopy(event);last.update(seq=1,event="export")
     return [event,last]
 
@@ -28,8 +28,8 @@ class ZoomTests(unittest.TestCase):
     def test_h_initial_change_export_and_a_has_no_zoom(self):
         events=zoom_events(self.packet)
         self.assertTrue(self.api.validate_zoom_log(self.contract,events,self.packet))
-        events.insert(1,dict(events[0],event="change",seq=1,scale=2,pan=[1,-1],transformed_css=[128,128]))
-        events[2].update(seq=2,scale=2,pan=[1,-1],transformed_css=[128,128])
+        events.insert(1,dict(events[0],event="change",seq=1,scale=2,pan=[1,-1],transformed_css=[128,128],geometry_edges=[0,0,128,128]))
+        events[2].update(seq=2,scale=2,pan=[1,-1],transformed_css=[128,128],geometry_edges=[0,0,128,128])
         self.assertTrue(self.api.validate_zoom_log(self.contract,events,self.packet))
         a=contract_fixture("A");packet,_=fixture("A")
         self.assertTrue(self.api.validate_zoom_log(a,[],packet))
@@ -56,3 +56,11 @@ class ZoomTests(unittest.TestCase):
             p=Path(folder)/"page.html";p.write_text(render_page(packet,assets,collection_contract=c))
             r=subprocess.run(["node","tests/observation_zoom.test.cjs",str(p)],capture_output=True,text=True)
             self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+
+    def test_fractional_domrect_roundoff_is_distinct_from_css_error(self):
+        events=zoom_events(self.packet)
+        change=dict(events[0],seq=1,event="change",scale=1.1,transformed_css=[70.4000015258789,70.39999389648438],geometry_edges=[0,200,70.4000015258789,270.3999938964844])
+        events=[events[0],change,dict(change,seq=2,event="export")]
+        self.assertTrue(self.api.validate_zoom_log(self.contract,events,self.packet))
+        events[1]["transformed_css"]=[1,1];events[1]["geometry_edges"]=[0,200,1,201]
+        self.assertFalse(self.api.validate_zoom_log(self.contract,events,self.packet))
