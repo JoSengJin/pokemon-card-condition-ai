@@ -32,3 +32,6 @@ S0 완료: RED3실패→GREEN3통과, 기존31회귀통과. 독립 reviewer 중�
 Ruling: 모바일 대응은 승인수치 없는 자동 이미지축소가 아니라 고정 이미지 영역 스크롤/컨트롤 폭 제한으로 한다. v1 출력은 선택인자없을때 bytes동일. 후보 export는 기존export를 호출하고 base_response를 그대로 묶으며 추가로그는sidecar다.
 
 S1 완료: 미구현 RED→mobile3 GREEN, 기존page/response/receipt/p2 19회귀통과. 실제Chrome에서후보export/메모/viewport sidecar와false flags 확인(s1.raw/s1.jpg). reviewer 중요잔여없음, viewport4/exporter1/page1정의. 최장 exportCollection→exportResponse→buildResponse→invalidate→observe=4. 실제휴대폰미검증.
+
+## S2 소유 파일·계약
+새 card_condition/observation_zoom.js, observation_zoom.py, tests/observation_zoom.test.cjs, tests/test_observation_zoom.py. 수정 observation_page.py, observation_collection_response.js, wire문서/ledger. v1display/response불변. H확대는원본baseimg를변환하지않는별도lens에서동일Blob을표시하여base CSS gate를완화하지않는다. lens ref/SHA/URL/decode/natural/transform을독립대조하고누적실패 latch. null범위는H컨트롤잠금, A컨트롤없음. 함수JS최대7/Python최대2. candidate exporter→finishZoom→recordZoom→snapshotZoom=3전이(더깊어지지않음).

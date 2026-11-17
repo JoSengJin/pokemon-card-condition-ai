@@ -10,3 +10,6 @@ readiness 결과: synthetic_ready는 display viewport/image_css/DPR·H zoom poli
 
 ## S1 viewport sidecar
 각 event exact keys seq,event,at,layout,visual,dpr,orientation,visibility. seq는0부터연속 정수. event는 ready/resize/scroll/visibilitychange/export. at는 timezone-aware ISO. layout=[width,height], visual은null 또는 exact keys width,height,offset_left,offset_top,scale. 수치는 유한,크기/ratio양수,offset은유한수. dpr은null 또는양수, orientation은null 또는문자열, visibility visible/hidden/unknown. 명시profile과 불일치는누적 invalidation하며 복원해도해제하지않는다. null요구값은채우지않고 실제수집readiness와별개다. candidate emitted flags는false고정. claimed_actor는항상unknown으로 시작하며 브라우저 주장을 보관자 출처로 사용하지 않는다.
+
+## S2 H zoom sidecar
+각 event exact keys seq,event,at,entry_id,ref,asset_sha256,scale,pan,source_size,base_css,transformed_css,source_matches. event initial/change/export, seq0부터연속, at timezone-aware. pan=[source_x,source_y]는원이미지좌표, translate CSS값=pan*scale. base_css와transform후크기는분리. H는각구역region에initial과최종export를요구하며A는빈log만허용. missing/null범위/불일치/source_matches=false는display verification false 누적. 잘못된키/타입/순서/연결은거부. scale과pan은명시합성policy안에서만시험. 같은Blob URL의별도H렌즈를사용하고기존img의크기/응답은변경하지않는다.
