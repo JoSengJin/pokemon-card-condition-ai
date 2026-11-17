@@ -28,7 +28,7 @@
 ## 로컬 근거와 checks
 
 - `artifacts/collaboration/provenance-source-followup-20261025/evidence/index.json`의 상대경로·SHA를 복사본과 대조한다. snapshot은 Git 제외이며 사진·모델·키는 포함하지 않는다. 내부의 과거 절대경로는 문자열로만 읽고 기본 checkout을 탐색하지 않는다.
-- 직전 감사와 `LABEL_CORRECTION_WY_20261019.md` 등 추적 문서를 함께 읽는다. 기본 checkout에서 수행한 최신 코드 수정과 과거 실패 재현을 구분한다.
+- 직전 감사와 `docs/history/LABEL_CORRECTION_WY_20261019.md` 등 추적 문서를 함께 읽는다. 기본 checkout에서 수행한 최신 코드 수정과 과거 실패 재현을 구분한다.
 - 추가 근거는 index에 별도로 표시했다. 필요한 원본이 여전히 없으면 파일·누락 이유만 기록한다. 사진 열람·추론·학습·외부 AI 호출·검토 서버·`./review --auto`는 실행하지 않는다.
 - 이번 작업은 표준 라이브러리로 JSON/JSONL/Markdown의 기존 증거를 읽는 감사다. torch·모델·다른 worktree의 가상환경이 필요 없다. test split의 라벨·사진은 해석하지 않는다.
 - `git diff --check`, 기준 이후 변경 파일과 allowed_files 대조, 문서의 개인 홈 경로·비밀값·실제 라벨 원문 과다 인용 검사를 한다. 보고서에는 필요한 필드·판단 범위와 상대경로만 적는다.

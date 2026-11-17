@@ -1,6 +1,6 @@
 # Pokemon Card Condition — experimental
 
-과거 개발 보고서와 이동 목록은 [문서 보관함](docs/history/README.md)에 있습니다. 동결 기록의 기존 링크가 필요한 보고서는 루트에 유지합니다.
+과거 개발 보고서와 이동 목록은 [문서 보관함](docs/history/README.md)에 있습니다. 협업·모델 개발 지침과 현재 진척 근거는 루트에 유지하고, 개별 실험 보고서는 보관합니다. 과거 루트 경로는 보관함의 이동 목록에서 찾을 수 있습니다.
 
 ## 로컬 경로 설정
 
@@ -197,7 +197,7 @@ result = analyzer.analyze("front.jpg", "back.jpg")
 - [x] 반사 위치별 검증 오류·미확인 라벨 수·위치 미지정 목록 집계 (재학습 없이 기존 예측 재사용; [결과](docs/history/GLARE_SLICE_VALIDATION_20261009.md))
 - [x] 항목별 임계값·precision/recall 비교: 누락을 없애면 오탐 증가, 임계값만으로 해결되지 않음 ([결과](docs/history/THRESHOLD_VALIDATION_20261009.md))
 - [x] 면별 모델 독립 추론 API/CLI, ResNet18 비교, validation 보고서 비교·실제 추론 속도 측정 ([결과](docs/history/BACKBONE_INFERENCE_VALIDATION_20261009.md))
-- [x] 3×3 구역별 명시적 결함 라벨 및 학습 준비 감사 ([검증](REGION_DATA_VALIDATION_20261009.md))
+- [x] 3×3 구역별 명시적 결함 라벨 및 학습 준비 감사 ([검증](docs/history/REGION_DATA_VALIDATION_20261009.md))
 - [x] 구역 라벨68개로 MobileNet 고정 특징+head 기준 실험 ([결과](docs/history/REGION_EXPERIMENT_VALIDATION_20261009.md)); 정상 사례 보강은 [사람 확인 목록](docs/history/REGION_HUMAN_REVIEW_20261009.md)
 - [x] 구역 추론 API/CLI, 새 라벨96개 재실험 ([검증](docs/history/REGION_INFERENCE_VALIDATION_20261009.md))
 - [ ] 결함별 위치/세부 영역 모델 실험, 필요 시 backbone 미세조정
@@ -272,7 +272,7 @@ http://127.0.0.1:8766 에서 사진을 확대하고 앞면/뒷면, 동일 실물
 .venv/bin/card-condition snapshot data/learn-review.jsonl data/next-experiment.jsonl --reference data/expanded-20261008.jsonl --unassigned train
 ```
 
-출력 JSON의 split_changes와 readiness를 확인한 뒤 train/evaluate를 실행하세요. 새 이름으로 저장하며 기존 파일은 덮어쓰지 않습니다. 다른 촬영의 동일 실물은 같은 group을 지정해야 합니다. 실제 결과는 EXPERIMENT_20261008_EXPANDED.md 참고.
+출력 JSON의 split_changes와 readiness를 확인한 뒤 train/evaluate를 실행하세요. 새 이름으로 저장하며 기존 파일은 덮어쓰지 않습니다. 다른 촬영의 동일 실물은 같은 group을 지정해야 합니다. 실제 결과는 docs/history/EXPERIMENT_20261008_EXPANDED.md 참고.
 
 ## 앞뒤별 관찰과 카드 영역
 라벨 화면의 새 기능 항목을 펼치고 선택된 앞면/뒷면에서 카드 전체를 감싸는 좌상단과 우하단을 차례로 클릭하세요. 숫자 0~100% 입력도 지원합니다. 면별 평가 가능 여부와 결함을 별도로 기록하고, 반사·흐림·가림·잘림·저해상도·비스듬한 촬영 등 관찰 제한 사유를 복수 선택한 뒤 저장하세요. 빛 반사를 선택하고 카드 영역을 지정하면 반사 때문에 확인하기 어려운 위치를 3×3 구역에서 여러 곳 고를 수 있습니다. 위치 선택은 선택 사항이며 기존 라벨은 그대로 유효합니다. 반사가 있는 위치는 결함이나 정상으로 자동 판정하지 않고, 다른 위치에서 실제 보이는 결함은 별도로 기록할 수 있습니다. 이 위치 정보는 현재 기록·검토용이며 모델 입력이나 Gemini 호출 분기에 아직 쓰이지 않습니다. 기존 전체 라벨은 복사/변경하지 않습니다. side_annotations는 JSONL 내보내기와 snapshot에 보존됩니다. 기본 train은 사진 묶음 라벨을 사용하고, side-experiment는 면별 라벨/영역을 사용합니다. 기울어진 카드의 원근 보정/결함 위치 박스는 다음 단계입니다.
@@ -327,10 +327,10 @@ TORCH_HOME=artifacts/torch-cache .venv/bin/card-condition side-experiment data/s
 `--history`를 누락하거나 불완전하게 제공하면 과거 노출을 전부 검사할 수 없다. 다른 촬영·리사이즈·크롭으로 나온 같은 실물은 사람이 같은 group을 지정해야 한다. 최종 결과를 보고 다시 개발하면 그 시험셋은 회귀 자료로 전환하고 새 최종자료를 확보한다. 현재 crop 평가는 사람 지정 영역을 전제로 하며 자동 카드 검출 성능은 포함하지 않는다. 기존 pair용 evaluate는 회귀평가 결과임을 명시하며 최종평가 경로로 사용하지 않는다.
 
 ### 전체 카드 + 확대 타일 실험
-`side-experiment ... --tiles`는 사람이 지정한 영역 전체와 중첩된 네 구역을 함께 학습합니다. `--crop`과 동시에 사용할 수 없습니다. train/val만 사용하며 기본 입력 모드는 바뀌지 않습니다. 현재 실험에서 결함 검출 개선이 없어 운영 적용을 보류했습니다. 결과·검증·롤백: [TILES_VALIDATION_20261008.md](TILES_VALIDATION_20261008.md).
+`side-experiment ... --tiles`는 사람이 지정한 영역 전체와 중첩된 네 구역을 함께 학습합니다. `--crop`과 동시에 사용할 수 없습니다. train/val만 사용하며 기본 입력 모드는 바뀌지 않습니다. 현재 실험에서 결함 검출 개선이 없어 운영 적용을 보류했습니다. 결과·검증·롤백: [docs/history/TILES_VALIDATION_20261008.md](docs/history/TILES_VALIDATION_20261008.md).
 
 ### 학습 클래스 불균형 실험
-`side-experiment ... --balance`는 train의 음성/양성 수로 학습 가중치를 계산합니다. unknown은 제외하고 val의 모델선택 loss는 기존대로 유지합니다. 기본값은 비활성입니다. 결함 검출과 오탐이 함께 증가했으므로 운영 채택하지 않았습니다. [결과·변경·롤백](BALANCE_VALIDATION_20261008.md).
+`side-experiment ... --balance`는 train의 음성/양성 수로 학습 가중치를 계산합니다. unknown은 제외하고 val의 모델선택 loss는 기존대로 유지합니다. 기본값은 비활성입니다. 결함 검출과 오탐이 함께 증가했으므로 운영 채택하지 않았습니다. [결과·변경·롤백](docs/history/BALANCE_VALIDATION_20261008.md).
 
 `side-experiment ... --fine-tune-last`는 기존 고정 특징 기준선과 비교하기 위한 별도 실험 옵션입니다. MobileNet의 마지막 특징 블록과 분류 head만 학습하며 기본값은 비활성입니다. 현재 데이터에서는 평가 불가 오판/결함 누락이 줄지 않아 운영 채택하지 않았습니다. [비교 결과](docs/history/FINE_TUNE_LAST_VALIDATION_20261009.md).
 
@@ -359,7 +359,7 @@ TORCH_HOME=artifacts/torch-cache .venv/bin/card-condition side-experiment artifa
 `compare-validation`은 동일 snapshot·같은 면/정답인지 검사하고 보고서의 혼동행렬을 예측에서 다시 검산합니다. final/regression 보고서는 개발 비교에서 차단합니다. 모델이나 임계값을 자동 선택하지 않습니다. `benchmark-validation`은 val만 사용해 한 번 준비 실행 후 각 면을 3회 측정합니다. 중앙값·p95는 이미지 읽기/전처리/추론을 포함하며 모델 초기 로딩은 별도 기록합니다. 메모리는 측정하지 않습니다. 모든 산출물은 새 경로로 저장합니다.
 
 ### 학습 횟수 비교 기록
-`side-experiment ... --epochs 30`으로 학습 길이를 지정할 수 있습니다(기본5). 보고서/체크포인트는 `selected_epoch`, `best_validation_loss`를 기록하고 보고서는 선택 모델의 `training_metrics`도 제공합니다. 학습 지표는 진단용이며 성능 보증이 아닙니다. [5회/30회 비교 및 롤백](EPOCH_VALIDATION_20261008.md).
+`side-experiment ... --epochs 30`으로 학습 길이를 지정할 수 있습니다(기본5). 보고서/체크포인트는 `selected_epoch`, `best_validation_loss`를 기록하고 보고서는 선택 모델의 `training_metrics`도 제공합니다. 학습 지표는 진단용이며 성능 보증이 아닙니다. [5회/30회 비교 및 롤백](docs/history/EPOCH_VALIDATION_20261008.md).
 
 ## 0.4.26 — 입력 진단과 순위·보류 평가
 

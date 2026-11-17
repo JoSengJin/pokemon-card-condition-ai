@@ -88,7 +88,7 @@ Claude 신규 작업은 `artifacts/claude-block8-cache-audit-20261024/`부터 �
 - 정상 손실의 패치 수 효과 제거: `artifacts/experiments/20261023T120712-fc61365d/record.json`, completed/false. 같은26 FP2→3/22(+4.55%p), 구간/실제점 FN0/4 유지. 수학4검사는 통과했지만 성능 개선은 아니다. 원래 손실을 유지한다.
 - 원본+제곱 특징: `artifacts/experiments/20261022T210745-9ab8daee/record.json`, 미채택. FP4/22·실제점 FN2/4.
 - ±7px 패치 위상 학습: `artifacts/experiments/20261021T215246-9cd2cfe8/record.json`, 실제점 누락 악화로 미채택.
-- 공분산 보정/이웃 평균/정상 손실 절반/미세 RGB 대비 특징/과거 LoRA·CNN 등은 상단 TODO와 각 원본 계획·결과를 먼저 대조한다. 다른 실패 자료를 이름만 바꿔 재실행하지 않는다. 과거 미세대비/학습 백본 실험의 범위는 `NATIVE_REVIEW_MICROTEXTURE_20261018.md`, `WEAR_FEATURE_LEARNING_VALIDATION_20261017.md` 참조.
+- 공분산 보정/이웃 평균/정상 손실 절반/미세 RGB 대비 특징/과거 LoRA·CNN 등은 상단 TODO와 각 원본 계획·결과를 먼저 대조한다. 다른 실패 자료를 이름만 바꿔 재실행하지 않는다. 과거 미세대비/학습 백본 실험의 범위는 `docs/history/NATIVE_REVIEW_MICROTEXTURE_20261018.md`, `docs/history/WEAR_FEATURE_LEARNING_VALIDATION_20261017.md` 참조.
 - OpenCV는 보류 상태다. 수집기·라벨 UI·자동 토론 프레임워크 개선을 이번 모델 캐시 진단과 섞지 않는다. eBay 수집기는 기존 `tools/collect_ebay_dataset.py`가 있고 기본 수집과 외부 모델 판독을 구분한다.
 - 이 작업은 외부 Gemini/NVIDIA/추가 Codex CLI 모델 호출 없이 진행한다. 계획 `gemini_calls_allowed=0`. `./review --auto`로 별도 실제 모델/토론을 시작하지 않는다. provider 비밀 설정이나 consumer API키를 가져오지 않는다.
 

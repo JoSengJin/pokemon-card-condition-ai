@@ -40,7 +40,7 @@ photo-3에 대해 새로 확인한 원본은 `misdreavus-surface-exact-review-20
 | `eevee-normal-edge-training-20261019/clarification-verification.json` | `effective_corner_positive_detail_rows: 4`, `Y_unknown: true`. 검증 대상으로 역사적 파일 3개의 SHA만 담고 있고, current-effective의 SHA는 없다 | 현재 rows(5행, Y 포함)와 불일치 |
 
 - 결론: Y=corner 1이 우측 상단 모서리 존재로 정정됐다는 사실은 확인 가능하다. 사람 응답 원문과 그 응답을 반영한 후속 기록 4개가 일치한다. 동일 응답에서 파생된 기록의 일치이며, 독립된 사람 판정 4회라는 뜻은 아니다.
-- `clarification-verification.json`의 수치(4행, Y unknown)는 현재 유효 rows와 다르므로 현재 상태를 증명하는 자료로 쓰지 않는다. `LABEL_CORRECTION_WY_20261019.md`의 변경 목록에는 eevee의 pending·current-effective·clearance가 있지만 이 verification 파일은 없어 갱신 누락 가능성이 있다. 다만 당시 current-effective SHA와 직접적인 실행 순서가 없으므로 정정 전 작성됐거나 정정 때 갱신되지 않았다고 확정하지 않는다. 수정시각은 판단에 쓰지 않았다.
+- `clarification-verification.json`의 수치(4행, Y unknown)는 현재 유효 rows와 다르므로 현재 상태를 증명하는 자료로 쓰지 않는다. `docs/history/LABEL_CORRECTION_WY_20261019.md`의 변경 목록에는 eevee의 pending·current-effective·clearance가 있지만 이 verification 파일은 없어 갱신 누락 가능성이 있다. 다만 당시 current-effective SHA와 직접적인 실행 순서가 없으므로 정정 전 작성됐거나 정정 때 갱신되지 않았다고 확정하지 않는다. 수정시각은 판단에 쓰지 않았다.
 - 미해결: 이 verification이 작성된 정확한 시점과, 당시 current-effective가 4행이었다는 직접 증거(그 시점 파일 SHA)는 snapshot에 없다.
 - 범위 주의: Y는 해당 crop의 모서리 존재 양성일 뿐이다. 실제점·다른 부위·면 전체 정답이 아니다. W는 unknown이며 정상이나 손상으로 바꾸지 않는다.
 
@@ -51,7 +51,7 @@ photo-3에 대해 새로 확인한 원본은 `misdreavus-surface-exact-review-20
 - 이후 정정 `clarification-2-4.json`(`resolved: true`)은 edge 2·4를 1로 바꿨다. `corner_targets`는 1:0, 3:0을 그대로 두고 2·4를 null로 남겼다.
 - `readiness.json`(7행)과 `clarified-readiness.json`(9행) 모두 corner 0을 2로 센다. skip은 W, corner-2, corner-4(human truth unknown)뿐이다. corner-1·corner-3을 무효화한 파일은 snapshot에 없다.
 
-"후속 감사 실패"로 기록된 것은 다음 두 가지이며, 둘 다 학습·평가 품질의 한계다(`RAICHU_LEARNING_VALIDATION_20261019.md`, 추가 원본 `raichu-corner-seed-20261019/verification.json`).
+"후속 감사 실패"로 기록된 것은 다음 두 가지이며, 둘 다 학습·평가 품질의 한계다(`docs/history/RAICHU_LEARNING_VALIDATION_20261019.md`, 추가 원본 `raichu-corner-seed-20261019/verification.json`).
 1. 정상 group이 1개뿐이어서 heldout group 평가가 불가능하다(`normal_source_groups: 1`, `grouped_quality_evaluation_possible: false`).
 2. 평균 RGB 3값만으로 같은 21 crop을 19/21 맞혔다. 색·배경 지름길 위험이 있다.
 
