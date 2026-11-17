@@ -43,7 +43,7 @@ ignored 산출물: artifacts/synthetic-observation-loop-20261117/ 아래 단계�
 
 ## 실행 계획·ledger
 - [x] 1 표시: Python renderer/검증한 동일 bytes 내장·JS SHA/Blob/decode gate·관측/무효화. Python/Node 합성 RED→GREEN, 검토·보완 후 커밋.
-- [ ] 2 응답: 명시적4상태/원문 메모/관측+내보내기·독립 Python validator. 합성 전이·변조·미확인/누락·비노출 검사, 검토·보완 후 커밋.
+- [x] 2 응답: 명시적4상태/원문 메모/관측+내보내기·독립 Python validator. 합성 전이·변조·미확인/누락·비노출 검사, 검토·보완 후 커밋.
 - [ ] 3 저장: raw/SHA/수신 문맥/거부·충돌/멱등/부분 저장·무결성. JS 내보내기→Python receipt 연결 합성 검사, 검토·보완 후 커밋.
 - [ ] 최종: 기존12검사와 새 정확 파일 검사, 정의/호출/소유 범위·diff·소스 SHA 대조. 진척78/100 유지 보고서/로컬 HTML 생성·열기(렌더 확인 구분). 로컬 커밋 후 종료.
 
@@ -55,3 +55,5 @@ Ruling: 사용자가 방금 위 설계 범위의 루프 실행을 명시 승인�
 - 1段 검토: 초기 비동기 제거/재삽입·data-ref 변경2건을 회귀 RED2실패로 재현했다. 초기부터 observer를 설치하고 정상 내부 src 기록만 구별해 소비하며 무효화 latch를 유지한다. binding의 ref와 proof 상태/기대 집합을 검사한다. reviewer 지적과 Node 회귀를 근거로 보완한다.
 
 - 2단계 검토: invalidate 이력·최종 상태/마지막 change 모순을3case RED로 재현했고 display_verified=false로 보류하여 원답을 유지한다. 타입 회귀에서는 profile의 True/1 동치와 nonhashable entry_id도 거부했다.stage1 commit51e2a60。
+
+- 3단계 검토: lone surrogate 원답의 manifest UTF-8 재인코딩 실패, 세션 거부 뒤 stale summary, 멱등 재수신 summary 미검사3건을 RED3실패로 재현했다. 파생 JSON/digest는 ASCII escape를 쓰되 raw bytes는 그대로 저장한다. 거부 summary 초기화/로드 검사, 두 진입점의 기존 derived summary 검사를 적용한다. 함수/전이 제한 때문에 동일4줄 검사를 얇은 wrapper로 감싸지 않고 각 진입점에서 직접 실행한다. stage2 commitc56e80a.
