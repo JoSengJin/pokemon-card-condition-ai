@@ -45,3 +45,8 @@ S2 완료: zoom4+contract3+mobile3/기존관련19통과. 검토P2두건회귀RED
 Ruling: packet메타데이터를독립수신검사하려면 API에packet이필요하므로 capture_collection_receipt(packet,contract,raw_bytes,custody_context,assignment,ledger), load_collection_receipts(packet,contract,assignment,ledger)로정확서명고정. v1 validate_response와v2 sidecar검사는 capture/load에서나란히직접호출하여v1최장4전이를늘리지않는다. read helper는IO/hash검사만하고semantic검사는capture/load에서각각수행. 새파일함수최대7.
 
 S3 완료: source2/receipt4 RED→GREEN, 누적47회귀통과. reviewer는저장된human source재해시재분류1건지적, 반례RED1→공통read의syntheticguard보완→GREEN/재검토잔여없음. 신규source1/response2/receipt5정의. v1base검사는load/capture직접호출최장4. 실제human소스거부/합성human주장비인증/별도context/bytes/partial/status재검사유지.
+
+## S4 소유 파일·봉인 계약
+새 card_condition/observation_seal.py, observation_access.py, tests/test_observation_seal.py, tests/test_observation_access.py. 수정 tests/collection_runtime_fixture.py(가짜권한fixture),wire문서/ledger. read helpers는S3의synthetic/hash검사재사용, v1모델release불변.
+Ruling: S4 seal은검증한인수증/원문참조의불변보관봉인이고사람truthseal이아니다. S5의최상위에서S3 load_semantics를먼저검사한후seal을호출한다. sealAPI는ledger의해시·합성guard를직접재대조하고임의subset/partial을거부하며truth_status=unresolved_synthetic/false로고정. semantic→seal을래핑해호출깊이를늘리지않는다. 실제신원/파일접근인증은R2미구현이다.
+seal_receipts(contract,receipt_refs,ledger,output), load_seal(contract,ledger,output,seal_id), seal_state(seal,output), transition_seal(seal,output,action,actor,policy,freeze_ref=None). access authorize(actor,action,state,policy), aggregate_projection(actor,state,policy,receipts). 새파일각최대4/2정의. 주요경로transition→seal_state→digest 또는transition→authorize→exact_keys 최대3, seal→read_collection_records→strict_json_loads 최대4이내.
