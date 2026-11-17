@@ -58,3 +58,7 @@ S4 완료: access2/seal4통과+기존새관련16회귀통과. reviewer경쟁조�
 ## S5 소유 파일·실제브라우저 연결
 새 tests/observation_collection_browser_fixture.py, tests/test_observation_collection_flow.py, docs/collaboration/reports/collection-runtime-synthetic-20261117.md. 수정 pyproject.toml의package-data에추가JS3개만등록, 이ledger. 필요한검토결함보완은기존S0–S4소유파일안에서반례와함께기록. 실제브라우저생성출력만사용, 합성H/A4상태·한글메모·H확대/A차단·unknown범위잠금·viewport불일치·변조/누락/decode·CSS복원latch를확인. 실제textarea원문UTF8+브라우저TextEncoder/SHA→receipt raw.bin비교→S3load의미검사→seal→모의release/개발집계/격리. 실패단계는사람판정/모델개선으로보고하지않는다.
 HTML/브라우저증거는ignored artifacts/collection-runtime-synthetic-20261118/에새로생성. loopback43188은해당pages만서비스하고최종종료·viewport원복. 새fixture script0정의/flow tests최대5정의, top-level조립으로API최대4유지. 독립최종diff검토를거친다.
+
+S5 구조보완: named function뿐아니라arrow callback까지정의로세어zoom의6named+4arrow 초과를발견. S1/S2 소유파일내에서same predicate를단순for루프로바꿔viewport4/zoom6 정의로정리하고재회귀한다. S0–S4 reviewer의named함수수보고만으로통과간주하지않는다. Ruling: 새helper로깊이를늘리지않고기존조건식의반복검사만직접순회한다.
+
+최종review 반례: 실제Chrome64CSS×1.1에서width70.4000015258789/height70.39999389648438로정확동등검사가잠김. fractional-red.raw로재현. 허용오차정책은미정유지하고geometry_edges기록+binary32좌표연산의ULP유도한계만JS/Python공통검사. S5소유에S2 zoom.js/py/fixture/zoomtests/wire보완포함. 실제sourceflag/CSS변조감시는유지하고다른브라우저지원은주장하지않는다. JS geometry leaf추가후총7정의/최장export→finish→record→snapshot→geometry=4.
