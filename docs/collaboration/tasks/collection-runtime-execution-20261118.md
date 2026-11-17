@@ -1,0 +1,26 @@
+# 수집 런타임 합성 구현 실행 계약·ledger
+owner: Codex
+status: implementing
+base_sha: e21768e086c9c2bfefecb191fab63af243b926c6
+branch: codex/collection-runtime-synthetic-20261118
+spec: collection-runtime-plan-20261117.md 및 new-observation-independent-evaluation-contract-20261117.md
+
+사용자 승인: S0부터 합성으로 가능한 구현/검증을 순차 진행, 단계별 회귀·독립 읽기 전용 교차 검토 후 로컬 커밋. 실제 자료/수집/모델/외부 provider/main/push 금지. 실제 기기·역할·표본·수용 수치 미정 유지. 기존 v1 guard와 false flags 보존. 모든 편집/검사는 ./develop 안에서 직렬 실행. 함수7/호출전이4 제한. 시험 fixture 숫자는 제품 승인값이 아니다.
+
+## S0 소유 파일·계약
+- docs/collaboration/contracts/collection-runtime-v2-20261117.md
+- card_condition/observation_collection_contract.py
+- tests/test_observation_collection_contract.py
+- 이 ledger
+새 계약 exact schema/digest/null/readiness와 v1 확장 거부를 먼저 RED→GREEN. contract는 synthetic만 허용하고 실제 수집 readiness=false 고정. 새 leaf validator/일관된 digest만 추가, 기존 v1소스 수정 없음. 새 Python 최대4정의 목표, readiness→validate_collection_contract→validate_profile→exact_keys 최대3전이.
+
+## 실행 ledger
+- [ ] S0 계약
+- [ ] S1 휴대폰 관측
+- [ ] S2 H 확대
+- [ ] S3 출처/수신
+- [ ] S4 봉인/접근
+- [ ] S5 실제 브라우저 합성 연결·최종 회귀
+후속 단계 소유 파일/경로는 시작 전에 여기에 추가하고 커밋한다. ignored 산출물 artifacts/collection-runtime-synthetic-20261118/의 stage별 RED/GREEN/review/브라우저 원문·화면/report.html. 기존 artifacts 탐색/덮어쓰기 금지. HTML은 이번 실제 개발 결과로 갱신·열기와 렌더를 구분한다. 진척 두 정본은 유지하며 최종 보고 전 읽는다.
+
+롤백은 단계 구현을 역순 revert. v1/원문/기존 근거/다른 worktree 보존. R1실기기/R2실권한은 미정·미확인이고 합성 통과로 실제 수집을 열지 않는다.
