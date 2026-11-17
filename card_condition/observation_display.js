@@ -76,6 +76,7 @@ async function verifyAssets() {
 
 function displayReady() {
   if (!REVIEW.ready || REVIEW.invalidated) return false;
+  if (!REVIEW.packet.profile.zoom_allowed && window.visualViewport && window.visualViewport.scale !== 1) return false;
   for (const [id, bound] of REVIEW.bindings) {
     if (document.getElementById(id) !== bound.image || !bound.image.isConnected || bound.image.dataset.ref !== bound.ref || bound.image.src !== bound.url ||
         (bound.image.currentSrc || bound.image.src) !== bound.url || !bound.image.complete || !bound.image.naturalWidth) return false;

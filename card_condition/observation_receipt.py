@@ -142,6 +142,16 @@ def capture_receipt(packet, raw_bytes, custody_context, ledger):
                 if (previous["response"]["session_id"] != previous["context"]["session_id"] or previous["status"] == "rejected" or
                         checked["missing_entry_ids"] != previous["missing_entry_ids"] or checked["display_verified"] is not previous["display_verified"]):
                     raise ValueError("stored receipt observation summary mismatch")
+            else:
+                try:
+                    body = strict_json_loads(old_raw)
+                    validate_response(packet, body)
+                    if body["session_id"] != previous["context"]["session_id"]:
+                        raise ValueError("custody session mismatch")
+                except (ValueError, TypeError, OverflowError, RecursionError):
+                    pass
+                else:
+                    raise ValueError("valid response was stored as rejected")
             if previous["receipt_id"] == identity:
                 if old_raw != raw_bytes or previous["context"] != custody_context:
                     raise ValueError("receipt identity collision")

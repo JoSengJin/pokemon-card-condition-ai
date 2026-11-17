@@ -86,3 +86,8 @@ class ObservationResponseTests(unittest.TestCase):
                         event.update(event='change', entry_id='r1', state='defect')
                         body['observations']['events'].insert(0, event)
                 self.assertFalse(self.api.validate_response(self.packet, body)['display_verified'])
+
+        packet, assets = fixture('A')
+        body = response_fixture(packet)
+        body['observations']['events'][0]['visual_viewport_scale'] = 2
+        self.assertFalse(self.api.validate_response(packet, body)['display_verified'])

@@ -55,7 +55,8 @@ class ObservationPageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'synthetic.html'
             path.write_text(self.page.render_page(packet, assets))
-            for scenario in ('baseline', 'initial', 'ref'):
+            for scenario in ('baseline', 'initial', 'ref', 'zoom'):
+                if scenario == "zoom": path.write_text(self.page.render_page(*fixture("A")))
                 with self.subTest(scenario=scenario):
                     result = subprocess.run(['node', 'tests/observation_display.test.cjs', str(path), scenario], capture_output=True, text=True)
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

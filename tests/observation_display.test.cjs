@@ -6,6 +6,13 @@ const {makeHarness} = require("./observation_browser_fixture.cjs");
 
 async function main() {
   const page = fs.readFileSync(process.argv[2], "utf8");
+  if (process.argv[3] === "zoom") {
+    const h = makeHarness(page);
+    h.context.window.visualViewport = {scale: 2, listeners: new Map(), addEventListener: h.context.window.addEventListener};
+    await h.context.initialize(); assert.equal(h.context.displayReady(), false);
+    assert.equal(h.doc.answers[0].disabled, true);
+    console.log("display synthetic checks passed"); return;
+  }
   if (process.argv[3] === "initial") {
     const h = makeHarness(page); h.doc.images[1].owner = h; h.doc.images[1].decode = disruptedDecode;
     await h.context.initialize(); assert.equal(h.context.displayReady(), false);

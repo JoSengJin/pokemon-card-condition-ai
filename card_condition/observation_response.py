@@ -110,6 +110,8 @@ def validate_observations(packet, observations):
         previous = at
         if event["event"] == "invalidate":
             verified = False
+        if not packet["profile"]["zoom_allowed"] and event["visual_viewport_scale"] is not None and event["visual_viewport_scale"] != 1:
+            verified = False
     if not observations["events"] or observations["events"][-1]["event"] != "export":
         return False
     last = observations["events"][-1]

@@ -126,6 +126,14 @@ class ObservationReceiptTests(unittest.TestCase):
             with self.assertRaises(ValueError):self.api.load_receipts(self.packet,folder)
             with self.assertRaises(ValueError):self.api.capture_receipt(self.packet,raw,self.context,folder)
 
+        with tempfile.TemporaryDirectory() as folder:
+            receipt=self.api.capture_receipt(self.packet,raw,self.context,folder)
+            receipt.update(response=None,status='rejected',display_verified=False,missing_entry_ids=[],conflicts=[])
+            receipt['receipt_sha256']=self.api.receipt_digest(receipt)
+            (Path(folder)/receipt['receipt_id']/'receipt.json').write_text(json.dumps(receipt))
+            with self.assertRaises(ValueError):self.api.load_receipts(self.packet,folder)
+            with self.assertRaises(ValueError):self.api.capture_receipt(self.packet,raw,self.context,folder)
+
     def test_js_export_to_receipt_end_to_end_is_synthetic_and_blocked(self):
         with tempfile.TemporaryDirectory() as folder:
             page,raw_path=Path(folder)/'synthetic.html',Path(folder)/'response.json'
