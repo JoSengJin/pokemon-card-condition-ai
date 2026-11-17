@@ -66,6 +66,28 @@ def validate_entries(packet, entries):
     return sorted(set(expected) - seen)
 
 
+
+def event_display_matches(profile, event, elements):
+    """Compare declared conditions only; null profile values remain unknown."""
+    if profile["viewport_css"] is not None and event["viewport_css"] != profile["viewport_css"]:
+        return False
+    if profile["device_pixel_ratio"] is not None and event["device_pixel_ratio"] != profile["device_pixel_ratio"]:
+        return False
+    if event["event"] not in ("presented", "change", "export"):
+        return True
+    images = {image["element_id"]: image for image in event["image_sizes"]}
+    for key, asset in elements.items():
+        if event["event"] == "change" and not key.startswith(event["entry_id"] + "-"):
+            continue
+        image = images.get(key)
+        if (image is None or not image["current_src_matches"] or image["natural_size"] != asset["size"] or
+                any(n <= 0 for n in image["css_size"])):
+            return False
+        if profile["image_css"] is not None and image["css_size"] != profile["image_css"]:
+            return False
+    return True
+
+
 def validate_observations(packet, observations):
     exact_keys(observations, {"profile", "instructions_sha256", "renderer_version", "clock_source", "assets", "events", "limitations"}, "observations")
     validate_profile(observations["profile"])
@@ -108,18 +130,14 @@ def validate_observations(packet, observations):
         if previous is not None and at < previous:
             raise ValueError("browser clock moved backward")
         previous = at
+        if not event_display_matches(packet["profile"], event, elements):
+            verified = False
         if event["event"] == "invalidate":
             verified = False
         if not packet["profile"]["zoom_allowed"] and event["visual_viewport_scale"] is not None and event["visual_viewport_scale"] != 1:
             verified = False
     if not observations["events"] or observations["events"][-1]["event"] != "export":
         return False
-    last = observations["events"][-1]
-    images = {image["element_id"]: image for image in last["image_sizes"]}
-    for key, asset in elements.items():
-        image = images.get(key)
-        if image is None or not image["current_src_matches"] or image["natural_size"] != asset["size"] or any(n <= 0 for n in image["css_size"]):
-            verified = False
     return bool(verified and seen == set(expected))
 
 

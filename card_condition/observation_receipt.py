@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 from .observation_packet import COLLECTION_STATUS, exact_keys, strict_json_loads, validate_packet
 from .observation_response import validate_response
+from .observation_receipt_status import receipt_classification
 
 RECEIPT_KEYS = {"schema_version", "kind", "receipt_id", "receipt_sha256", "packet_id", "raw_sha256", "context", "status", "reasons", "response", "missing_entry_ids", "display_verified", "conflicts", "data_origin", "collection_status", "eligible_for_collection", "human_truth"}
 
@@ -65,6 +66,13 @@ def read_records(ledger):
                 raise ValueError("unparsed receipt must be rejected")
         elif json.dumps(strict_json_loads(raw), sort_keys=True) != json.dumps(record["response"], sort_keys=True):
             raise ValueError("stored response differs from original raw")
+        if not isinstance(record["reasons"], list) or not record["reasons"] or any(not isinstance(reason, str) for reason in record["reasons"]):
+            raise ValueError("invalid receipt reasons")
+        summary = dict(missing_entry_ids=record["missing_entry_ids"], display_verified=record["display_verified"])
+        status, reasons = receipt_classification(record["context"]["source_type"], summary, record["conflicts"],
+                                                 record["reasons"][0] if record["response"] is None else None)
+        if record["status"] != status or record["reasons"] != reasons:
+            raise ValueError("receipt status/provenance mismatch")
         records.append((record, raw))
     return records, incomplete
 
@@ -87,8 +95,10 @@ def load_receipts(packet, ledger):
                 validate_response(packet, body)
                 if body["session_id"] != record["context"]["session_id"]:
                     raise ValueError("custody session mismatch")
-            except (ValueError, TypeError, OverflowError, RecursionError):
-                pass
+            except (ValueError, TypeError, OverflowError, RecursionError) as error:
+                status, reasons = receipt_classification(record["context"]["source_type"], dict(missing_entry_ids=[], display_verified=False), [], str(error))
+                if record["status"] != status or record["reasons"] != reasons:
+                    raise ValueError("stored rejection reason mismatch")
             else:
                 raise ValueError("valid response was stored as rejected")
         result.append(record)
@@ -148,15 +158,17 @@ def capture_receipt(packet, raw_bytes, custody_context, ledger):
                     validate_response(packet, body)
                     if body["session_id"] != previous["context"]["session_id"]:
                         raise ValueError("custody session mismatch")
-                except (ValueError, TypeError, OverflowError, RecursionError):
-                    pass
+                except (ValueError, TypeError, OverflowError, RecursionError) as error:
+                    status, reasons = receipt_classification(previous["context"]["source_type"], dict(missing_entry_ids=[], display_verified=False), [], str(error))
+                    if previous["status"] != status or previous["reasons"] != reasons:
+                        raise ValueError("stored rejection reason mismatch")
                 else:
                     raise ValueError("valid response was stored as rejected")
             if previous["receipt_id"] == identity:
                 if old_raw != raw_bytes or previous["context"] != custody_context:
                     raise ValueError("receipt identity collision")
                 return previous
-        reasons, conflicts = ["collection_not_authorized"], set()
+        rejection_reason, conflicts = None, set()
         summary = dict(missing_entry_ids=[], display_verified=False)
         try:
             response = strict_json_loads(raw_bytes)
@@ -164,17 +176,10 @@ def capture_receipt(packet, raw_bytes, custody_context, ledger):
             if response["session_id"] != custody_context["session_id"]:
                 raise ValueError("custody session mismatch")
         except (ValueError, TypeError, OverflowError, RecursionError) as error:
-            response, status = None, "rejected"
+            response = None
             summary = dict(missing_entry_ids=[], display_verified=False)
-            reasons.insert(0, str(error))
+            rejection_reason = str(error)
         else:
-            status = "synthetic_only"
-            if summary["missing_entry_ids"] or not summary["display_verified"]:
-                status = "pending_observation"
-                reasons.append("missing_or_inconsistent_observations")
-            if custody_context["source_type"] != "synthetic_fixture":
-                status = "pending_provenance"
-                reasons.append("not_a_human_truth_source")
             if custody_context["source_type"] == "synthetic_fixture":
                 states = {entry["entry_id"]: entry["state"] for entry in response["entries"] if entry["state"] != "unreviewed"}
                 for previous, old_raw in records:
@@ -183,9 +188,7 @@ def capture_receipt(packet, raw_bytes, custody_context, ledger):
                     for entry in previous["response"]["entries"]:
                         if entry["entry_id"] in states and entry["state"] != "unreviewed" and states[entry["entry_id"]] != entry["state"]:
                             conflicts.add(entry["entry_id"])
-                if conflicts:
-                    status = "conflict"
-                    reasons.append("conflicting_original_observations_preserved")
+        status, reasons = receipt_classification(custody_context["source_type"], summary, sorted(conflicts), rejection_reason)
         record = make_receipt(packet, raw_bytes, custody_context, response, summary, status, reasons, conflicts)
         persist_receipt(record, raw_bytes, ledger)
         return record

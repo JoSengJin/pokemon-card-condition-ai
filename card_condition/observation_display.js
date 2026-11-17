@@ -66,7 +66,7 @@ async function verifyAssets() {
       await image.decode();
       if (REVIEW.invalidated) throw new Error("display invalidated during decode");
       if (image.naturalWidth !== asset.size[0] || image.naturalHeight !== asset.size[1]) throw new Error("decoded size mismatch");
-      REVIEW.bindings.set(id, {image, url, ref});
+      REVIEW.bindings.set(id, {image, url, ref, size: asset.size});
       proof.element_ids.push(id);
     }
     proof.decoded = true;
@@ -77,7 +77,13 @@ async function verifyAssets() {
 function displayReady() {
   if (!REVIEW.ready || REVIEW.invalidated) return false;
   if (!REVIEW.packet.profile.zoom_allowed && window.visualViewport && window.visualViewport.scale !== 1) return false;
+  const profile = REVIEW.packet.profile;
+  if (profile.viewport_css !== null && (window.innerWidth !== profile.viewport_css[0] || window.innerHeight !== profile.viewport_css[1])) return false;
+  if (profile.device_pixel_ratio !== null && window.devicePixelRatio !== profile.device_pixel_ratio) return false;
   for (const [id, bound] of REVIEW.bindings) {
+    const rect = bound.image.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0 || bound.image.naturalWidth !== bound.size[0] || bound.image.naturalHeight !== bound.size[1]) return false;
+    if (profile.image_css !== null && (rect.width !== profile.image_css[0] || rect.height !== profile.image_css[1])) return false;
     if (document.getElementById(id) !== bound.image || !bound.image.isConnected || bound.image.dataset.ref !== bound.ref || bound.image.src !== bound.url ||
         (bound.image.currentSrc || bound.image.src) !== bound.url || !bound.image.complete || !bound.image.naturalWidth) return false;
   }
@@ -90,6 +96,7 @@ function displayReady() {
 
 function handleEnvironment(event) {
   if (REVIEW.packet && !REVIEW.packet.profile.zoom_allowed && window.visualViewport && window.visualViewport.scale !== 1) invalidate(event);
+  if (REVIEW.ready && !displayReady()) invalidate(event);
   observe(event.type === "visibilitychange" ? "visibility" : event.type);
 }
 
