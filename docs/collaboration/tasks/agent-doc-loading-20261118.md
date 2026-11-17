@@ -2,7 +2,7 @@
 
 task_id: agent-doc-loading-20261118
 owner: Codex
-status: implementing
+status: integrated
 base_sha: 574775949b0e2a931247ad5bb9d320fc89f9ec5a
 branch: codex/agent-doc-loading-20261118
 
@@ -47,12 +47,23 @@ cross_review_auto_sources.py 함수 정의 6→6, review_rules(path)→str 인�
 
 ## 실행 계획 (writing-plans / inline)
 
-- [ ] 1. 새 고정 ID·문구 변경·누락/중복·빈 본문·프롬프트 호환 테스트를 먼저 실패시킨다.
-- [ ] 2. review_rules를 최소 변경하고 기존 8개 본문과 일치·문구 변경 후 유지·잘못된 규칙 거부를 확인한다.
-- [ ] 3. 기존 지침·승인 원문을 대조하며 README 이력 분리·현재 정본 연결·작업별 읽기 입구·Claude import를 적용한다.
-- [ ] 4. 문서 경로·지침 보존·바이트 예산·기존 mock 교차 검토와 전체 unittest를 검사한다. 실제 provider 호출·학습/사진 추론은 하지 않는다.
-- [ ] 5. 변경 파일·핵심 diff·실제 검증·미검증·리스크·롤백을 보고서/HTML에 기록하고 기본 checkout에서 통합 검증 후 origin/main에 일반 push한다.
+- [x] 1. 새 고정 ID·문구 변경·누락/중복·빈 본문·프롬프트 호환 테스트를 먼저 실패시킨다.
+- [x] 2. review_rules를 최소 변경하고 기존 8개 본문과 일치·문구 변경 후 유지·잘못된 규칙 거부를 확인한다.
+- [x] 3. 기존 지침·승인 원문을 대조하며 README 이력 분리·현재 정본 연결·작업별 읽기 입구·Claude import를 적용한다.
+- [x] 4. 문서 경로·지침 보존·바이트 예산·기존 mock 교차 검토와 전체 unittest를 검사한다. 실제 provider 호출·학습/사진 추론은 하지 않는다.
+- [x] 5. 변경 파일·핵심 diff·실제 검증·미검증·리스크·롤백을 보고서/HTML에 기록하고 기본 checkout에서 통합 검증 후 origin/main에 일반 push한다.
 
 ## checks / handoff
 
 HTML: artifacts/agent-doc-loading-20261118/index.html. 내용 대조·열기·렌더 확인은 각각 실제 결과를 기록한다. 지침 누락 보호는 시작 커밋의 모든 AGENTS bullet과 보관 README·분리한 실험 계약을 대조한다. 롤백은 최종 통합 커밋의 git revert 후 검사·일반 push. 기존 untracked .claude/와 다른 worktree는 수정하지 않는다.
+
+## 실제 인계 결과
+
+- 작업 브랜치 계약/구현: 3dd7b70 / 2ed9159. main 통합: 8a2d333 / d160a85.
+- 기본 checkout 전체 검사: `.venv/bin/python -m unittest discover -s tests -v` — 1,032 tests / OK (128.139s).
+- 신규 문서·파서·누락 전송 차단: 11 tests / OK. mock 교차 검토: 207 tests / OK. 읽기 전용 별도 검토에서 중대 누락 없음.
+- 지침·승인 46개와 하위 8개 본문 보존. PAIR_CODING/PROGRESS_CRITERIA/development-progress/LABELING_PROTOCOL byte 불변.
+- 구현 worktree 전체 검사는 1,031 tests 중 ignored 실자료 의존 오류 3건이 남았고, 실자료를 복제하지 않고 기본 checkout에서 모두 통과를 확인했다.
+- 변경 파일·핵심 diff·환경 실패 진단·기존 테스트 함수 수 초과·미검증·롤백은 docs/collaboration/reports/agent-doc-loading-20261118.md에 기록했다.
+- HTML: artifacts/agent-doc-loading-20261118/index.html. 브라우저 file 프로토콜 정책으로 HTML 열기·렌더가 차단됐다. 우회하지 않았으며 opening.json에 기록했다. Markdown 보고서를 대체 확인 경로로 제공한다.
+- 새 실카드 학습·사진 추론·provider/추가 Codex CLI 호출 없음. 일반 push 및 원격 SHA 일치는 최종 종료 전에 별도로 확인한다.
