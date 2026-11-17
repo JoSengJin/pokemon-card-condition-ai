@@ -181,7 +181,8 @@ class HighFixTest(unittest.TestCase):
         self.assertIsNone(read(self.folder/'token_report.json')['codex_usage']['total_tokens'])
 
     def test_oversize_input_is_not_silently_truncated_or_sent(self):
-        (self.root/'AGENTS.md').write_text('- 실험 전에 '+'x'*auto.CODEX_PROMPT_BYTES['verify'])
+        rules = (Path(__file__).resolve().parents[1]/'AGENTS.md').read_text()
+        (self.root/'AGENTS.md').write_text(rules.replace('- 실험 전에 ', '- 실험 전에 '+'x'*auto.CODEX_PROMPT_BYTES['verify']))
         self.assertEqual(self.run_flow(),1)
         self.assertFalse(self.order)
         self.assertEqual(read(next(self.folder.glob('codex/*/preflight.json')))['blocked'],'input_size')

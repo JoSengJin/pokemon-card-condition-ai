@@ -117,7 +117,16 @@ def provided_code_sources(context):
 
 def review_rules(path):
     if not path.exists():return ''
-    # Exact child-relevant rules; parent-only reporting/coordination is not model input.
-    prefixes=('- 독립 카드','- 완료한 라벨','- 학습과 검증','- 실험 전에',
-              '- 공통 기록은','- 읽기 전용 Codex','- 실험 하나를','- 토큰 절약형')
-    return '\n'.join(line for line in path.read_text().splitlines() if line.startswith(prefixes))
+    # IDs survive wording changes; malformed or missing child policy must stop before transport.
+    required = ('project-scope', 'human-truth', 'single-variable', 'experiment-plan',
+                'evaluation-boundary', 'bounded-edits', 'one-experiment', 'isolated-child')
+    text = path.read_text()
+    blocks = re.findall(r'^<!-- review-rule:([a-z-]+):start -->\n(.*?)\n<!-- review-rule:\1:end -->$',
+                        text, re.M | re.S)
+    markers = re.findall(r'<!-- review-rule:.*?-->', text)
+    if (len(blocks) != len(required) or len(markers) != 2 * len(required)
+            or {key for key, value in blocks} != set(required)
+            or any(not value.strip() for key, value in blocks)):
+        raise ValueError('Invalid or incomplete review-rule blocks in AGENTS.md')
+    rules = dict(blocks)
+    return '\n'.join(rules[key].strip() for key in required)
