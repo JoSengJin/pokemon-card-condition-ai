@@ -39,3 +39,7 @@ S1 완료: 미구현 RED→mobile3 GREEN, 기존page/response/receipt/p2 19회�
 S2 검토 보완: CSS/transform 일시 변조·복원과 scale_min2/max3·초기1 모순을 확인. CSS JS회귀1실패·범위 계약1실패로 재현. S2 소유에 observation_collection_contract.py/test_observation_collection_contract.py 추가. Ruling: 기준뷰의 항등 배율1을 명시 합성 구간에 포함하는 schema 정합 조건으로 제한하며 제품 확대 수치를 승인하지 않는다. style/width/height 감시와 자체 transform 기록의 동기 소비를 구현한다.
 
 S2 완료: zoom4+contract3+mobile3/기존관련19통과. 검토P2두건회귀RED→GREEN, 재검토중요잔여없음. 실제Chrome H배율2/원이미지X1 로그·A컨트롤없음·자체transform정상·CSS오류복원후잠금확인. JS6/Python1정의, 주요최장exportCollection→finishZoom→invalidateZoom→invalidate→observe=4. src/style mutation과크기누적판정, 범위는1포함정합조건만추가.
+
+## S3 소유 파일·수신 계약
+새 card_condition/observation_source.py, observation_collection_response.py, observation_collection_receipt.py, tests/collection_runtime_fixture.py, tests/test_observation_source.py, tests/test_observation_collection_receipt.py. 수정 observation_page.py/observation_collection_response.js(합성출처주장dropdown),wire문서/ledger. 기존v1receipt/validator는수정하지않음.
+Ruling: packet메타데이터를독립수신검사하려면 API에packet이필요하므로 capture_collection_receipt(packet,contract,raw_bytes,custody_context,assignment,ledger), load_collection_receipts(packet,contract,assignment,ledger)로정확서명고정. v1 validate_response와v2 sidecar검사는 capture/load에서나란히직접호출하여v1최장4전이를늘리지않는다. read helper는IO/hash검사만하고semantic검사는capture/load에서각각수행. 새파일함수최대7.
