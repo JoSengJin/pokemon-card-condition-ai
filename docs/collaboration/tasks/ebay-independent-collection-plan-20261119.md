@@ -50,3 +50,13 @@ D3 기준(누락 사건률 상한 ≤10%, 오탐 ≤20%)을 만족하는 최소 
 
 ## 이 문서가 하지 않는 것
 수집·호출·학습 실행, 기준 변경, 점수 변경. 진척 78/100 불변.
+
+## 실행 방식 (2026-11-19 추가, 기존 `tools/collect_ebay_dataset.py` 사용)
+사용자 지시: 계획 수치에 못 미치면 검색어를 늘린다("계획에 어긋나면 검색어 더 늘려"). 이 문장은 수집 시작 승인이 아니다.
+
+- 도구 제약: 실행 1회당 매물 1–30개(`collect`), 같은 출력 폴더에서는 검색어를 바꿀 수 없다. 따라서 **출력 폴더마다 고정 검색어 묶음으로 여러 번 실행**한다.
+- 규모: 후면 라벨 ≥150장에는 후면 확인에서 탈락하는 매물이 있으므로 매물 약 200개 이상(실행 7~8회)을 예상한다. 실제 탈락률은 미측정이라 수집 후 집계해 부족하면 묶음을 추가한다.
+- 모드: `--screen-limit` 생략(사진만 수집, Gemini 호출·상태 라벨 없음). 뒷면 판별은 사람(`--confirm-back`)이 한다. 이 단계는 사용자 부담이 있다.
+- 중복 제외: 기존 `artifacts/ebay-intake-*`(현재 정리된 intake 폴더 전부)와 이번 새 폴더를 `--reference-learn`으로 모두 넘긴다.
+- 필요한 값(`null`): `POKECOLLECTOR_ROOT`(소비 프로젝트 경로, 현재 미설정), 검색어 묶음, 시작 승인.
+- 검색어 묶음 초안(승인 전): 기본 3종 + 연도·세트·상태 표현을 달리한 묶음(예: `pokemon card holo`, `pokemon card japanese`, `pokemon card 1st edition`, `pokemon card base set`, `pokemon card played`, `pokemon card lightly played`, `pokemon trainer card`). 실행별로 3~4개씩 나눠 겹침을 줄인다.
