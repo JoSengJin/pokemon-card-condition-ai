@@ -35,7 +35,7 @@
 | 스킬 | 사용 | 조건·보정 |
 |---|---|---|
 | verification-before-completion | 기본 | 명령·출력·종료 코드·주장을 대조한다. 금지된 검사를 실행할 권한은 아니다. |
-| test-driven-development | 기본 | 의도한 실패를 먼저 확인한다. 전체 suite 강제와 코드 삭제 지시는 따르지 않고 task의 checks 범위를 따른다. 테스트를 쓸 때 writing-good-tests.md도 읽는다. |
+| test-driven-development | 선택 | 버그 재현이나 데이터 손실·보안·라벨 무결성 등 위험한 로직의 검증에 필요할 때만 적용한다. 적용 시 의도한 실패를 먼저 확인한다. 전체 suite 강제와 코드 삭제 지시는 따르지 않고 task의 checks 범위를 따른다. 테스트를 쓸 때 writing-good-tests.md도 읽는다. |
 | requesting-code-review | 기본 | 기준은 HEAD~1이 아니라 task의 base_sha다. 하위 모델 호출 승인과 입력 범위를 먼저 고정한다. |
 | systematic-debugging | 버그 작업 | 재현 → 단일 가설 → 최소 변경. 진단 실행도 승인 범위 안에서만 한다. |
 | receiving-code-review | 검토 의견을 반영할 때 | 적용 전 코드로 확인한다. 불명확한 항목만 보류하고 독립 항목은 계속한다. 삭제 제안은 허용 파일·승인 안에서만. 외부 스레드 답글은 하지 않는다. |
@@ -46,7 +46,9 @@
 
 쓰지 않는다: finishing-a-development-branch, subagent-driven-development, dispatching-parallel-agents, diagnosing-superpowers, writing-skills, using-superpowers의 자동 호출 규칙. 병렬·하위 에이전트는 사용자가 승인한 분업이 있을 때만 별도 계약으로 다룬다.
 
-스킬을 적용하는 task·보고서에는 적용 스킬 또는 해당 없음과 이유, 읽은 범위, RED/GREEN 명령·종료 코드·로그·검증 대상 SHA를 적는다. 이 기록은 준수의 증명이 아니다. 압축·재개 뒤에는 현재 task, SHA, 담당, 잠금을 실제 상태와 다시 대조한다. 스킬 본문은 Codex 캐시 `~/.codex/plugins/cache/openai-curated-remote/superpowers/7.0.1/skills/<이름>/SKILL.md`에서 읽을 수 있으나 이것을 영구 설치 경로로 확정한 것은 아니다. 이 선택표를 바꾸는 것은 새 승인이 아니다.
+TDD는 기본 적용하지 않는다. 단순한 변경에 TDD 순서나 RED/GREEN 기록을 강제하지 않으며, 작업에 필요한 검증은 task의 checks에 따른다. 스킬 기록 검사기 시범(`skill-record-check-20261118`, `skill-record-check-fix-20261118`)은 main에 통합하거나 선택표·커밋 전 훅에 연결하지 않는다.
+
+스킬을 적용하는 task·보고서에는 적용 스킬 또는 해당 없음과 이유, 읽은 범위, 실제 검증 명령·종료 코드·로그·검증 대상 SHA를 적는다. RED/GREEN 기록은 TDD를 적용한 경우에만 남긴다. 이 기록은 준수의 증명이 아니다. 압축·재개 뒤에는 현재 task, SHA, 담당, 잠금을 실제 상태와 다시 대조한다. 스킬 본문은 Codex 캐시 `~/.codex/plugins/cache/openai-curated-remote/superpowers/7.0.1/skills/<이름>/SKILL.md`에서 읽을 수 있으나 이것을 영구 설치 경로로 확정한 것은 아니다. 이 선택표를 바꾸는 것은 새 승인이 아니다.
 
 ## 자동 하위 검토는 별도 입력 계약
 
