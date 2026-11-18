@@ -1,6 +1,6 @@
 task_id: obslimit-rejudge-16-20261118
 owner: Claude
-status: implementing
+status: ready_for_review
 base_sha: 54f5fe780082c8fcdd5c702f9f8c40cbe3b0f29e
 branch: claude/obslimit-rejudge-20261118
 goal: '제한'으로 답했으나 사유 수집에서 not_limited로 표시된 후면 16장을 사람이 다시 판정하는 폰 페이지와 응답 검증기. 기존 답은 바꾸지 않고 재판정 응답은 별도 파일로만 받는다.
@@ -10,7 +10,7 @@ contract: 입력 answers-2.txt(not_limited 행)·holdout-rows.json. 출력 HTML(
 structure: 신규 파일 함수 4개(select_candidates, article, parse_rejudge, main), 최대 호출 깊이 2(main→article→encode 외부). 변경 전 해당 파일 없음.
 checks: python -m unittest tests.test_mobile_visibility_rejudge_pages. 사진 열람·모델 실행 없음.
 experiment: 없음. 새 학습·평가 아님. 성능 주장 없음.
-handoff: (완료 후 기록)
+handoff: 기능 커밋 1cd8607(전체 1cd86076bd6dcb49e10a3480a79bc26ec188bfdf), 이 문서 갱신 커밋이 tip. 변경 파일 3개(위 allowed_files). 구조: 함수 4개, 호출 깊이 2 눈으로 확인(정적 도구 미사용). RED: 모듈 없음으로 `unittest tests.test_mobile_visibility_rejudge_pages` FAILED(errors=1) 확인. GREEN: 같은 명령 exit 0, 6 tests OK(대상 SHA 1cd8607). 변이 점검(머리속): 후보 선택을 정확 일치로 바꾸면 혼합 행 테스트가 실패. 미검증: 페이지 JS(버튼 클릭→텍스트상자 갱신)는 브라우저 열기가 거부되어 실행 확인 못함, 사진 렌더도 미확인. 리스크: 응답 일치율 계산은 범위 밖. 롤백: worktree·브랜치 삭제, artifacts/obslimit-reasons-20261118/rejudge-1.html 삭제.
 
 ## 적용 스킬 (docs/AGENT_START.md 선택표)
 - verification-before-completion: 완료 주장 전 테스트 명령·종료 코드를 읽고 기록. 읽은 범위 전체(120행).
