@@ -1,0 +1,70 @@
+"""Offline synthetic-only display. No file paths, collection or label imports."""
+import base64
+import html
+import json
+from pathlib import Path
+from .observation_assets import verify_assets
+from .observation_collection_contract import validate_collection_contract
+
+
+def render_page(packet, assets, collection_contract=None):
+    verified = verify_assets(packet, assets)
+    profile = packet["profile"]
+    if (profile["renderer_version"] != "synthetic-observation-v1" or
+            profile["resize"] not in (None, "none") or profile["interpolation"] is not None):
+        raise ValueError("unsupported synthetic renderer profile")
+    candidate = ""
+    if collection_contract is not None:
+        validate_collection_contract(collection_contract)
+        if collection_contract["packet_id"] != packet["packet_id"] or collection_contract["display_profile"] != profile:
+            raise ValueError("candidate contract packet/profile mismatch")
+        encoded_contract = json.dumps(collection_contract, ensure_ascii=True, allow_nan=False).replace('<', r'\u003c')
+        viewport_script = Path(__file__).with_name('observation_viewport.js').read_text()
+        candidate_script = Path(__file__).with_name('observation_collection_response.js').read_text()
+        zoom_script = Path(__file__).with_name('observation_zoom.js').read_text()
+        zoom_controls = []
+        if profile['observation_mode'] == 'H':
+            for entry in packet['entries']:
+                identifier = entry['entry_id']
+                asset = next(a for a in entry['assets'] if a['kind'] == 'region')
+                zoom_controls.append(f'<section><h2>{identifier} H 합성 확대</h2><div style="overflow:auto;height:180px">'
+                    f'<img id="zoom-{identifier}-image" data-zoom-ref="{asset["ref"]}" alt="H 확대 구역"></div>'
+                    f'<label>H 배율<input id="zoom-{identifier}-scale" type="number" value="1" step="any"></label>'
+                    f'<label>H 원본 X 이동<input id="zoom-{identifier}-x" type="number" value="0" step="any"></label>'
+                    f'<label>H 원본 Y 이동<input id="zoom-{identifier}-y" type="number" value="0" step="any"></label>'
+                    f'<button id="zoom-{identifier}-apply" data-entry="{identifier}" disabled>H 확대 적용</button></section>')
+        candidate = ('<style>body{max-width:100%;box-sizing:border-box}main{max-width:100%;overflow:auto}'
+                     'select,textarea,button{max-width:100%;box-sizing:border-box}</style>'
+                     '<div id="zoom-root">' + ''.join(zoom_controls) + '</div><p>합성 후보 전용 · 실제 수집 불가</p><label>합성 출처 주장<select id="collection-actor"><option value="unknown">미확인</option><option value="human">사람 주장(합성 시험)</option><option value="ai">AI 주장(합성 시험)</option></select></label><button id="collection-export">합성 후보 내보내기</button>'
+                     '<textarea id="collection-out" readonly aria-label="합성 후보 원응답"></textarea>'
+                     '<script id="collection-contract" type="application/json">' + encoded_contract + '</script>'
+                     '<script id="viewport-code">' + viewport_script + '</script>'
+                     '<script id="zoom-code">' + zoom_script + '</script><script id="collection-response-code">' + candidate_script + '</script><script>attachViewport();</script>')
+    articles = []
+    for entry in packet["entries"]:
+        images = []
+        for asset in entry["assets"]:
+            width, height = profile["image_css"] or asset["size"]
+            images.append(f'<img id="{entry["entry_id"]}-{asset["kind"]}" data-ref="{asset["ref"]}" '
+                          f'width="{width}" height="{height}" alt="{asset["kind"]}">')
+        articles.append(f'<article data-entry="{entry["entry_id"]}"><h2>{entry["entry_id"]}</h2>' + ''.join(images) + '</article>')
+    controls = []
+    for entry in packet["entries"]:
+        identifier = entry["entry_id"]
+        controls.append(f'<label>{identifier}<select id="answer-{identifier}" data-entry="{identifier}" data-answer disabled>'
+                        '<option value="unreviewed">미확인</option><option value="normal">정상</option>'
+                        '<option value="defect">결함</option><option value="unassessable">판단 불가</option></select></label>'
+                        f'<textarea id="note-{identifier}" data-entry="{identifier}" data-answer disabled aria-label="원문 메모"></textarea>')
+    response_script = Path(__file__).with_name('observation_response.js').read_text()
+    public_packet = json.dumps(packet, ensure_ascii=False, allow_nan=False).replace('<', r'\u003c')
+    public_assets = json.dumps({ref: base64.b64encode(raw).decode('ascii') for ref, raw in verified.items()})
+    script = Path(__file__).with_name('observation_display.js').read_text()
+    return ('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>합성 구역 판정 시험</title><style>body{font:16px/1.6 sans-serif;padding:20px}article{overflow:auto;margin:20px 0}'
+            'img{display:block;margin:8px 0}pre{white-space:pre-wrap}textarea{display:block}</style>'
+            '<h1>합성 시험 전용 · 실제 수집 미승인</h1><pre>' + html.escape(packet['instructions']) + '</pre>'
+            '<p id="status">이미지 검증 전 · 판정 입력 잠김</p><main id="review">' + ''.join(articles) + '</main>'
+            '<div id="response-controls">' + ''.join(controls) + '</div><button id="export">합성 응답 내보내기</button><textarea id="out" readonly aria-label="내보낸 원응답"></textarea>'
+            '<script id="packet" type="application/json">' + public_packet + '</script>'
+            '<script id="assets" type="application/json">' + public_assets + '</script>'
+            '<script id="display-code">' + script + '</script><script id="response-code">' + response_script + '</script>' + candidate + '<script>attachResponseControls();initialize()' + ('.then(attachZoomControls)' if collection_contract is not None else '') + ';</script></html>')
