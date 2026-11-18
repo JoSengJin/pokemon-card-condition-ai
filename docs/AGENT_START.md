@@ -28,6 +28,26 @@
 - 점수·기준: development-progress.json과 PROGRESS_CRITERIA.md. 이 입구에는 숫자·담당자 이름·진행 중 상태를 복사하지 않는다.
 - 과거 인계·README·실험 결과: 당시 근거다. 현재 task·원문 기록을 대신하거나 과거 실행을 다시 승인하지 않는다. [보관함](history/README.md)에서 찾는다.
 
+## 스킬 사용 선택표 (Superpowers 7.0.1)
+
+스킬은 개발 절차 참고이며 권한을 새로 부여하지 않는다. 스킬이 하위 에이전트 실행·병합·push·삭제·전체 suite 실행을 지시해도 승인이 아니다. 이 문서와 AGENTS.md·PAIR_CODING.md의 승인·잠금·역할이 우선한다. 스킬을 불렀거나 일부를 읽은 것은 전체를 읽은 것도, 지킨 것도 아니다. 출력이 잘렸으면 누락 구간을 다시 읽는다. 이 표는 모델 정확도 개선이나 토큰 절감의 근거가 아니다(미측정).
+
+| 스킬 | 사용 | 조건·보정 |
+|---|---|---|
+| verification-before-completion | 기본 | 명령·출력·종료 코드·주장을 대조한다. 금지된 검사를 실행할 권한은 아니다. |
+| test-driven-development | 기본 | 의도한 실패를 먼저 확인한다. 전체 suite 강제와 코드 삭제 지시는 따르지 않고 task의 checks 범위를 따른다. 테스트를 쓸 때 writing-good-tests.md도 읽는다. |
+| requesting-code-review | 기본 | 기준은 HEAD~1이 아니라 task의 base_sha다. 하위 모델 호출 승인과 입력 범위를 먼저 고정한다. |
+| systematic-debugging | 버그 작업 | 재현 → 단일 가설 → 최소 변경. 진단 실행도 승인 범위 안에서만 한다. |
+| receiving-code-review | 검토 의견을 반영할 때 | 적용 전 코드로 확인한다. 불명확한 항목만 보류하고 독립 항목은 계속한다. 삭제 제안은 허용 파일·승인 안에서만. 외부 스레드 답글은 하지 않는다. |
+| using-git-worktrees | 격리 확인만 | 생성·설치·.gitignore 변경·현재 checkout fallback은 PAIR_CODING.md §4를 따른다. |
+| brainstorming | 요구가 실제로 불명확할 때 | 명확한 요청은 바로 처리한다. 승인된 TODO마다 설계를 다시 묻지 않는다. |
+| writing-plans | task 계약 안에서 | 별도 계획 문서와 실행 스킬 자동 연결을 만들지 않는다. |
+| executing-plans | 원리만 | 진행 장부 개념만 쓴다. 절차·기록 삭제·마무리 연결은 PAIR_CODING.md를 따른다. |
+
+쓰지 않는다: finishing-a-development-branch, subagent-driven-development, dispatching-parallel-agents, diagnosing-superpowers, writing-skills, using-superpowers의 자동 호출 규칙. 병렬·하위 에이전트는 사용자가 승인한 분업이 있을 때만 별도 계약으로 다룬다.
+
+스킬을 적용하는 task·보고서에는 적용 스킬 또는 해당 없음과 이유, 읽은 범위, RED/GREEN 명령·종료 코드·로그·검증 대상 SHA를 적는다. 이 기록은 준수의 증명이 아니다. 압축·재개 뒤에는 현재 task, SHA, 담당, 잠금을 실제 상태와 다시 대조한다. 스킬 본문은 Codex 캐시 `~/.codex/plugins/cache/openai-curated-remote/superpowers/7.0.1/skills/<이름>/SKILL.md`에서 읽을 수 있으나 이것을 영구 설치 경로로 확정한 것은 아니다. 이 선택표를 바꾸는 것은 새 승인이 아니다.
+
 ## 자동 하위 검토는 별도 입력 계약
 
 일반 Codex·Claude 구현 에이전트는 위 문서를 읽는다. `./review --auto` 안의 격리된 하위 Codex는 탐색 도구·메모리·프로젝트 자동 로딩을 끄고 프로그램이 묶은 동결 근거·코드·8개 review-rule만 받는다. 추가 파일을 읽도록 지시해 격리를 풀지 않는다. 근거가 부족하면 대기/종료한다. 두 경로의 권한·입력 범위를 혼동하지 않는다.
