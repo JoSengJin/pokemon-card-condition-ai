@@ -24,6 +24,8 @@ class ReasonPagesTest(unittest.TestCase):
         self.assertNotIn('data-id="g0"', page)
         self.assertEqual(page.count('type="checkbox"'), 2 * len(pages.REASONS))
         self.assertIn("'미확인'", page)
+        self.assertIn('지금 이 사진', page)
+        self.assertIn('value="not_limited"', page)
 
     def test_vocabulary_matches_stored_reasons(self):
         self.assertTrue({'perspective', 'glare', 'shadow', 'obstruction', 'cropped', 'blur'} <= {k for k, _ in pages.REASONS})
