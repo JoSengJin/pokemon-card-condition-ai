@@ -2,7 +2,7 @@
 
 task_id: agent-input-limit-clarity-20261118
 owner: Codex
-status: implementing
+status: integrated
 base_sha: 67941ff7e6141d0d849911870cc3c89df757b7de
 branch: codex/agent-input-limit-clarity-20261118
 
@@ -36,3 +36,11 @@ branch: codex/agent-input-limit-clarity-20261118
 AGENTS·CLAUDE·공통 입구·공통 실험 계약·PAIR_CODING·라벨 규약·진척 기준/JSON·자동 검토 코드는 byte 불변. 이전 artifacts/agent-doc-live-20261118/ 전체 manifest 해시 불변. 기존 테스트의 기대값을 완화하거나 모델 결과를 수정하지 않는다. 새 테스트 파일 함수 정의 최대 7개, 런타임 호출 경로 변경 없음.
 
 HTML: artifacts/agent-input-limit-clarity-20261118/index.html. 실제 열기 응답과 렌더 확인을 구분한다. 롤백은 이번 변경 커밋들을 역순 git revert 후 검사·일반 push이며 과거/새 실패 근거와 세션 사용량은 되돌리거나 삭제하지 않는다.
+
+## 완료 인계
+
+- 소스 8896305, main 후보 tree 동등성 확인 후 전체 unittest 1,036 tests / OK.
+- 이전 실패 28개 파일·보호 지침/가드·이번 재개 이후 테스트 파일의 불변성 확인.
+- Claude 판정은 partial_confirmation_not_full_pass 그대로다. 추가 모델 호출이나 통과를 위한 기대값 수정 없음.
+- 변경·검증·리스크·롤백: docs/collaboration/reports/agent-input-limit-clarity-20261118.md.
+- HTML: artifacts/agent-input-limit-clarity-20261118/index.html. 열기/렌더 상태는 opening.json과 최종 보고에 기록.
