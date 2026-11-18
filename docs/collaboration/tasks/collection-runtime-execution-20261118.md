@@ -1,6 +1,6 @@
 # 수집 런타임 합성 구현 실행 계약·ledger
 owner: Codex
-status: implementing
+status: ready_for_review
 base_sha: e21768e086c9c2bfefecb191fab63af243b926c6
 branch: codex/collection-runtime-synthetic-20261118
 spec: collection-runtime-plan-20261117.md 및 new-observation-independent-evaluation-contract-20261117.md
@@ -20,7 +20,7 @@ spec: collection-runtime-plan-20261117.md 및 new-observation-independent-evalua
 - [x] S2 H 확대
 - [x] S3 출처/수신
 - [x] S4 봉인/접근
-- [ ] S5 실제 브라우저 합성 연결·최종 회귀
+- [x] S5 실제 브라우저 합성 연결·최종 회귀
 후속 단계 소유 파일/경로는 시작 전에 여기에 추가하고 커밋한다. ignored 산출물 artifacts/collection-runtime-synthetic-20261118/의 stage별 RED/GREEN/review/브라우저 원문·화면/report.html. 기존 artifacts 탐색/덮어쓰기 금지. HTML은 이번 실제 개발 결과로 갱신·열기와 렌더를 구분한다. 진척 두 정본은 유지하며 최종 보고 전 읽는다.
 
 롤백은 단계 구현을 역순 revert. v1/원문/기존 근거/다른 worktree 보존. R1실기기/R2실권한은 미정·미확인이고 합성 통과로 실제 수집을 열지 않는다.
@@ -62,3 +62,7 @@ HTML/브라우저증거는ignored artifacts/collection-runtime-synthetic-2026111
 S5 구조보완: named function뿐아니라arrow callback까지정의로세어zoom의6named+4arrow 초과를발견. S1/S2 소유파일내에서same predicate를단순for루프로바꿔viewport4/zoom6 정의로정리하고재회귀한다. S0–S4 reviewer의named함수수보고만으로통과간주하지않는다. Ruling: 새helper로깊이를늘리지않고기존조건식의반복검사만직접순회한다.
 
 최종review 반례: 실제Chrome64CSS×1.1에서width70.4000015258789/height70.39999389648438로정확동등검사가잠김. fractional-red.raw로재현. 허용오차정책은미정유지하고geometry_edges기록+binary32좌표연산의ULP유도한계만JS/Python공통검사. S5소유에S2 zoom.js/py/fixture/zoomtests/wire보완포함. 실제sourceflag/CSS변조감시는유지하고다른브라우저지원은주장하지않는다. JS geometry leaf추가후총7정의/최장export→finish→record→snapshot→geometry=4.
+
+S5 완료: 최종정확14파일57통과(skip0), 실제Chrome390×844/DPR1(실기기아님) H/A/fractional/CSS복원 원문SHA/bytes→receipt/load→seal→모의권한/집계/격리연결확인. v1H/A기본HTML bytes동일, 기존v1guard·평가기준·진척불변. 최종코드8d24d2c91b4fce6c570fde723e32c697769d95c5. 전체diff새reviewer와geometry보완재검토중요잔여없음. 정의최대7(익명포함)/최장4전이검사. 결과보고서 collection-runtime-synthetic-20261117.md, ignored최종log/raw/proof/hash/화면근거. HTML열기/렌더·서버종료·최종문서SHA는마지막확인후기록한다. R1/R2/실제모집·수치준비는미완료이며이번승인범위밖이다.
+
+최종 인계 확인(2026-11-18 KST): 정적 report.html 열기 요청 성공 및 실제 Chrome AX/화면 렌더 확인(report.jpg). viewport override 원복 완료. 재개 시 이전 시험 서버 listener 없음 확인 후 동일 pages/127.0.0.1만 잠시 재시작해 보고서를 확인했고, 해당 PID11747 종료(exit143) 및43188 listener 해제를 확인했다. 현재 보고서 렌더 탭은 열어 두었고 서버는 종료했다. 사용자 재개 후 소스는8d24d2c와 동일하며 테스트 재실행을 새 성과로 추가하지 않았다. 최종 문서 커밋 SHA/clean 상태는 handoff.json과 세션 완료 응답에 제공한다. S0–S5 승인 범위 완료, R1/R2·실제 모집/표본/수치/권한 준비는 미정·미완료로 유지한다.
