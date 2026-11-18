@@ -2,7 +2,7 @@
 
 task_id: skill-selection-20261118
 owner: Claude (사용자 직접 요청, 메인 계약 선행 없음 — 통합 전 Codex 확인 필요)
-status: ready_for_review
+status: integrated
 base_sha: 1e0debcb3b5048c9615e229d918135fb8607a112
 branch: claude/skill-selection-20261118
 
@@ -51,3 +51,15 @@ Codex·Claude가 같은 개발 절차 스킬 선택표를 따르게 한다. 새 
 ## 롤백
 
 `git revert <이 브랜치 커밋 SHA>` 또는 브랜치 폐기. 기본 checkout은 변경하지 않았다.
+
+
+## Codex main 통합 검증 — 2026-11-18
+
+- 전달 SHA `937570d7f00d2a34247583cf837fe7b4311a2de0`를 `./develop -- git cherry-pick -x`로 통합했다. 통합 SHA `df5dcd1add6eefee8d275a4ac2b1de62682c9093`. 원본 Claude 브랜치/checkout은 수정하지 않았다.
+- 기본 checkout 실제 Python 3.12.14/설치 의존성으로 통합 전·후 document_routes 5개, review_rules 6개, high_fixes 26개 모두 통과. 추가 모듈 대역·설치 없음. 검사 대상 SHA와 명령·종료 코드·로그·파일 SHA-256은 ignored `artifacts/skill-selection-integration-20261118/{baseline.json,baseline-high-fixes-isolated-lock.json,integrated.json}`에 보존했다.
+- 최초 high_fixes 실행은 상속한 기본 checkout 잠금 FD가 임시 fixture root와 달라 실패했다. 부모 잠금은 유지하고 임시 root 검사 자식의 상속 FD만 제거한 재검사에서 통과했다. 코드·잠금 가드 변경 없음. 최초 실패 로그도 보존했다. Claude의 worktree 오류 27건과 이번 실제 검사 26개를 같은 결과로 비교하지 않는다.
+- AGENTS.md 14,801bytes, review-rule 8블록과 기존 지침 보존. 지침21줄+task53줄=총74줄 추가를 대조했다. main 대비 입력 한도 브랜치의 변경에는 두 지침 파일이 없었고 cherry-pick 충돌 없음.
+- 선택표의 격리 확인 조건, task base_sha, task checks 우선 보정을 수용했다. 이번 적용: receiving-code-review/verification-before-completion 원문 전체 및 읽기 전용 ponytail-review 원문 전체. RED/GREEN 기능 추가는 해당 없음(문서 통합); 회귀 검사는 baseline/integrated로 분리했다. writing-skills는 앞65행만 추가 확인했으며 전체 검토라고 주장하지 않는다.
+- HTML 산출물: ignored `artifacts/skill-selection-integration-20261118/index.html`. 정적 내용 대조 완료. macOS open은 호환 앱 부재(-10661)로 실패했고 Codex 브라우저 열기 요청은 queued다. 실제 열기·렌더는 미확인. 상세 `opening.json`.
+- 개발 진척은 `usable-card-analysis-v1.13` 78/100 유지. 전체 suite·실카드 학습/추론·라벨/사진 열람·외부 모델 호출은 미실행. 준수율·토큰 효과·모델 정확도 개선은 미측정.
+- 통합 결과 코드·지침 변경은 원본과 같고 이 절과 status만 main 인계 기록으로 추가했다. 원격 동기화 결과와 worktree 보존 판단은 ignored 통합 기록에 남긴다. 롤백 시 인계 기록 커밋 다음 통합 SHA를 역순으로 `./develop -- git revert`하고 관련 검사 후 일반 push한다.
