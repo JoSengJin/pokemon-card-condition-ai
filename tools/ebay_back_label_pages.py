@@ -12,8 +12,8 @@ from mobile_visibility_label_pages import STYLE, encode  # noqa: E402
 
 WORDS = ('제한', '정상', '자격아님', '모름')
 CHUNK = 12
-GUIDE = ('<p>뒷면 사진 전체에서 <b>관찰 제한</b>(빛반사·흐림·가림·잘림·저해상도·심한 각도·그림자로 카드 상태를 볼 수 없음)이면 <b>제한</b>, '
-         '문제없이 볼 수 있으면 <b>정상</b>. 카드 한 장의 뒷면이 아니거나 네 변이 사진에 다 보이지 않으면 <b>자격아님</b>. 판단이 안 서면 <b>모름</b>.</p>')
+GUIDE = ('<p>뒷면 사진에서 빛반사·흐림·가림·잘림·저해상도·심한 각도·그림자가 <b>일부에만 있어도</b> 그 때문에 카드 상태를 일부라도 볼 수 없으면 <b>제한</b>. '
+         '나머지로 충분히 볼 수 있으면 <b>정상</b>. 카드 뒷면이 아니거나(금속·복제 등) 네 변이 사진에 다 보이지 않으면 <b>자격아님</b>. 판단이 안 서면 <b>모름</b>.</p>')
 SCRIPT = """const arts=[...document.querySelectorAll('article')];
 function show(){document.getElementById('out').value=arts.map(a=>a.dataset.id+'='+a.dataset.s).join('\\n')}
 arts.forEach(a=>{a.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{a.dataset.s=b.dataset.v;a.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));show()}))});show();"""
