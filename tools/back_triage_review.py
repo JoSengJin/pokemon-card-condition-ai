@@ -71,6 +71,9 @@ def card_html(request, res):
         opts = ''.join(f'<option>{c}</option>' for c in CHOICES)
         items.append(f'<div class="z"><img src="data:image/jpeg;base64,{crop_img(im, box)}"><p><b>{PNAME[part]} · {PART[part]} · {KO[z["area"]]}</b> (AI 점검 우선순위: {z["label"]})</p>'
                      f'<select name="{part}">{opts}</select></div>')
+    obs = res['results'].get('observation_limit', {})
+    obs_text = obs.get('label') if obs.get('status') == 'scored' else f"보류({obs.get('reason', '결과 없음')}) — 사람이 직접 확인하세요."
+    items.append(f'<p><b>사진 재촬영 권고</b>: {html.escape(str(obs_text))}</p>')
     full.thumbnail((640, 860))
     buf = io.BytesIO()
     full.save(buf, 'JPEG', quality=70)

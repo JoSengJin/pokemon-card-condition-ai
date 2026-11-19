@@ -9,6 +9,9 @@ from .local_wear_cnn import physical_pixel_mask
 from .side_experiment import view_tensors
 
 NOTICE = '재촬영 권고 우선순위 점수이며 관찰 제한 판정이 아닙니다. 후면 사진에만 적용됩니다.'
+PRIORITY_THRESHOLD = .5  # the fixed evaluation threshold; never tuned on results
+LABELS = dict(high='재촬영 권고 우선순위 높음',
+              low='재촬영 권고 우선순위 낮음 — 관찰 가능 여부는 확인되지 않았습니다(사람 확인 필요). 개발 자료에서 제한 사진의 약 41%(24/59)가 이 구간에 있었습니다.')
 
 
 def load_head(path):
@@ -41,4 +44,11 @@ class BackObservationLimit:
             score = pooled_score(self.body, request['image'], request['box'], self.head, self.device)
         except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError):
             return dict(base, status='held', reason='invalid_box_or_unreadable_image')
-        return dict(base, status='scored', score=score) if math.isfinite(score) else dict(base, status='held', reason='non_finite_score')
+        return prioritized(base, score) if math.isfinite(score) else dict(base, status='held', reason='non_finite_score')
+
+
+def prioritized(base, score):
+    """A scored photo is never cleared: a low score means lower re-shoot priority, not an observable photo."""
+    priority = 'high' if score >= PRIORITY_THRESHOLD else 'low'
+    return dict(base, status='scored', score=score, priority=priority, priority_threshold=PRIORITY_THRESHOLD, label=LABELS[priority],
+                cleared=False, review='reshoot_suggested' if priority == 'high' else 'human_check_required')

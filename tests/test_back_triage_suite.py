@@ -61,3 +61,14 @@ class BackTriageSuiteTest(unittest.TestCase):
         self.assertEqual(self.suite.analyze(self.request), self.suite.analyze(self.request))
         with self.assertRaises(KeyError):
             BackZoneTriage('centering', make_head(self.folder.name), FakeBody())
+
+    def test_obs_priority_never_clears_low_scores(self):
+        for bias, priority in ((4., 'high'), (-4., 'low')):
+            path = Path(self.folder.name)/f'obs{bias}.pt'
+            torch.save(dict(mean=torch.zeros(384), std=torch.ones(384), coef=torch.zeros(384), bias=torch.tensor(bias)), path)
+            out = BackObservationLimit(path, FakeBody()).analyze(self.request)
+            self.assertEqual(('scored', priority, False), (out['status'], out['priority'], out['cleared']))
+            self.assertEqual(.5, out['priority_threshold'])
+            self.assertTrue(all(w not in str(out) for w in FORBIDDEN + ('관찰 가능합니다', '문제 없음')))
+        self.assertEqual('human_check_required', out['review'])
+        self.assertIn('확인되지 않', out['label'])
