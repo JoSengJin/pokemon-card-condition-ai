@@ -18,6 +18,8 @@ PCOLOR = dict(edge=(220, 40, 40), corner=(30, 90, 255), surface=(235, 170, 0))
 PNAME = dict(edge='빨강', corner='파랑', surface='노랑')
 
 
+CARDS_PER_PAGE = 2  # keeps each phone page under ~0.7MB at the existing crop quality
+
 def run_suite(requests, backbone, weights):
     torch.set_num_threads(2)
     body = torch.hub.load(backbone, 'dinov2_vits14', source='local', pretrained=False).eval().requires_grad_(False)
@@ -94,10 +96,10 @@ def main(out, requests_path, known_path, backbone, weights):
     cov = coverage(results, known)
     Path(out).mkdir(parents=True, exist_ok=True)
     Path(out, 'results.json').write_text(json.dumps(dict(coverage=cov, results=results), ensure_ascii=False))
-    for n in range(0, len(requests), 4):
-        body = ''.join(card_html(r, x) for r, x in zip(requests[n:n+4], results[n:n+4]))
+    for n in range(0, len(requests), CARDS_PER_PAGE):
+        body = ''.join(card_html(r, x) for r, x in zip(requests[n:n+CARDS_PER_PAGE], results[n:n+CARDS_PER_PAGE]))
         script = "function b(){return [...document.querySelectorAll('article')].map(a=>a.dataset.id+'='+[...a.querySelectorAll('select')].map(s=>s.name+':'+s.value).join(',')+';miss:'+[...a.querySelectorAll('.c.on')].map(c=>c.dataset.a).join('|')+';'+a.querySelector('[name=n]').value).join('\\n')}document.querySelectorAll('.c').forEach(c=>c.addEventListener('click',()=>{c.classList.toggle('on');document.getElementById('o').value=b()}));document.querySelectorAll('select,input').forEach(e=>e.addEventListener('input',()=>document.getElementById('o').value=b()));document.getElementById('o').value=b();"
-        Path(out, f'review-{n//4+1:02d}.html').write_text(f'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>후면 점검 검토</title><style>body{{font:15px system-ui;max-width:640px;margin:8px auto;padding:8px;background:#fff;color:#111}}img{{width:100%}}td,th{{border:1px solid #999;padding:2px 5px;font-size:13px}}article{{border-top:2px solid #888;margin-top:16px}}textarea{{width:100%;height:120px}}.ph{{position:relative;line-height:0}}.c{{position:absolute;box-sizing:border-box;border:1px dashed #fff8;-webkit-user-select:none;user-select:none}}.c.on{{background:#ff000066;border:2px solid #f00}}</style><h1>후면 사진 검토 연습</h1><div style="background:#f3f3f3;padding:8px;border-radius:6px"><p><b>이게 뭔가요?</b> AI가 카드 뒷면 사진에서 <b>먼저 확인해 보라고 짚은 칸(종류마다 점수 높은 순 최대 2칸)</b>을 색 사각형(빨강=가장자리, 파랑=모서리, 노랑=안쪽 면)으로 보여줍니다. 결함이 있다고 확정하는 게 아니라 “여기부터 보세요”라는 추천입니다.</p><p><b>하실 일</b>: 아래 <b>확대된 작은 사진</b>(AI가 짚은 한 곳)을 보고, 그 사진 안에서 긁힘·마모·구김·얼룩 같은 문제가 <b>보이는지</b> 고릅니다. AI가 맞았는지 따지지 않고 사진에 보이는 대로만 고르시면 됩니다. 모르겠으면 ‘모르겠다’.</p><p>센터링(좌우 치우침)과 앞면은 AI가 지원하지 않아 여기서 보지 않습니다.</p></div>{body}<h3>결과(복사해서 채팅에 붙여넣기)</h3><textarea id="o" readonly></textarea><script>{script}</script>', encoding='utf-8')
+        Path(out, f'review-{n//CARDS_PER_PAGE+1:02d}.html').write_text(f'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>후면 점검 검토</title><style>body{{font:15px system-ui;max-width:640px;margin:8px auto;padding:8px;background:#fff;color:#111}}img{{width:100%}}td,th{{border:1px solid #999;padding:2px 5px;font-size:13px}}article{{border-top:2px solid #888;margin-top:16px}}textarea{{width:100%;height:120px}}.ph{{position:relative;line-height:0}}.c{{position:absolute;box-sizing:border-box;border:1px dashed #fff8;-webkit-user-select:none;user-select:none}}.c.on{{background:#ff000066;border:2px solid #f00}}</style><h1>후면 사진 검토 연습</h1><div style="background:#f3f3f3;padding:8px;border-radius:6px"><p><b>이게 뭔가요?</b> AI가 카드 뒷면 사진에서 <b>먼저 확인해 보라고 짚은 칸(종류마다 점수 높은 순 최대 2칸)</b>을 색 사각형(빨강=가장자리, 파랑=모서리, 노랑=안쪽 면)으로 보여줍니다. 결함이 있다고 확정하는 게 아니라 “여기부터 보세요”라는 추천입니다.</p><p><b>하실 일</b>: 아래 <b>확대된 작은 사진</b>(AI가 짚은 한 곳)을 보고, 그 사진 안에서 긁힘·마모·구김·얼룩 같은 문제가 <b>보이는지</b> 고릅니다. AI가 맞았는지 따지지 않고 사진에 보이는 대로만 고르시면 됩니다. 모르겠으면 ‘모르겠다’.</p><p><b>사진 재촬영 권고</b> 줄은 사진 자체가 상태를 보기 어려운지에 대한 AI 추천입니다. ‘낮음’이어도 사진이 괜찮다는 뜻은 아니며 사람이 확인해야 합니다.</p><p>센터링(좌우 치우침)과 앞면은 AI가 지원하지 않아 여기서 보지 않습니다.</p></div>{body}<h3>결과(복사해서 채팅에 붙여넣기)</h3><textarea id="o" readonly></textarea><script>{script}</script>', encoding='utf-8')
     return cov
 
 
