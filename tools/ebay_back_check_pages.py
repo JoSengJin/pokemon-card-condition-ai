@@ -12,6 +12,7 @@ from mobile_visibility_label_pages import STYLE as BASE_STYLE, encode  # noqa: E
 
 CHOICES = (('ok', '맞음: 카드 한 장 뒷면, 네 변이 다 보임'), ('no', '아님'), ('?', '모르겠음'))
 STYLE = BASE_STYLE + "label{display:block;border:1px solid #888;border-radius:8px;padding:10px;margin:6px 0;font-size:18px}input:checked+span{font-weight:700;color:#1e5aff}textarea{width:100%;height:220px;font-size:16px}"
+CHUNK = 10
 SCRIPT = """const arts=[...document.querySelectorAll('article')];
 function show(){document.getElementById('out').value=arts.map(a=>{const c=a.querySelector('input:checked');return a.dataset.id+'='+(c?c.value:'미확인')}).join('\\n')}
 arts.forEach(a=>a.querySelectorAll('input').forEach(i=>i.addEventListener('change',show)));show();"""
@@ -41,7 +42,7 @@ def photo_path(catalog_items, item):
 def article(item, path, index, reason):
     boxes = ''.join(f'<label><input type="radio" name="{html.escape(item["id"])}" value="{v}" hidden><span>{html.escape(w)}</span></label>' for v, w in CHOICES)
     return (f'<article data-id="{html.escape(item["id"])}"><h3>{html.escape(item["id"][-6:])} · 사진 {index + 1}번</h3>'
-            f'<img src="data:image/jpeg;base64,{encode(path, 700)}">{boxes}</article>')
+            f'<img src="data:image/jpeg;base64,{encode(path, 520)}">{boxes}</article>')
 
 
 def main(merged_json, catalog_glob_dir, out_html, out_manifest):
@@ -53,8 +54,12 @@ def main(merged_json, catalog_glob_dir, out_html, out_manifest):
     selected = [i for i in items if i['id'] in chosen]
     guide = ('<p>AI가 고른 뒷면 사진입니다. <b>카드 한 장의 뒷면이고 네 변이 모두 사진 안에 보이면 맞음</b>, 아니면 아님, 판단이 어렵다면 모르겠음. '
              '빛반사·그림자·살짝 비스듬함은 맞음/아님에 영향을 주지 않습니다. 맨 아래 결과를 복사해 붙여 주세요.</p>')
-    body = guide + ''.join(article(i, *photo_path(catalog, i), chosen[i['id']]) for i in selected) + '<textarea id="out" readonly></textarea>'
-    Path(out_html).write_text(f'<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><style>{STYLE}</style>{body}<script>{SCRIPT}</script>', encoding='utf-8')
+    pages = [selected[k:k + CHUNK] for k in range(0, len(selected), CHUNK)]
+    for number, group in enumerate(pages, 1):
+        body = (guide + f'<p><b>{number}/{len(pages)}쪽</b></p>' + ''.join(article(i, *photo_path(catalog, i), chosen[i['id']]) for i in group)
+                + '<textarea id="out" readonly></textarea>')
+        name = Path(out_html).with_name(f'{Path(out_html).stem}-{number}.html')
+        name.write_text(f'<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><style>{STYLE}</style>{body}<script>{SCRIPT}</script>', encoding='utf-8')
     manifest = dict(seed=20261119, rate=0.2, total_items=len(items), selected=len(selected), reasons=chosen,
                     ai_verdict={i['id']: i['verdict'] for i in items})
     Path(out_manifest).write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding='utf-8')
