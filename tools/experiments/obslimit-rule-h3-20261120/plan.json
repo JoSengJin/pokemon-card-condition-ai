@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "obslimit-rule-h3-20261120",
+  "reference_result": "artifacts/experiments/20261119T150351-39395830/result.json",
+  "acceptance": {
+    "max_fn": 999,
+    "max_fp": 999,
+    "no_new_errors": false,
+    "require_actual_point_guard": false
+  },
+  "code_changes": [
+    {
+      "path": "artifacts/obslimit-rule-h3-20261120/worker.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "tracked_directory": "tools/experiments/obslimit-rule-h3-20261120",
+  "train_rows": "artifacts/obslimit-pooled-source-20261103/rows.json",
+  "expected_train_rows": 267,
+  "expected_train_ebay_groups": 226,
+  "rows": "artifacts/obslimit-nobox-ebay219-20261119/rows.json",
+  "expected_rows": 219,
+  "expected_positives": 59,
+  "criterion": {
+    "no_added_value_min_delta": -0.03
+  },
+  "data_status": "219건은 2026-11-20 사용자 결정('219건을 개발용으로 전환해 누락 원인 가설을 H3 규칙 기준부터 진행해')으로 개발용 자료다. 기준선 측정(20261119T150351-39395830)은 이 전환 전에 완료됐다. 이후 이 219건 결과로 개선을 주장하지 않으며, 개선 확인은 새로 라벨한 자료에서만 한다.",
+  "hypothesis": "후보 F(사진 전체, 267행 학습)는 219건에서 AUC 0.812, 누락 24/59였다. 관찰 제한 사유는 반사·흐림이 많고(재판정 불일치도 반사2·흐림1·가림1), 이 둘은 단순 화질 통계(라플라시안 분산=흐림, 밝은 픽셀 비율=반사)로 잡힐 수 있다. 화질 통계만으로 F와 비슷한 순위를 낸다면 F의 DINOv2 특징은 부가가치가 없고 규칙·촬영 안내로 전환하는 편이 낫다. 기존 실험 20261102T224955-5bbba59e는 F에 화질 통계 8개를 '더한' 것(Δ −0.007)이며 화질 통계 '단독' 성능은 측정된 적 없다.",
+  "change": "단일 변경 변수: 특징 집합. F의 DINOv2 vits14 패치평균 384차원 → 화질 수 2개(EXIF 회전한 사진 전체를 긴 변 1024로 줄인 회색조의 log(1+라플라시안 분산), 245 초과 픽셀 비율). 학습 267행 1회·평가 219행·표준화 L2 로지스틱(λ=0.01)·임계값 0.5·사진 전체 입력은 F 측정과 동일. 대조=F 측정의 동결 점수(reference before_scores).",
+  "success_criterion": "(결과 전 고정, 개발 전용) 규칙 AUC − F AUC ≥ −0.03 이면 'F 부가가치 없음'(criterion_met=True) → 다음은 규칙 기반 재촬영 안내·보류 전환을 검토한다.",
+  "failure_criterion": "규칙 AUC − F AUC < −0.03 이고 짝지은 bootstrap(2000회, 시드 20261103) 95% 상한 < 0 이면 'F 부가가치 있음' → F 유지, 다음 가설(H2 상위 k 패치 풀링)로 간다. 그 외는 '불확정'으로 기록하고 이 자료로 추가 결정을 내리지 않는다.",
+  "known_biases": "개발 자료(219건은 기준선 측정에 한 번 쓰인 뒤 개발용 전환). 사진 전체의 화질 통계는 배경·여백도 포함한다. 긴 변 1024 축소·임계값 245는 사전 고정 판단값이다. 단일 특징 AUC는 방향(흐림=분산 낮음)을 맞추지 않은 진단값이며 판정에 쓰지 않는다. 학습 eBay 그룹의 item_id 검사를 별칭 그룹까지 포함하도록 고쳤다(이전 worker는 221/226만 검사).",
+  "expected_limit": "진척 점수 반영 없음, 운영 채택 없음, 독립 아님.",
+  "status": "approved_ready_to_run",
+  "approval": "2026-11-20 사용자 'Superpowers를 활용해서 219건을 개발용으로 전환해 누락 원인 가설을 H3 규칙 기준부터 진행해'",
+  "superpowers_applied": "verification-before-completion(기본), systematic-debugging(item_id 검사 누락: 재현 221/226 → 원인 접두어·경로 → 수정 226/226), requesting-code-review(하위 검토자 승인은 지난 1회뿐이라 호출하지 않고 base SHA 기준 자체 대조)",
+  "input_sha256": {
+    "artifacts/obslimit-pooled-source-20261103/rows.json": "613b510ee6a9a0ae169554edad088a4e383bc35c9bcf0d596ba90714293ad25c",
+    "artifacts/obslimit-nobox-ebay219-20261119/rows.json": "e62ada21d272ba8298f5556c9dea976db4273e0ca6c466ad6243a9f9c9345466",
+    "artifacts/obslimit-nobox-20261119/worker.py": "b197cc1fdf4bdfcf0ec22436f6e1b902a9ba3bd2ad7640928e65e998a3c412fa",
+    "artifacts/obslimit-pooled-source-20261103/worker.py": "aca34ecb6f4fb4cf6d3d8ee2800fa519b2b8ebc98240e64d7f0a04c01c007525",
+    "tools/experiments/obslimit-meanstd-20261101/worker.py": "44556e162c567041477c4c6c407d0447b5b75aaa0a98edd6c36853fc0f22683e",
+    "artifacts/experiments/20261119T150351-39395830/result.json": "746da3e0feec700b879a87328e8c4bec1eb60d0d53851f52a153e11850a54504",
+    "artifacts/experiments/20261119T150351-39395830/observations.json": "0200cce4ccdc13a4e459b2e34d0c9794f82161cec29d004aaa4725204821ca8c"
+  }
+}
