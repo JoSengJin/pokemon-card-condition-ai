@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>모서리 D3 작동점</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--mut:#6b6a66;--line:#dedbd3;--acc:#1f5f8b;--warn:#9a5b00}
+@media (prefers-color-scheme:dark){:root{--bg:#171716;--fg:#ecebe6;--mut:#a3a19a;--line:#3a3935;--acc:#7db6de;--warn:#e0a54a}}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,"Apple SD Gothic Neo",sans-serif;margin:0;padding:24px 16px}
+main{max-width:860px;margin:auto}h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 8px;border-top:1px solid var(--line);padding-top:16px}
+.mut{color:var(--mut)}.big{font-size:28px;font-weight:700;color:var(--acc)}.warn{color:var(--warn)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+.wrap{overflow-x:auto}code{font-size:13px}
+</style></head><body><main>
+<h1>후면 모서리 D3 작동점 결정</h1>
+<p class="mut">2026-11-21 · 기준 커밋 <code>8233cda</code> (v1.14) · 자료: 후보 E 개발 OOF 저장 점수(기록 20261102T140143-82781117), <b>독립 평가 아님</b> · 새 학습·추론 0, Gemini 0</p>
+<p><span class="big">78/100</span> 개발 진척률, 변화 없음 (PROGRESS_CRITERIA v1.14, D3 pending 유지)</p>
+<p>이번 성과: 읽기 전용 진단으로 D3 수치가 모델보다 작동점에 좌우됨을 확인했고, 사용자 승인으로 모서리 D3 작동점을 고정했다. 모델 정확도는 바뀌지 않았다.</p>
+
+<h2>작동점 비교 (같은 자료: 결함 카드 176 · 정상 카드 81)</h2>
+<div class="wrap"><table>
+<tr><th>정의</th><th>누락</th><th>상한</th><th>오탐</th><th>상한</th><th>판단 보류 구역</th></tr>
+<tr><td>이전 해석 L (구역 하나라도 &lt;0.281 / ≥0.509)</td><td>37/176</td><td>0.265</td><td>17/81</td><td>0.293</td><td>24%</td></tr>
+<tr><td><b>v1.14 (결함 구역 전부 &lt;0.20 / 하나라도 ≥0.60)</b></td><td>7/176</td><td>0.072</td><td>10/81</td><td>0.196</td><td>41%</td></tr>
+</table></div>
+<p class="mut">통과선: 누락 상한 ≤0.10, 오탐 상한 ≤0.20 (단측 95% Wilson). 차이는 정의 변경에서 오며 모델 개선이 아니다. 이 작동점은 결과를 본 뒤 정했으므로 개발 OOF 수치는 통과 증거가 아니다.</p>
+
+<h2>진단 요약</h2>
+<ul>
+<li>L 해석에서 낮음 임계는 결함 구역의 10%를 구조적으로 낮음에 넣고, 결함 카드당 결함 구역 2.3개라 카드 누락이 21%로 커졌다.</li>
+<li>누락 카드 37장 중 20장은 같은 카드의 다른 결함 구역이 높음 구간이었다.</li>
+<li>오탐은 구판(POCKET MONSTERS) 뒷면에 몰렸다: 정상 카드 9/24 대 영문판 7/48. 디자인 안 AUC는 0.854 대 0.852로 같아 순위 문제가 아니다. 이상적 보정 상한도 오탐 17→14·누락 37→40이라 실험하지 않았다.</li>
+</ul>
+
+<h2>남은 의존</h2>
+<p class="warn">D2 모서리 자료는 증거에서 제외. D3 모서리 판정에는 새 독립 보류 자료가 필요하다(어림: 정상 카드 약 67장 이상, 결함 카드 약 70장 이상, 관찰률이 개발 OOF와 같다는 가정, 미확인). 엣지·표면·관찰 제한 칸의 작동점은 미정.</p>
+
+<h2>변경 · 검사 · 롤백</h2>
+<ul>
+<li>변경: <code>PROGRESS_CRITERIA.md</code>, <code>development-progress.json</code>(D3 기준 문구 추가·history·rubric_sha256 <code>24e815c9…</code>), 진단 보고서 <code>corner-d3-diagnosis-20261121.md</code>, 진단 스크립트.</li>
+<li>실행한 검사: snapshot 정규 JSON sha256 = rubric_sha256 일치, JSON과 문서의 D3 문구 일치, 점수 합 78, <code>python -m unittest tests.test_agent_document_routes</code> 5개 통과.</li>
+<li>미실행: 새 추론·독립 평가·디자인 라벨 타인 확인.</li>
+<li>리스크: 사후 작동점이라 새 독립 자료에서 누락·오탐이 개발 OOF보다 나쁠 수 있다. 판단 보류 구역이 41%로 늘어 권고 범위가 줄었다.</li>
+<li>롤백: <code>git revert 8233cda</code></li>
+</ul>
+</main></body></html>
