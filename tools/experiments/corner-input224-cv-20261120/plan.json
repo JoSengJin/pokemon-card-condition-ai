@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "corner-input224-cv-20261120",
+  "reference_result": "artifacts/corner-input224-cv-20261120/reference/result.json",
+  "acceptance": {
+    "max_fn": 18,
+    "max_fp": 59,
+    "no_new_errors": false,
+    "require_actual_point_guard": false
+  },
+  "code_changes": [
+    {
+      "path": "artifacts/corner-input224-cv-20261120/worker.py",
+      "baseline": null
+    }
+  ],
+  "gemini_calls_allowed": 0,
+  "independent": false,
+  "production_adopted": false,
+  "experiment_kind": "model_comparison",
+  "threshold": 0.5,
+  "tracked_directory": "tools/experiments/corner-input224-cv-20261120",
+  "coverage": "artifacts/development-manifest-20261031o/coverage.json",
+  "backbone_directory": "artifacts/torch-cache/hub/facebookresearch_dinov2_7764ea0f912e53c92e82eb78a2a1631e92725fc8",
+  "backbone_weights": "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth",
+  "reference_note": "상수 0.5(행 대조용).",
+  "status": "ready_to_run",
+  "rows": "artifacts/corner-input224-cv-20261120/rows.json",
+  "expected_rows": 946,
+  "expected_denominators": {
+    "train_val": [
+      946,
+      405
+    ]
+  },
+  "e_observations": "artifacts/experiments/20261102T140143-82781117/observations.json",
+  "max_miss": 33,
+  "max_false_alarm": 17,
+  "min_auc": 0.8465,
+  "hypothesis": "후면 모서리 개발 OOF의 놓친 결함 구역은 작은 자르기(폭<300px)·저해상 사진에서 많다(폭<300px 17/123 대 24/282). 입력 크기를 바꿔 해상도가 병목인지 분리한다: 현재 448 확대 입력 대신 224 입력을 쓰면 패치가 덮는 원본 면적이 두 배가 된다.",
+  "change": "모서리 입력 크기 하나만 448→224(16x16 패치). 자료 946구역·fold·쌍 순위 항 레시피·λ 불변. 대조는 후보 E의 저장 OOF 점수(기록 20261102T140143-82781117 scores). 동결 임계 0.281/0.509 불변.",
+  "success_criterion": "(결과 전 고정) 개발 OOF 946구역에서 같은 사건 정의(L)로 누락 ≤33/176, 오탐 ≤17/81, 풀링 AUC ≥0.8465 (기준선 누락 37/176·오탐 17/81·AUC 0.8565).",
+  "failure_criterion": "셋 중 하나라도 어긋나면 224는 개선 근거가 아니다. 기준은 결과를 보고 바꾸지 않는다. 해석 규칙(결과 전 고정): 누락·오탐이 모두 기준선보다 4건 넘게 나빠지면 해상도가 병목이라는 신호, 어느 쪽도 4건 넘게 변하지 않으면 병목이 아니라는 신호로만 적는다. 4건 기준은 통계 검정이 아니다.",
+  "known_biases": "개발 교차검증이며 독립 시험이 아니다(모서리 D2 시험 소진). 대조 점수는 기존 실행의 저장값이라 장치 차이로 인한 미세 편차를 분리하지 못한다. 한 사람 라벨·같은 eBay 계열.",
+  "expected_limit": "진척 점수 반영 없음. 충족해도 D3 통과·일반화 개선 주장 불가(새 독립 라벨 자료와 사용자 결정 필요).",
+  "input_sha256": {
+    "artifacts/inner-whitening-confounder-20261021/confounder_head.py": "c54864f7e0b51c5e05af9db44ef236f8976995ed68b48d749a3ce165bd919cef",
+    "card_condition/regions.py": "4d441c24f5ce11617a11f32fc03353241741d66c218bc98fe607583feb02c911",
+    "card_condition/local_wear_cnn.py": "91f0c875812baa947b7e4d5ae9d40de53427d1d94dc92d77e849d3f3c556005f",
+    "card_condition/side_experiment.py": "06162757d756525d70b4727a91bf435a16f768b2a9678eb57cd499bd37fbe87d",
+    "card_condition/point_patch_head.py": "f86d729a5292824c05db9d31ae01632865c6917f9048e38f59277c92b917fa48",
+    "tools/experiments/edge-back-source-weight-20261030/worker.py": "b51abd8e4664fe5124f2b29528c59fe8bf1bf7ce0fad168ae31084146aadd017",
+    "tools/experiments/edge-back-same-photo-pair-20261031/worker.py": "be78eedbe55a558a4af657af153c2bcd8f5b8d76fd5e345b0734a2a3e34eb47e",
+    "tools/experiments/surface-newdef-pool-cv-r2-20261102/worker.py": "56efffd452369e56df2cfe7630f3ed0c7707de41fc8803a95fe7781e6efb3bbf",
+    "tools/experiments/edge-back-triage-others-20261101/worker.py": "c26b5cd751fda5181ac5490789e1aa84efa9dab44067afc5c42aa7416f1189f0",
+    "tools/experiments/edge-back-grouped-cv-20261031/worker.py": "aa1aaea91277b54e0e02cd3a95c4a5785518dbc5d275d77c07fa75f9edaaeac3",
+    "tools/experiments/edge-back-bagging-20261031/worker.py": "bc2b72e5e1605cf17857045e4e82c3badf835037f4c6902068e6415a52a04aaa",
+    "artifacts/edge-back-corner-more-cv-20261101/rows.json": "3e64cb2afa0aba720dc23618bdcb42431bbed3a4a2a54a0047e7d69ad35d659b",
+    "artifacts/edge-back-corner-more-holdout-20261101/holdout-rows.json": "51ad4c15a66ba4f3ccc024871c25ce20c6930d7fd2074cb99dbc71586a12b8cd",
+    "artifacts/edge-back-corner-triage-holdout-20261101/holdout-rows.json": "23d27dfb67c3b96a625565917a29e8bc75ebfabe4d360ea5af062356e7cdc3e0",
+    "artifacts/edge-back-corner-triage-holdout-v16-20261102/holdout-rows.json": "1d12dff77e1db63ba3fde758c63661c876e0cb9c749cd012b01072a8ebc16bbf",
+    "tools/experiments/edge-back-pair-bagging-20261031/worker.py": "34c9709ec85e24de024cc319520aaf88a9bc45d646a8e04dab99709da1e3010a",
+    "tools/experiments/edge-back-pair-vs-control-m-20261031/worker.py": "a19628b8fc1c666afe9969ab6698284e1b4faa1da9c5858553c82d9819f92f55",
+    "tools/experiments/edge-back-layer8-pair-20261031/worker.py": "4505e97d0eacaa28582dbcd5ccc9f7568f8dde5b3a6315cd051b66515633788e",
+    "tools/experiments/edge-back-outer-band-20261031/worker.py": "12ecfc066ff0071e486c4e0ca6ae2b6918f1df0332059cc19b432d929cd8640c",
+    "tools/experiments/edge-back-triage-holdout-20261031/worker.py": "13251d9efde6732677d34284b7b64e650f2ea4a19b5136a2c753cdba5186d9ef",
+    "artifacts/experiments/20261102T140143-82781117/observations.json": "8957104f502d24eec82bd887e5da30eb0a2b8999c145504874ca5c3b6a06d8bd",
+    "tools/experiments/corner-same-photo-pair-cv-20261102/worker.py": "4bc88ad8673f81de52a9ac53df1ab72917dc3b66945ab73af35804175029e09e",
+    "artifacts/torch-cache/hub/checkpoints/dinov2_vits14_pretrain.pth": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+    "artifacts/corner-input224-cv-20261120/rows.json": "add1be001612d51ed834c86fab2419c7e89592cb97149d8225964246f553eccd"
+  }
+}
