@@ -82,5 +82,20 @@ class HiresTest(unittest.TestCase):
         self.assertNotIn('target', html)
 
 
+class ReproTest(unittest.TestCase):
+    def test_excludes_previous_groups_and_is_balanced(self):
+        rp = load('tools/relabel_corner_repro_pages.py', 'repro')
+        sel = rp.select(rows(), {'g0', 'g1', 'g2'})
+        self.assertEqual(60, len(sel))
+        self.assertFalse({'g0', 'g1', 'g2'} & {z['group'] for z in sel})
+        self.assertEqual(30, sum(z['target'] for z in sel))
+        self.assertEqual(list(range(1, 61)), [z['n'] for z in sel])
+
+    def test_instruction_states_current_strict_criterion(self):
+        rp = load('tools/relabel_corner_repro_pages.py', 'repro2')
+        self.assertIn('미세한 백화', rp.INSTRUCTIONS)
+        self.assertIn('확대', rp.INSTRUCTIONS)
+
+
 if __name__ == '__main__':
     unittest.main()
