@@ -33,6 +33,17 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,t
 <h2>남은 의존</h2>
 <p class="warn">D2 모서리 자료는 증거에서 제외. D3 모서리 판정에는 새 독립 보류 자료가 필요하다(어림: 정상 카드 약 67장 이상, 결함 카드 약 70장 이상, 관찰률이 개발 OOF와 같다는 가정, 미확인). 엣지·표면·관찰 제한 칸의 작동점은 미정.</p>
 
+<h2>후속: 지원 4칸 D3 도달 가능성 (개발 OOF, 읽기 전용)</h2>
+<p class="mut">규칙(결과 전 고정): 카드 단위 누락, 낮음 = 누락 상한 ≤0.10을 지키는 최대값, 높음 = 오탐 상한 ≤0.20을 지키는 최소값. 나머지 3칸 작동점은 기준에 기록하지 않음(사용자 미결정).</p>
+<div class="wrap"><table>
+<tr><th>칸</th><th>작동점</th><th>누락(상한)</th><th>오탐(상한)</th><th>판단 보류</th><th>필요 결함/정상</th></tr>
+<tr><td>엣지</td><td>0.15/0.81</td><td>3/97 (0.075)</td><td>3/40 (0.173)</td><td>67%</td><td>42 / 28</td></tr>
+<tr><td>모서리 (확정)</td><td>0.20/0.60</td><td>7/176 (0.072)</td><td>10/81 (0.196)</td><td>41%</td><td>58 / 67</td></tr>
+<tr><td>표면</td><td>0.11/0.78</td><td>1/53 (0.080)</td><td>10/84 (0.189)</td><td>74%</td><td>25 / 61</td></tr>
+<tr><td>관찰 제한</td><td>0.005/0.48</td><td>2/71 (0.082)</td><td>29/196 (0.194)</td><td>55%</td><td>42 / 145</td></tr>
+</table></div>
+<p class="warn">4칸 동시 통과 확률(실제 비율 = 개발 비율 가정, 낙관적): 후면 150장 1% · 210장 6% · 300장 28%. 작동점이 상한 경계에 맞춰져 여유가 없다.</p>
+
 <h2>변경 · 검사 · 롤백</h2>
 <ul>
 <li>변경: <code>PROGRESS_CRITERIA.md</code>, <code>development-progress.json</code>(D3 기준 문구 추가·history·rubric_sha256 <code>24e815c9…</code>), 진단 보고서 <code>corner-d3-diagnosis-20261121.md</code>, 진단 스크립트.</li>
