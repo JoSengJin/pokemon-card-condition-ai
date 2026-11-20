@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "criterion_version": "usable-card-analysis-v1.13",
-  "effective_date": "2026-11-05",
+  "criterion_version": "usable-card-analysis-v1.14",
+  "effective_date": "2026-11-21",
   "timezone": "Asia/Seoul",
   "scope": "사람이 카드영역을 확인할 수 있는 앞뒤사진 보조분석: 센터링/모서리/엣지/표면 손상 및 관찰제한. 카드식별/가격/위조감지/공식등급보증은 제외.",
   "score_method": "milestone binary: verified earns full fixed weight; pending earns zero; unknown is pending; no subjective partial credit",
@@ -232,7 +232,7 @@
           "weight": 5,
           "status": "pending",
           "earned": 0,
-          "completion_criterion": "D2와 같은 시험에서 질문/앞뒤별 양성실물의 하나이상누락 사건률과 정상실물의 하나이상오탐 사건률을 계산한다. 각사건률의 단측95% Wilson 상한(z=1.6448536269514722)이 각각10%,20%이하이고 실물수/사건수가 보고돼야 한다. 표본0이면 미통과. 언어·판본·촬영제한 하위군 분모와 제외/미지원 범위를 공개한다. 패치를 독립표본으로 CI를 좁히지 않는다.",
+          "completion_criterion": "D2와 같은 시험에서 질문/앞뒤별 양성실물의 하나이상누락 사건률과 정상실물의 하나이상오탐 사건률을 계산한다. 각사건률의 단측95% Wilson 상한(z=1.6448536269514722)이 각각10%,20%이하이고 실물수/사건수가 보고돼야 한다. 표본0이면 미통과. 언어·판본·촬영제한 하위군 분모와 제외/미지원 범위를 공개한다. 패치를 독립표본으로 CI를 좁히지 않는다. v1.14(2026-11-21, 사용자 승인 '카드 단위+오탐 0.6'): 후면 모서리(C2 점검 우선순위 점수)의 사건 작동점을 고정한다. 실물=사진 그룹. 양성실물 누락은 그 실물의 결함 모서리 구역 점수가 전부 <0.20일 때, 정상실물 오탐은 그 실물의 모서리 구역 하나라도 점수 ≥0.60일 때다. 이 작동점은 후보 E 개발 OOF(기록 20261102T140143-82781117, 누락 7/176·오탐 10/81)와 D2 모서리 사건 집계를 본 뒤 정했으므로 D2 모서리 저장 점수는 이 칸의 D3 증거로 쓰지 않고, v1.14 확정 뒤 처음 평가하는 새 독립 보류 자료로만 판정한다. C2 구간 임계 0.281/0.509, 다른 칸의 사건 작동점(미정), 배점·Wilson 기준은 바꾸지 않는다.",
           "evidence": [
             "FINAL_GROUP_RATES_VALIDATION_20261011.md",
             "artifacts/experiments/20261024T063443-f4cc013b/diagnostics.json"
@@ -603,7 +603,19 @@
       ],
       "reason": "사용자 요청: 기존 기록을 대조해 라벨 기준과 안내문 통일. 추가 선택은 “과거 평가 영향까지 확인한 뒤 확정”. 그 순서대로 과거 안내 128개/후속 재판정 16개와 고정 평가 입력·해시를 감사한 뒤 위치를 생략한 화이트닝 제외 요약을 정정했다(v1.13 표현 정정 관리 버전). 배점·수치·사진/라벨·모델·기존 충족 근거와 점수는 보존. 새 범위/수치 개정 승인이나 새 성능 검증으로 기록하지 않는다. 손상 세부유형이 없어 개별 화이트닝의 수치 영향은 미확인.",
       "evidence_report": "docs/collaboration/reports/label-protocol-20261105.md"
+    },
+    {
+      "date": "2026-11-21",
+      "criterion_version": "usable-card-analysis-v1.14",
+      "score": 78,
+      "previous_score": 78,
+      "change_pp": 0,
+      "changed_milestones": [
+        "D3"
+      ],
+      "reason": "사용자 승인 '카드 단위+오탐 0.6': 후면 모서리 D3 사건 작동점을 결함 구역 전부 <0.20(누락)·정상 실물 구역 하나라도 ≥0.60(오탐)으로 고정. 개발 OOF와 D2 집계를 본 뒤 정했으므로 D2 모서리는 증거에서 제외, 새 독립 보류 자료로만 판정. D3 pending 유지, 점수 불변, 모델 변경 없음.",
+      "evidence_report": "docs/collaboration/reports/corner-d3-diagnosis-20261121.md"
     }
   ],
-  "rubric_sha256": "0680aa2ddf028f05de3a95a26f94865a17561d6a2d023913d836cb9b47e026da"
+  "rubric_sha256": "24e815c98f9c59da2b4d37c78e887db339365c881d56b069c4b122e5aebe8c65"
 }
