@@ -1,0 +1,28 @@
+# 모서리 블라인드 재판정(라벨 뒤집힘 f 측정) 구현 계획
+
+> 적용 스킬(AGENT_START 선택표): writing-plans(이 문서), test-driven-development(표본 선택·채점은 라벨 무결성 로직이라 선택 적용), verification-before-completion(기본). brainstorming은 요구가 명확해 생략, 하위 에이전트·병렬 실행 스킬은 쓰지 않음.
+
+**목표:** 모서리 구역 라벨의 뒤집힘 확률 f를 직접 측정해 다음 길(라벨 정의 개선 vs 독립 자료 수집)을 정한다. 근거: `docs/collaboration/reports/label-ceiling-20261121.md`(모서리 미측정), 사용자 요청 2026-11-21.
+**승인 경계:** 완료 라벨 재요청 금지 규칙의 예외. 사용자가 최선책 진행을 요청했으므로 화면 제작까지 진행하고, 사람 응답은 사용자가 직접 한다. 기존 라벨·점수·모델 변경 없음, Gemini 0.
+
+## 결과 전 고정(사전 등록)
+- 표본: `artifacts/corner-same-photo-pair-cv-20261102/rows.json` 946구역에서 사진 그룹이 서로 다른 60구역 = 기존 결함 30 + 기존 정상 30. 시드 20261121, 모델 점수 미사용, 순서 섞음. 개발 자료, 독립 아님.
+- 화면: 이전 판정·점수·카드 정보 미표시, 모서리 구역 크롭에 파란 사각형, 선택지 정상/결함/판단 불가, 20구역×3쪽, 결과 복사 붙여넣기.
+- 채점: 판정 = 결함/정상(판단 불가는 제외하고 별도 보고). 불일치율 d = (원 결함→정상 + 원 정상→결함)/사용 쌍. f = (1−√(1−2d))/2 (대칭·독립 뒤집힘 가정). d의 Wilson 95% 구간을 f 구간으로 변환. 3분류 kappa도 병기.
+- 판정 규칙: f 점추정 ≥ 0.11이면 "라벨 정의 개선 경로 권고", f 구간 상한 < 0.11이면 "독립 자료 수집 경로 권고", 그 외 "불확정(표본 확대 필요)". 판단 불가 비율 > 20%이면 기준 문제로 별도 표시. 0.11 = 현 AUC+0.03 경계에 해당하는 f(W1). 결과를 본 뒤 바꾸지 않는다.
+- 한계(보고에 명시): 같은 사람·기억 효과, 60곳이라 구간 넓음, 구 기준 라벨과의 기준 차이 가능, 개발 자료.
+
+## 파일(함수 수 ≤7, 호출 깊이 ≤4)
+- 신규 `tools/relabel_corner_blind_pages.py`: select, page, main (3개). `tools/relabel_zone_pages.py`의 crop/article/STYLE/SCRIPT 재사용(수정 없음).
+- 신규 `tools/diagnostics/corner-rejudge-20261121/score.py`: parse, wilson, score (3개).
+- 신규 `tests/test_corner_rejudge.py`.
+- 산출(ignored): `artifacts/corner-rejudge-20261121/{zones-1..3.html,selection.json}`.
+
+## 작업
+- [ ] 1. 실패하는 테스트 작성(표본: 60개·30/30·그룹 중복 없음·결정적·점수 미사용, 채점: 합성 응답에서 d·f·kappa·판정 규칙) → 실행해 실패 확인.
+- [ ] 2. select·score 구현 → 테스트 통과.
+- [ ] 3. page·main 구현, 실제 자료로 3쪽 생성, 쪽당 구역 수·이전 판정 미노출(문자열 검사)·크기 확인.
+- [ ] 4. 브라우저 렌더 확인(구역 20개·버튼·결과 칸).
+- [ ] 5. 사용자에게 3쪽 전달(SendUserFile). 응답 수신 후 `score.py`로 채점·보고(별도 작업).
+- [ ] 6. 커밋·`./develop -- git push origin main`.
+롤백: 파일 추가뿐, 커밋 revert.
