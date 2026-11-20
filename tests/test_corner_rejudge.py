@@ -97,5 +97,17 @@ class ReproTest(unittest.TestCase):
         self.assertIn('확대', rp.INSTRUCTIONS)
 
 
+class ConsensusTest(unittest.TestCase):
+    def test_excludes_judged_ids_and_balances_classes(self):
+        cs = load('tools/relabel_corner_consensus_pages.py', 'cons')
+        cs.PER_CLASS = 50
+        rs = rows(80)
+        sel = cs.select(rs, {'g0/upper_left', 'g1/upper_left'})
+        self.assertEqual(100, len(sel))
+        self.assertEqual(50, sum(z['target'] for z in sel))
+        self.assertFalse({'g0/upper_left', 'g1/upper_left'} & {z['id'] for z in sel})
+        self.assertEqual(len(sel), len({z['id'] for z in sel}))
+
+
 if __name__ == '__main__':
     unittest.main()
