@@ -60,5 +60,27 @@ class ScoreTest(unittest.TestCase):
         self.assertEqual('label_definition', res['decision'])
 
 
+class HiresTest(unittest.TestCase):
+    def test_pick_unknown_and_defect_to_normal_only(self):
+        hi = load('tools/relabel_corner_highres_pages.py', 'hires')
+        sel = [dict(n=1, target=1), dict(n=2, target=0), dict(n=3, target=1), dict(n=4, target=0), dict(n=5, target=1)]
+        ans = {1: '결함', 2: '정상', 3: '정상', 4: '불가', 5: '불가'}
+        self.assertEqual([3, 4, 5], [z['n'] for z in hi.pick(sel, ans)])
+
+    def test_crop_is_larger_than_thumbnail_and_page_hides_labels(self):
+        import base64, io, tempfile
+        from PIL import Image
+        hi = load('tools/relabel_corner_highres_pages.py', 'hires2')
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'a.png'
+            Image.new('RGB', (3000, 2000), (120, 120, 120)).save(path)
+            z = dict(n=7, target=1, image=str(path), box=[0, 0, .3, .3], group='g', area='upper_left')
+            width = Image.open(io.BytesIO(base64.b64decode(hi.crop(z)))).size[0]
+            html = hi.page(1, 1, [z])
+        self.assertGreater(width, 420)
+        self.assertIn('data-id="z7"', html)
+        self.assertNotIn('target', html)
+
+
 if __name__ == '__main__':
     unittest.main()
