@@ -16,3 +16,13 @@
 
 - [개발 평가와 검산 결과](../reports/corner-grid-average-20261121.md). 공통 기록 `artifacts/experiments/20261121T050740-8588eeb0/record.json` completed/0, 사전 기준 통과.
 - `artifacts/corner-grid-average-20261121/report.html` 기본 브라우저 열기 및 Chrome 헤드리스 지표·사진 렌더 확인. 독립 평가와 운영 채택은 미확정.
+
+## 후속 배정 · 저장 근거와 독립 평가 준비
+
+- 현재 담당 Codex. 후속 검산 기준 SHA `201b031aeaa52291bf21cd7e9f25b30cbbf4bccc`, 기본 checkout. 이전 실험의 기준 SHA와 상태는 위 기록에 귀속한다.
+- 허용 파일은 이 절, [후속 평가 계약](../reports/corner-grid-average-independent-20261121.md), Git 제외 `artifacts/corner-grid-average-audit-20261121/`이다. 새 수집·학습·사진 추론·외부 모델 호출·점수 기준 변경은 이번 준비 실행에 포함하지 않는다. D1/D2에서 겹침 조회용 ID와 해시만 사용한다.
+- [x] 보존 기록의 파일 SHA와 기준 행을 먼저 확인한다. 942개 행·256개 실물·94번 네 행 제외가 맞고, 저장 결과의 두 비교에서 오류 집합을 재구성한 경우 카드별 근거를 남긴다.
+- [x] 단일 후보 E의 출처·모델 SHA를 확인하고, 네 배치 후보의 단일 head 생성 절차·공통 입력·판정 계약을 확정한다. 신규 head 수렴·저장·재로딩 및 평가 코드 봉인은 후속 실행 조건이다.
+- [x] D3 작동점과 Wilson 상한을 원문과 대조하고 표본 수·짝비교·보조 임계·지연 계측 절차를 고정한다. 스코어 공개 전에 모델과 독립 표본을 봉인한다는 조건을 둔다.
+- [x] 남은 오류로부터 자료 구성 가설 하나를 제안한다. 다음 실험의 실행 승인은 별도다. 반증 사례와 미확인 위치를 기록하고 입수 보류를 유지한다.
+- checks/handoff: 기준 SHA, 기록·입력 SHA, E checkpoint, 판정과 통계 계산 로그 및 HTML 열기/렌더 상태는 후속 평가 계약과 로컬 산출물에 남긴다. 적용 스킬은 writing-plans, verification-before-completion 및 직접 대조에 한정한 requesting-code-review다.
