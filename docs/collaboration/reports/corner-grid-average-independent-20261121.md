@@ -25,11 +25,11 @@
 
 | 항목 | 대조군 E | 카드 순위 네 배치 평균 |
 |---|---|---|
-| 비교 버전 | 기존 단일 E head와 무이동 1회 | 고정 레시피로 새로 만드는 단일 head와 4배치 |
+| 비교 버전 | 기존 단일 E head와 무이동 1회 | 개발 946구역으로 적합한 단일 head와 4배치 |
 | 개발 학습 입력 | `artifacts/corner-same-photo-pair-cv-20261102/rows.json` 946행·257실물·257장 | 같은 946행의 순서와 사람 정답 |
 | 학습 행 SHA256 | `add1be001612d51ed834c86fab2419c7e89592cb97149d8225964246f553eccd` | 같은 SHA256 |
-| 모델 | `artifacts/triage-back-candidates-20261103/corner-head.pt` | 새 run의 `corner-card-rank-four-phase-head.pt`로 저장 예정 |
-| 모델 SHA256 | `3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187` | 생성·검산 전, SHA 미발행 |
+| 모델 | `artifacts/triage-back-candidates-20261103/corner-head.pt` | `artifacts/experiments/20261121T083153-d2980521/corner-card-rank-four-phase-head.pt` |
+| 모델 SHA256 | `3dafe0553df71e01243685acfb9f02c35362330c39e3cbd6396e5be81ab50187` | `e9e04bb6ab0fe6f5d1054638bb238653b37feff1dd5bc6fd149e950b7a3f95ac` |
 | 출처 | `20261103T140659-9eacc492`의 packaging plan/code snapshot과 평가 메타데이터, 0.6.1 릴리스와 바이트 일치 | 레시피 소스 `201b031aeaa52291bf21cd7e9f25b30cbbf4bccc`의 `corner-card-ranking-20261121/head.py` 및 `corner-grid-average-20261121/worker.py` |
 
 실물·사진·구역의 전체 명단과 사진별 원본 및 EXIF 방향 적용 후 RGB 디코딩 SHA256은 로컬 `development-manifest.json`에 있다(SHA256 `dbdde2ede81f2b490e20257a74bff56d286203c83ad3508dc9d33e5db8454965`). 94번은 여기서 기존 **학습 집합의 출처**에 포함된다. 256장 비교의 평가 제외 및 94번 개별 분석 보류에는 영향이 없다. 패키징 코드 도입 SHA `77d1c9aa7d93fd597932f95cf9f1ad5ba1d90dab`. 패키징은 개발 946행을 적합하고 이후 동일 head를 재로딩하는 경로였다. 이번 감사는 기존 D1/D2 결과 점수를 읽어 비교하거나 튜닝하지 않았다.
@@ -42,7 +42,7 @@
 - **생성 시 통과 조건.** 후속 생성용 가설 ID `corner-rank-full-development-head-v1`. 대조 출처는 위 E head, 레시피 출처는 `20261121T003253-08af1d09`의 고정 개발 계획이다. 후보와 기존 rank OOF의 차이는 full-development 1회 적합 및 단일 head 패키징이다. 사전 기준은 위 946행·257실물·257사진 원본 및 디코딩 해시 일치, 외부/독립 입력 0, 수렴, 저장·재로딩 동등성(계수·bias 텐서 정확 일치), 고정 합성 입력 점수 오차 ≤2e−6 및 경계 판정 동일. 파일·SHA·평가 코드 SHA가 모두 기록되고 두 후보가 같은 점수 입력 요청의 키·원본/디코딩 SHA·상자·구역 순서를 사용해야 봉인이 성립한다. 하나라도 실패하면 봉인 보류다. 새 worker/snapshot과 참조는 실행 전에 `code_changes`와 baseline에 적고, 공통 실행기 기록용 지표와 이 수용 기준을 구분한다. 필요한 Python 변경은 `./develop -- …`, 학습·성능 실행은 `./experiment --plan <plan.json> -- <worker 명령>`으로 한 번만 기록한다. 메인 담당·잠금·세션 승인 확인 뒤 기본 checkout에서 실행한다.
 - **점수와 사람 정답의 결합.** 추론 입력 manifest에는 사람 정답을 넣지 않는다. 추론은 네 모서리 점수와 held 사유를 출력한다. 별도 채점기가 봉인된 동일 실물/사진/box/구역 정답에 ID로 합류한다. 양쪽 결과의 키·순서·분모·정답 해시가 같아야 두 후보를 비교한다. 결함 카드의 정상 모서리가 높은 경우 실제 결함 검출로 세지 않는다. 결함/정상/미확인·보류의 입력 근거와 실행 오류는 공통 기록에 남긴다.
 
-E 기존 head 및 출처는 확인했다. 네 배치 후보는 단일 head 생성과 평가 어댑터의 봉인이 남아 있다. 현재 작업의 착수 근거는 사용자 배정과 통합된 기존 task이고, 개발 잠금은 사용 가능했다. `development-review.json`의 자동 검토 활성 설정은 현재 `CODEX_THREAD_ID`에 일치하지 않았다. 이번 작업은 후보 생성이나 모델 호출을 실행하지 않았다.
+준비 단계에서 E 기존 head 및 출처를 확인했다. 후속 실행에서 네 배치 단일 head를 생성하고 평가 코드를 검증했다. 후속 실행 기록은 아래 6절에 있다. 현재 작업의 착수 근거는 사용자 배정과 통합된 기존 task이고, 개발 잠금은 사용 가능했다. `development-review.json`의 자동 검토 활성 설정은 현재 `CODEX_THREAD_ID`에 일치하지 않았다. 이 준비 단계에서는 후보 생성이나 외부 모델 호출을 실행하지 않았다.
 
 ## 3. 점수를 보기 전에 고정할 독립 코호트와 시험
 
@@ -108,6 +108,17 @@ Wilson 상한은 `(p + z²/(2n) + z·sqrt(p(1−p)/n + z²/(4n²))) / (1+z²/n)`
 - `.venv/bin/python artifacts/corner-grid-average-audit-20261121/audit.py` 종료 0. 기존 계획 31개 입력 SHA, record에 기록된 6개 파일 SHA, source mirror, 원본 257장 raw/decoded SHA, 재구성한 5 fold의 사진 해시 분리, 저장 패치 60구역의 fold ID, 942개 전체 라벨·점수 및 256개 HTML 원본 경로 일치. 무이동 점수 재생 기록 차이 5.96e−8. E 패키징 계획과 코드 snapshot, E 학습 명단 SHA 및 체크포인트/릴리스 바이트 일치. D1(138실물)·D2 모서리(128실물)에서 ID/해시 중복 0, 해당 점수 사용 0. 이는 메타데이터 비교이며 새 독립 표본의 출처·유사 사진 수작업 대조는 봉인 전에 수행한다.
 - `python3 artifacts/corner-grid-average-audit-20261121/sample-size.py` 및 체크포인트 CPU 안전 로드·백본 release 해시 검사 종료 0. 검산 로그는 해당 로컬 폴더에 있다. 저장 네 배치 점수는 기존 record에서 별도 해시가 없고, 이번에는 전체 평균이 그 record SHA가 고정한 `result.json`과 정확히 같은지, 무이동이 기존 기록과 일치하는지 검증하고 현재 파일 SHA를 남겼다. 배치 2~4 각각의 원 실행 파일 바이트를 역사적 해시로 소급 인증할 수 없다.
 - `python3 artifacts/corner-grid-average-audit-20261121/render.py` 종료 0. 우선 사례 14장, 전체 짝비교 근거 27장·89구역. `open` 종료 0 및 Chrome 목록에서 보고서 탭 제목과 경로를 확인했다. 실제 화면 렌더는 미확인이다. 앱 창 접근은 `cgWindowNotFound`였으며 Chrome 탭 내용 조회는 `file:` 프로토콜 정책에 차단됐다.
-- 기존 실험 기록 `artifacts/experiments/20261121T050740-8588eeb0/record.json` 및 `evaluation.json`을 보존했다. 이번 산출물은 저장 근거 감사이며 새 실험 record는 생성하지 않았다. 재학습·사진 추론·새 독립 수집/평가·실제 지연·94 개별 지점 분석·외부 모델 호출은 미수행이다.
+- 기존 실험 기록 `artifacts/experiments/20261121T050740-8588eeb0/record.json` 및 `evaluation.json`을 보존했다. 이 준비 단계는 저장 근거 감사였다. 새 독립 수집/평가·실제 지연·94 개별 지점 분석·외부 모델 호출은 미수행 상태다.
 - 필독은 `AGENTS.md`, `docs/AGENT_START.md` 선택표, `PAIR_CODING.md`, `COMMON_EXPERIMENT_RECORDS.md`, `OBSERVATION_CONSENSUS_20261011.md`, `LABELING_PROTOCOL.md`, `PROGRESS_CRITERIA.md` 및 `development-progress.json`, `docs/collaboration/HTML_REPORTING.md`, 소비 프로젝트 `CONDITION_ANALYSIS_TODO.md` 상단, 관련 task와 실행 계획·worker다. 후속 계획은 기존 task 안에 기록했다. writing-plans 및 verification-before-completion 적용, requesting-code-review의 base SHA 직접 대조 수행. 새 독립 결과 없이 진척은 v1.14 78/100, D3 pending이다.
 - 변경은 기존 task의 후속 배정 절과 이 계약 문서, 로컬 검산·사진 보고 산출물이다. 위험은 개발 분모의 일부 구역만 확인된 카드, 서로 다른 학습·추론 방법의 E 비교, 새 head의 점수 분포 변화, 소수 discordance에 민감한 검정력 가정이다. 문서 반영을 되돌릴 때는 이 두 문서 변경의 커밋을 `git revert`하고 원본 실행 기록과 새 로컬 검산은 보존한다.
+
+## 6. 후속 실행 · 두 모델과 평가 코드
+
+**후보 E와 네 배치 평균의 단일 head를 확보했다. 고정 기준 v1.14의 진척 78/100이다.** 새 독립 실물의 두 오류와 시간은 미측정이다.
+
+- 공통 실행 `./experiment --plan tools/experiments/corner-rank-full-development-head-v1/plan.json -- .venv/bin/python artifacts/corner-rank-full-development-head-v1/worker.py` 종료 0. `artifacts/experiments/20261121T083153-d2980521/record.json` 상태 `completed`, `diagnostics.json.criterion_met=true`. 기준 Git SHA `3601101266c9f64bcb876665de7cefdb2293e8a8`에서 실행했고, worker와 score의 실제 바이트 SHA는 record의 `source_hashes` 및 snapshot으로 확인했다. MPS 448 특징 추출 946구역/257실물, head 적합 1회, L-BFGS 최대 기울기 1.9820e−6, 계수·bias 정확 재로딩, 합성 출력 최대 차이 0. D1/D2 점수·독립 입력·외부 모델 호출 0. GPU 경로를 쓰기 위해 MPS가 동작하는 승인된 실행에서만 적합했다.
+- `.venv/bin/python artifacts/corner-rank-full-development-head-v1/check.py` 종료 0. 원 실행 기록과 head SHA, 예전 이동과 픽셀/마스크 동일성, 합성 사진상의 E 기존 점수 경로 일치 및 네 배치 평균, 0.20/0.60 경계, 정상 모서리로 결함 검출을 세지 않는 규칙, 누락·정답 순서 거부, 동점 예산, 두 단측 검정과 Wilson 상한, 후보당 합성 250회 타이밍 절차와 1,000/4,000 호출을 검사했다. 합성 계측은 실제 지연 근거에서 제외한다.
+- 평가 전용 경로는 `release.load_release → trial.run_sealed → score_pairs → score_card → zone_score`의 두 진입 흐름이다. `load_release`에서 코드·두 head·백본 SHA·런타임 버전을 검사한 뒤 `run_sealed`를 호출한다. `run_sealed → benchmark → timed → score_card → zone_score`로 고정 순서와 MPS 동기화를 수행한다. 운영 경로와 모델 선택은 이 코드에서 호출하지 않는다.
+- 로컬 `artifacts/corner-rank-full-development-head-v1/freeze.json`에 두 head와 평가 코드·학습 명단·런타임 SHA 및 개발 워밍업 20장의 봉인을 보관한다. 독립 코호트를 승인·봉인한 차례에만 `independent_worker.py`의 로컬 미러를 새 공통 실행의 `code_changes`에 등록한다. 계획의 가설 ID는 `corner-rank-independent-v1`, 유형은 `diagnostic`, common reference는 동결된 합성 `synthetic-reference.json`이다. 합성 공통 결과와 별도로 `independent-result.json` 및 `predictions.json`을 실제 독립 근거로 저장하며 두 파일의 해시를 기록한다.
+- 향후 독립 계획의 `freeze`와 `warm`, `sealed_cohort.requests/answers/exclusions`는 각각 `{path, expected_sha}`로 전달한다. 요청 행은 `id, side, image, box, box_reviewed, raw_sha256, decoded_sha256`. 정답 행은 같은 순서의 `id, identity {raw_sha256, decoded_sha256, box}, corners, language, edition, restrictions`. 제외 manifest는 과거 전 범위의 `physical_ids`와 `photo_sha256`를 담는다. 재매물·재촬영 수작업 점검 및 모집/제외 사유는 승인된 독립 봉인 문서에 보존한다. 두 head는 같은 요청을 먼저 점수화하고 봉인된 답과는 그 뒤 합류한다.
+- 변경은 후속 task·이 인계 절과 연구용 실험 디렉터리다. 운영 head, Gemini fallback, 원래 정답 및 임계는 기존 바이트를 보존했다. 단일 적합의 점수 분포는 OOF와 달라질 수 있으며 동결 기준 통과는 수렴·구현 검증이다. 커밋을 revert하여 연구 코드와 문서를 되돌리고, 공통 실행 record와 로컬 봉인·checkpoint는 증거로 보존한다.

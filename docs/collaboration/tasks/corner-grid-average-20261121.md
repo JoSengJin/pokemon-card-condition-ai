@@ -26,3 +26,10 @@
 - [x] D3 작동점과 Wilson 상한을 원문과 대조하고 표본 수·짝비교·보조 임계·지연 계측 절차를 고정한다. 스코어 공개 전에 모델과 독립 표본을 봉인한다는 조건을 둔다.
 - [x] 남은 오류로부터 자료 구성 가설 하나를 제안한다. 다음 실험의 실행 승인은 별도다. 반증 사례와 미확인 위치를 기록하고 입수 보류를 유지한다.
 - checks/handoff: 기준 SHA, 기록·입력 SHA, E checkpoint, 판정과 통계 계산 로그 및 HTML 열기/렌더 상태는 후속 평가 계약과 로컬 산출물에 남긴다. 적용 스킬은 writing-plans, verification-before-completion 및 직접 대조에 한정한 requesting-code-review다.
+
+## 후속 실행 · 단일 head 생성과 평가 코드 봉인
+
+- 배정은 현재 사용자 요청 「설계대로 진행해」, 담당 Codex, 기본 checkout, 기준 SHA `3601101266c9f64bcb876665de7cefdb2293e8a8`. 단일 head 생성 1회와 평가 코드·합성 검증·로컬 인계에 한정한다. 독립 사진 수집/평가·D1/D2 점수·운영 변경·자동 모델 호출은 범위 밖이다.
+- 허용 경로는 `tools/experiments/corner-rank-full-development-head-v1/`, 이 task, 독립 평가 계약 및 ignored `artifacts/corner-rank-full-development-head-v1/`와 새 공통 실행 폴더다. 사전 계약의 946구역·257장, 모델·손실·임계·4배치 고정. 개발 적합은 한 번만 하고 실패는 기록한다.
+- 가설 `corner-rank-full-development-head-v1`. 위 계획의 fold 적합 레시피를 고정 개발 전체에 한 번 적용하면 독립 평가용 단일 head를 수렴시켜 재로딩할 수 있다. 대조 E는 기존 SHA의 단일 head, 변경은 배정된 후보의 fold별 계수 대신 단일 개발 전체 계수 사용이다. 성공은 입력 해시·분모 확인, 유한한 최대 기울기 ≤1e−5, float32 계수/bias 정확 재로딩, 합성 점수 차이 ≤2e−6 및 경계 동일. 성능 판정은 별도 독립 평가에서 한다.
+- checks: 공통 실행 로그·대상 소스 SHA, 두 head와 데이터·백본·평가 코드 SHA, 같은 입력/정답 검증, 합성 경계·동점·보류·계측 실행 수 검사. 현 task 소유권에서 verification-before-completion과 직접 기준 diff 검토 적용.
