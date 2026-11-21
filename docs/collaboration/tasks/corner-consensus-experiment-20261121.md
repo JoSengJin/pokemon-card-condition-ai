@@ -22,3 +22,23 @@
 
 남은 사용자 결정(이 실험과 무관, 묻지 말고 기록만): 독립 평가용 새 사진 수집(합의율 약 1/3 → 합의 구역 200곳에 카드 약 150장·판정 약 1200회 추정).
 ````
+
+## 실행 계약
+
+- task_id: corner-consensus-experiment-20261121
+- owner: Codex
+- status: integrated
+- base_sha: 35c0ac40db6d87f2f2cdfa6a18ebb146b8403431
+- branch: main (기본 checkout 단독·직렬 실행)
+- allowed_files: 이 task, `tools/experiments/corner-consensus-experiment-20261121/{worker.py,plan.json}`, `docs/collaboration/reports/corner-consensus-experiment-20261121.md`.
+- 산출물: Git 제외 `artifacts/corner-consensus-experiment-20261121/`의 실행용 worker 복사본·검사 로그·`report.html` 및 공통 실행기의 고유 실험 폴더.
+- 금지: 원 라벨·입력·운영 코드·진척 기준 수정, D1·D2 열람 및 사용, 외부 AI 호출, 실패 재실행.
+- 구조: worker.py 신규 함수 4개. 새 경로는 run → folds → 기존 check_separation, run → evaluate → 기존 paired_bootstrap → 기존 auc 및 run → 기존 pair.fit_pair 호출이다. 학습 함수를 새 래퍼로 감싸지 않는다. 기존 최적화의 Torch 콜백은 코드 변경 범위 밖이다.
+- checks: 고정 SHA와 대조 점수·행 일치, 기존 접기 및 제외 범위·사진/그룹 분리, 고정 수치 판정 합성 검사, 지정 공통 실행 1회, 기록 검산, HTML 내용/열기, Git diff/원격 확인.
+- handoff: 실행 기록과 검사 결과는 같은 이름의 reports 문서에 남긴다. 독립 평가 선행 결정으로 합의 200곳 확보에 카드 약 150장·판정 약 1200회가 필요하다는 추정을 기록한다.
+
+## 실행 결과
+
+- 공통 실행 기록 `artifacts/experiments/20261121T001341-b2e94833/record.json`, 상태 `completed`, 종료 0, 사전 기준 `criterion_met=false`.
+- [결과 및 검증 보고](../reports/corner-consensus-experiment-20261121.md)에 변경, 수치, 검사, 리스크와 롤백을 남겼다.
+- 산출물 `artifacts/corner-consensus-experiment-20261121/report.html`. 브라우저 열기 요청 성공 및 Chrome 헤드리스에서 지표·대표 사진 오버레이 렌더 확인.
