@@ -1,5 +1,7 @@
 # 모서리 블라인드 재판정(라벨 뒤집힘 f 측정) 구현 계획
 
+> **정정 2026-11-22:** 이 문서가 쓰는 재판정 답의 판정 주체는 사람이 아니거나 미확인이다. [label-provenance-correction-20261122.md](../../collaboration/reports/label-provenance-correction-20261122.md) 참고.
+
 > 적용 스킬(AGENT_START 선택표): writing-plans(이 문서), test-driven-development(표본 선택·채점은 라벨 무결성 로직이라 선택 적용), verification-before-completion(기본). brainstorming은 요구가 명확해 생략, 하위 에이전트·병렬 실행 스킬은 쓰지 않음.
 
 **목표:** 모서리 구역 라벨의 뒤집힘 확률 f를 직접 측정해 다음 길(라벨 정의 개선 vs 독립 자료 수집)을 정한다. 근거: `docs/collaboration/reports/label-ceiling-20261121.md`(모서리 미측정), 사용자 요청 2026-11-21.

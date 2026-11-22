@@ -1,5 +1,7 @@
 # 모서리 블라인드 재판정 결과 (2026-11-21)
 
+> **정정 2026-11-22:** 이 문서가 쓰는 재판정 답의 판정 주체는 사람이 아니거나 미확인이다. [label-provenance-correction-20261122.md](label-provenance-correction-20261122.md) 참고.
+
 진척 78/100 불변. 모델·라벨 변경 없음. 계획·사전 규칙: `docs/superpowers/plans/2026-11-21-corner-blind-rejudge.md`. 응답 `artifacts/corner-rejudge-20261121/answers.txt`(60/60, Git 제외), 채점 `tools/diagnostics/corner-rejudge-20261121/score.py`. 같은 사람 재판정, 개발 자료, 독립 아님.
 
 | 원 라벨 \ 새 답 | 결함 | 정상 | 판단 불가 |
