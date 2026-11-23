@@ -179,3 +179,22 @@ def main():
 if __name__ == '__main__':
     main()
 ```
+
+## 부록 B. 실행 기록 (커밋 `56f6a4b` 뒤 추가, 위 규칙·수치 변경 없음)
+선정은 규칙 커밋 뒤 처음 실행했고 같은 시드 2회 실행의 SHA가 같다. 화면·대응표도 2회 생성 SHA가 같다. 기준점 사진의 `image_sha256`은 원본 바이트 해시 또는 복호 해시(`decoded_hash`)로 기록돼 있어(개발 125장 중 110/15) 둘 중 하나와 맞는지 확인한다.
+```text
+f551e4aebe709816cd9b7124a536b15e320444d22b6134298d0cba8352ac6deb  analyze_cards.py
+95c09481af4ac46f5acc8dc5a6c0ec4d861ce56ade66a104507fc7c8707a9458  build.py
+ccc198f9f92e774756eb0c054d8739b44733e93c9b25b28121c835f0b2ee2568  check_screens.py
+2d07e3c5af188e348d54d43c5a35d833490ed8a4d154e74a0ec0de7bf125d9d9  select.py
+577630021cb80e6ee83a702051ddab4fa31d107e1d6577a8b99e72cc3ad7de31  test_analyze_cards.py
+0ebace22fde11f0546ab6d821aa12cab8b78840afbf582a62ed4e672d833e541  pure.js
+aa372a9d323bbe406f134e8df8994f4c061a96ff8a37737aa3dd9ba994e68521  test_screen.js
+9adc30d5866b127f1b5dea7afca2d6828bf1c0f8d583c301848816ea5d3c6228  mapping.json
+da8b2f88444ac83ed398f951fe8f022dcc0c6639ceeacda79e9c7e1ae4904fb6  selection.json
+59297cc0cd67f75385065a1b7251155bdac7f24581d1d8a6193e9bce737ccc6a  screen-1.html
+5b71b8d7bda510855195cf347526a979e96dbc241f1afa7e88fbc4f375383664  screen-2.html
+19ba845e14a9c120d5a932f2f15ee37e7c4ce54a47fa318ffeef9ceab5225be1  screen-3.html
+55a797682d06e2f971c3b687dafa4a530e7b95ad380f9958886de86b4e11a778  screen-4.html
+84401584ccb7505d03ca65b687a3b7ea3d93b1876692f76f2f85dfd7a1bc1cd8  screen-5.html
+```
