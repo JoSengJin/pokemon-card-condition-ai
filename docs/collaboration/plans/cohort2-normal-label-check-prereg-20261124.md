@@ -198,3 +198,25 @@ da8b2f88444ac83ed398f951fe8f022dcc0c6639ceeacda79e9c7e1ae4904fb6  selection.json
 55a797682d06e2f971c3b687dafa4a530e7b95ad380f9958886de86b4e11a778  screen-4.html
 84401584ccb7505d03ca65b687a3b7ea3d93b1876692f76f2f85dfd7a1bc1cd8  screen-5.html
 ```
+
+## 부록 C. 1단계 입력 예외 (지표 계산 전 커밋, 수치 기준·계속 규칙 변경 없음)
+- 받은 결과에 `# 화면=`·`# 제출시각=` 줄이 모두 없었다. 사용자가 예외를 승인했다(2026-11-24, 이 세션 채팅 "예외 승인"): 화면 번호는 `mapping.json`에서 채우고(화면 불일치 검사는 이 입력에서 검증이 아니다) 제출시각은 5개 화면 모두 `미확인`.
+- 시각 참고(정확한 시각 아님): 사용자 기재 `2026-11-24T07:30:00+09:00`(화면 번호 없음), "각 화면 5분 정도 차이". 채팅 기록은 화면 전달 06:51:45, 첫 응답 도착 07:10:27, 화면 1 두 번째 응답 도착 07:35:10(KST). 07:30:00은 먼저 도착한 화면 2~5의 시각일 수 없다.
+- 판정 주체: 사용자가 "전부 직접 판정"(첫 응답)·"직접 판정"(화면 1 두 번째 응답)이라고 답해 사람 라벨로 기록한다. 근거는 이 채팅 답이다.
+- 화면 1은 첫 응답에서 z1·z2만 판정(둘 다 `뚜렷`), 62구역 미판정이었다. 두 번째 응답은 64구역이며 z1=`미세|2`, z2=`불가|1|사유=반사`로 첫 답과 다르다. 두 번째 응답을 받기 전 안내한 규칙대로 **z1·z2는 첫 답**, z3~z64는 두 번째 응답을 쓴다. 다른 값은 원문에 남긴다.
+- 분석 전에 본 것: 층을 나누지 않은 화면별 개수. 화면 1(두 번째 응답) 정상 5·미세 36·뚜렷 10·불가 13, 화면 2 40·11·1·12, 화면 3 46·11·0·7, 화면 4 41·14·2·7, 화면 5 34·20·1·9. 화면 1의 분포가 크게 다르고 **원인은 미확인**이다. 이 차이로 라벨을 바꾸거나 화면을 빼지 않으며, 주 지표는 정한 대로 60장 전체로 낸다. 확신도는 화면 1 첫 응답에서 입력 0, 나머지는 입력돼 있다.
+```text
+6e24d06f3847d010e30425c7e60fff17bc25fb70c8b2cfd9972a50922d81cb0d  make_inputs.py
+60fae767964f569ac48dfd8aef72519abdcc97c1dfdb7f92250d58e7f7e9f4a4  responses/exception-approval-20261124.txt
+c4593ce32188f8a2aabb8b11eab38b53fe8e8f7cbd463c172f522dea3be876b1  responses/input-1.txt
+884eb4cd9008653724ec7c9ce53af83116148900f9ef37d895e87f181ce66df8  responses/input-2.txt
+a8e2985362ee10b35b0ef54eac4bf71f298b52bad7cfc60faf683ab74bf4a78f  responses/input-3.txt
+bdba2b958fbd89aea25f1a7ff6372d92bc01b35673c61bde37e1b22ff776c3ce  responses/input-4.txt
+5164b649d11c3f1b082192bb7e3d194ff762019fa79a57e05926e78b13724865  responses/input-5.txt
+18760b7b9a2980560bfc7340d158d90581d1c987a492af1adf421ab105cc32c4  responses/judge-statement-20261124.txt
+44aed6063ddb75cace700d21af692625b1d6dbe7b276ec6837e7af2dce8e3494  responses/judge-statement-screen1-20261124.txt
+7b0dc8cf5797de8227eeeb52788a55b2edaa41ca890ae0532d253cb5dfa8a283  responses/screen1-second-raw-20261124.txt
+995733c2885437b37d90164ab8180e6bcf0e795644fc7e8b98ec68fc9fbd42b0  responses/stage1-raw-20261124.txt
+b80cfafb13629a40cca8ab7e835cd45e9b60f7d27a560bad3df1948d40a07a16  responses/submit-time-note-20261124.txt
+329378e54fa97a3298dda2a13658df7968bec6a196a0339b340c9777b70716a0  responses/submit-time-note2-20261124.txt
+```
