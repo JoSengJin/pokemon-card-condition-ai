@@ -26,3 +26,8 @@
 - 검토에서 고친 것: 방향 통일 worker의 없는 키 `ref['scores']`와 CPU 대체(장치 변수 추가). 방향 통일 에이전트는 구조 확인용으로 `result.json`의 `comparison` 키를 한 번 출력했다고 보고(계약 위반, 후보 설계에는 쓰지 않았다고 보고; 독립 확인 안 함).
 - 실행 전에 남은 것: `artifacts/<task_id>/` 미러 배치(여백·방향 통일의 code_changes 경로), 두 배치 학습은 fold당 float64 약 4.8GB에 중심화 복사본이 더해져 16GB에서 메모리가 부족할 수 있음. 실제 실행·계획 스키마 검사·호출 깊이 도구 검사 미실행.
 - 롤백: 통합 전이므로 세 브랜치를 쓰지 않으면 된다.
+
+## 후속 계약: 두 배치 학습 메모리 절감 (2026-11-24, 사용자 "추천대로 진행")
+- 여백·방향 통일 후보는 미채택 기록으로 main에 남기고 재시도하지 않는다. 두 배치 학습은 메모리만 줄이고 **실행은 별도 승인 뒤**.
+- task_id: corner-phase-train-mem-20261124. owner: Claude(이 세션). base_sha: `73b8048`. branch: claude/corner-phase-train-mem-20261124. 허용 파일: `tools/experiments/corner-phase-train-20261124/{transform.py,worker.py,plan.json}`, `tests/test_corner_phase_train.py`.
+- 목표: 중심화 복사본(fold당 약 4.8GB)과 행 선택 복사본(약 1.2GB)을 없앤다. 학습식·fold·기준은 그대로이고 fit 결과가 기존과 비트 단위로 같아야 한다. plan은 `code_changes` 경로만 `artifacts/`로 고친다. checks: 합성 테스트, 실제 크기 할당의 최대 메모리(합성 난수, 사진·라벨 미사용).
