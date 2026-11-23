@@ -96,10 +96,12 @@ def run():
     ref = json.loads(Path(os.environ['CARD_CONDITION_EXPERIMENT_REFERENCE']).read_text())
     all_rows, keep = verify(plan, ref)
     prior = json.loads((ROOT/plan['original_plan']).read_text())
-    rows, control = ref['rows'], ref['scores']
+    rows, control = ref['rows'], ref['before_scores']
     folds = rank.cv.fold_of(all_rows)
     torch.set_num_threads(2)
-    device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+    if not torch.backends.mps.is_available():
+        raise RuntimeError('Original MPS backend required')
+    device = 'mps'
     body = torch.hub.load(str(ROOT/prior['backbone_directory']), 'dinov2_vits14', source='local', pretrained=False)
     body.eval().requires_grad_(False)
     body.load_state_dict(torch.load(ROOT/prior['backbone_weights'], map_location='cpu', weights_only=True))

@@ -76,3 +76,9 @@ class CanonicalOrientationTest(unittest.TestCase):
         self.assertIn('orient.canonical(t, mask, rows[i][\'area\'])', source)
         self.assertIn('extract_train(body, all_rows', source)
         self.assertNotIn('moved_input', source.split('def score_four_phases')[0])
+        keys = set(re.findall(r"ref\['(\w+)'\]", source))
+        reference_keys = {'rows', 'before_scores', 'cohort_sha256', 'point_ids', 'point_scores', 'required_cohorts', 'source', 'source_sha256'}
+        self.assertTrue(keys and keys <= reference_keys, keys)
+        self.assertIn("ref['before_scores']", source)
+        self.assertIn("RuntimeError('Original MPS backend required')", source)
+        self.assertNotIn("else 'cpu'", source)
