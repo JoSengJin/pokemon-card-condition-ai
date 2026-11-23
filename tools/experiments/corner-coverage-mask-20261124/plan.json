@@ -16,15 +16,11 @@
   "acceptance_scope": "공통 0.5 상한은 기록용이며 사전 성능 판정은 evaluation.json.",
   "code_changes": [
     {
-      "path": "tools/experiments/corner-coverage-mask-20261124/transform.py",
-      "baseline": null
-    },
-    {
-      "path": "tools/experiments/corner-coverage-mask-20261124/worker.py",
-      "baseline": null
-    },
-    {
       "path": "artifacts/corner-coverage-mask-20261124/worker.py",
+      "baseline": null
+    },
+    {
+      "path": "artifacts/corner-coverage-mask-20261124/transform.py",
       "baseline": null
     }
   ],
