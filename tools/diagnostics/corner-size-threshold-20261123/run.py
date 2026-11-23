@@ -12,6 +12,7 @@ import numpy as np
 from PIL import Image
 
 HERE = Path(__file__).parent
+REL = Path('tools/diagnostics/corner-size-threshold-20261123')  # run from the repo root
 sys.path[:0] = [str(HERE), str(HERE.parent / 'corner-rejudge-20261121')]
 import measure as M
 from score import wilson  # reuse: Wilson 95% interval
@@ -57,6 +58,8 @@ def measures(rows):
     """Cached pixel measures keyed by zone id + photo hash + box (label-free)."""
     path = OUT / 'measures.json'
     cache = json.loads(path.read_text()) if path.exists() else {}
+    if cache.get('_measure_sha256') != sha(REL / 'measure.py'):
+        cache = {'_measure_sha256': sha(REL / 'measure.py')}  # stale cache from another measure version
     for r in rows:
         key = f"{r['id']}|{r['image_sha256']}|{','.join(f'{v:.6f}' for v in r['box'])}"
         if key not in cache:
@@ -101,6 +104,14 @@ def count(it):
     out = {}
     for v in it: out[v] = out.get(v, 0) + 1
     return dict(sorted(out.items()))
+
+
+def descriptive(rows):
+    """Post hoc, not pre-registered: defect share by measured size bin and by measure status."""
+    ok = [r for r in rows if r['m']['status'] == 'ok']
+    bins = (('0', lambda x: x == 0), ('0-0.3', lambda x: 0 < x <= .3), ('0.3-0.8', lambda x: .3 < x <= .8), ('>0.8', lambda x: x > .8))
+    return dict(by_size_mm={n: rate(sum(r['target'] for r in ok if f(r['m']['size_mm'])), sum(f(r['m']['size_mm']) for r in ok)) for n, f in bins},
+                by_status={st: rate(sum(r['target'] for r in rows if r['m']['status'] == st), sum(r['m']['status'] == st for r in rows)) for st in sorted({r['m']['status'] for r in rows})})
 
 
 def resolution(rows):
@@ -148,11 +159,17 @@ def w1(rows, band):
     for name, unk in (('exclude', None), ('as_normal', 0), ('as_defect', 1)):
         lab = [1 if z['blind'] == '결함' else 0 if z['blind'] == '정상' else unk for z in zs if z['blind'] != '미판정']
         den[f'불가_{name}'] = dict(normal=lab.count(0), defect=lab.count(1), dropped=lab.count(None), 미판정_not_counted=counts.get('미판정', 0))
+    fin = [z['final'] or z['blind'] for z in zs if z['blind'] in ('정상', '결함')]  # blind answer, replaced by the user's later statement on the 9 zones
+    for name, bd in (('1_exclude', None), ('2_as_normal', '정상'), ('3_as_defect', '결함')):
+        lab = [bd if v == '경계' else v for v in fin]
+        den[f'경계_{name}'] = dict(normal=lab.count('정상'), defect=lab.count('결함'), dropped=lab.count(None))
     binz = [z for z in zs if z['blind'] in ('정상', '결함')]
     dis = [z for z in binz if (z['prev'] == 1) != (z['blind'] == '결함')]
     out = dict(blind_counts=counts, denominators=den, binary=len(binz), disagree=len(dis), measured_binary=sum(z['m']['status'] == 'ok' for z in binz),
                measured_disagree=sum(z['m']['status'] == 'ok' for z in dis), disagree_sizes_mm=sorted(z['m']['size_mm'] for z in dis if z['m']['status'] == 'ok'),
-               final_statement={f"z{k}": v for k, v in FINAL.items()})
+               final_statement={f"z{k}": v for k, v in FINAL.items()},
+               measured_sizes_by_prev_blind={f"{'결함' if p else '정상'}->{b}": sorted(z['m']['size_mm'] for z in binz if z['m']['status'] == 'ok' and z['prev'] == p and z['blind'] == b)
+                                             for p in (0, 1) for b in ('정상', '결함')})
     if band is not None:
         inb = lambda z: z['m']['status'] == 'ok' and band[0] <= z['m']['size_mm'] < band[1]
         mb = [z for z in binz if z['m']['status'] == 'ok']
@@ -219,13 +236,18 @@ def markdown(t):
     L += ['', '## hidden threshold', f"- measured {th['n_measured']}/{th['n_all']} ({th['coverage']}); status {th['status_counts']}",
           f"- fit {th['fit']} / check {th['check']}", f"- slope/mm {th['slope_per_mm']} boot95 {th['slope_boot95']}; t50 {th['t50_mm']} mm boot95 {th['t50_boot95']} (valid {th['t50_boot_valid']}/{BOOT}); band p25-p75 {th['band_p25_p75_mm']}",
           f"- check agreement {th['check_agreement']} vs majority {th['check_majority_baseline']}; AUC fit {th['auc_fit']} check {th['auc_check']}", f"- C1 {th['c1']} -> pass={th['c1_pass']}"]
+    L += ['', '## post hoc descriptive (not pre-registered): defect share k/n', '| group | defect | n | share | wilson95 |', '|---|---|---|---|---|']
+    L += [f"| size {k} mm | {v['k']} | {v['n']} | {v['rate']} | {v['wilson95']} |" for k, v in t['descriptive']['by_size_mm'].items()]
+    L += [f"| status {k} | {v['k']} | {v['n']} | {v['rate']} | {v['wilson95']} |" for k, v in t['descriptive']['by_status'].items()]
     L += ['', '## denominators (946 zones, existing labels)', '| treatment | zone normal | zone defect | zone dropped | photo normal | photo defect | photo dropped |', '|---|---|---|---|---|---|---|']
-    for k in ('as_labelled', '1_exclude_boundary', '2_eval_boundary_as_normal', '3_boundary_as_defect'):
+    for k in ('as_labelled', '1_exclude_boundary', '2_eval_boundary_as_normal', '3_boundary_as_defect') if th['c1_pass'] else ('as_labelled',):
         z, p = d[k]['zones'], d[k]['photos']
         L.append(f"| {k} | {z['normal']} | {z['defect']} | {z['dropped']} | {p['normal']} | {p['defect']} | {p['dropped']} |")
-    L += [f"- boundary zones {d['boundary_zones']} by label {d['boundary_by_label']}; max relative change vs treatment 1: {d['max_relative_change_vs_1']}"]
-    L += ['', '## W1 (60 zones)', f"- blind counts {w['blind_counts']}; denominators {w['denominators']}", f"- binary {w['binary']} (measured {w['measured_binary']}), disagree {w['disagree']} (measured {w['measured_disagree']}), sizes {w['disagree_sizes_mm']}",
-          f"- agreement in band {w.get('agree_in_band')} / outside {w.get('agree_outside_band')}", '', '## B self-agreement', f"- {t['b']}", '', '## ladder', f"- {t['ladder']}"]
+    L += [f"- boundary zones {d['boundary_zones']} by label {d['boundary_by_label']}; max relative change vs treatment 1: {d['max_relative_change_vs_1']}" if th['c1_pass'] else
+          '- boundary treatments 1/2/3 not tabulated on the 946 zones: C1 not passed, so no boundary band is defined (pre-registered). See the W1 denominators below.']
+    L += ['', '## W1 (60 zones)', f"- blind counts {w['blind_counts']}", '| treatment | normal | defect | dropped |', '|---|---|---|---|'] + [f"| {k} | {v['normal']} | {v['defect']} | {v['dropped']} |" for k, v in w['denominators'].items()]
+    L += ['- 미판정 12 are never counted in any treatment. 경계 rows use the blind answer replaced by the user statement on the 9 disagreement zones.', f"- binary {w['binary']} (measured {w['measured_binary']}), disagree {w['disagree']} (measured {w['measured_disagree']}), sizes {w['disagree_sizes_mm']}",
+          f"- measured sizes by previous->blind: {w['measured_sizes_by_prev_blind']}", f"- agreement in band {w.get('agree_in_band')} / outside {w.get('agree_outside_band')}", '', '## B self-agreement', f"- {t['b']}", '', '## ladder', f"- {t['ladder']}"]
     return '\n'.join(L) + '\n'
 
 
@@ -243,9 +265,9 @@ def check():
     if stored.exists():
         old = json.loads(stored.read_text())
         new = main(write=False)
-        for k in ('inputs', 'resolution', 'threshold', 'denominators', 'w1', 'ladder'):
+        for k in ('inputs', 'resolution', 'threshold', 'descriptive', 'denominators', 'w1', 'ladder'):
             assert old[k] == new[k], f'{k} differs from stored tables.json'
-        print('regenerated tables match stored tables.json (inputs, resolution, threshold, denominators, w1, ladder)')
+        print('regenerated tables match stored tables.json (all sections except the time-dependent B block)')
     else:
         print('tables.json not present: regeneration comparison skipped')
 
@@ -258,8 +280,8 @@ def main(write=True):
     th = threshold(rows)
     band = th['band_p25_p75_mm'] if th['c1_pass'] else None
     w, sel = w1(rows, band)
-    t = dict(inputs={str(p): sha(p) for p in (OBS, W1 / 'selection.json', W1 / 'responses/paste-20261123.txt', W1 / 'responses/addendum-user-statement-20261123.txt', HERE / 'measure.py', HERE / 'run.py')},
-             resolution=resolution(rows), threshold=th, denominators=denominators(rows, band), w1=w, b=b_selfagree(rows, band),
+    t = dict(inputs={str(p): sha(p) for p in (OBS, W1 / 'selection.json', W1 / 'responses/paste-20261123.txt', W1 / 'responses/addendum-user-statement-20261123.txt', REL / 'measure.py', REL / 'run.py')},
+             resolution=resolution(rows), threshold=th, descriptive=descriptive(rows), denominators=denominators(rows, band), w1=w, b=b_selfagree(rows, band),
              ladder=ladder(rows, {z['group'] for z in sel}, th, write))
     if write:
         (OUT / 'tables.json').write_text(json.dumps(t, ensure_ascii=False, indent=1))
