@@ -8,6 +8,17 @@
 
 - [README_BEFORE_AGENT_GUIDE_20261118.md](README_BEFORE_AGENT_GUIDE_20261118.md): 2026-11-18 공통 입구 정리 전 README 전체. 당시 사용법·변경 이력이며 현재 지침은 [AGENT_START](../AGENT_START.md)를 따른다.
 
+2026-11-24 이동(참조 없음 확인). 당시 인계·계획·프롬프트이며 현재 지시가 아니다.
+
+- [CLAUDE_HANDOFF_20261112.md](CLAUDE_HANDOFF_20261112.md): 원래 위치 `docs/collaboration/`
+- [CODEX_MAIN_HANDOFF_PREP_20261113.md](CODEX_MAIN_HANDOFF_PREP_20261113.md): 원래 위치 `docs/collaboration/`
+- [NEXT_AGENT_LOOP_PROMPT_20261113.md](NEXT_AGENT_LOOP_PROMPT_20261113.md): 원래 위치 `docs/collaboration/`
+- [SURFACE_HOLDOUT2_PLAN_20261103.md](SURFACE_HOLDOUT2_PLAN_20261103.md): 원래 위치 `docs/collaboration/`
+- [claude-evaluation-metrics-20261025.md](claude-evaluation-metrics-20261025.md): 원래 위치 `docs/collaboration/prompts/`
+- [claude-evaluation-safety-20261025.md](claude-evaluation-safety-20261025.md): 원래 위치 `docs/collaboration/prompts/`
+- [claude-evidence-preparation-20261025.md](claude-evidence-preparation-20261025.md): 원래 위치 `docs/collaboration/prompts/`
+- [claude-overnight-20261025.md](claude-overnight-20261025.md): 원래 위치 `docs/collaboration/prompts/`
+
 - [ABRA_PARTIAL_LABEL_VALIDATION_20261015.md](ABRA_PARTIAL_LABEL_VALIDATION_20261015.md)
 - [AI_DRAFT_REVIEW_VALIDATION_20261015.md](AI_DRAFT_REVIEW_VALIDATION_20261015.md)
 - [ALAKAZAM_BACK_LEARNING_VALIDATION_20261017.md](ALAKAZAM_BACK_LEARNING_VALIDATION_20261017.md)
