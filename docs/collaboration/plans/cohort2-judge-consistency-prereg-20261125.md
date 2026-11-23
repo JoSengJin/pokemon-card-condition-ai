@@ -78,3 +78,19 @@ def main():
 if __name__ == '__main__':
     main()
 ```
+
+## 부록 B. 실행 기록 (커밋 `b8db577` 뒤 추가, 규칙·수치 변경 없음)
+선정 2회·화면/대응표 2회의 SHA가 각각 같다. 새 화면의 크롭은 1단계 화면의 같은 구역 크롭과 바이트가 같다. 첫 회차 입력은 다섯 파일을 이어 붙인 SHA256으로 확인한다(`analyze_retest.py`의 `OLD_SHA`).
+```text
+abfb4af8895d9fc7831d72879b6d7cc4294d28156be3d537563bcd801e7e634e  analyze_retest.py
+fa12b1ac6342310ab4252b60b98d3fe5f0d3b4a511037bce046276615ff78d31  build.py
+47f2b88d6c8f06c36d1ffc44574e7df8f645c3f9c22b5b773314c06d9d661da5  check_screens.py
+956d3b6a05479a2dcfc04f9ff0b05e29c7377177de3077a457977051306537e4  select.py
+ac29e5f47b8f5c7871007a5d04bea4085f0d01ceb995b6a071fd47401473b2d8  test_analyze_retest.py
+0ebace22fde11f0546ab6d821aa12cab8b78840afbf582a62ed4e672d833e541  pure.js
+5eaf4b564bec3bd36d6ba3f2cc919b4a0da69e3c7e1a1d34c351a42662e5895a  test_screen.js
+8bb29350420d15bf9e9b91900e2774a7464dca25bd5f22ecc1a4d8746650aec5  mapping.json
+72967ba828a5a04ec7b456e8d696dd6e7049f2408952d02c6c9d78895510b02c  selection.json
+496d8e4aa696ce95a63d064e246233e859d1ca35c6a287806566a36bf6b7fc26  screen-A2.html
+5db568f1eb10482b93ed975a0f43984b8b349a33b212f742d0c10ee7aa8256ec  screen-B2.html
+```
