@@ -18,5 +18,14 @@ def stack_views(views, idx, dtype):
     """Rows idx of each per-view array stacked view-major (matches expand_rows); allocated once in dtype."""
     out = torch.empty((len(views)*len(idx),) + tuple(views[0].shape[1:]), dtype=dtype)
     for v, x in enumerate(views):
-        out[v*len(idx):(v + 1)*len(idx)] = torch.as_tensor(x[idx])
+        for j, i in enumerate(idx):  # row by row: no float32 copy of the whole selection
+            out[v*len(idx) + j] = torch.as_tensor(x[i])
     return out
+
+
+class CenteredInPlace(torch.Tensor):
+    """Lets the frozen head fit's `x = x - center` reuse x instead of allocating a second copy."""
+
+    def __sub__(self, other):
+        plain = self.as_subclass(torch.Tensor)
+        return plain.sub_(torch.as_tensor(other).as_subclass(torch.Tensor))

@@ -111,3 +111,10 @@ class PhaseTrainTest(unittest.TestCase):
         torch.testing.assert_close(a[0], b[0], atol=1e-5, rtol=1e-4)
         torch.testing.assert_close(a[1], b[1], atol=1e-5, rtol=1e-4)
         self.assertAlmostEqual(a[2]['train_objective'], b[2]['train_objective'], places=6)
+        source = tr.stack_views([x, x], list(range(len(ROWS))), torch.float64)
+        shared = source.clone()
+        c = CHAIN.fit(source.clone(), torch.cat([masks, masks]), big, 1.0)
+        d = CHAIN.fit(shared.as_subclass(tr.CenteredInPlace), torch.cat([masks, masks]), big, 1.0)
+        self.assertTrue(torch.equal(c[0], d[0].as_subclass(torch.Tensor)) and torch.equal(c[1], d[1].as_subclass(torch.Tensor)))
+        self.assertEqual(c[2], d[2])
+        self.assertFalse(torch.equal(shared, source))  # centered in the caller's own storage, not in a copy

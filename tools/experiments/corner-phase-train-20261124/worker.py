@@ -73,9 +73,10 @@ def extract(rows, body, folder):
 def fit_fold(xs, ms, rows, train, weight):
     """Fit the unchanged card-ranking head on the training zones duplicated once per TRAIN phase (float64 up front, no extra copy)."""
     idx, used = np.array(train), [PHASES.index(p) for p in TRAIN]
-    x = transform.stack_views([xs[k] for k in used], idx, torch.float64)
+    x = transform.stack_views([xs[k] for k in used], idx, torch.float64).as_subclass(transform.CenteredInPlace)
     m = transform.stack_views([ms[k] for k in used], idx, torch.bool)
-    return rank.head.fit(x, m, transform.expand_rows([rows[i] for i in train], TRAIN), weight)
+    coef, bias, done = rank.head.fit(x, m, transform.expand_rows([rows[i] for i in train], TRAIN), weight)
+    return coef.as_subclass(torch.Tensor), bias.as_subclass(torch.Tensor), done
 
 
 def score_fold(xs, ms, holdout, coef, bias):
