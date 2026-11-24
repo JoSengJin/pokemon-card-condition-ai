@@ -26,7 +26,7 @@ task `error4-cause-20261125` / 지시서 기준 `0bfc3171e411749df8709dde6fc3667
 
 **결론: 원인 확인 못함. 우상단 4/4는 약한 단서이며 모델 변경 근거 아님. 원인이 없다는 뜻도 아님.** 이 결과 절은 사전 고정 커밋 `e9f5ba7`(이전 브랜치 기준) 뒤에 붙였고, 아래 "정정"이 이 결론을 우선한다.
 
-## 카드별 근거 (경로 `A`=`/Users/jueun/WebstormProjects/pokemon-card-condition/artifacts/corner-error14-20261124/`)
+## 카드별 근거 (경로 `A`=기본 checkout의 `artifacts/corner-error14-20261124/`)
 | 카드 | 구역·크롭(`crop`=[폭,높이]) | Claude 관찰 | v2 | F1 우상단 | F2 짧은 변 ≤245 | F3 방해 요소 | F4 N |
 |---|---|---|---|---|---|---|---|
 | `8edc4c` | UR, 240×317, 76.5점 (`A key.json:322`, id 줄) | 판단 불가, 방해 없음, "노란 테두리의 밝은 선, 단면과 구분 안 됨" (`A observations.txt:30`) | 정상 | 예 | 예 | 없음 | 아니오(U) |
