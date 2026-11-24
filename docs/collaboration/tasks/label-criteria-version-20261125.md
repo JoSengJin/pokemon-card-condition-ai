@@ -3,7 +3,7 @@
 ```text
 task_id: label-criteria-version-20261125
 owner: Claude Sonnet 5.5 (구현, 모서리 화면·가져오기 한 쌍)
-status: 구현됨(승인용 커밋; 통합하면 통합 담당이 integrated로 바꾼다)
+status: integrated (2026-11-25 로컬 main fast-forward, 구현 커밋 086043a; origin 미반영)
 base_sha: 배정 시점의 검증된 origin/main
 branch: 미정
 goal: 새로 저장하는 사람 라벨·AI 판정마다 기준 문구 버전과 그때 보여 준 사진 조각의 SHA-256이 함께 남고, 기존 라벨은 그대로 읽힌다

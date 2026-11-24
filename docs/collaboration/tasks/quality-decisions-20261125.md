@@ -3,7 +3,7 @@
 ```text
 task_id: quality-decisions-20261125
 owner: 계획·리뷰·조립 Claude Opus 5.5 / 구현 Claude Sonnet 5.5 (하위 에이전트 5개, 사용자 승인 분업)
-status: ready_for_review
+status: integrated (2026-11-25 로컬 main fast-forward, 끝 72f92fa; 관련 시험 12모듈 77개 종료 0; AI 지시서 패치 결과 SHA-256 10be186b…; origin 미반영)
 base_sha: 0bfc3171e411749df8709dde6fc366796fa1e413 (로컬 main. 메시지만 다시 쓰여 검증 기준 f37f2cb와 파일 내용이 같다)
 branch: claude/quality-final-20261125
 goal: 품질 규칙 16개와 선택표, 실행기 미측정 기록, 화면 안내 2건 정정이 시험과 함께 통합 가능하고, 사용자 결정은 승인만 하면 붙일 수 있는 커밋으로 분리된다
