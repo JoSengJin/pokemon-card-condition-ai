@@ -75,7 +75,7 @@ TDD는 기본 적용하지 않는다. 단순한 변경에 TDD 순서나 RED/GREE
 | `label-screen-round-trip` | 누른 것 = 가져온 것 | 라벨 화면이나 답 가져오기 도구를 만들거나 고칠 때 |
 | `judge-before-peeking` | 먼저 판정하고 보기 | 엇갈린 판정을 최종 결정할 때 |
 | `explicit-verdict-merge` | 판정 합치는 법 밝히기 | 같은 대상을 여러 번 판정해 합칠 때 |
-| `label-agreement-watch` | 라벨 일치도 관리 | 재판정 일치율을 재거나 기준 문구가 바뀌었을 때 (문턱 값 미정) |
+| `label-agreement-watch` | 라벨 일치도 관리 | 재판정 일치율을 재거나 기준 문구가 바뀌었을 때 |
 | `regression-for-every-fix` | 고친 결함 회귀 검사 | 화면 문구·지시서·worker·도구의 결함을 고칠 때 |
 | `short-request-reading` | 짧은 요청 해석 | 모든 요청 |
 

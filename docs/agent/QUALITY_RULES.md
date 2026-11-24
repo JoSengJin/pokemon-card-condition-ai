@@ -40,7 +40,7 @@
 - **언제**: 칸별로 같은 판정자의 재판정 일치율을 잴 때. 기준 문구가 바뀌었을 때(그 칸은 "다시 잴 대상"으로 표시).
 - **무엇을**: 결과를 보기 전에 칸마다 목표선과 경고선을 정해 문서에 고정한다. 분모가 사용자가 정한 최소 분모보다 작으면 "미측정"이다. 경고선 아래인 칸은 그 칸 라벨로 모델 가설을 내기 전에 기준 문구와 제시 방식부터 점검한다(`error-cause-triage`의 라벨 쪽).
 - **어디에**: `LABELING_PROTOCOL.md`의 라벨 일치도 관리 절.
-- **지킬 것**: **목표선·경고선·최소 분모는 사용자가 정할 값(미정)이며, 정해지기 전에는 문턱 부분을 적용하지 않고 일치율과 분모만 적는다.** 재판정 대상을 새 라벨 묶음에 섞는 것은 완료 라벨 재요청이므로 비율과 장수를 정해 사용자 승인을 받은 뒤에만 한다.
+- **지킬 것**: 값은 `LABELING_PROTOCOL.md` "라벨 일치도 관리"에 고정한다. 재판정 대상을 새 라벨 묶음에 섞는 것은 완료 라벨 재요청이므로 비율과 장수를 정해 사용자 승인을 받은 뒤에만 한다.
 
 ### `label-screen-round-trip` · 라벨 화면은 "누른 것 = 가져온 것"을 시험한다 (R8)
 - **언제**: 라벨 화면이나 답 가져오기 도구를 만들거나 바꿀 때.
@@ -170,7 +170,7 @@ worker나 모델 코드의 리뷰 입력에 아래 8줄을 넣는다. 실행기�
 | `label-provenance` (라벨 당시 기준 기록, 옛 번호 Q02) | 설계안만 | [task 계약 초안](../collaboration/tasks/label-criteria-version-20261125.md) | 진행 여부 |
 | `judge-before-peeking` (먼저 판정하고 보기, 옛 번호 Q03) | 문서 연결됨 | 작업별 필독 | — |
 | `explicit-verdict-merge` (판정 합치는 법 밝히기, 옛 번호 Q04) | 문서 연결됨 | 작업별 필독 | — |
-| `label-agreement-watch` (라벨 일치도 관리, 옛 번호 Q05) | 문서 연결됨, 문턱 미적용 | `LABELING_PROTOCOL.md` "라벨 일치도 관리" | 칸별 목표선·경고선, 최소 분모 (미정) |
+| `label-agreement-watch` (라벨 일치도 관리, 옛 번호 Q05) | 문서 연결됨, 값 고정 | `LABELING_PROTOCOL.md` "라벨 일치도 관리" | — |
 | `label-screen-round-trip` (누른 것 = 가져온 것, 옛 번호 Q06) | 문서 연결됨 + 모서리·관찰 제한·모서리 재판정 화면 시험 추가됨 | `tests/test_corner_label_round_trip.py`, `tests/test_visibility_blind_round_trip.py`. 다른 화면은 만들거나 바꿀 때 추가 | — |
 | `error-cause-triage` (오류 원인 분류, 옛 번호 Q07) | 문서 연결됨 | `COMMON_EXPERIMENT_RECORDS.md` | — |
 | `fresh-labels-test-first` (새 라벨 1회 평가, 옛 번호 Q08) | 문서 연결됨 | 작업별 필독 | 실행 때마다 기존 실험 승인 |
