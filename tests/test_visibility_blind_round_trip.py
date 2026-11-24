@@ -15,12 +15,10 @@ from PIL import Image
 from tools import mobile_visibility_label_pages as visibility, relabel_corner_blind_pages as blind
 
 ROOT = Path(__file__).resolve().parents[1]
-# Known, unfixed defect (open item in docs/collaboration/tasks/quality-decisions-20261125.md 미해결, not part of this task): the shared zone script needs a #alln button the blind page does not have.
-KNOWN_BLIND_ERROR = "script error: Cannot set properties of null (setting 'onclick')"
 SCORE = ROOT / 'tools/diagnostics/corner-rejudge-20261121/score.py'
 
 
-def press(page, presses, expected_error=''):
+def press(page, presses):
     """Replay presses on the generated page's real script; returns the text a person would copy."""
     attrs = lambda tag: {k: unescape(v) for k, v in re.findall(r'data-(\w+)="([^"]*)"', tag)}
     articles = [dict(data=attrs(re.match(r'<article[^>]*>', block).group(0)), kids=[dict(data=attrs(t)) for t in re.findall(r'<button\b[^>]*>', block)])
@@ -28,7 +26,7 @@ def press(page, presses, expected_error=''):
     script = re.search(r'<script>(.*)</script>', page, re.S).group(1)
     done = subprocess.run([shutil.which('node'), str(ROOT / 'tests/label_page_press.js')], capture_output=True, text=True, timeout=30, check=True,
                           input=json.dumps(dict(script=script, articles=articles, presses=presses)))
-    if done.stderr.strip() != expected_error:  # any script error other than the one known error fails the test
+    if done.stderr.strip():  # any script error fails the test
         raise AssertionError(f'page script error: {done.stderr!r}')
     return done.stdout
 
@@ -60,8 +58,7 @@ class VisibilityBlindRoundTripTest(unittest.TestCase):
         spec.loader.exec_module(score)
         page = blind.page(1, 1, 1, zones)
         self.assertIn(blind.INSTRUCTIONS, page)
-        text = press(page, [dict(card=0, v='결함'), dict(card=1, v='정상'), dict(card=2, v='불가'), dict(card=2, v='정상'), dict(card=2, v='불가')],
-                     KNOWN_BLIND_ERROR)
+        text = press(page, [dict(card=0, v='결함'), dict(card=1, v='정상'), dict(card=2, v='불가'), dict(card=2, v='정상'), dict(card=2, v='불가')])
         self.assertEqual(score.parse(text), {1: '결함', 2: '정상', 3: '불가', 4: '미확인'})
 
 
