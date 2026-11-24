@@ -149,6 +149,8 @@ Codex는 실험 배율 하나를 `experiment_parameter`의 `name/baseline/value/
 
 새 가설·계획·결과 보고에는 [품질 규칙](docs/agent/QUALITY_RULES.md)을 함께 적용한다. 본문은 그 문서에만 둔다.
 
-- 계획 전: `error-cause-triage`(오류 원인 분류), `can-this-experiment-tell`(판별 가능성 관문), `stop-repeated-misses`(연속 미달 횟수 기록. 상한 값은 사용자가 정할 값(미정)이라 문턱은 미적용).
+- 계획 전: `error-cause-triage`(오류 원인 분류), `can-this-experiment-tell`(판별 가능성 관문), `stop-repeated-misses`(같은 평가 자료의 연속 미달 횟수 기록. 상한 3은 **사용자 승인 기록과 main 통합이 모두 끝난 뒤 발효**하며 근거는 `docs/collaboration/plans/quality-threshold-proposal-20261125.md`).
+- 연속 미달 횟수는 같은 `cohort_sha256`에서 완료된 모델 실험(`experiment_kind`가 `diagnostic`이 아니고 실패·중단 제외)의 `result.acceptance_passed`가 false인 연속 횟수이며 통과하면 0으로 돌아간다. 통합 뒤 새 실험부터 세고 과거 미달은 세지 않는다. 계획의 `acceptance`가 달라도 같은 평가 자료면 이어서 세되 기준이 달랐음을 적는다.
+- 횟수가 3에 닿으면 그 평가 자료로 새 모델 가설을 내지 않고 `error-cause-triage`의 라벨·사진 조건·입력 경로·기준 쪽 진단이나 자료 요청만 제안한다. 세션 중단 조건이 아니며 다른 독립 작업은 계속한다.
 - 계획·판정: `zero-denominator-unmeasured`(분모 0 상한은 미측정). 결과 보고: `chance-check`(우연·반복 시도 표기), `experiment-closeout`(세 칸). 새 라벨 묶음: `fresh-labels-test-first`. worker 리뷰: `worker-review-checklist`.
 - 이 규칙은 사전 기준·배점·승인·보호 조건을 바꾸지 않으며 새 실험을 승인하지 않는다. 정확도를 높인다는 측정은 없다.

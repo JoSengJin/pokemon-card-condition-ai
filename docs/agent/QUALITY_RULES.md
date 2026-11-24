@@ -94,7 +94,7 @@
 - **언제**: 같은 평가 자료에서 모델 가설이 사전 기준에 연속으로 못 미친 횟수가 사용자가 정한 값에 닿았을 때.
 - **무엇을**: 그 평가 자료로는 새 모델 가설을 내지 않는다. 다음 계획은 `error-cause-triage`의 라벨 쪽·사진 조건·입력 경로 쪽·기준 쪽을 겨냥한 진단이나 자료 요청 제안만 할 수 있다. 모델 경로를 다시 열려면 새 평가 자료나 사용자 결정이 필요하다.
 - **어디에**: 실험 계획에 "이 평가 자료의 연속 미달 횟수"를 적는다(`chance-check`의 시도 수와 함께).
-- **지킬 것**: 이것은 세션 중단 조건이 아니다. 다른 독립 작업은 계속한다. **횟수 값은 사용자가 정할 값(미정)이며, 정해지기 전에는 문턱 부분을 적용하지 않고 횟수 기록만 한다.**
+- **지킬 것**: 이것은 세션 중단 조건이 아니다. 다른 독립 작업은 계속한다. 횟수 값은 `COMMON_EXPERIMENT_RECORDS.md` "품질 규칙 연결"에 고정한다.
 
 ## 4. 실험 후
 
@@ -178,7 +178,7 @@ worker나 모델 코드의 리뷰 입력에 아래 8줄을 넣는다. 실행기�
 | `can-this-experiment-tell` (판별 가능성 관문, 옛 번호 Q10) | 문서 연결됨 | `COMMON_EXPERIMENT_RECORDS.md` | — |
 | `chance-check` (우연·반복 시도 표기, 옛 번호 Q11) | 문서 연결됨 | 모서리 도구만 있음. 다른 칸용 계산은 필요할 때 | — |
 | `worker-review-checklist` (실험 코드 리뷰 점검표, 옛 번호 Q12) | 문서 연결됨 | `docs/AGENT_START.md` 스킬 선택표 | — |
-| `stop-repeated-misses` (연속 미달 멈춤, 옛 번호 Q13) | 문서 연결됨, 문턱 미적용(횟수 기록만) | `COMMON_EXPERIMENT_RECORDS.md` | 횟수 값 (미정) |
+| `stop-repeated-misses` (연속 미달 멈춤, 옛 번호 Q13) | 문서 연결됨, 값 고정 | `COMMON_EXPERIMENT_RECORDS.md` | — |
 | `experiment-closeout` (실험 보고서 세 칸, 옛 번호 Q14) | 문서 연결됨 | `COMMON_EXPERIMENT_RECORDS.md` | — |
 | `short-request-reading` (짧은 요청 해석, 옛 번호 Q15) | 문서 연결됨 | `AGENTS.md` "짧은 요청 해석"(요약. 본문은 이 문서) | — |
 | `regression-for-every-fix` (고친 결함 회귀 검사, 옛 번호 Q16) | 문서 연결됨 + 라벨 문구 시험 추가됨 | `tests/test_label_text_regressions.py`. 그 밖은 결함을 고칠 때마다 추가 | — |
