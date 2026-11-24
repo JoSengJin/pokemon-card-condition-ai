@@ -13,10 +13,11 @@ sys.path.insert(0, str(Path(__file__).parents[1]/'corner-size-threshold-20261123
 import measure as M
 
 PPM, SIZE, TIP_AT, REACH = 10.0, 120, 10.0, 6   # 12x12 mm window, tip 1 mm inside it, block search +-6 px
+RADIUS = 30.0                                   # 3 mm card corner radius (measure.py)
 MAX_MOVE = 20.0                                 # fine alignment may move at most 2 mm from the blue-border tip
 DIAGONAL = {'upper_left': 'lower_right', 'lower_right': 'upper_left', 'upper_right': 'lower_left', 'lower_left': 'upper_right'}
 LEVELS = [([-3, -2, -1, 0, 1, 2, 3], [-.05, -.025, 0, .025, .05])] + [([-d, 0, d], [-s, 0, s]) for d, s in ((.5, .0125), (.25, .006), (.125, .003))]
-MIN_BLOCK_ENERGY = 0.0  # set from the reference images only, before stage A
+MIN_BLOCK_ENERGY = 0.5  # set from the reference images only, before stage A
 
 
 def prepare_image(im, ppm):
@@ -90,13 +91,11 @@ def best_reference(im, tip, area, refs, infos):
 
 
 def reference_info(ref):
-    """Card area (blue border to the left and above), tip, and per-block weakest-direction gradient energy."""
+    """Card area (round corner drawn from card geometry), tip, and per-block weakest-direction gradient energy."""
     rgb = np.asarray(ref).clip(0, 255).astype(np.uint8)
-    hue, sat, val = M.hsv(rgb)
-    blue = M.grow(M.grow((hue >= M.BLUE_H[0]) & (hue <= M.BLUE_H[1]) & (sat >= M.BLUE_S) & (val >= M.BLUE_V), 1, shrink=True), 1)
-    card = np.logical_or.accumulate(blue, 0) & np.logical_or.accumulate(blue, 1)
-    ys, xs = np.nonzero(card)
-    near = xs + ys <= (xs + ys).min() + 2
+    yy, xx = np.mgrid[:SIZE, :SIZE] + .5
+    edge, far = TIP_AT - RADIUS*(1 - .5**.5), TIP_AT + RADIUS*.5**.5   # card edge line, arc centre
+    card = (xx >= edge) & (yy >= edge) & ((xx >= far) | (yy >= far) | (np.hypot(xx - far, yy - far) <= RADIUS))
     gy, gx = np.gradient(rgb @ (.299, .587, .114))
     energy, n = {}, SIZE//3
     for by in range(3):
@@ -107,7 +106,7 @@ def reference_info(ref):
             # weakest direction: a straight edge alone cannot fix both axes
             energy[by, bx] = float(np.linalg.eigvalsh(np.cov(np.stack([x, y]), bias=True)
                                    + np.outer((x.mean(), y.mean()), (x.mean(), y.mean())))[0]) if inside.mean() >= .5 else 0.0
-    return dict(card=card, tip=[float(xs[near].mean()) + .5, float(ys[near].mean()) + .5], energy=energy,
+    return dict(card=card, tip=[TIP_AT, TIP_AT], energy=energy,
                 blocks=[k for k, e in energy.items() if e > MIN_BLOCK_ENERGY])
 
 
@@ -135,8 +134,8 @@ def tip_residual(rgb, ref, info):
     """(mean |matched - reference| within ARC_MM of the tip, residual map, matched crop)."""
     card, matched = info['card'], np.empty_like(rgb, float)
     for k in range(3):
-        gain, offset = np.polyfit(rgb[..., k][card], ref[..., k][card], 1)
-        matched[..., k] = rgb[..., k]*gain + offset
+        a, b = rgb[..., k][card], ref[..., k][card]   # mean/std match: least squares would shrink contrast when the match is poor
+        matched[..., k] = (rgb[..., k] - a.mean())*b.std()/(a.std() + 1e-6) + b.mean()
     diff = np.abs(matched - ref).mean(-1)
     yy, xx = np.mgrid[:SIZE, :SIZE] + .5
     near = card & ((xx - info['tip'][0])**2 + (yy - info['tip'][1])**2 <= (M.ARC_MM*PPM)**2)

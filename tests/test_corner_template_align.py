@@ -67,8 +67,12 @@ class Align(unittest.TestCase):
         clean = ref*.8 + 10  # exposure change is not a defect
         worn = clean.copy()
         worn[10:18, 10:18] = 250
+        self.assertFalse(info['card'][2, 2])   # desk outside the round corner, even when it looks blue
+        self.assertFalse(A.reference_info(np.full_like(ref, (30, 50, 160)))['card'][2, 2])
         self.assertLess(A.tip_residual(clean, ref, info)[0], 1.5)
         self.assertGreater(A.tip_residual(worn, ref, info)[0], 8)
+        noisy = ref + np.random.default_rng(0).normal(0, 40, ref.shape)   # poor match must not wash out the stacked crop
+        self.assertAlmostEqual(A.tip_residual(noisy, ref, info)[2][info['card']].std(), ref[info['card']].std(), delta=2)
 
     def test_bright_background_still_prepares(self):
         a = np.asarray(canvas(1)[0]).copy()
