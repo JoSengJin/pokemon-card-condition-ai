@@ -23,7 +23,8 @@ def article(item):
 def main(disagree_json, out_path):
     items = json.loads(Path(disagree_json).read_text(encoding='utf-8'))
     body = ('<p>두 사람이 <b>함께</b> 사진을 보고 한 가지 답을 고르세요. 확대해서 봐도 됩니다. 이전 답은 알려 주지 않습니다. '
-            '<b>제한-*</b>: 카드 상태를 볼 수 없음(이유 선택). <b>정상</b>: 문제없이 볼 수 있음. '
+            '<b>제한-*</b>: 반사·흐림·가림·잘림이 일부에만 있어도 그 때문에 카드 상태를 일부라도 볼 수 없음(이유 선택). '
+            '<b>정상</b>: 일부가 가려져도 나머지로 카드 상태를 충분히 볼 수 있음(추정하지 않음). '
             '<b>자격아님-카드아님</b>: 실제 카드 뒷면이 아님(금속·복제 등). <b>자격아님-프레임</b>: 네 변이 다 안 보임. 안 서면 <b>모름</b>.</p>'
             + ''.join(article(i) for i in items) + '<textarea id="out" readonly></textarea>')
     Path(out_path).write_text(f'<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><style>{STYLE}</style>{body}<script>{SCRIPT}</script>', encoding='utf-8')
