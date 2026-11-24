@@ -50,3 +50,6 @@
 
 ## 관리자 완료 판정 (참고)
 ① `git diff --stat <base> <tip>`, `git show <tip>:<파일> | wc -lc`, 허용 파일 대조 ② 위 테스트 명령을 기본 checkout `.venv`로 직접 실행 ③ 절대경로·비밀값 검사 ④ 세션 보고를 그대로 믿지 않는다.
+
+## 계약 갱신 1 (관리자, 2026-11-25, 사용자 지시 "B1 수정")
+B1 수정으로 기존 `tests/test_visibility_blind_round_trip.py`의 `test_blind_pressed_words_reach_score_parse`가 실패한다(이 시험이 결함을 전제로 `KNOWN_BLIND_ERROR`를 기대한다. base `ca8ea35`에서는 통과). B1 허용 파일에 이 시험 파일을 더한다. 범위: 알려진 오류 기대(`KNOWN_BLIND_ERROR`와 그 주석)를 없애고 오류가 없는 것을 기대하도록 바꾸는 것뿐. 다른 시험 의미는 바꾸지 않는다.
