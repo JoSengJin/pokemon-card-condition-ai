@@ -166,7 +166,7 @@ worker나 모델 코드의 리뷰 입력에 아래 8줄을 넣는다. 실행기�
 
 | 규칙 | 상태 | 자동 검사·연결 자리 | 사용자가 정할 것 |
 |---|---|---|---|
-| `single-source-criteria` (기준은 한 곳, 옛 번호 Q01) | 문서 연결됨 + 시험 추가됨 | `LABELING_PROTOCOL.md` "기준 정본"; `tests/test_label_criteria_source.py`(사람 화면만). AI 지시서 차이표는 [제안](../collaboration/plans/corner-judge-difference-table-proposal-20261125.md) | AI 지시서의 의도된 차이를 남길지 |
+| `single-source-criteria` (기준은 한 곳, 옛 번호 Q01) | 문서 연결됨 + 시험 추가됨 | `LABELING_PROTOCOL.md` "기준 정본"; `tests/test_label_criteria_source.py`(사람 화면만). AI 지시서 차이표는 [제안](../collaboration/plans/corner-judge-difference-table-proposal-20261125.md) | — (2026-11-25 승인, 패치 적용은 통합 뒤) |
 | `label-provenance` (라벨 당시 기준 기록, 옛 번호 Q02) | 문서 연결됨 + 모서리 화면·가져오기 코드·시험 추가됨 | `tools/label_criteria.py`, `tests/test_label_criteria_record.py`. 다른 화면·AI 판정은 미구현([계약](../collaboration/tasks/label-criteria-version-20261125.md)) | 다른 화면으로 넓힐지 |
 | `judge-before-peeking` (먼저 판정하고 보기, 옛 번호 Q03) | 문서 연결됨 | 작업별 필독 | — |
 | `explicit-verdict-merge` (판정 합치는 법 밝히기, 옛 번호 Q04) | 문서 연결됨 | 작업별 필독 | — |
