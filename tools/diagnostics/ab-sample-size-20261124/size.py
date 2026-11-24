@@ -98,7 +98,7 @@ def main(argv=None) -> int:
     commands.choices['noninferior'].add_argument('--crit', type=float, default=CRIT)
     try:
         result = report(parser.parse_args(argv))
-    except ValueError as error:
+    except (ValueError, ZeroDivisionError) as error:
         print(error, file=sys.stderr)
         return 2
     print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))

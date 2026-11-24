@@ -104,7 +104,7 @@ class AbSampleSize(unittest.TestCase):
                 for word in ('합격', '채택', '충분', '권고'):
                     self.assertNotIn(word, out)
         for command in ('power 0 0 0.1', 'power 10 0.6 0.4', 'noninferior 100 0 0 0', 'noninferior 2001 0.02 0 0',
-                        'need 0 0.05 --max-n 5001', 'need 0 0.05 --target 1', 'noninferior 100 0.02 0 0 --crit 0'):
+                        'need 0 0.05 --max-n 5001', 'need 0 0.05 --target 1', 'noninferior 100 0.02 0 0 --crit 0', 'noninferior 10 1e-200 0 0'):
             with self.subTest(command=command):
                 code, out, err = self.run_main(command)
                 self.assertEqual((code, out, len(err.splitlines())), (2, '', 1))
