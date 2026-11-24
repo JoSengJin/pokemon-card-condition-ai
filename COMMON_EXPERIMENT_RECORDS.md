@@ -39,6 +39,12 @@
 
 기준 결과에 실제 사람점이 있으면 guard=true가 필수다. 실제점 정답이 없는 실험만 false로 명시할 수 있다. 없는 사람점 정답은 추정하지 않는다. 새로운 판정 지표가 필요하면 계획·실행기·테스트를 함께 확장한다.
 
+### 분모가 0인 상한은 미측정이다 (2026-11-25)
+
+새 계획에는 평가 자료마다 결함·정상 행 수를 적는다: `"evaluation_counts": {"primary": {"defect": 12, "normal": 30}, "<필수 평가 id>": {"defect": 5, "normal": 0}}`. 적으면 실행기가 동결한 정답 행과 정확히 대조하고(평가 하나라도 빠지거나 다르면 child 시작 전 거절), 한쪽이 0인 평가는 그 사실을 계획에 밝힌 것이 된다. 이 칸이 없는 계획은 그대로 실행된다(과거 계획과, 아직 이 칸을 쓰지 않는 자동 검토 경로의 계획).
+
+`result.json`의 주 평가와 각 `required_cohorts` 항목에 `acceptance_caps`가 추가된다. 누락 상한(`max_fn`)은 결함 행이, 오탐 상한(`max_fp`)은 정상 행이 1 이상일 때만 `passed`/`failed`이고 0이면 `unmeasured`다. `unmeasured`는 통과가 아니며 보고에 "미측정"으로 적는다. `acceptance_passed`는 나머지 측정된 조건으로 정해지는 값 그대로이므로 과거 판정은 바뀌지 않는다. 따라서 `acceptance_passed=true`만 보고 누락·오탐 상한을 모두 통과했다고 쓰지 말고 `acceptance_caps`를 함께 읽는다.
+
 ## Worker 입력·출력
 
 실행기는 아래 환경변수를 worker에 전달한다. 키나 환경변수 전체를 기록하지 않는다.
@@ -138,3 +144,11 @@ Codex는 실험 배율 하나를 `experiment_parameter`의 `name/baseline/value/
 응답은 기존 설명 필드 외에 `proposal_status`, `compared_failed_hypotheses`, `new_evidence_ids`, `difference_from_failed`를 포함한다. 대안 제안은 전체 제공 실패 ID 대조·새 근거 ID·실패 조건과 다른 점을 모두 명시해야 한다. 기존 실패 ID를 다시 열려면 명시적인 새 반증 근거(`reopen_evidence`)가 추가로 필요하다. 근거가 없으면 `stop`으로 끝내며 자동 Codex 검토·구현으로 전달하지 않는다. ID와 필드 검사는 인과적 타당성을 증명하지 않으므로 통과한 제안도 기존 Codex 코드/SHA 대조와 실험 판정을 거친다.
 
 명령과 호출 상한은 유지한다. 과거 v1/v2/v3 응답·체크포인트는 이전 계약대로 읽고 새 계약과 캐시를 섞지 않는다. 이 변경의 검증·핵심 diff·롤백: `artifacts/evidence-grounded-review-20261022/REPORT.md`.
+
+## 품질 규칙 연결 (2026-11-25)
+
+새 가설·계획·결과 보고에는 [품질 규칙](docs/agent/QUALITY_RULES.md)을 함께 적용한다. 본문은 그 문서에만 둔다.
+
+- 계획 전: `error-cause-triage`(오류 원인 분류), `can-this-experiment-tell`(판별 가능성 관문), `stop-repeated-misses`(연속 미달 횟수 기록. 상한 값은 사용자가 정할 값(미정)이라 문턱은 미적용).
+- 계획·판정: `zero-denominator-unmeasured`(분모 0 상한은 미측정). 결과 보고: `chance-check`(우연·반복 시도 표기), `experiment-closeout`(세 칸). 새 라벨 묶음: `fresh-labels-test-first`. worker 리뷰: `worker-review-checklist`.
+- 이 규칙은 사전 기준·배점·승인·보호 조건을 바꾸지 않으며 새 실험을 승인하지 않는다. 정확도를 높인다는 측정은 없다.

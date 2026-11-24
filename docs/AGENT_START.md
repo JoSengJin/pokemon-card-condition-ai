@@ -14,8 +14,8 @@
 | 작업 조건 | 먼저 읽을 원문 | 놓치면 안 되는 경계 |
 |---|---|---|
 | 코드 구현·테스트·페어코딩 | [PAIR_CODING.md](../PAIR_CODING.md) 전체 + 배정 task + 관련 호출자·테스트 | 파일 소유권, 함수 수·호출 깊이, checkout 격리, main 담당 |
-| 모델·worker 수정 또는 새 실험 | [COMMON_EXPERIMENT_RECORDS.md](../COMMON_EXPERIMENT_RECORDS.md) 전체 + [OBSERVATION_CONSENSUS_20261011.md](../OBSERVATION_CONSENSUS_20261011.md) + 사전 계획·대조 근거 | ./develop 잠금, ./experiment, 변수 하나, 학습/평가 분리, 실제점·필수 cohort 보호 |
-| 사람 라벨·정답 의미·검토 화면 | [LABELING_PROTOCOL.md](../LABELING_PROTOCOL.md) 전체 + 해당 사진·사람 응답·현재 계약 | 완료 재요청 금지, unknown 보존, 모델 오답으로 사람 정답 변경 금지 |
+| 모델·worker 수정 또는 새 실험 | [COMMON_EXPERIMENT_RECORDS.md](../COMMON_EXPERIMENT_RECORDS.md) 전체 + [OBSERVATION_CONSENSUS_20261011.md](../OBSERVATION_CONSENSUS_20261011.md) + 사전 계획·대조 근거 + [품질 규칙](agent/QUALITY_RULES.md) | ./develop 잠금, ./experiment, 변수 하나, 학습/평가 분리, 실제점·필수 cohort 보호 |
+| 사람 라벨·정답 의미·검토 화면 | [LABELING_PROTOCOL.md](../LABELING_PROTOCOL.md) 전체 + 해당 사진·사람 응답·현재 계약 + [품질 규칙](agent/QUALITY_RULES.md) | 완료 재요청 금지, unknown 보존, 모델 오답으로 사람 정답 변경 금지 |
 | 자동 검토·실험 연결·오류 재개 | 공통 실험 계약 + [AUTO_REVIEW_CONTRACT.md](agent/AUTO_REVIEW_CONTRACT.md) 전체 + [자동 개발 안내](../AUTO_DEVELOPMENT_20261020.md) + 실제 journal | 기존 승인·무료 가드·입력 예산, 결과 불명 재요청 금지, 저장 응답 재사용 조건 |
 | 성과·진척 보고 | [PROGRESS_CRITERIA.md](../PROGRESS_CRITERIA.md) 전체 + [development-progress.json](../development-progress.json) + [HTML_REPORTING.md](collaboration/HTML_REPORTING.md) | 현재 버전·점수 정본, 고정 배점, 이번 검사와 과거 성능 구분 |
 | 통합·원격 반영·역할 교대·worktree 정리 | PAIR_CODING.md 전체 + 배정 계약·승인 장부·전달 SHA | 기존 일반 push 승인 유지, force 금지, 승인 승계 조건, 실행 중·고유 증거 보호 |
@@ -36,7 +36,7 @@
 |---|---|---|
 | verification-before-completion | 기본 | 명령·출력·종료 코드·주장을 대조한다. 금지된 검사를 실행할 권한은 아니다. |
 | test-driven-development | 선택 | 버그 재현이나 데이터 손실·보안·라벨 무결성 등 위험한 로직의 검증에 필요할 때만 적용한다. 적용 시 의도한 실패를 먼저 확인한다. 전체 suite 강제와 코드 삭제 지시는 따르지 않고 task의 checks 범위를 따른다. 테스트를 쓸 때 writing-good-tests.md도 읽는다. |
-| requesting-code-review | 기본 | 기준은 HEAD~1이 아니라 task의 base_sha다. 하위 모델 호출 승인과 입력 범위를 먼저 고정한다. |
+| requesting-code-review | 기본 | 기준은 HEAD~1이 아니라 task의 base_sha다. 하위 모델 호출 승인과 입력 범위를 먼저 고정한다. 실험 worker·모델 코드는 [품질 규칙](agent/QUALITY_RULES.md) `worker-review-checklist` 점검표를 리뷰 입력에 넣는다. |
 | systematic-debugging | 버그 작업 | 재현 → 단일 가설 → 최소 변경. 진단 실행도 승인 범위 안에서만 한다. |
 | receiving-code-review | 검토 의견을 반영할 때 | 적용 전 코드로 확인한다. 불명확한 항목만 보류하고 독립 항목은 계속한다. 삭제 제안은 허용 파일·승인 안에서만. 외부 스레드 답글은 하지 않는다. |
 | using-git-worktrees | 격리 확인만 | 생성·설치·.gitignore 변경·현재 checkout fallback은 PAIR_CODING.md §4를 따른다. |
@@ -50,6 +50,34 @@
 TDD는 기본 적용하지 않는다. 단순한 변경에 TDD 순서나 RED/GREEN 기록을 강제하지 않으며, 작업에 필요한 검증은 task의 checks에 따른다. 스킬 기록 검사기 시범(`skill-record-check-20261118`, `skill-record-check-fix-20261118`)은 main에 통합하거나 선택표·커밋 전 훅에 연결하지 않는다.
 
 스킬을 적용하는 task·보고서에는 적용 스킬 또는 해당 없음과 이유, 읽은 범위, 실제 검증 명령·종료 코드·로그·검증 대상 SHA를 적는다. RED/GREEN 기록은 TDD를 적용한 경우에만 남긴다. 이 기록은 준수의 증명이 아니다. 압축·재개 뒤에는 현재 task, SHA, 담당, 잠금을 실제 상태와 다시 대조한다. 스킬 본문은 Codex 캐시 `~/.codex/plugins/cache/openai-curated-remote/superpowers/7.0.1/skills/<이름>/SKILL.md`에서 읽을 수 있으나 이것을 영구 설치 경로로 확정한 것은 아니다. 이 선택표를 바꾸는 것은 새 승인이 아니다.
+
+## 품질 규칙 선택표
+
+[품질 규칙](agent/QUALITY_RULES.md)은 실험·라벨·판정 작업에 쓰는 규칙 묶음이다. 사용자는 이름을 외우거나 골라 줄 필요가 없다. 에이전트가 작업을 시작할 때 아래 표와 대조해 해당하는 규칙만 골라 쓴다.
+
+- **자동**: 사용자가 아무 말을 하지 않아도 해당 행을 적용한다.
+- **한 줄 호출**: "품질 규칙 사용해서 처리해줘" 또는 "Superpowers 사용해서 처리해줘"라고 하면 이 표와 위 스킬 선택표를 **둘 다** 대조한다. 규칙 이름·한국어 이름·옛 번호로 하나만 지정해도 된다.
+- **순서**: ① 요청과 실제 작업 내용으로 해당 행을 고른다(여러 개면 합친다). ② 고른 규칙의 본문을 읽는다. ③ 시작 한 줄에 "쓸 규칙: 이름(한국어)"을 적는다. 해당이 없으면 "해당 없음"과 이유를 적는다. ④ 작업이 바뀌면 다시 대조한다. ⑤ 보고에 적용한 규칙과 못 지킨 규칙·이유를 적는다.
+- 판단이 애매하면 적용하는 쪽을 고르되, 그 때문에 승인 범위 밖의 작업을 시작하지 않는다. 규칙을 부른 것은 실험·라벨 재요청·외부 호출의 승인이 아니다. 규칙을 골랐거나 읽은 것은 지킨 증명이 아니다.
+
+| 규칙 | 쉬운 이름 | 이럴 때 자동으로 쓴다 |
+|---|---|---|
+| `error-cause-triage` | 오류 원인 분류 | 실험이 기준에 못 미쳤거나 남은 누락·오탐을 줄이자는 요청. 새 모델 가설보다 먼저 |
+| `can-this-experiment-tell` | 판별 가능성 관문 | 새 모델·전처리 실험 계획을 쓸 때, 새 라벨을 요청할 때 |
+| `stop-repeated-misses` | 연속 미달 멈춤 | 같은 평가 자료로 실험을 또 하려 할 때 (상한 값 미정: 횟수만 적는다) |
+| `zero-denominator-unmeasured` | 분모 0은 미측정 | 실험 계획·결과에서 결함 또는 정상 행이 0일 때 (실행기가 기록) |
+| `chance-check` | 우연·반복 시도 표기 | 두 결과를 비교하거나 "좋아졌다"고 말하려 할 때 |
+| `experiment-closeout` | 실험 보고서 세 칸 | 실험이 끝나 보고서를 쓸 때. 통과·미달 무관 |
+| `worker-review-checklist` | 실험 코드 리뷰 점검표 | worker·모델 코드를 리뷰할 때 |
+| `fresh-labels-test-first` | 새 라벨 1회 평가 | 사람이 확인한 새 라벨 묶음이 들어왔을 때, 학습에 넣기 전 |
+| `single-source-criteria` | 기준은 한 곳 | 결함·정상 기준 문구, 라벨 화면, AI 판정 지시서를 만들거나 고칠 때 |
+| `label-provenance` | 라벨 당시 기준 기록 | 라벨·판정을 새로 저장할 때 (설계안만 있어 지금은 "버전 미상"으로 보고) |
+| `label-screen-round-trip` | 누른 것 = 가져온 것 | 라벨 화면이나 답 가져오기 도구를 만들거나 고칠 때 |
+| `judge-before-peeking` | 먼저 판정하고 보기 | 엇갈린 판정을 최종 결정할 때 |
+| `explicit-verdict-merge` | 판정 합치는 법 밝히기 | 같은 대상을 여러 번 판정해 합칠 때 |
+| `label-agreement-watch` | 라벨 일치도 관리 | 재판정 일치율을 재거나 기준 문구가 바뀌었을 때 (문턱 값 미정) |
+| `regression-for-every-fix` | 고친 결함 회귀 검사 | 화면 문구·지시서·worker·도구의 결함을 고칠 때 |
+| `short-request-reading` | 짧은 요청 해석 | 모든 요청 |
 
 ## 자동 하위 검토는 별도 입력 계약
 
