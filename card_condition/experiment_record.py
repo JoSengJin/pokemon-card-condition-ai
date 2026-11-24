@@ -10,6 +10,7 @@ import signal
 import subprocess
 from uuid import uuid4
 
+from .acceptance_caps import cap_status, check_declared_counts
 from .regression_audit import compare_predictions
 from .review import atomic_write
 
@@ -178,6 +179,7 @@ def prepare(root, plan, command):
             raise ValueError('Existing required cohorts and criteria cannot be dropped or changed')
         current.update(before_scores=previous['scores'], point_scores=previous['point_scores'],
                        score_reference=str(reference_path.relative_to(root)))
+    check_declared_counts(plan, reference['rows'], required)
     changes = plan.get('code_changes')
     if not isinstance(changes, list) or not changes or not command:
         raise ValueError('Code changes and an executable command are required')
@@ -251,6 +253,8 @@ def complete(root, folder, item):
         result['diagnostic_evidence'] = diagnostic
         if (folder/'diagnostics.json').exists():
             item['files']['diagnostics.json'] = sha(folder/'diagnostics.json')
+    for judged, caps in ((result, rules), *((r, r['acceptance']) for r in result.get('required_cohorts', []))):
+        judged['acceptance_caps'] = cap_status(caps, judged['comparison']['after'])
     result.update(acceptance_passed=accepted, hypothesis_id=plan['hypothesis_id'])
     save(folder / 'result.json', result)
     item['files']['result.json'] = sha(folder / 'result.json')
