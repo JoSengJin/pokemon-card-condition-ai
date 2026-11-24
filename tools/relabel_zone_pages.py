@@ -22,7 +22,8 @@ function build(){return arts.map(a=>a.dataset.id+'='+(a.dataset.v||'미확인'))
 function show(){document.getElementById('out').value=build()}
 function pick(a,v){a.dataset.v=v;a.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===v))}
 arts.forEach(a=>a.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{pick(a,b.dataset.v);show()})));
-document.getElementById('alln').onclick=()=>{arts.forEach(a=>{if(!a.dataset.v)pick(a,'정상')});show()};
+const all=document.getElementById('alln');
+if(all)all.onclick=()=>{arts.forEach(a=>{if(!a.dataset.v)pick(a,'정상')});show()};  // corner screens have no #alln button
 show();
 document.getElementById('copy').onclick=()=>{const t=document.getElementById('out');t.focus();t.select();
 try{document.execCommand('copy');document.getElementById('msg').textContent='복사됨. 채팅에 붙여넣으세요.'}
