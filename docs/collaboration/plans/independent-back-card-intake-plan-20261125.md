@@ -1,6 +1,7 @@
 # 독립 후면 카드 확보 계획 초안 (2026-11-25)
 
-task_id: card-intake-plan-20261125 / owner: Claude Sonnet 5.5 / base_sha: 0bfc3171e411749df8709dde6fc366796fa1e413
+task_id: card-intake-plan-20261125(최초 작성), card-intake-plan-fix-20261125(수정) / owner: Claude Sonnet 5.5
+이전 시작 `18825ee`(779bd12의 실제 부모), 이번 기준 `49d9680de338fd60141637aae49371002a3b055f`.
 
 **이 문서는 초안이다. 수집·외부 호출·라벨·학습·추론을 승인하지 않는다.** 원인이 확인된 후보 모델이 생긴 뒤에만 쓴다. 후보와 개선 변화율 가정은 아직 없다. `<사람>`은 사람이 정할 값이며 정하기 전에는 다음 단계로 가지 않는다. 장수·수율·비용·일정은 정하지 않았다.
 
@@ -12,20 +13,20 @@ task_id: card-intake-plan-20261125 / owner: Claude Sonnet 5.5 / base_sha: 0bfc31
 ## 1. 새 수집 vs 기존 미확인 재판정
 | | 새 수집(기본) | 기존 미확인 재판정(별도 승인) |
 |---|---|---|
-| 완료 라벨 재요청 금지 | 해당 없음 | 라벨이 있는 카드는 재요청 불가. 미확인(아직 판정하지 않은) 칸만 대상이며 완료분 재질문 금지 |
+| 완료 라벨 재요청 금지 | 해당 없음 | 사람이 이미 "미확인"으로 답한 카드도 조사 미확인 364에 들어 있다(제출 없음은 7묶음뿐). 그 재판정도 완료 라벨 재요청에 해당할 수 있어 **사용자 승인 전에는 대상이 아니다** |
 | 독립성 | 수집 전 제외 목록에 대해 확인 가능 | 같은 카드 보류·독립성 미확인이 남음(15묶음도 동일) |
 | 막힌 이유 | 사람 부담·수율 `<사람>` | 모서리 173·결정 충돌 98 등은 사람 판단이 필요해 정답 오염 위험(`LABELING_PROTOCOL.md` 미확인≠정상) |
-| 기본 | 선택 | 새 수집 후에도 부족하고 사용자가 따로 승인할 때만. 미확인을 정상·결함으로 채우지 않는다 |
+| 기본 | 선택 | 새 수집 후에도 부족하고 사용자가 따로 승인할 때만. 미확인(응답 "미확인" 포함)을 정상·결함으로 채우지 않는다 |
 
 결정 `<사람>`: 새 수집만 / 새 수집 + 재판정. 이 문서는 새 수집을 기본으로 쓴다.
 
 ## 2. 기존 도구가 실제로 하는 일 (`tools/collect_ebay_dataset.py`, `card_condition/ebay_dataset.py` 코드 확인)
 - 필수 `--consumer-root`(PokeCollector 경로 `<사람>`, 기존 eBay 자격증명 사용), `--learn`, `--output`. 새 도구는 만들지 않는다.
-- `--limit` 1–30(실행 1회당 매물 수, 기본 12). `--query` 반복 가능. 같은 `--output`에서 쿼리·`--learn`을 바꾸면 오류이므로 **출력 폴더마다 쿼리 묶음 고정**.
-- 제외: `--reference-learn <폴더>`(반복 가능, 읽기 전용)의 `source.json` item_id와 그 폴더의 모든 이미지의 **디코딩 해시**를 제외 목록에 넣는다. 그 해시는 파일 바이트가 아니라 `sha256(크기 + EXIF 회전 후 RGB 픽셀)`이다(`decoded_hash`). 해시 하나라도 겹치면 **그 매물 전체**를 실패 처리한다(같은 카드 재등록 방지). 매물 내 중복 사진은 한 장으로 센다. 서로 다른 사진이 2장 미만이면 실패.
+- `--limit` 1–30(`ebay_dataset.py:73`, 기본 12 `collect_ebay_dataset.py:62`). `--query` 반복 가능. 같은 `--output`에서 쿼리·`--learn`을 바꾸면 오류이므로 **출력 폴더마다 쿼리 묶음 고정**.
+- 제외: `--reference-learn <폴더>`(반복 가능, 읽기 전용)의 `source.json` item_id와 그 폴더의 모든 이미지의 **디코딩 해시**를 제외 목록에 넣는다. 그 해시는 파일 바이트가 아니라 `sha256(크기 + EXIF 회전 후 RGB 픽셀)`이다(`decoded_hash`, `ebay_dataset.py:41-45`). 제외 목록은 같은 파일 87-100(source.json item_id, 이미지 해시), 일치 검사는 138-140. 해시 하나라도 겹치면 **그 매물 전체**를 실패 처리한다(같은 카드 재등록 방지). 매물 내 중복 사진은 한 장으로 센다. 서로 다른 사진이 2장 미만이면 실패.
 - **한계(코드로 확인):** 파일 SHA256·같은 실물의 다른 사진·다른 매물 번호의 같은 카드는 도구가 잡지 못한다. 같은 실물 확인은 §3-4 사람 절차로 보완하고, 보완이 안 되면 독립으로 세지 않는다.
-- 제목에 묶음·선택형이 명시된 매물은 자동 제외(`non_single_listing`). 그 외는 선별 단계에서 걸러진다.
-- 모드: `--screen-limit` 생략 = **사진 수집만**(외부 비전 모델 호출 0, `catalog.json`·`index.html`·`collection-summary.json` 출력). `--screen-limit 1–30` = Gemini 선별 호출(**승인 지점**, `--quota-db` 필수). `--confirm-back/--reject-back`(+`--confirmed-by`)는 Gemini 선별을 통과한 후보에만 적용되므로 수집만 모드에서는 사람 뒷면 판별을 이 옵션으로 저장할 수 없다. 이전 계획의 "사진만 수집 후 `--confirm-back`" 흐름은 코드와 맞지 않는다(§5 결정).
+- 제목에 묶음·선택형이 명시된 매물은 자동 제외(`non_single_listing`, `ebay_dataset.py:63`, 호출 121). 그 외는 선별 단계에서 걸러진다.
+- 모드: `--screen-limit` 생략 = **사진 수집만**(외부 비전 모델 호출 0, `catalog.json`·`index.html`·`collection-summary.json` 출력). `--screen-limit 1–30` = Gemini 선별 호출(**승인 지점**, `--quota-db` 필수). `--confirm-back/--reject-back`(+`--confirmed-by`)를 주면 선별 단계로 들어가지만(`collect_ebay_dataset.py:70`) 대상은 `screens`에서 `accepted`인 후보(140)뿐이고, 그 밖의 id는 오류다(`ebay_dataset.py:352-355`). `--screen-limit` 0이면 새 Gemini 호출 없이(107, 128) 이미 저장된 선별 결과만 쓰므로 새 수집 폴더에서는 지정할 후보가 없다. 수집만 모드(90-99)에서는 사람 뒷면 판별을 이 옵션으로 저장할 수 없다. 이전 계획의 "사진만 수집 후 `--confirm-back`" 흐름은 코드와 맞지 않는다(§5 결정).
 - 수집은 eBay API를 호출한다(**승인 지점**). HTTP 429/401/403이면 저장 후 중단한다.
 
 ## 3. 카드 단위 확보 절차 (고정 순서, 단계마다 사용자 승인)
@@ -40,8 +41,12 @@ task_id: card-intake-plan-20261125 / owner: Claude Sonnet 5.5 / base_sha: 0bfc31
 - 정답은 **모델 추론 전에** 사람이 확정한다. 후보 모델 출력·점수를 본 사람은 해당 카드의 정답 판정에 참여하지 않는다.
 - 판정 화면은 새 경로로 생성한다(후면 제한 문구·모서리 결함 수준 문구가 반영된 현행 도구, 기존 화면 덮어쓰기 금지). 완료한 라벨은 재요청하지 않는다. 판단 불가·미확인은 그대로 남기고 정상·결함으로 채우지 않는다.
 - 모든 판정에 판정자(사람/AI)와 ID를 카드·구역별로 기록한다. 라벨러 ID `<사람>`(개발자와 다른 사람이어야 독립이며 접근 통제 수단 `<사람>`이 없으면 independent=False, `ebay-independent-collection-plan-20261119.md` 기준). AI 판정은 사람 정답과 분리하고 사람 라벨로 쓰지 않는다. 판정자 기록이 불확실한 답은 조건부로만 쓴다.
+- 품질 규칙(`docs/agent/QUALITY_RULES.md`) 반영. 값은 정하지 않았다.
+  - `label-provenance`: 판정마다 기준 문구 버전(`<사람>`)과 보여 준 사진 조각 해시를 저장한다. 버전이 다르면 정답을 바꾸지 않고 표시만 한다.
+  - `fresh-labels-test-first`: 새 라벨은 학습·모델 선택·기준 조정 전에 현재 채택 모델로 한 번만 평가한다(승인은 실행마다 별도). 평가 뒤에는 독립이라 부르지 않는다. 묶음이 작으면 신뢰구간과 "판정력 낮음"을 적는다.
+  - `can-this-experiment-tell`: 새 라벨 요청 전에 겨냥 묶음 장수·필요 개선 장수·라벨 흔들림 장수를 적는다(`<사람>`, 미측정이면 "미측정"). "몇 장을 보고 오류가 몇 개 이하면 채택"(`<사람>`)과 좋은 모델을 버릴 위험·나쁜 모델을 받을 위험(`<사람>`)을 미리 적는다.
 - 모든 구역이 확정된 카드만 시험 목록에 넣는다. 채점 뒤 정답을 고치지 않는다. 모델 오답을 이유로 사람 정답을 바꾸지 않는다.
-- 정답 파일 SHA256을 기록한 뒤에만 후보 추론으로 넘어간다. 시험 규칙(Δ·Δm·문 3개·미측정 조건)은 커밋 `61f2a85`의 `docs/collaboration/plans/ab-independent-test-rules-20261124.md`를 따르며, 이 기준 커밋에는 없다. 필요 장수는 같은 커밋의 `tools/diagnostics/ab-sample-size-20261124/size.py`로 후보·가정이 정해진 뒤에 계산한다. 이 문서는 계산하지 않았다.
+- 정답 파일 SHA256을 기록한 뒤에만 후보 추론으로 넘어간다. 시험 규칙(Δ·Δm·문 3개·미측정 조건)은 `docs/collaboration/plans/ab-independent-test-rules-20261124.md`(추가 `3e379c1`)를 따른다. 필요 장수는 `tools/diagnostics/ab-sample-size-20261124/size.py`(추가 `3e379c1`, 0 나눗셈 수정 `0bfc317`, 둘 다 현재 기준에 포함)로 후보·가정이 정해진 뒤에 계산한다. 이 문서는 계산하지 않았다.
 
 ## 5. 승인 지점·중단 조건·롤백
 | 번호 | 단계 | 승인 지점 | 사용자 값 |
@@ -63,4 +68,13 @@ task_id: card-intake-plan-20261125 / owner: Claude Sonnet 5.5 / base_sha: 0bfc31
 - 후보·가정·장수·수율·비용·일정: 미정. 583은 사용 가능 수가 아니다. 이 문서는 정확도 변화를 주장하지 않는다.
 - 도구 옵션·동작은 코드로 읽어 확인했고 실제로 실행하지 않았다. PokeCollector 자격증명·eBay 한도는 미확인.
 - 사람 확인 가능 장수와 같은 카드 판별 가능 비율은 미측정이다.
+- 이 수정에서 읽은 규칙: `short-request-reading`·`fresh-labels-test-first`·`can-this-experiment-tell`·`label-provenance`·`regression-for-every-fix`(QUALITY_RULES.md).
 - 읽은 문서: AGENTS.md, `docs/AGENT_START.md`, `PAIR_CODING.md`, `LABELING_PROTOCOL.md`, 이전 수집 계획 문서, 61f2a85의 A/B 규칙 문서.
+
+## 7. 수정 이력과 수동 확인 (2026-11-25, 자동 회귀 검사 없음)
+| 결함 | 문제 원문 | 수동 확인 명령(실행 2026-11-25) |
+|---|---|---|
+| 1 기준 SHA | "base_sha: 0bfc317…" (실제 부모는 18825ee) | `git rev-parse 779bd12^` → 18825ee |
+| 3 규칙 인용 | "커밋 `61f2a85`의 …, 이 기준 커밋에는 없다" | `git ls-files tools/diagnostics/ab-sample-size-20261124/size.py docs/collaboration/plans/ab-independent-test-rules-20261124.md` → 둘 다 있음, `git merge-base --is-ancestor 3e379c1 HEAD` → 0 |
+| 4 미확인 정의 | "미확인(아직 판정하지 않은) 칸만 대상" | 조사 수치를 근거로 정정. 이 세션은 답 파일을 다시 열지 않았다(미확인) |
+| `--confirm-back` | "Gemini 선별을 통과한 후보에만 적용" | `sed -n 138,145p tools/collect_ebay_dataset.py`, `sed -n 347,356p card_condition/ebay_dataset.py` |
