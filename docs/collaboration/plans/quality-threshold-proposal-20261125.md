@@ -76,8 +76,8 @@
 
 ## 3. 승인하면 바뀌는 곳
 
-- 값 1(일치도): 조립한 승인 커밋이 `LABELING_PROTOCOL.md`, `docs/agent/QUALITY_RULES.md`, `docs/AGENT_START.md` 세 파일을 바꾼다. 이 작업의 커밋은 앞의 한 파일만 담는다.
-- 값 2(연속 미달): 조립한 승인 커밋이 `COMMON_EXPERIMENT_RECORDS.md`, `docs/agent/QUALITY_RULES.md`, `docs/AGENT_START.md` 세 파일을 바꾼다. 이 작업의 커밋은 앞의 한 파일만 담는다.
+- 값 1(일치도): 조립한 승인 커밋이 `LABELING_PROTOCOL.md`, `docs/agent/QUALITY_RULES.md`, `docs/AGENT_START.md` 세 파일을 바꾼다.
+- 값 2(연속 미달): 조립한 승인 커밋이 `COMMON_EXPERIMENT_RECORDS.md`, `docs/agent/QUALITY_RULES.md`, `docs/AGENT_START.md` 세 파일을 바꾼다.
 - 두 값은 서로 독립이며 각각 뺄 수 있다.
 - 발효 시점: **사용자 승인 기록과 main 통합이 모두 끝난 뒤부터 발효**한다. 둘 중 하나라도 없으면 문턱은 적용하지 않는다.
 - 승인용 커밋은 계획·승인·보호 조건을 바꾸지 않고, 새 실험·라벨 요청을 승인하지 않는다. 정확도 향상은 측정된 바 없다.

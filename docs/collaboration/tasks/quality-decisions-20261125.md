@@ -32,8 +32,8 @@ experiment: 없음 (학습·추론·외부 AI 실험 호출·라벨 변경 없�
 | AI 판정 지시서와 사람 기준의 차이 | 줄별 권장과 패치. 기본 checkout의 미커밋 지시서에 `patch -p1`로 적용(원본 SHA-256이 같을 때만) | 제안서 + 패치(승인 뒤 적용) |
 
 ## 통합 순서
-1. 필수: `claude/quality-integration-20261125`를 base_sha 위에서 순서대로 전부 cherry-pick(또는 fast-forward).
-2. 선택: `claude/quality-approval-options-20261125`의 제목이 `APPROVAL`인 3개 중 승인한 것만. 어떤 조합·순서로도 붙는다(12가지 확인). 승인 기록(날짜·근거)을 커밋 메시지나 통합 기록에 남긴다. 승인 없는 것은 넣지 않는다.
+1. 필수: `claude/quality-integration-20261125`(코드 끝 `5f893ab`, 이후는 문서만)를 base_sha 위에서 순서대로 전부 cherry-pick(또는 fast-forward).
+2. 선택: `claude/quality-approval-options-20261125`의 제목이 `APPROVAL`인 항목 중 승인한 것만. 1 = `0b1dc33`, 2 = `5cd0740`, 3 = `f1c1e6f`와 바로 뒤 보완 커밋 `fix(label): APPROVAL 3 follow-up`(둘을 함께). 어떤 조합·순서로도 붙는다(12가지 확인). 3을 넣으면 통합 담당이 label-criteria-version task의 status를 integrated로 바꾼다. 승인 기록(날짜·근거)을 커밋 메시지나 통합 기록에 남긴다. 승인 없는 것은 넣지 않는다.
 3. 지시서 패치는 승인 뒤 기본 checkout에서 적용하고 SHA-256을 기록한다.
 - 선택 커밋이 고치는 파일: 1 = `LABELING_PROTOCOL.md`·`docs/agent/QUALITY_RULES.md`·`docs/AGENT_START.md` / 2 = `COMMON_EXPERIMENT_RECORDS.md`·`docs/agent/QUALITY_RULES.md`·`docs/AGENT_START.md` / 3 = `tools/label_criteria.py`·`tools/mobile_corner_label_pages.py`·`tools/mobile_corner_label_import.py`·`tests/test_label_criteria_record.py`·`LABELING_PROTOCOL.md`·`docs/agent/QUALITY_RULES.md`·`docs/AGENT_START.md`·`docs/collaboration/tasks/label-criteria-version-20261125.md`.
 
