@@ -35,7 +35,8 @@ def main(review_jsonl, ids_text, out_path, side='back', words=('정상', '제한
     """ids_text: whitespace-separated row ids; each page shows the row's back photo."""
     rows = {r['id']: r for r in map(json.loads, Path(review_jsonl).read_text(encoding='utf-8').splitlines()) if r.get('id')}
     items = [dict(id=i, side=side, image=rows[i]['side_annotations'][side]['image']) for i in ids_text.split()]
-    guide = guide or '<p>뒷면 사진 전체에서 <b>관찰 제한</b>(빛반사·흐림·가림·잘림·저해상도·심한 각도·그림자로 카드 상태를 볼 수 없음)이면 제한, 문제없이 볼 수 있으면 정상, 모르면 미확인.</p>'
+    guide = guide or ('<p>뒷면 사진 전체에서 <b>관찰 제한</b>(빛반사·흐림·가림·잘림·저해상도·심한 각도·그림자)이 사진의 일부에만 있어도, 그 때문에 카드 상태를 일부라도 볼 수 없으면 <b>제한</b>입니다. '
+                    '일부가 가려져도 나머지로 카드 상태를 충분히 볼 수 있으면 <b>정상</b>입니다. 카드 뒷면이 아니거나(금속·복제 등) 네 변이 사진에 다 보이지 않거나 판단이 안 서면 <b>미확인</b>입니다. 추정하지 않습니다.</p>')
     body = guide + ''.join(article(i, words) for i in items) + '<textarea id="out" readonly></textarea>'
     Path(out_path).write_text(f'<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><style>{STYLE}</style>{body}<script>{SCRIPT}</script>', encoding='utf-8')
     return len(items)

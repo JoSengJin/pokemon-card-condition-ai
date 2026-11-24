@@ -1,4 +1,4 @@
-"""Blind corner-zone re-judgment pages (measures label flip rate f). 60 zones from the 946 corner zones: 30 labelled defect + 30 labelled normal, distinct photo groups, seeded, model scores never used. Pages show the crop with the zone outlined only; mapping stays in selection.json."""
+"""Blind corner-zone re-judgment pages (measures label flip rate f). 60 zones from the 946 corner zones: 30 labelled defect + 30 labelled normal, distinct photo groups, seeded, model scores never used. Pages show the crop with the zone outlined only; mapping stays in selection.json. INSTRUCTIONS follows the canonical 후면 모서리 결함 수준 (LABELING_PROTOCOL.md) for pages made from 2026-11-25; the 2026-11-21 re-judgment used the earlier wording (d1e2197)."""
 import json
 import random
 import sys
@@ -7,8 +7,8 @@ from pathlib import Path
 from tools import relabel_zone_pages as zp
 
 SEED, PER_CLASS, PER_PAGE = 20261121, 30, 20
-INSTRUCTIONS = ('<p><b>모서리</b>: 카드 네 귀퉁이의 둥근 끝을 봅니다. 뭉개짐·찍힘·백화·접힘이 보이면 <b>결함</b>, 충분히 확인했는데 없으면 <b>정상</b>입니다. '
-                '근처 직선 테두리만의 마모·백화나 면 안쪽 기스·오염, 카드 밖 배경은 이 항목이 아닙니다. 반사인지 마모인지, 또는 가림·흐림으로 구분이 안 되면 <b>판단 불가</b>입니다.</p>')
+INSTRUCTIONS = ('<p><b>모서리</b>: 카드 네 귀퉁이의 둥근 끝을 봅니다. 뭉개짐·찍힘·백화·접힘이 확대해서 보이면 크기와 관계없이 <b>결함</b>이고 mm 크기 문턱은 두지 않습니다. 충분히 확인했는데 없으면 <b>정상</b>입니다. '
+                '근처 직선 테두리만의 마모·백화나 면 안쪽 기스·오염, 카드 밖 배경은 이 항목이 아닙니다. 확대해도 반사인지 마모인지 구분되지 않으면 추정하지 말고 <b>판단 불가</b>입니다(가림·흐림으로 구분이 안 될 때도 같습니다).</p>')
 
 
 def select(rows):
