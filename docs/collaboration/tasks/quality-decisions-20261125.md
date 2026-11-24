@@ -4,16 +4,16 @@
 task_id: quality-decisions-20261125
 owner: 계획·리뷰·조립 Claude Opus 5.5 / 구현 Claude Sonnet 5.5 (하위 에이전트 5개, 사용자 승인 분업)
 status: ready_for_review
-base_sha: f37f2cb0cfe54dbc2807470a6ed1a77e565916e7 (로컬 main. 조립 시점 origin/main은 18825ee)
-branch: claude/quality-integration-20261125 (필수) / claude/quality-approval-options-20261125 (선택 3개)
+base_sha: 0bfc3171e411749df8709dde6fc366796fa1e413 (로컬 main. 메시지만 다시 쓰여 검증 기준 f37f2cb와 파일 내용이 같다)
+branch: claude/quality-final-20261125
 goal: 품질 규칙 16개와 선택표, 실행기 미측정 기록, 화면 안내 2건 정정이 시험과 함께 통합 가능하고, 사용자 결정은 승인만 하면 붙일 수 있는 커밋으로 분리된다
-allowed_files: 필수 브랜치와 선택 브랜치의 `git diff --name-only <base_sha> <끝>` 목록
+allowed_files: 최종 브랜치의 `git diff --name-only <base_sha> <끝>` 목록
 forbidden_files: data/, artifacts/, 사람 라벨·정답·평가 자료, development-progress.json, PROGRESS_CRITERIA.md, 기본 checkout의 미커밋 파일
 contract: review-rule 8개 ID·경계 불변, 계획·기록의 acceptance_passed 불변, 화면의 SCRIPT·STYLE·선택지·답 형식 불변, 승인 범위 불변
 experiment: 없음 (학습·추론·외부 AI 실험 호출·라벨 변경 없음)
 ```
 
-이전 작업 브랜치(`claude/quality-rules-apply-…`, `claude/quality-rule-names-…`, `claude/quality-rules-integration-…`, `claude/quality-approvals-…`, `claude/quality-decisions-…`, `claude/qd-*`)는 **통합하지 않는다**. 공개하지 않을 자료가 과거 커밋에 있어 내용을 다시 조립했다.
+이전 작업 브랜치(`claude/quality-rules-apply-…`, `claude/quality-rule-names-…`, `claude/quality-rules-integration-…`, `claude/quality-approvals-…`, `claude/quality-integration-…`, `claude/quality-approval-options-…`, `claude/quality-decisions-…`, `claude/qd-*`)는 **통합하지 않는다**. 공개하지 않을 자료가 과거 커밋에 있어 내용을 다시 조립했다.
 
 ## 쓴 규칙과 스킬
 - Superpowers 7.0.1: writing-plans(계약 안에서만), verification-before-completion, requesting-code-review(별도 Opus 5.5 리뷰어), receiving-code-review — 네 본문 전체를 읽었다. dispatching-parallel-agents·subagent-driven-development는 선택표대로 쓰지 않았다. TDD는 회귀 시험의 "고치기 전 실패 확인"만.
@@ -26,15 +26,18 @@ experiment: 없음 (학습·추론·외부 AI 실험 호출·라벨 변경 없�
 | 관찰 제한 휴대폰 화면 기본 안내 | 정본에 맞춤(자격아님·모름은 이 화면에 없어 미확인) | 필수 |
 | 모서리 재판정 화면 안내 | 정본에 맞춤. 같은 문구를 쓰는 `relabel_corner_highres_pages.py`의 새 화면에도 적용됨. 2026-11-21 재판정은 이전 문구(d1e2197) | 필수 |
 | 사용자 요청 분석 자료 | 통합본과 새 이력에서 제외(원본은 기본 checkout의 미커밋 초안 폴더). 올리려면 따로 지시 | 필수 |
-| 일치율 값(최소 분모 30·목표 카파 0.80·경고 0.60) | 승인용 커밋 | 선택 1 |
-| 연속 미달 3회 | 승인용 커밋, 통합 뒤 새 실험부터 | 선택 2 |
-| 기준 버전 기록 안 A(모서리 화면·가져오기) | 승인용 커밋 | 선택 3 |
-| AI 판정 지시서와 사람 기준의 차이 | 줄별 권장과 패치. 기본 checkout의 미커밋 지시서에 `patch -p1`로 적용(원본 SHA-256이 같을 때만) | 제안서 + 패치(승인 뒤 적용) |
+| 일치율 값(최소 분모 30·목표 카파 0.80·경고 0.60) | 승인됨 | 선택 1 |
+| 연속 미달 3회 | 승인됨, 통합 뒤 새 실험부터 | 선택 2 |
+| 기준 버전 기록 안 A(모서리 화면·가져오기) | 승인됨 | 선택 3 |
+| AI 판정 지시서와 사람 기준의 차이 | 줄별 권장과 패치. 기본 checkout의 미커밋 지시서에 `patch -p1`로 적용(원본 SHA-256이 같을 때만) | 승인됨, 패치는 통합 뒤 적용 |
+
+## 승인 기록
+2026-11-25 사용자가 채팅에서 선택 1·2·3과 AI 지시서 패치를 권장대로 모두 승인했다(사용자 요청 분석 자료는 제외 유지). 선택 1은 통합 뒤 첫 재판정 측정부터, 선택 2는 통합 뒤 새 실험부터 적용한다. 이 승인은 실험 실행·라벨 재요청을 승인하지 않는다.
 
 ## 통합 순서
-1. 필수: `claude/quality-integration-20261125`(코드 끝 `5f893ab`, 이후는 문서만)를 base_sha 위에서 순서대로 전부 cherry-pick(또는 fast-forward).
-2. 선택: `claude/quality-approval-options-20261125`의 제목이 `APPROVAL`인 항목 중 승인한 것만. 1 = `0b1dc33`, 2 = `5cd0740`, 3 = `f1c1e6f`와 바로 뒤 보완 커밋 `fix(label): APPROVAL 3 follow-up`(둘을 함께). 어떤 조합·순서로도 붙는다(12가지 확인). 3을 넣으면 통합 담당이 label-criteria-version task의 status를 integrated로 바꾼다. 승인 기록(날짜·근거)을 커밋 메시지나 통합 기록에 남긴다. 승인 없는 것은 넣지 않는다.
-3. 지시서 패치는 승인 뒤 기본 checkout에서 적용하고 SHA-256을 기록한다.
+1. `claude/quality-final-20261125`를 base_sha 위에 전부 fast-forward 또는 cherry-pick한다(필수 4 + 승인 3 + 승인 기록 커밋).
+2. 통합 뒤 현재 메인이 기본 checkout의 미커밋 지시서(SHA-256 `6e2c84e4…a553`)에 `patch -p1 < docs/collaboration/plans/corner-judge-prompt-alignment-20261125.patch`를 적용하고 결과가 `10be186b…1b3c`인지 확인한다.
+3. label-criteria-version·이 task의 status를 integrated로 바꾼다.
 - 선택 커밋이 고치는 파일: 1 = `LABELING_PROTOCOL.md`·`docs/agent/QUALITY_RULES.md`·`docs/AGENT_START.md` / 2 = `COMMON_EXPERIMENT_RECORDS.md`·`docs/agent/QUALITY_RULES.md`·`docs/AGENT_START.md` / 3 = `tools/label_criteria.py`·`tools/mobile_corner_label_pages.py`·`tools/mobile_corner_label_import.py`·`tests/test_label_criteria_record.py`·`LABELING_PROTOCOL.md`·`docs/agent/QUALITY_RULES.md`·`docs/AGENT_START.md`·`docs/collaboration/tasks/label-criteria-version-20261125.md`.
 
 ## Q09(`zero-denominator-unmeasured`) 설계와 호환

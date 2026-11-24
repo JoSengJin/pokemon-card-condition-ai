@@ -1,6 +1,6 @@
 # 제안: 모서리 AI 판정 지시서의 "사람 기준과 다른 점" 표 (2026-11-25)
 
-**상태: 제안, 적용되지 않음.** 대상 지시서 `CORNER_JUDGE_PROMPT_STRICT_20261123.md`는 기본 checkout의 미커밋 파일이라 고치지 않았다. 근거 규칙은 [QUALITY_RULES.md](../../agent/QUALITY_RULES.md) `single-source-criteria`·`explicit-verdict-merge`. 이 표는 어느 쪽이 맞는지 정하지 않으며 사람 라벨·기존 판정을 바꾸지 않는다.
+**상태: 2026-11-25 사용자가 권장을 모두 승인. 패치는 main 통합 뒤 현재 메인이 적용한다(아직 적용되지 않음).** 대상 지시서 `CORNER_JUDGE_PROMPT_STRICT_20261123.md`는 기본 checkout의 미커밋 파일이라 고치지 않았다. 근거 규칙은 [QUALITY_RULES.md](../../agent/QUALITY_RULES.md) `single-source-criteria`·`explicit-verdict-merge`. 이 표는 어느 쪽이 맞는지 정하지 않으며 사람 라벨·기존 판정을 바꾸지 않는다.
 
 사람 기준의 정본: `LABELING_PROTOCOL.md` "위치로 먼저 구분하기"의 모서리 행과 "후면 모서리 결함 수준". 지시서 줄 번호는 패치 적용 전 본문(SHA-256 `6e2c84e4de92af89b920991329679f709e63781781b8e0728bff8d351479a553`, 87줄) 기준이며 2026-11-25에 모두 다시 대조했다(일치).
 
