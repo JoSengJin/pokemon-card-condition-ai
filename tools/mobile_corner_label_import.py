@@ -5,6 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from card_condition.regions import REGION_LABELS, validate_annotations
+from tools import label_criteria
 
 AREAS = ('upper_left', 'upper_right', 'lower_left', 'lower_right')
 STATE = {'정상': 0, '결함': 1}
@@ -39,16 +40,21 @@ def apply(annotation, confirmed, box, edges):
         annotation['labels']['corner_defect'] = 0
 
 
-def main(review_jsonl, answers_txt, out_jsonl):
+def main(review_jsonl, answers_txt, out_jsonl, criteria_json=None):
+    """With criteria_json (the page's .criteria.json): refuse before writing unless every answer id is on that page; also writes <out_jsonl>.criteria.json."""
     rows = [json.loads(l) for l in Path(review_jsonl).read_text(encoding='utf-8').splitlines() if l.strip()]
     by_id = {r['id']: r for r in rows}
-    for rid, side, confirmed, box, edges in parse(Path(answers_txt).read_text(encoding='utf-8')):
+    answers = parse(Path(answers_txt).read_text(encoding='utf-8'))
+    shown = criteria_json and label_criteria.check(criteria_json, [f'{a[0]}/{a[1]}' for a in answers], out_jsonl)
+    for rid, side, confirmed, box, edges in answers:
         apply(by_id[rid]['side_annotations'][side], confirmed, box, edges)
         validate_annotations(by_id[rid]['side_annotations'], by_id[rid])
     with Path(out_jsonl).open('x', encoding='utf-8') as stream:
         stream.writelines(json.dumps(r, ensure_ascii=False) + '\n' for r in rows)
+    if criteria_json:
+        label_criteria.write_import(out_jsonl, shown)
     return len(rows)
 
 
 if __name__ == '__main__':
-    print(main(*sys.argv[1:4]))
+    print(main(*sys.argv[1:5]))

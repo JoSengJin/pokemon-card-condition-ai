@@ -8,6 +8,9 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools import label_criteria
+
 AREAS = [('upper_left', 0, 0), ('upper_right', 2, 0), ('lower_left', 0, 2), ('lower_right', 2, 2)]
 STYLE = """body{font:17px/1.5 system-ui;margin:0 auto;max-width:720px;padding:12px}article{border-top:2px solid #888;margin-top:20px;padding-top:6px}
 .ph{position:relative;line-height:0}.ph img{width:100%;display:block}.c{position:absolute;box-sizing:border-box;border:1px dashed #fff9;font:700 18px system-ui;color:#fff;
@@ -44,6 +47,12 @@ document.getElementById('copy').onclick=()=>{const t=document.getElementById('ou
 try{document.execCommand('copy');document.getElementById('msg').textContent='복사됨. 채팅에 붙여넣으세요.'}
 catch(e){document.getElementById('msg').textContent='아래 칸을 길게 눌러 직접 복사하세요.'}};
 """
+INSTRUCTIONS = (
+    '<p><b>이 페이지의 “결함”은 모서리(카드 네 귀퉁이의 둥근 끝: 뭉개짐·찍힘·백화·접힘)만입니다.</b> 옆면 테두리(엣지)의 마모·백화, 표면 기스·오염은 결함으로 누르지 마세요. 해당 모서리 끝이 깨끗하면 근처 엣지나 안쪽에 문제가 있어도 정상입니다. 확신이 없으면 미확인. 이 페이지에는 네 모서리 칸만 있습니다.</p>'
+    '<p>빨간 점 4개를 끌어 파란 상자가 <b>카드가 전부 안에 들어오게</b> 맞추세요(딱 맞을 필요 없음). 상자를 고쳤다면 마지막에 “상자 확인”을 누르세요. '
+    '각 모서리 칸은 탭할 때마다 미확인→정상→결함으로 바뀝니다. 모르면 미확인으로 두세요. 자동 저장하지 않습니다.</p>'
+    '<p>모서리 결함 수준: 둥근 끝의 뭉개짐·찍힘·백화·접힘이 확대해서 보이면 크기와 관계없이 결함입니다. mm 크기 문턱은 두지 않음. '
+    '확대해도 반사인지 마모인지 구분 안 되면 추정하지 말고 이 화면에서는 미확인으로 두세요.</p>')
 
 
 def photo(path):
@@ -85,16 +94,13 @@ def main(review_jsonl, ids_text, out_path, side='back', answers_path=None):
         annotation = rows[rid]['side_annotations'][side]
         faces.append(dict(id=f'{rid}/{side}', image=annotation['image'], box=annotation['box'], title=rows[rid].get('title') or rid, preset=pre.get(rid)))
     body = ''.join(article(n, f) for n, f in enumerate(faces, 1))
-    Path(out_path).write_text(
+    text = (
         '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         f'<title>구역 라벨 입력</title><style>{STYLE}</style><h1>모서리 구역 라벨</h1>'
-        '<p><b>이 페이지의 “결함”은 모서리(카드 네 귀퉁이의 둥근 끝: 뭉개짐·찍힘·백화·접힘)만입니다.</b> 옆면 테두리(엣지)의 마모·백화, 표면 기스·오염은 결함으로 누르지 마세요. 해당 모서리 끝이 깨끗하면 근처 엣지나 안쪽에 문제가 있어도 정상입니다. 확신이 없으면 미확인. 이 페이지에는 네 모서리 칸만 있습니다.</p>'
-        '<p>빨간 점 4개를 끌어 파란 상자가 <b>카드가 전부 안에 들어오게</b> 맞추세요(딱 맞을 필요 없음). 상자를 고쳤다면 마지막에 “상자 확인”을 누르세요. '
-        '각 모서리 칸은 탭할 때마다 미확인→정상→결함으로 바뀝니다. 모르면 미확인으로 두세요. 자동 저장하지 않습니다.</p>'
-        '<p>모서리 결함 수준: 둥근 끝의 뭉개짐·찍힘·백화·접힘이 확대해서 보이면 크기와 관계없이 결함입니다. mm 크기 문턱은 두지 않음. '
-        '확대해도 반사인지 마모인지 구분 안 되면 추정하지 말고 이 화면에서는 미확인으로 두세요.</p>' + body +
+        + INSTRUCTIONS + body +
         '<h2>결과</h2><button id="copy">결과 복사</button><p id="msg"></p><textarea id="out" readonly></textarea>'
-        f'<script>{SCRIPT}</script></html>', encoding='utf-8')
+        f'<script>{SCRIPT}</script></html>')
+    label_criteria.write_page(out_path, text, INSTRUCTIONS, body)
     return len(faces)
 
 

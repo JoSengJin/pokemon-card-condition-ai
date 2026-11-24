@@ -71,7 +71,7 @@ TDD는 기본 적용하지 않는다. 단순한 변경에 TDD 순서나 RED/GREE
 | `worker-review-checklist` | 실험 코드 리뷰 점검표 | worker·모델 코드를 리뷰할 때 |
 | `fresh-labels-test-first` | 새 라벨 1회 평가 | 사람이 확인한 새 라벨 묶음이 들어왔을 때, 학습에 넣기 전 |
 | `single-source-criteria` | 기준은 한 곳 | 결함·정상 기준 문구, 라벨 화면, AI 판정 지시서를 만들거나 고칠 때 |
-| `label-provenance` | 라벨 당시 기준 기록 | 라벨·판정을 새로 저장할 때 (설계안만 있어 지금은 "버전 미상"으로 보고) |
+| `label-provenance` | 라벨 당시 기준 기록 | 라벨·판정을 새로 저장할 때 (모서리 화면만 기록 파일 지원, 나머지는 "버전 미상"으로 보고) |
 | `label-screen-round-trip` | 누른 것 = 가져온 것 | 라벨 화면이나 답 가져오기 도구를 만들거나 고칠 때 |
 | `judge-before-peeking` | 먼저 판정하고 보기 | 엇갈린 판정을 최종 결정할 때 |
 | `explicit-verdict-merge` | 판정 합치는 법 밝히기 | 같은 대상을 여러 번 판정해 합칠 때 |
