@@ -32,7 +32,7 @@ Codex는 `docs/collaboration/tasks/<task-id>.md`에 다음을 적고 커밋한 �
 ```text
 task_id:
 owner: Claude 또는 Codex
-status: open / assigned / implementing / ready_for_review / integrated / blocked
+status: assigned / implementing / ready_for_review / integrated / blocked
 base_sha: 시작점의 전체 커밋 SHA
 branch:
 worktree: 로컬 경로는 커밋하지 않고 세션에서만 전달
@@ -44,14 +44,13 @@ structure: 변경 파일별 함수 수(전/후), 변경된 주요 호출 경로(
 checks: 관련 단위 검사와 통합 후 검사
 experiment: 필요 여부, 가설 ID·사전 기준·대조 근거 위치
 handoff: 전체 커밋 SHA, 변경 파일, 구조 기준 확인 결과, 검사 결과, 미검증, 리스크, 롤백
-depends_on / done / next / unrecovered: 선행 task(통합 전까지 시작 금지) / 끝낸 단위 / 다음 할 일 하나 / 회수 못 한 미커밋 파일 경로 (pair-coding 스킬)
 ```
 
 공용 파일이 겹치면 현재 메인이 작업을 직렬화하거나, 해당 파일의 변경을 통합 단계에 맡긴다. 같은 API의 호출자와 구현을 서로 다른 작업에 배정할 때는 먼저 계약을 고정하고 통합 검사를 지정한다. 파일이 다르다는 이유만으로 독립 작업으로 취급하지 않는다. 범위 확대는 계약을 갱신한 뒤 진행한다.
 
 ## 4. worktree와 실행 환경
 
-기본 checkout이 깨끗하고 진행 중인 실험·검토가 없는 시점에 pair-coding 스킬을 쓰는 구현 담당은 작업을 선점(`refs/claims`)한 뒤 자기 브랜치·worktree를 직접 만들고, 그 밖의 경우는 현재 메인이 준비한다. 아래는 설정 예제이며 실제 작업 생성·설치가 완료됐다는 뜻은 아니다.
+기본 checkout이 깨끗하고 진행 중인 실험·검토가 없는 시점에 현재 메인이 작업 브랜치를 준비한다. 아래는 설정 예제이며 실제 작업 생성·설치가 완료됐다는 뜻은 아니다.
 
 ```sh
 # 기본 checkout에서 실행. 값은 각자의 로컬 환경에 맞게 설정한다.
@@ -79,7 +78,7 @@ Codex도 병렬 구현이 필요하면 별도 `codex/<task-id>` 브랜치와 별
 2. 소유 파일과 호출자·테스트를 읽고 허용 파일만 변경한다. 데이터 없이 가능한 합성 fixture·mock 단위 검증을 먼저 사용한다.
 3. 실제 라벨·사진·캐시가 있어야 하는 검사는 미실행과 의존 이유를 기록한다. `artifacts/`가 Git에 없다는 이유로 정답·수치를 꾸미거나 비밀 설정을 가져오지 않는다.
 4. 공유할 신규 실험 worker는 `tools/experiments/<task-id>/`처럼 추적 가능한 경로에 둔다. 실험 계획의 `code_changes`에 등록하고 신규 파일은 `baseline=null`, 기존 파일은 실제 수정 전 snapshot을 지정한다. 과거 ignored worker를 임의로 복제·수정하지 않는다.
-5. `git diff --check`, 허용 파일 대조, 관련 단위 검증, 비밀 파일 제외를 확인하고 `feat(scope): 내용`, `fix(scope): 내용`, `test(scope): 내용` 형식으로 커밋한다. 수정 중 임의의 전체 `git add .`는 사용하지 않는다. pair-coding 스킬을 쓰면 의미 단위마다 `checkpoint(<task-id>): …` 커밋에 코드와 task의 done/next를 함께 기록한다.
+5. `git diff --check`, 허용 파일 대조, 관련 단위 검증, 비밀 파일 제외를 확인하고 `feat(scope): 내용`, `fix(scope): 내용`, `test(scope): 내용` 형식으로 커밋한다. 수정 중 임의의 전체 `git add .`는 사용하지 않는다.
 6. task 문서에 최종 검사 결과와 미검증을 기록하고 함께 커밋한다. 마지막으로 `git status --short`가 깨끗한지 확인한다.
 7. 최종 전체 SHA 또는 필요한 SHA들의 순서를 현재 메인에 전달한다. 완료 후 같은 브랜치에 추가 커밋하지 말고 후속 변경은 새 작업으로 배정받는다.
 
@@ -103,7 +102,7 @@ Codex도 병렬 구현이 필요하면 별도 `codex/<task-id>` 브랜치와 별
 ## 6. 지켜야 할 한계
 
 - 파일 소유권과 단일 실험 소유자는 운영 규칙이다. 프로그램이 전역에서 강제하는 장치가 새로 생긴 것은 아니다. 위반하면 독립 worktree여도 충돌할 수 있다.
-- `git stash`, index, checkout, cherry-pick은 각자 worktree에서만 수행한다. 다른 에이전트의 작업 디렉터리를 정리하지 않는다. 공유 브랜치 ref·Git 설정·worktree 삭제는 Codex만 조정한다. 예외: `refs/claims/<task-id>`는 pair-coding 스킬 명령으로 구현 담당이 없을 때만 만들고(교체는 사용자 지시 인수·이어하기 때 이전 값이 일치할 때만) 삭제는 통합 후 메인만 한다. 훅·프로그램 강제는 없다.
+- `git stash`, index, checkout, cherry-pick은 각자 worktree에서만 수행한다. 다른 에이전트의 작업 디렉터리를 정리하지 않는다. 공유 브랜치 ref·Git 설정·worktree 삭제는 Codex만 조정한다.
 - 원본 데이터·비밀 파일·대형 모델은 계속 Git 제외 대상이다. 코드가 병합돼도 제외된 실행 자료가 자동으로 전달되지는 않는다.
 - worktree 제거는 전달 커밋의 통합과 미커밋 파일·ignored 산출물의 보존 여부를 확인한 뒤 한다. `git worktree remove --force`로 정리하지 않는다.
 - 기존 인계 문서의 실패 가설·수치·실험 위치는 당시 근거다. 최신 실제 기록과 대조하기 전 다음 실행 대상으로 선택하지 않는다.
