@@ -9,7 +9,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from tools.self_agreement import decide, plan as cfg, stats
+from tools.self_agreement import cards, decide, plan as cfg, stats
 
 VALUES = ('정상', '결함', '불가', '미확인')
 CONFIRMED, THREE = ('정상', '결함'), ('정상', '결함', '불가')
@@ -24,11 +24,11 @@ NOT_APPROVAL = '어느 행도 실험·라벨 변경·재요청을 승인하지 �
 
 
 def pairs(selection, first, second, layer):
-    """layer('main'|'error')의 구역마다 (1차 값, 2차 값). 번호·값·회차가 어긋나면 ValueError."""
+    """layer('main'|'error'|'fp')의 구역마다 (1차 값, 2차 값). 번호·값·회차가 어긋나면 ValueError."""
     zones = selection['zones']
     want = {str(z['n']) for z in zones}
-    if len(want) != len(zones) or any(z['layer'] not in ('main', 'error') for z in zones):
-        raise ValueError('selection의 번호가 겹치거나 layer가 main·error가 아님')
+    if len(want) != len(zones) or any(z['layer'] not in ('main', 'error', 'fp') for z in zones):
+        raise ValueError('selection의 번호가 겹치거나 layer가 main·error·fp가 아님')
     if (first['round'], second['round']) != (1, 2):
         raise ValueError('ROUND1·ROUND2의 round가 1·2가 아님')
     for rd in (first, second):
@@ -60,6 +60,9 @@ def report(plan, shas, selection, first, second):
         reasons.insert(0, '해시 불일치: selection plan_sha256')
     if any(r.startswith('해시 불일치') for r in reasons):
         raise ValueError('1행 조건: ' + '; '.join(reasons))
+    tags = {z['layer'] for z in selection['zones']}
+    if tags != set(plan['layers']) if plan['schema'] == 2 else 'fp' in tags:
+        raise ValueError('selection의 layer 태그가 plan의 layers와 다름')
     m = measures(pairs(selection, first, second, 'main'), plan)
     row, why = decide.row(reasons, m['table'], m['kappa'], plan, m['p'])
     err = [p for p in pairs(selection, first, second, 'error') if p[0] in CONFIRMED and p[1] in CONFIRMED]
@@ -68,7 +71,7 @@ def report(plan, shas, selection, first, second):
     kap = {k: (None if v is None else dict(fraction=str(v), value=float(v)))
            for k, v in (('binary', m['kappa']), ('three_class', m['kappa3'])) if show}
     full = row >= 4 and er is not None and er['e'] is not None
-    return {
+    res = {
         'plan_sha256': shas[0], 'selection_sha256': shas[1], 'row': row, 'row_text': decide.ROW_TEXT[row],
         'reasons': why, 'counts': m['counts'],
         '확정 쌍 일치율': dict(k=nn + dd, n=sum(m['table']), rate=(nn + dd) / sum(m['table']),
@@ -88,6 +91,9 @@ def report(plan, shas, selection, first, second):
                             same_answer=sum(p[0] == p[1] for p in err)),
         'limits': LIMITS, 'not_approval': NOT_APPROVAL,
     }
+    if plan['schema'] == 2:  # 오탐 층은 주 지표·행에 들어가지 않는다. 1행(회차 무효)이면 null
+        res['fp_layer'] = cards.summary(selection, first, second, plan) if row > 1 and 'fp' in plan['layers'] else None
+    return res
 
 
 def main(argv):
