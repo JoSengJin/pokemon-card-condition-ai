@@ -1,6 +1,6 @@
 # 후면 모서리 2차 독립 코호트: 봉인 기록과 평가 전 고정 기준 (2026-11-23, Claude)
 
-> **정정 2026-11-26:** 이 문서가 사람 판정으로 쓴 모서리 답의 다수는 제출 전 AI 산출과 같다(판정 주체 AI 또는 미확인). [label-provenance-correction-20261126.md](../reports/label-provenance-correction-20261126.md) 참고.
+> **정정 2026-11-26:** 이 문서가 기대는 모서리 정답 다수는 AI 산출과 값이 같다(판정 주체 AI 또는 미확인, AI 산출이 먼저였는지 시각 순서는 미확인). [label-provenance-correction-20261126.md](../reports/label-provenance-correction-20261126.md) 참고.
 
 **[봉인] 적격 전체 468장(결함 262·정상 206)을 선정 없이 봉인했다. 점수는 없고 읽지 않았다. 평가는 개선 후보가 동결될 때까지 하지 않는다.**
 
