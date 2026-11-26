@@ -7,7 +7,7 @@ root 아래 구조: ledger.jsonl, cas/, tasks/<task_key>/{contract.json,out/,lea
 import os
 
 from . import contract as ct
-from . import cas, ledger, lease, manifest, recovery, states
+from . import cas, holder, ledger, lease, manifest, recovery, states
 from .jsonio import read_json, write_json
 
 
@@ -38,17 +38,22 @@ def enqueue(root, task, now):
     return key
 
 
-def claim(root, key, pid, boot, now, is_alive=None, current=None):
+def claim(root, key, pid, boot, now, current=None):
     """작업권을 잡고 실행 여부를 정한다. 잠금 안에서 상태 분류·결정하므로 동시 claim은 한쪽만 성공한다.
 
     flock을 잡았다는 것은 이전 작업권의 주인이 없다는 확정 증거이므로, 이전 기록은 pid가 살아 있어 보여도
     (좀비·재사용된 pid) 죽은 작업권으로 본다. 산 작업권이면 flock이 이미 잡혀 있어 "locked"로 거절된다.
-    is_alive는 이전 호출 형식과의 호환용이며 무시한다(pid 생존 판정은 관찰자용 classify/recover의 몫).
+    단, 기록된 pid가 같은 부팅에서 살아 있고 좀비가 아니면 인수하지 않고 "holder_alive_without_lock"으로
+    멈춘다(잠금 없이 실행 중인 주인이 있다는 뜻: 이중 실행 방지가 멈춤보다 우선). 좀비는 인수하고, 판정
+    불가(ps 실패)는 "blocked"다. 전제: 작업권을 쥔 프로세스가 끝까지 실행하고 exec하지 않는다 —
+    그래서 pid는 os.getpid()여야 한다(대리 claim 거절).
 
     성공: {"ok": True, "run_id", "resumed", "lease"(complete/fail에 넘길 핸들), "state", "plan"}.
     실패: {"ok": False, "reason": "locked"|"unregistered"|plan action, ...}. 잠금 핸들은 프로세스가 쥐고 있다.
     """
     task_dir = os.path.join(root, "tasks", ct.check_key(key))
+    if pid != os.getpid():
+        raise QueueError("claim의 pid는 호출 프로세스(os.getpid())여야 한다: 대리 claim은 잠금 없이 실행되는 이중 실행을 만든다")
     if not os.path.isdir(task_dir):
         return {"ok": False, "reason": "unregistered"}
     handle = lease.lock(os.path.join(task_dir, "lease.json"))
@@ -56,7 +61,12 @@ def claim(root, key, pid, boot, now, is_alive=None, current=None):
         return {"ok": False, "reason": "locked"}
     try:
         state = states.classify(task_dir, now, lambda held: False)
-        plan = recovery.decide(task_dir, os.path.join(root, "cas"), state, handle.previous, now, current)
+        who = holder.verdict(handle.previous, boot) if state == states.INTERRUPTED else "dead"
+        if who == "dead":
+            plan = recovery.decide(task_dir, os.path.join(root, "cas"), state, handle.previous, now, current)
+        else:  # 잠금 없이 주인이 살아 있거나 판정 불가: 인수하지 않고 사유를 장부에 남긴다
+            why = "holder_alive_without_lock" if who == "alive" else "blocked"
+            plan = {"runnable": False, "action": why, "events": [(why, {"task_key": key, "holder": handle.previous})]}
         _log(root, now, plan["events"])
     except BaseException:  # 판단 중 오류가 잠금을 쥔 채 남지 않게 한다(이전 기록은 보존)
         lease.release(handle)
@@ -96,6 +106,7 @@ def fail(root, key, run_id, handle, kind, error, now):
     task_dir = os.path.join(root, "tasks", ct.check_key(key))
     if kind not in ("transient", "deterministic"):
         raise QueueError("kind는 transient|deterministic: %r" % (kind,))
+    ct.check_run_id(run_id)  # 쓰는 파일 이름과 세는 규칙(failures/ 필터)이 어긋나 기록이 소실되지 않게
     _check_owner(handle, run_id)
     attempt = len(states.failures(task_dir)) + 1
     record = {"attempt": attempt, "run_id": run_id, "kind": kind, "error": str(error), "ts": now}

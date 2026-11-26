@@ -2,6 +2,10 @@
 
 판단(상태 분류, 실행 여부)을 잠금 안에서 하려고 2단계로 나눈다: lock()으로 잠금을 잡고
 이전 기록을 읽은 뒤, 실행하기로 정해지면 stamp()로 내 기록을 쓴다(= 명세의 acquire).
+
+전제: 작업권(잠금 fd)을 쥔 프로세스가 끝까지 실행하고 exec하지 않는다. 잠금은 fd에 걸려 있어
+(Python 기본 close-on-exec) exec하거나 fd가 닫히면 풀리고, 기록된 pid만 남는다. 이 경우를 이중 실행으로
+이어지지 않게 하는 판정은 holder.py와 queue.claim(pid==os.getpid() 강제)에 있다.
 """
 import collections
 import errno

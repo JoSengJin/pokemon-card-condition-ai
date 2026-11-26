@@ -16,6 +16,7 @@ _REQUIRED = {
 }
 _OPTIONAL = {"expected_minutes": (int, float)}
 _HEX64 = re.compile(r"[0-9a-f]{64}")
+RUN_ID = re.compile(r"[0-9a-f]+")  # 실패 기록 파일 이름(failures/NNN-<run_id>.json)과 같은 규칙
 
 
 def task_key(task):
@@ -30,6 +31,13 @@ def check_key(key):
     if not isinstance(key, str) or not _HEX64.fullmatch(key):
         raise ContractError("task_key 형식 오류(소문자 16진 64자): %r" % (key,))
     return key
+
+
+def check_run_id(run_id):
+    """run_id는 소문자 16진(new_run_id가 만드는 형식). 파일 이름에 쓰이므로 다른 형식은 거절한다."""
+    if not isinstance(run_id, str) or not RUN_ID.fullmatch(run_id):
+        raise ContractError("run_id 형식 오류(소문자 16진): %r" % (run_id,))
+    return run_id
 
 
 def new_run_id():

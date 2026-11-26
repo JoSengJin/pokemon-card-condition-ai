@@ -7,13 +7,13 @@ import os
 import re
 
 from . import lease
-from .contract import ContractError, task_key
+from .contract import RUN_ID, ContractError, task_key
 from .jsonio import read_json
 from .manifest import mismatches
 
 VERIFIED, RUNNING, INTERRUPTED, FAILED, CORRUPT = "VERIFIED", "RUNNING", "INTERRUPTED", "FAILED", "CORRUPT"
 PENDING, UNREGISTERED = "PENDING", "UNREGISTERED"
-_FAILURE_FILE = re.compile(r"\d{3}-[0-9a-f]+\.json")
+_FAILURE_FILE = re.compile(r"\d{3}-%s\.json" % RUN_ID.pattern)
 
 
 def failures(task_dir):

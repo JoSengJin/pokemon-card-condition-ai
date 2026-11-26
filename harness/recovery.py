@@ -3,7 +3,7 @@ import os
 import socket
 
 from . import cas, checkpoint, states
-from .contract import ContractError, new_run_id
+from .contract import RUN_ID, ContractError, new_run_id
 from .jsonio import read_json
 from .manifest import mismatches, safe_path
 
@@ -58,8 +58,9 @@ def _interrupted(task_dir, prev, now, current):
     """30분 이상 실행했고 체크포인트 지문이 모두 일치할 때만 같은 run_id로 복원한다."""
     prev = prev or {}
     run_id, started = prev.get("run_id"), prev.get("ts")
-    if not isinstance(run_id, str) or not isinstance(started, (int, float)) or isinstance(started, bool):
-        why = "중단된 작업권 기록(run_id·시작 시각)이 없거나 손상됨"
+    if not isinstance(run_id, str) or not RUN_ID.fullmatch(run_id) \
+            or not isinstance(started, (int, float)) or isinstance(started, bool):
+        why = "중단된 작업권 기록(16진 run_id·시작 시각)이 없거나 손상됨"
     elif (now - started) / 60.0 < RESUME_MIN_MINUTES:
         why = "실행 시간이 %d분 미만" % RESUME_MIN_MINUTES
     else:
