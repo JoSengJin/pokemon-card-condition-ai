@@ -30,9 +30,11 @@ def verdict(prev, boot, me=None, zombie=None):
     기록이 없음·깨짐·부팅 식별자 다름·pid 죽음·내 pid(같은 프로세스가 놓고 간 기록)·좀비는 dead다.
     zombie는 pid -> True/False/None 조회 함수(시험 주입용, 기본 is_zombie).
     """
-    if not lease.is_alive(prev, lambda: boot):
+    pid = prev.get("pid") if isinstance(prev, dict) else None
+    if not isinstance(pid, int) or isinstance(pid, bool) or prev.get("boot_id") != boot \
+            or not lease.pid_alive(pid):
         return "dead"
-    if prev["pid"] == (os.getpid() if me is None else me):
+    if pid == (os.getpid() if me is None else me):
         return "dead"
-    found = (zombie or is_zombie)(prev["pid"])
+    found = (zombie or is_zombie)(pid)
     return {True: "dead", False: "alive"}.get(found, "unknown")

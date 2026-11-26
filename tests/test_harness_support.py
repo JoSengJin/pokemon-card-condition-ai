@@ -61,7 +61,7 @@ import os, sys, time
 from harness import queue
 root, key, boot = sys.argv[1:4]
 res = queue.claim(root, key, os.getpid(), boot, time.time())
-queue._log = lambda *args: os.kill(os.getpid(), 9)  # 실패 기록 파일을 쓴 직후, 작업권 해제 전에 kill -9
+queue.ledger.append = lambda *args: os.kill(os.getpid(), 9)  # 실패 기록 파일을 쓴 직후, 작업권 해제 전에 kill -9
 queue.fail(root, key, res["run_id"], res["lease"], "deterministic", "TypeError", time.time())
 '''
 

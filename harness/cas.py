@@ -1,4 +1,8 @@
-"""내용 주소 저장소(CAS). CORRUPT 복구 전용: 산출물 사본을 sha256 이름으로 보관한다."""
+"""내용 주소 저장소(CAS). CORRUPT 복구 전용: 산출물 사본을 sha256 이름으로 보관한다.
+
+호출 깊이 설계: sha_file·blob_path는 다른 함수를 부르지 않는 말단이고, 나머지(has·put·get·restore)는
+말단만 부른다(has/put/restore 사이의 호출 없음).
+"""
 import hashlib
 import os
 import shutil
@@ -30,9 +34,9 @@ def has(cas_root, sha):
 
 def put(cas_root, path):
     sha = sha_file(path)
-    if has(cas_root, sha):
-        return sha
     blob = blob_path(cas_root, sha)
+    if os.path.isfile(blob) and sha_file(blob) == sha:  # has()와 같은 검사(말단만 부르려고 펼침)
+        return sha
     os.makedirs(os.path.dirname(blob), exist_ok=True)
     tmp = "%s.tmp.%d" % (blob, os.getpid())
     shutil.copyfile(path, tmp)
@@ -43,12 +47,24 @@ def put(cas_root, path):
     return sha
 
 
+def restore(cas_root, items):
+    """items: [(sha, dest)]. 보관본 해시를 확인한 뒤 dest로 원자 복사. 복구하지 못한 dest 목록을 돌려준다."""
+    failed = []
+    for sha, dest in items:
+        try:
+            blob = blob_path(cas_root, sha)
+            if not os.path.isfile(blob) or sha_file(blob) != sha:
+                raise CasError("보관본이 없거나 손상됨: %s" % sha)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            tmp = "%s.tmp.%d" % (dest, os.getpid())
+            shutil.copyfile(blob, tmp)
+            os.replace(tmp, dest)
+        except (CasError, OSError):
+            failed.append(dest)
+    return failed
+
+
 def get(cas_root, sha, dest):
-    """보관본 해시를 확인한 뒤 dest로 원자 복사. 없거나 손상이면 CasError."""
-    blob = blob_path(cas_root, sha)
-    if not os.path.isfile(blob) or sha_file(blob) != sha:
+    """restore의 단일 파일판. 없거나 손상이면 CasError."""
+    if restore(cas_root, [(sha, dest)]):
         raise CasError("보관본이 없거나 손상됨: %s" % sha)
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    tmp = "%s.tmp.%d" % (dest, os.getpid())
-    shutil.copyfile(blob, tmp)
-    os.replace(tmp, dest)

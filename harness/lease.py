@@ -36,7 +36,7 @@ def boot_id(output=None):
     return found.group(1)
 
 
-def _os_alive(pid):
+def pid_alive(pid):
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -46,7 +46,7 @@ def _os_alive(pid):
     return True
 
 
-def is_alive(lease, boot_id_fn=boot_id, pid_alive=_os_alive):
+def is_alive(lease, boot_id_fn=boot_id, pid_alive=pid_alive):
     """부팅 식별자가 같고 pid가 살아 있을 때만 True. 기록이 없거나 깨졌으면 False."""
     if not lease or not isinstance(lease.get("pid"), int) or isinstance(lease.get("pid"), bool):
         return False

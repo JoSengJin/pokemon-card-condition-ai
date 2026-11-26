@@ -81,3 +81,20 @@ class StateGuardsTest(unittest.TestCase):
                     with self.subTest(key=bad), self.assertRaises(contract.ContractError):
                         call(bad)
             self.assertEqual(os.listdir(root), [])  # root 아래에 아무것도 만들지 않았다
+
+    def test_claim_restores_corrupt_outputs_from_cas_then_skips_and_reruns_when_cas_is_damaged(self):
+        with tempfile.TemporaryDirectory() as root:
+            key, _ = finish(root, make_contract(), T0, payload=b"data")
+            tdir = os.path.join(root, "tasks", key)
+            out = pathlib.Path(tdir, "out", "result.txt")
+            out.unlink()
+            res = queue.claim(root, key, os.getpid(), BOOT, T0 + 1)  # claim도 같은 복구를 한다
+            self.assertEqual((res["ok"], res["reason"], res["state"]), (False, "skip", states.CORRUPT))
+            self.assertEqual(out.read_bytes(), b"data")
+            self.assertEqual(states.classify(tdir, T0, alive_with()), states.VERIFIED)
+            out.write_bytes(b"datX")
+            recorded = json.loads(pathlib.Path(tdir, "done.json").read_text())["manifest"]["result.txt"]
+            pathlib.Path(root, "cas", recorded[:2], recorded).write_bytes(b"damaged")
+            again = queue.claim(root, key, os.getpid(), BOOT, T0 + 2)  # 보관본도 손상: 새로 실행한다
+            self.assertEqual((again["ok"], again["plan"]["action"]), (True, "rerun"))
+            lease.release(again["lease"])

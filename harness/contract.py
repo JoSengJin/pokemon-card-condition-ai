@@ -45,6 +45,7 @@ def new_run_id():
 
 
 def validate_contract(task):
+    """계약 검증(다른 함수를 부르지 않는 말단 함수). 위반은 ContractError."""
     if not isinstance(task, dict):
         raise ContractError("계약은 dict여야 한다")
     allowed = dict(_REQUIRED, **_OPTIONAL)
@@ -56,11 +57,6 @@ def validate_contract(task):
         if name in task and (not isinstance(task[name], typ) or
                              (typ is not bool and isinstance(task[name], bool))):
             raise ContractError("필드 %s 타입 오류" % name)
-    _check_values(task)
-    return task
-
-
-def _check_values(task):
     outputs = task["outputs"]
     if not task["task_type"] or not task["risk"]:
         raise ContractError("task_type·risk는 비어 있을 수 없다")
@@ -80,3 +76,4 @@ def _check_values(task):
         raise ContractError("retry_policy는 max_transient_retries(0~2)만 허용한다")
     if task["escalation_level"] < 0 or task.get("expected_minutes", 0) < 0:
         raise ContractError("escalation_level·expected_minutes는 0 이상이어야 한다")
+    return task

@@ -1,4 +1,7 @@
-"""출력 manifest: 산출물 상대 경로 -> sha256. 완료 인정은 이 해시 검증뿐이다."""
+"""출력 manifest: 산출물 상대 경로 -> sha256. 완료 인정은 이 해시 검증뿐이다.
+
+검증(어긋남 계산)은 states.facts가 safe_path·sha_file을 직접 불러 한다(호출 깊이 설계).
+"""
 import os
 
 from .cas import sha_file
@@ -33,17 +36,3 @@ def build(out_dir, outputs):
             raise ValueError("산출물 경로가 out/ 밖이거나 심볼릭 링크를 거친다: %s" % rel)
         result[rel] = sha_file(path)
     return result
-
-
-def mismatches(out_dir, manifest, expected):
-    """manifest와 어긋난 상대 경로 목록(없음·변조·링크·선언과 키 집합 불일치). 빈 목록이어야 통과."""
-    if not isinstance(manifest, dict):
-        return sorted(expected)
-    bad = set(manifest) ^ set(expected)
-    for rel in set(manifest) & set(expected):
-        path = os.path.join(out_dir, rel)
-        if safe_path(out_dir, rel) is None:
-            bad.add(rel)
-        elif os.path.islink(path) or not os.path.isfile(path) or sha_file(path) != manifest[rel]:
-            bad.add(rel)
-    return sorted(bad)

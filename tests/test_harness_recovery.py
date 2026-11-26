@@ -137,14 +137,14 @@ class RecoveryTest(unittest.TestCase):
             key = queue.enqueue(root, make_contract(), T0)
             path = os.path.join(root, "tasks", key, "lease.json")
             dead_lease(root, key, T0)
-            with mock.patch.object(states, "classify", side_effect=RuntimeError("주입")):
+            with mock.patch.object(states, "facts", side_effect=RuntimeError("주입")):
                 with self.assertRaises(RuntimeError):
                     queue.claim(root, key, os.getpid(), BOOT, T0)
             handle = lease.lock(path)
             self.assertIsNotNone(handle)  # 잠금이 풀려 있다
             self.assertEqual(handle.previous["run_id"], "r-dead")  # 중단 증거도 그대로
             lease.release(handle)
-            with mock.patch.object(queue, "_log", side_effect=[None, OSError("장부 쓰기 실패")]):
+            with mock.patch.object(queue.ledger, "append", side_effect=[None, OSError("장부 쓰기 실패")]):
                 with self.assertRaises(OSError):  # 첫 호출(계획 이벤트)은 통과, 둘째(claimed 기록)에서 실패
                     queue.claim(root, key, os.getpid(), BOOT, T0 + 1)
             self.assertFalse(os.path.exists(path))  # 방금 쓴 작업권을 지워 잠금·기록이 남지 않는다

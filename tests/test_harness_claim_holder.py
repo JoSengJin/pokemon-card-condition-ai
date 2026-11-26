@@ -97,6 +97,7 @@ class ClaimHolderTest(unittest.TestCase):
         self.assertIs(holder.is_zombie(1, run=ps("Z+\n")), True)
         self.assertIs(holder.is_zombie(1, run=ps("Ss\n")), False)
         self.assertIsNone(holder.is_zombie(1, run=ps("", 1)))  # 조회 실패는 추정하지 않는다
+        self.assertIsNone(holder.is_zombie(1, run=ps("Z\n", 1)))  # 종료 코드가 실패면 출력이 Z여도 믿지 않는다
         self.assertIsNone(holder.is_zombie(1, run=mock.Mock(side_effect=OSError("ps 없음"))))
         rec = {"pid": os.getppid(), "boot_id": BOOT, "ts": 0}  # 살아 있고 내가 아닌 pid
         self.assertEqual(holder.verdict(rec, BOOT, zombie=lambda pid: False), "alive")

@@ -3,6 +3,10 @@
 root 아래 구조: ledger.jsonl, cas/, tasks/<task_key>/{contract.json,out/,lease.json,done.json,...}.
 기록은 상태 변경 뒤에 남긴다(장부가 일어나지 않은 일을 주장하지 않게). 비정상 종료 시 장부 줄이
 빠질 수 있으며, 상태 파일이 정본이다.
+
+호출 깊이 설계(공개 함수마다 깊이 2 이하): 이 파일의 공개 함수는 states.facts·state_of·recovery.decide·
+cas·ledger·lease의 말단/중간 함수를 직접 순서대로 부르고, 그 함수들은 말단만 부른다. 그래서 같은 순서가
+claim과 recover에 한 번씩 보인다(사실 수집 → CAS 복구 → 다시 수집 → 판정 → 기록).
 """
 import os
 
@@ -13,11 +17,6 @@ from .jsonio import read_json, write_json
 
 class QueueError(Exception):
     pass
-
-
-def _log(root, now, events):
-    for event, data in events:
-        ledger.append(os.path.join(root, "ledger.jsonl"), now, event, data)
 
 
 def _check_owner(handle, run_id):
@@ -34,22 +33,21 @@ def enqueue(root, task, now):
     path = os.path.join(root, "tasks", key, "contract.json")
     if not os.path.exists(path):
         write_json(path, task)
-        _log(root, now, [("enqueued", {"task_key": key, "task_type": task["task_type"]})])
+        ledger.append(os.path.join(root, "ledger.jsonl"), now, "enqueued",
+                      {"task_key": key, "task_type": task["task_type"]})
     return key
 
 
 def claim(root, key, pid, boot, now, current=None):
     """작업권을 잡고 실행 여부를 정한다. 잠금 안에서 상태 분류·결정하므로 동시 claim은 한쪽만 성공한다.
 
-    flock을 잡았다는 것은 이전 작업권의 주인이 없다는 확정 증거이므로, 이전 기록은 pid가 살아 있어 보여도
-    (좀비·재사용된 pid) 죽은 작업권으로 본다. 산 작업권이면 flock이 이미 잡혀 있어 "locked"로 거절된다.
-    단, 기록된 pid가 같은 부팅에서 살아 있고 좀비가 아니면 인수하지 않고 "holder_alive_without_lock"으로
-    멈춘다(잠금 없이 실행 중인 주인이 있다는 뜻: 이중 실행 방지가 멈춤보다 우선). 좀비는 인수하고, 판정
-    불가(ps 실패)는 "blocked"다. 전제: 작업권을 쥔 프로세스가 끝까지 실행하고 exec하지 않는다 —
-    그래서 pid는 os.getpid()여야 한다(대리 claim 거절).
+    flock을 잡았다는 것은 이전 작업권의 주인 프로세스가 잠금을 쥐고 있지 않다는 증거일 뿐이다. 그래서 이전 기록의
+    pid가 같은 부팅에서 살아 있고 좀비가 아니면 인수하지 않고 "holder_alive_without_lock"으로 멈춘다(잠금 없이
+    실행 중인 주인이 있다는 뜻: 이중 실행 방지가 멈춤보다 우선). 좀비는 인수하고, 판정 불가(ps 실패)는 "blocked"다.
+    전제: 작업권을 쥔 프로세스가 끝까지 실행하고 exec하지 않는다 — 그래서 pid는 os.getpid()여야 한다(대리 claim 거절).
 
     성공: {"ok": True, "run_id", "resumed", "lease"(complete/fail에 넘길 핸들), "state", "plan"}.
-    실패: {"ok": False, "reason": "locked"|"unregistered"|plan action, ...}. 잠금 핸들은 프로세스가 쥐고 있다.
+    실패: {"ok": False, "reason": "locked"|"unregistered"|plan action|holder_alive_without_lock|blocked, ...}.
     """
     task_dir = os.path.join(root, "tasks", ct.check_key(key))
     if pid != os.getpid():
@@ -60,43 +58,55 @@ def claim(root, key, pid, boot, now, current=None):
     if handle is None:
         return {"ok": False, "reason": "locked"}
     try:
-        state = states.classify(task_dir, now, lambda held: False)
-        who = holder.verdict(handle.previous, boot) if state == states.INTERRUPTED else "dead"
+        info, restored = states.facts(task_dir), []
+        if info["restorable"]:  # CORRUPT: 보관본에서 어긋난 산출물만 되살리고 다시 검증한다
+            restored = info["bad"]
+            cas.restore(os.path.join(root, "cas"), info["restorable"])
+            info = states.facts(task_dir)
+        state = states.state_of(info, False)  # 잠금을 잡았으므로 이전 기록의 주인은 잠금을 쥐고 있지 않다
+        shown = states.CORRUPT if restored else state  # 복구 전 상태를 보고한다
+        who = holder.verdict(info["held"], boot) if state == states.INTERRUPTED else "dead"
         if who == "dead":
-            plan = recovery.decide(task_dir, os.path.join(root, "cas"), state, handle.previous, now, current)
+            plan = recovery.decide(task_dir, state, info, now, current, restored)
         else:  # 잠금 없이 주인이 살아 있거나 판정 불가: 인수하지 않고 사유를 장부에 남긴다
             why = "holder_alive_without_lock" if who == "alive" else "blocked"
-            plan = {"runnable": False, "action": why, "events": [(why, {"task_key": key, "holder": handle.previous})]}
-        _log(root, now, plan["events"])
+            plan = {"runnable": False, "action": why, "events": [(why, {"task_key": key, "holder": info["held"]})]}
+        for event, data in plan["events"]:
+            ledger.append(os.path.join(root, "ledger.jsonl"), now, event, data)
     except BaseException:  # 판단 중 오류가 잠금을 쥔 채 남지 않게 한다(이전 기록은 보존)
         lease.release(handle)
         raise
     if not plan["runnable"]:
         lease.release(handle)
-        return {"ok": False, "reason": plan["action"], "state": state, "plan": plan}
+        return {"ok": False, "reason": plan["action"], "state": shown, "plan": plan}
     try:
         lease.stamp(handle, pid, boot, now, {"run_id": plan["run_id"], "resumed": plan["resumed"]})
-        _log(root, now, [("claimed", {"task_key": key, "run_id": plan["run_id"], "pid": pid,
-                                      "state_before": state, "action": plan["action"], "resumed": plan["resumed"]})])
+        ledger.append(os.path.join(root, "ledger.jsonl"), now, "claimed",
+                      {"task_key": key, "run_id": plan["run_id"], "pid": pid, "state_before": shown,
+                       "action": plan["action"], "resumed": plan["resumed"]})
     except BaseException:  # 기록 실패로 쥔 작업권이 남아 이중 실행 오해·교착이 생기지 않게 한다
         lease.release(handle, remove=True)
         raise
     return {"ok": True, "run_id": plan["run_id"], "resumed": plan["resumed"], "lease": handle,
-            "state": state, "plan": plan}
+            "state": shown, "plan": plan}
 
 
 def complete(root, key, run_id, handle, now):
     """out/의 산출물 해시를 manifest로 기록하고 CAS에 보관한 뒤 done.json을 쓴다(그 뒤에 작업권 해제)."""
     task_dir = os.path.join(root, "tasks", ct.check_key(key))
     held = _check_owner(handle, run_id)
+    task = read_json(os.path.join(task_dir, "contract.json"))
+    if not isinstance(task, dict) or ct.task_key(task) != key or not task.get("outputs"):
+        raise QueueError("계약 파일이 손상되었거나 task_key와 맞지 않는다")
     out_dir = os.path.join(task_dir, "out")
-    recorded = manifest.build(out_dir, states.load_contract(task_dir)["outputs"])
+    recorded = manifest.build(out_dir, task["outputs"])
     for rel in recorded:
         cas.put(os.path.join(root, "cas"), os.path.join(out_dir, rel))
     write_json(os.path.join(task_dir, "done.json"), {"task_key": key, "run_id": run_id,
                "resumed": bool(held.get("resumed")), "completed_at": now, "manifest": recorded})
     try:
-        _log(root, now, [("completed", {"task_key": key, "run_id": run_id, "manifest": recorded})])
+        ledger.append(os.path.join(root, "ledger.jsonl"), now, "completed",
+                      {"task_key": key, "run_id": run_id, "manifest": recorded})
     finally:
         lease.release(handle, remove=True)
 
@@ -104,15 +114,15 @@ def complete(root, key, run_id, handle, now):
 def fail(root, key, run_id, handle, kind, error, now):
     """실패를 failures/에 추가(덮어쓰지 않음)하고 작업권을 해제한다. kind는 transient|deterministic."""
     task_dir = os.path.join(root, "tasks", ct.check_key(key))
+    ct.check_run_id(run_id)  # 쓰는 파일 이름과 세는 규칙(failures/ 필터)이 어긋나 기록이 소실되지 않게
     if kind not in ("transient", "deterministic"):
         raise QueueError("kind는 transient|deterministic: %r" % (kind,))
-    ct.check_run_id(run_id)  # 쓰는 파일 이름과 세는 규칙(failures/ 필터)이 어긋나 기록이 소실되지 않게
     _check_owner(handle, run_id)
     attempt = len(states.failures(task_dir)) + 1
     record = {"attempt": attempt, "run_id": run_id, "kind": kind, "error": str(error), "ts": now}
     write_json(os.path.join(task_dir, "failures", "%03d-%s.json" % (attempt, run_id)), record)
     try:
-        _log(root, now, [("failed", dict(record, task_key=key))])
+        ledger.append(os.path.join(root, "ledger.jsonl"), now, "failed", dict(record, task_key=key))
     finally:
         lease.release(handle, remove=True)
 
@@ -123,8 +133,14 @@ def recover(root, key, now, is_alive=lease.is_alive, current=None):
     돌려주는 run_id는 참고용이며 실제 실행은 claim이 잠금 안에서 다시 정한다.
     """
     task_dir = os.path.join(root, "tasks", ct.check_key(key))
-    state = states.classify(task_dir, now, is_alive)
-    plan = recovery.decide(task_dir, os.path.join(root, "cas"), state,
-                           lease.read(os.path.join(task_dir, "lease.json")), now, current)
-    _log(root, now, plan["events"])
-    return dict(plan, state=state)
+    info, restored = states.facts(task_dir), []
+    if info["restorable"]:
+        restored = info["bad"]
+        cas.restore(os.path.join(root, "cas"), info["restorable"])
+        info = states.facts(task_dir)
+    held = info["held"]
+    state = states.state_of(info, held is not None and is_alive(held))
+    plan = recovery.decide(task_dir, state, info, now, current, restored)
+    for event, data in plan["events"]:
+        ledger.append(os.path.join(root, "ledger.jsonl"), now, event, data)
+    return dict(plan, state=states.CORRUPT if restored else state)
