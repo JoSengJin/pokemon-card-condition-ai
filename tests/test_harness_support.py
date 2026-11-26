@@ -8,6 +8,7 @@ from harness import checkpoint, lease, queue
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BOOT = "boot-test-1"
+RUNNER_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"  # sysctl(부팅 식별자)은 필요하고 claude는 없는 PATH
 SHA_A = "ab" * 32
 
 WORKER = r'''
@@ -68,9 +69,9 @@ queue.fail(root, key, res["run_id"], res["lease"], "deterministic", "TypeError",
 claim = functools.partial(queue.claim, boot_id_fn=lambda: BOOT)  # 시험용 부팅 식별자 주입
 
 
-def make_contract(tag="a", depends_on=(), outputs=("result.txt",)):
-    return {"task_type": "unit-" + tag, "inputs": {"in.txt": SHA_A}, "outputs": list(outputs),
-            "depends_on": list(depends_on), "needs_llm": False, "needs_vision": False,
+def make_contract(tag="a", depends_on=(), outputs=("result.txt",), inputs=None, needs_llm=False, task_type=None):
+    return {"task_type": task_type or "unit-" + tag, "inputs": inputs or {"in.txt": SHA_A}, "outputs": list(outputs),
+            "depends_on": list(depends_on), "needs_llm": needs_llm, "needs_vision": False,
             "risk": "low", "retry_policy": {}, "escalation_level": 0}
 
 
@@ -118,3 +119,11 @@ def dead_lease(root, key, started, run_id="r-dead", pid=999999):
 def fingerprint(**override):
     """체크포인트·현재 실행 지문(코드·자료 SHA, seed, 난수·옵티마이저·데이터 순서)."""
     return dict({name: "v-" + name for name in checkpoint.REQUIRED}, **override)
+
+
+def spawn_runner(root, marks, extra_env=None, args=()):
+    """실제 하위 프로세스로 runner를 실행한다. 환경은 새로 만든다: PATH에 claude 없음, 모델 관련 환경변수 없음."""
+    env = {"PATH": RUNNER_PATH, "HARNESS_MARK_DIR": marks, "PYTHONDONTWRITEBYTECODE": "1"}
+    env.update(extra_env or {})
+    return subprocess.Popen([sys.executable, "-m", "harness.runner", root, "tests.test_harness_executors:EXECUTORS",
+                             *args], cwd=REPO, env=env, stdout=subprocess.PIPE, text=True)
