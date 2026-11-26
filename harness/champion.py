@@ -1,0 +1,141 @@
+"""Champion 포인터와 전환(승격·복원).
+
+전환은 선기록(WAL)이다: registry에 switch_intent를 쓰고 → 포인터 파일을 원자 교체하고(임시 파일+fsync+os.replace+디렉터리 fsync)
+→ switched를 쓰고 → 주 장부(root/ledger.jsonl)에 요약을 쓴다. 어느 지점에서 kill -9를 맞아도 포인터는 이전 또는 새 Champion을
+완전하게 가리키고, 다음 호출의 settle이 포인터와 의도를 대조해 switched를 마저 쓰거나 switch_aborted를 쓴다.
+주 장부 요약은 상태 변경 뒤에 쓰므로(1단계 가정 9와 같음) 죽으면 빠질 수 있다. 정본은 registry와 포인터다.
+호출 깊이를 낮추려고 _switch와 settle의 장부 쓰기는 일부러 펼쳐 두었다.
+"""
+import os
+
+from harness import cas, gate, jsonio, ledger, registry
+
+_DONE = {"promote": "champion_promoted", "restore": "champion_restored"}
+
+
+class ChampionError(Exception):
+    pass
+
+
+def current(root, state):
+    """포인터가 가리키는 Champion {model_id, intent_hash, weights_sha, valid}. 포인터가 없으면 None.
+
+    포인터가 깨졌거나 레지스트리에 없는 모델·의도를 가리키면 ChampionError(조용히 넘어가지 않는다).
+    """
+    try:
+        pointer = jsonio.read_json(os.path.join(root, registry.POINTER))
+    except ValueError as err:
+        raise ChampionError("Champion 포인터가 손상됨: %s" % err)
+    if pointer is None:
+        return None
+    ok = (isinstance(pointer, dict) and pointer.get("model_id") in state["models"]
+          and pointer.get("intent_hash") in state["hashes"])
+    if not ok:
+        raise ChampionError("포인터가 레지스트리에 없는 항목을 가리킴: %r" % (pointer,))
+    return dict(pointer, valid=state["models"][pointer["model_id"]]["status"] == "valid")
+
+
+def settle(root, now, state):
+    """죽은 전환의 마무리: 짝 없는 switch_intent를 포인터와 대조해 switched 또는 switch_aborted를 쓴다. 썼으면 True."""
+    pending = state["pending"]
+    if pending is None:
+        return False
+    try:
+        pointer = jsonio.read_json(os.path.join(root, registry.POINTER))
+    except ValueError as err:
+        raise ChampionError("Champion 포인터가 손상됨: %s" % err)
+    swapped = isinstance(pointer, dict) and pointer.get("intent_hash") == pending["hash"]
+    info = {"intent_hash": pending["hash"], "target": pending["target"], "from": pending["from"],
+            "reason": pending["reason"]}
+    if not swapped:
+        ledger.append(os.path.join(root, registry.REGISTRY), now, "switch_aborted", info)
+        return True
+    ledger.append(os.path.join(root, registry.REGISTRY), now, "switched", dict(info, settled=True))
+    ledger.append(os.path.join(root, "ledger.jsonl"), now, _DONE[pending["reason"]], dict(info, settled=True))
+    return True
+
+
+def _switch(root, now, state, target, reason, previous):
+    """선기록 → 포인터 원자 교체 → 완료 기록. 반환값 없음(호출자는 필요하면 다시 load한다)."""
+    reg = os.path.join(root, registry.REGISTRY)
+    intent = ledger.append(reg, now, "switch_intent", {"target": target, "from": previous, "reason": reason})
+    pointer_path = os.path.join(root, registry.POINTER)
+    jsonio.write_json(pointer_path, {"model_id": target, "intent_hash": intent["hash"], "reason": reason,
+                                     "weights_sha": state["models"][target]["weights_sha"]})
+    fd = os.open(os.path.dirname(pointer_path), os.O_RDONLY)  # 이름 교체 자체를 디스크에 고정
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    info = {"intent_hash": intent["hash"], "target": target, "from": previous, "reason": reason}
+    ledger.append(reg, now, "switched", info)
+    ledger.append(os.path.join(root, "ledger.jsonl"), now, _DONE[reason], info)
+
+
+def promote(root, now, model_id, audit_status=None):
+    """model_id를 Champion으로 승격한다. 거절은 {"ok": False, "reason", "detail"}, 성공은 {"ok": True, ...}.
+
+    이미 그 모델이 유효한 현재 Champion이면 아무 것도 쓰지 않고 already=True(멱등).
+    audit_status: {Silver 묶음 ID: complete|not_required|pending|failed}. 계보 전체의 묶음이 모두 complete/not_required여야 한다.
+    """
+    if audit_status is None:
+        audit_status = {}
+    if not isinstance(audit_status, dict):
+        raise ChampionError("audit_status는 dict여야 한다")
+    with registry.lock(root):
+        state = registry.load(root)
+        if settle(root, now, state):
+            state = registry.load(root)
+        holder = current(root, state)
+        if holder is not None and holder["model_id"] == model_id and holder["valid"]:
+            return {"ok": True, "already": True, "model_id": model_id}
+        verdict = gate.check(root, state, model_id, holder, audit_status)
+        if verdict is not None:
+            return dict(verdict, ok=False)
+        previous = holder["model_id"] if holder else None
+        _switch(root, now, state, model_id, "promote", previous)
+    return {"ok": True, "already": False, "model_id": model_id, "previous": previous}
+
+
+def _materialize(root, record):
+    """CAS에서 가중치를 꺼내 복원 폴더에 쓰고, 레지스트리에 기록된 해시와 다시 대조한다. 어긋나면 ChampionError."""
+    dest = os.path.join(root, "models", "restored", record["model_id"], "weights")
+    try:
+        cas.get(os.path.join(root, "cas"), record["weights_sha"], dest)
+    except cas.CasError as err:
+        raise ChampionError("복원할 가중치를 CAS에서 꺼낼 수 없음: %s" % err)
+    if cas.sha_file(dest) != record["weights_sha"]:
+        os.unlink(dest)
+        raise ChampionError("복원 가중치 해시 불일치: %s" % record["model_id"])
+    return dest
+
+
+def restore_locked(root, now, state):
+    """lock 안에서 호출한다. 현재 Champion이 무효이면 가장 최근의 다른 유효한 이전 Champion으로 되돌린다."""
+    holder = current(root, state)
+    if holder is None:
+        return {"ok": False, "reason": "no_champion"}
+    if holder["valid"]:
+        return {"ok": False, "reason": "champion_valid"}
+    target = next((h["model_id"] for h in reversed(state["history"])
+                   if h["model_id"] != holder["model_id"] and state["models"][h["model_id"]]["status"] == "valid"), None)
+    if target is None:
+        return {"ok": False, "reason": "no_verified_champion"}
+    path = _materialize(root, state["models"][target])  # 포인터를 바꾸기 전에 재현을 확인한다
+    _switch(root, now, state, target, "restore", holder["model_id"])
+    return {"ok": True, "model_id": target, "restored_from": holder["model_id"], "weights_path": path,
+            "weights_sha": state["models"][target]["weights_sha"], "reproduced": True}
+
+
+def restore_last_verified(root, now, regression=None):
+    """현재 Champion이 무효이면 마지막 검증된 Champion으로 복원. regression(사유 문자열)을 주면 현재 Champion을 그 사유로 무효화한 뒤 복원."""
+    with registry.lock(root):
+        state = registry.load(root)
+        if settle(root, now, state):
+            state = registry.load(root)
+        holder = current(root, state)
+        if regression is not None and holder is not None and holder["valid"]:
+            data = {"models": [holder["model_id"]], "cause": "regression: %s" % (regression,)}
+            registry.apply(state, ledger.append(os.path.join(root, registry.REGISTRY), now, "invalidated", data))
+            ledger.append(os.path.join(root, "ledger.jsonl"), now, "champion_invalidated", data)
+        return restore_locked(root, now, state)
