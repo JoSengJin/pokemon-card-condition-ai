@@ -2,6 +2,7 @@
 
 hash = sha256(prev + canonical({seq, ts, event, data})). 꼬리 잘림은 외부에 복제한 마지막 해시
 (expected_tail)와 대조할 때만 감지된다(복제본이 없으면 마지막 줄 삭제는 알 수 없다).
+전체 줄을 처음부터 다시 계산해 쓴 위조(해시를 모두 재계산)도 expected_tail 복제본 없이는 감지되지 않는다.
 """
 import fcntl
 import hashlib

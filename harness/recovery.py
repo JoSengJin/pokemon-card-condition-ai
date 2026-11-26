@@ -3,9 +3,9 @@ import os
 import socket
 
 from . import cas, checkpoint, states
-from .contract import new_run_id
+from .contract import ContractError, new_run_id
 from .jsonio import read_json
-from .manifest import mismatches
+from .manifest import mismatches, safe_path
 
 RESUME_MIN_MINUTES = 30.0
 RUNNABLE = ("run", "rerun", "retry", "resume")
@@ -26,7 +26,10 @@ def _plan(action, reason="", run_id=None, resumed=False, events=(), **extra):
 
 def _corrupt(task_dir, cas_root):
     """보관본(CAS)에서 어긋난 산출물만 복구하고 해시를 다시 검증. 실패하면 완료 기록을 보관하고 재실행."""
-    outputs = read_json(os.path.join(task_dir, "contract.json"))["outputs"]
+    try:
+        outputs = states.load_contract(task_dir)["outputs"]
+    except ContractError as exc:  # 계약이 변조·손상: 재실행하지 않고 사람이 보게 멈춘다
+        return _plan("blocked", str(exc))
     out_dir, done_path = os.path.join(task_dir, "out"), os.path.join(task_dir, "done.json")
     try:
         done = read_json(done_path)
@@ -35,8 +38,10 @@ def _corrupt(task_dir, cas_root):
     recorded = done.get("manifest") if isinstance(done, dict) and isinstance(done.get("manifest"), dict) else {}
     bad = mismatches(out_dir, recorded, outputs)
     for rel in [r for r in bad if r in outputs and r in recorded]:
+        dest = safe_path(out_dir, rel)  # 링크·out 밖 경로로는 쓰지 않는다
         try:
-            cas.get(cas_root, recorded[rel], os.path.join(out_dir, rel))
+            if dest is not None and not os.path.islink(dest):
+                cas.get(cas_root, recorded[rel], dest)
         except (cas.CasError, OSError):
             pass  # 복구 실패는 아래 재검증에서 드러난다
     remaining = mismatches(out_dir, recorded, outputs)
@@ -68,7 +73,7 @@ def _interrupted(task_dir, prev, now, current):
 def _failed(task_dir):
     records = states.failures(task_dir)
     kind, attempts = records[-1].get("kind"), len(records)
-    allowed = read_json(os.path.join(task_dir, "contract.json"))["retry_policy"].get("max_transient_retries", 2)
+    allowed = states.load_contract(task_dir)["retry_policy"].get("max_transient_retries", 2)
     info = {"failure_kind": kind, "attempts": attempts}
     if kind == "transient" and attempts <= allowed:
         return _plan("retry", "일시적 실패 재시도 %d/%d" % (attempts, allowed),

@@ -38,61 +38,72 @@ def enqueue(root, task, now):
     return key
 
 
-def claim(root, key, pid, boot, now, is_alive=lease.is_alive, current=None):
+def claim(root, key, pid, boot, now, is_alive=None, current=None):
     """작업권을 잡고 실행 여부를 정한다. 잠금 안에서 상태 분류·결정하므로 동시 claim은 한쪽만 성공한다.
+
+    flock을 잡았다는 것은 이전 작업권의 주인이 없다는 확정 증거이므로, 이전 기록은 pid가 살아 있어 보여도
+    (좀비·재사용된 pid) 죽은 작업권으로 본다. 산 작업권이면 flock이 이미 잡혀 있어 "locked"로 거절된다.
+    is_alive는 이전 호출 형식과의 호환용이며 무시한다(pid 생존 판정은 관찰자용 classify/recover의 몫).
 
     성공: {"ok": True, "run_id", "resumed", "lease"(complete/fail에 넘길 핸들), "state", "plan"}.
     실패: {"ok": False, "reason": "locked"|"unregistered"|plan action, ...}. 잠금 핸들은 프로세스가 쥐고 있다.
     """
-    task_dir = os.path.join(root, "tasks", key)
+    task_dir = os.path.join(root, "tasks", ct.check_key(key))
     if not os.path.isdir(task_dir):
         return {"ok": False, "reason": "unregistered"}
     handle = lease.lock(os.path.join(task_dir, "lease.json"))
     if handle is None:
         return {"ok": False, "reason": "locked"}
     try:
-        state = states.classify(task_dir, now, is_alive)
+        state = states.classify(task_dir, now, lambda held: False)
         plan = recovery.decide(task_dir, os.path.join(root, "cas"), state, handle.previous, now, current)
         _log(root, now, plan["events"])
-    except BaseException:  # 판단 중 오류(부팅 식별자 조회 실패 등)가 잠금을 쥔 채 남지 않게 한다
+    except BaseException:  # 판단 중 오류가 잠금을 쥔 채 남지 않게 한다(이전 기록은 보존)
         lease.release(handle)
         raise
     if not plan["runnable"]:
         lease.release(handle)
         return {"ok": False, "reason": plan["action"], "state": state, "plan": plan}
-    lease.stamp(handle, pid, boot, now, {"run_id": plan["run_id"], "resumed": plan["resumed"]})
-    _log(root, now, [("claimed", {"task_key": key, "run_id": plan["run_id"], "pid": pid,
-                                  "state_before": state, "action": plan["action"], "resumed": plan["resumed"]})])
+    try:
+        lease.stamp(handle, pid, boot, now, {"run_id": plan["run_id"], "resumed": plan["resumed"]})
+        _log(root, now, [("claimed", {"task_key": key, "run_id": plan["run_id"], "pid": pid,
+                                      "state_before": state, "action": plan["action"], "resumed": plan["resumed"]})])
+    except BaseException:  # 기록 실패로 쥔 작업권이 남아 이중 실행 오해·교착이 생기지 않게 한다
+        lease.release(handle, remove=True)
+        raise
     return {"ok": True, "run_id": plan["run_id"], "resumed": plan["resumed"], "lease": handle,
             "state": state, "plan": plan}
 
 
 def complete(root, key, run_id, handle, now):
     """out/의 산출물 해시를 manifest로 기록하고 CAS에 보관한 뒤 done.json을 쓴다(그 뒤에 작업권 해제)."""
-    task_dir = os.path.join(root, "tasks", key)
+    task_dir = os.path.join(root, "tasks", ct.check_key(key))
     held = _check_owner(handle, run_id)
     out_dir = os.path.join(task_dir, "out")
-    recorded = manifest.build(out_dir, read_json(os.path.join(task_dir, "contract.json"))["outputs"])
+    recorded = manifest.build(out_dir, states.load_contract(task_dir)["outputs"])
     for rel in recorded:
         cas.put(os.path.join(root, "cas"), os.path.join(out_dir, rel))
     write_json(os.path.join(task_dir, "done.json"), {"task_key": key, "run_id": run_id,
                "resumed": bool(held.get("resumed")), "completed_at": now, "manifest": recorded})
-    _log(root, now, [("completed", {"task_key": key, "run_id": run_id, "manifest": recorded})])
-    lease.release(handle, remove=True)
+    try:
+        _log(root, now, [("completed", {"task_key": key, "run_id": run_id, "manifest": recorded})])
+    finally:
+        lease.release(handle, remove=True)
 
 
 def fail(root, key, run_id, handle, kind, error, now):
     """실패를 failures/에 추가(덮어쓰지 않음)하고 작업권을 해제한다. kind는 transient|deterministic."""
+    task_dir = os.path.join(root, "tasks", ct.check_key(key))
     if kind not in ("transient", "deterministic"):
         raise QueueError("kind는 transient|deterministic: %r" % (kind,))
     _check_owner(handle, run_id)
-    fdir = os.path.join(root, "tasks", key, "failures")
-    os.makedirs(fdir, exist_ok=True)
-    attempt = len(os.listdir(fdir)) + 1
+    attempt = len(states.failures(task_dir)) + 1
     record = {"attempt": attempt, "run_id": run_id, "kind": kind, "error": str(error), "ts": now}
-    write_json(os.path.join(fdir, "%03d-%s.json" % (attempt, run_id)), record)
-    _log(root, now, [("failed", dict(record, task_key=key))])
-    lease.release(handle, remove=True)
+    write_json(os.path.join(task_dir, "failures", "%03d-%s.json" % (attempt, run_id)), record)
+    try:
+        _log(root, now, [("failed", dict(record, task_key=key))])
+    finally:
+        lease.release(handle, remove=True)
 
 
 def recover(root, key, now, is_alive=lease.is_alive, current=None):
@@ -100,7 +111,7 @@ def recover(root, key, now, is_alive=lease.is_alive, current=None):
 
     돌려주는 run_id는 참고용이며 실제 실행은 claim이 잠금 안에서 다시 정한다.
     """
-    task_dir = os.path.join(root, "tasks", key)
+    task_dir = os.path.join(root, "tasks", ct.check_key(key))
     state = states.classify(task_dir, now, is_alive)
     plan = recovery.decide(task_dir, os.path.join(root, "cas"), state,
                            lease.read(os.path.join(task_dir, "lease.json")), now, current)

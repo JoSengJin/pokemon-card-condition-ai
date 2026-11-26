@@ -15,17 +15,21 @@ _REQUIRED = {
     "retry_policy": dict, "escalation_level": int,
 }
 _OPTIONAL = {"expected_minutes": (int, float)}
-_HEX64 = re.compile(r"^[0-9a-f]{64}$")
-
-
-def canonical(obj):
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+_HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
 def task_key(task):
-    """같은 계약이면 같은 키. expected_minutes(예상 시간 힌트)만 키에서 뺀다."""
+    """같은 계약이면 같은 키(정규화 JSON의 sha256). expected_minutes(예상 시간 힌트)만 키에서 뺀다."""
     body = {k: v for k, v in task.items() if k != "expected_minutes"}
-    return hashlib.sha256(canonical(body).encode("utf-8")).hexdigest()
+    text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def check_key(key):
+    """task_key는 소문자 16진 64자만 허용(경로 구성에 쓰이므로 절대 경로·.. 등을 거절)."""
+    if not isinstance(key, str) or not _HEX64.fullmatch(key):
+        raise ContractError("task_key 형식 오류(소문자 16진 64자): %r" % (key,))
+    return key
 
 
 def new_run_id():
@@ -60,7 +64,7 @@ def _check_values(task):
             raise ContractError("outputs는 안전한 상대 경로여야 한다: %r" % (rel,))
     if not all(isinstance(k, str) and isinstance(v, str) for k, v in task["inputs"].items()):
         raise ContractError("inputs는 경로→SHA 문자열 사전이어야 한다")
-    if not all(isinstance(d, str) and _HEX64.match(d) for d in task["depends_on"]):
+    if not all(isinstance(d, str) and _HEX64.fullmatch(d) for d in task["depends_on"]):
         raise ContractError("depends_on은 task_key(sha256 16진 64자) 목록이어야 한다")
     retries = task["retry_policy"].get("max_transient_retries", 2)
     if set(task["retry_policy"]) - {"max_transient_retries"} or isinstance(retries, bool) \
