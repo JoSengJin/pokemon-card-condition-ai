@@ -1,29 +1,23 @@
-"""실제 하위 프로세스 시험: 동시 claim(T-race), 살아 있는 작업권(T-live), kill -9(T-kill)."""
+"""실제 하위 프로세스 시험: 동시 claim(T-race), 살아 있는 작업권(T-live), kill -9(T-kill), 좀비·무관 pid, 실패 기록 직후 사망."""
 import json
 import os
 import pathlib
 import signal
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
 
 from harness import checkpoint, ledger, lease, queue, states
-from tests.test_harness_support import BOOT, alive_with, fingerprint, make_contract, spawn_claimers
+from tests.test_harness_support import (BOOT, FAIL_CRASH, REPO, alive_with, fingerprint, make_contract,
+                                        start_workers)
 
 
 class ClaimProcessesTest(unittest.TestCase):
-    def start(self, root, count):
-        """작업을 등록하고 count개 프로세스를 대기시킨다. (key, gate 경로, 프로세스 목록)."""
-        key = queue.enqueue(root, make_contract(), 1_000_000.0)
-        gate = os.path.join(root, "go")
-        procs = spawn_claimers(root, key, count, gate)
-        for proc in procs:
-            for cleanup in (proc.stdout.close, proc.stdin.close, proc.wait, proc.kill):
-                self.addCleanup(cleanup)  # 정리는 거꾸로 실행: kill -> wait -> 파이프 닫기
-        return key, gate, procs
-
     def test_race_exactly_one_of_many_processes_gets_running(self):
         with tempfile.TemporaryDirectory() as root:
-            key, gate, procs = self.start(root, 8)
+            key, gate, procs = start_workers(self, root, 8)
             open(gate, "w").close()  # 모든 프로세스를 동시에 출발시킨다
             replies = [proc.stdout.readline().split() for proc in procs]
             winners = [r for r in replies if r[0] == "CLAIMED"]
@@ -39,12 +33,12 @@ class ClaimProcessesTest(unittest.TestCase):
 
     def test_live_process_keeps_running_and_second_claim_is_refused(self):
         with tempfile.TemporaryDirectory() as root:
-            key, gate, (proc,) = self.start(root, 1)
+            key, gate, (proc,) = start_workers(self, root, 1)
             open(gate, "w").close()
             run_id = proc.stdout.readline().split()[1]
             tdir, alive = os.path.join(root, "tasks", key), alive_with()
             self.assertEqual(states.classify(tdir, 1.0, alive), states.RUNNING)
-            refused = queue.claim(root, key, os.getpid(), BOOT, 2.0, is_alive=alive)
+            refused = queue.claim(root, key, os.getpid(), BOOT, 2.0)
             self.assertEqual((refused["ok"], refused["reason"]), (False, "locked"))
             self.assertEqual(queue.recover(root, key, 2.0, is_alive=alive)["action"], "wait")
             self.assertEqual(lease.read(os.path.join(tdir, "lease.json"))["run_id"], run_id)  # 기록을 건드리지 않음
@@ -54,7 +48,7 @@ class ClaimProcessesTest(unittest.TestCase):
 
     def test_kill9_makes_interrupted_then_new_run_id(self):
         with tempfile.TemporaryDirectory() as root:
-            key, gate, (proc,) = self.start(root, 1)
+            key, gate, (proc,) = start_workers(self, root, 1)
             open(gate, "w").close()
             run_id = proc.stdout.readline().split()[1]
             tdir, alive = os.path.join(root, "tasks", key), alive_with()
@@ -66,7 +60,7 @@ class ClaimProcessesTest(unittest.TestCase):
             plan = queue.recover(root, key, started + 60, is_alive=alive)
             self.assertEqual((plan["state"], plan["action"], plan["resumed"]), (states.INTERRUPTED, "rerun", False))
             self.assertNotEqual(plan["run_id"], run_id)
-            again = queue.claim(root, key, os.getpid(), BOOT, started + 61, is_alive=alive)
+            again = queue.claim(root, key, os.getpid(), BOOT, started + 61)
             self.assertTrue(again["ok"])
             self.assertNotEqual(again["run_id"], run_id)
             self.assertEqual(lease.read(os.path.join(tdir, "lease.json"))["pid"], os.getpid())
@@ -74,7 +68,7 @@ class ClaimProcessesTest(unittest.TestCase):
 
     def test_kill9_after_30_minutes_with_matching_checkpoint_resumes_same_run(self):
         with tempfile.TemporaryDirectory() as root:
-            key, gate, (proc,) = self.start(root, 1)
+            key, gate, (proc,) = start_workers(self, root, 1)
             open(gate, "w").close()
             run_id = proc.stdout.readline().split()[1]
             tdir, alive = os.path.join(root, "tasks", key), alive_with()
@@ -84,7 +78,54 @@ class ClaimProcessesTest(unittest.TestCase):
             proc.wait()
             plan = queue.recover(root, key, started + 31 * 60, is_alive=alive, current=fingerprint())
             self.assertEqual((plan["action"], plan["resumed"], plan["run_id"]), ("resume", True, run_id))
-            res = queue.claim(root, key, os.getpid(), BOOT, started + 31 * 60, is_alive=alive, current=fingerprint())
+            res = queue.claim(root, key, os.getpid(), BOOT, started + 31 * 60, current=fingerprint())
             self.assertEqual((res["ok"], res["resumed"], res["run_id"]), (True, True, run_id))
             self.assertTrue(lease.read(os.path.join(tdir, "lease.json"))["resumed"])
             lease.release(res["lease"])
+
+    def test_zombie_holder_is_running_for_observers_but_claim_takes_over(self):
+        with tempfile.TemporaryDirectory() as root:
+            key, gate, (proc,) = start_workers(self, root, 1)
+            open(gate, "w").close()
+            proc.stdout.readline()
+            os.kill(proc.pid, signal.SIGKILL)
+            tdir = os.path.join(root, "tasks", key)
+            for _ in range(500):  # 죽었지만 회수(wait)하지 않음 = 좀비. 커널이 잠금을 풀 때까지 기다린다
+                probe = lease.lock(os.path.join(tdir, "lease.json"))
+                if probe is not None:
+                    lease.release(probe)
+                    break
+                time.sleep(0.01)
+            self.assertEqual(states.classify(tdir, 1.0, alive_with()), states.RUNNING)  # 관찰자는 pid 조회로 판정
+            res = queue.claim(root, key, os.getpid(), BOOT, 2.0)  # flock은 이미 풀려 있다 = 쥔 쪽이 없다
+            self.assertEqual((res["ok"], res["state"]), (True, states.INTERRUPTED))
+            lease.release(res["lease"])
+
+    @unittest.skipUnless(sys.platform == "darwin", "실제 부팅 식별자는 macOS에서만 조회한다")
+    def test_unrelated_live_pid_in_stale_lease_does_not_block_claim(self):
+        boot = lease.boot_id()  # 실제 부팅 식별자로 기록해야 pid 생존 판정만이 변수가 된다
+        with tempfile.TemporaryDirectory() as root:
+            key = queue.enqueue(root, make_contract(), 1.0)
+            other = subprocess.Popen(["sleep", "30"])  # pid가 재사용된 무관한 프로세스를 모사
+            self.addCleanup(other.wait)
+            self.addCleanup(other.kill)
+            tdir = os.path.join(root, "tasks", key)
+            handle = lease.lock(os.path.join(tdir, "lease.json"))
+            lease.stamp(handle, other.pid, boot, 1.0, {"run_id": "r-old"})
+            lease.release(handle)
+            self.assertEqual(states.classify(tdir, 2.0, lease.is_alive), states.RUNNING)  # 관찰자는 산 pid를 RUNNING으로 본다
+            res = queue.claim(root, key, os.getpid(), BOOT, 2.0)
+            self.assertEqual((res["ok"], res["state"], res["run_id"] != "r-old"), (True, states.INTERRUPTED, True))
+            lease.release(res["lease"])
+
+    def test_death_right_after_writing_failure_record_is_failed_not_interrupted(self):
+        with tempfile.TemporaryDirectory() as root:
+            key = queue.enqueue(root, make_contract(), 1.0)
+            done = subprocess.run([sys.executable, "-c", FAIL_CRASH, root, key, BOOT], cwd=REPO)
+            self.assertEqual(done.returncode, -signal.SIGKILL)
+            tdir = os.path.join(root, "tasks", key)
+            self.assertEqual(len(states.failures(tdir)), 1)
+            self.assertTrue(os.path.exists(os.path.join(tdir, "lease.json")))  # 작업권 해제 전에 죽었다
+            self.assertEqual(states.classify(tdir, 2.0, alive_with()), states.FAILED)
+            refused = queue.claim(root, key, os.getpid(), BOOT, 3.0)  # 결정적 실패는 재실행하지 않는다
+            self.assertEqual((refused["ok"], refused["reason"]), (False, "needs_failure_policy"))

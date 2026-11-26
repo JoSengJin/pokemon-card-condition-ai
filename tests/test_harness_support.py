@@ -22,6 +22,39 @@ if res["ok"]:
     sys.stdin.readline()
 '''
 
+CHURN = r'''
+import os, sys, time
+from harness import queue, lease
+root, key, boot, gate, rounds = sys.argv[1:6]
+while not os.path.exists(gate):
+    time.sleep(0.001)
+wins = overlaps = 0
+for _ in range(int(rounds)):
+    res = queue.claim(root, key, os.getpid(), boot, time.time())
+    if not res["ok"]:
+        continue
+    wins += 1
+    try:  # 작업권을 쥔 동안 O_EXCL 표식을 만든다. 이미 있으면 두 프로세스가 동시에 쥐고 있었다는 뜻
+        os.close(os.open(os.path.join(root, "SENTINEL"), os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
+        overlaps += 1
+        lease.release(res["lease"], remove=True)
+        continue
+    time.sleep(0.0005)
+    os.unlink(os.path.join(root, "SENTINEL"))
+    lease.release(res["lease"], remove=True)
+print(wins, overlaps, flush=True)
+'''
+
+FAIL_CRASH = r'''
+import os, sys, time
+from harness import queue
+root, key, boot = sys.argv[1:4]
+res = queue.claim(root, key, os.getpid(), boot, time.time())
+queue._log = lambda *args: os.kill(os.getpid(), 9)  # 실패 기록 파일을 쓴 직후, 작업권 해제 전에 kill -9
+queue.fail(root, key, res["run_id"], res["lease"], "deterministic", "TypeError", time.time())
+'''
+
 
 def make_contract(tag="a", depends_on=(), outputs=("result.txt",)):
     return {"task_type": "unit-" + tag, "inputs": {"in.txt": SHA_A}, "outputs": list(outputs),
@@ -38,7 +71,7 @@ def alive_with(boot=BOOT, pid_alive=None):
 def finish(root, task, now, payload=b"v1"):
     """enqueue -> claim -> 산출물 쓰기 -> complete(합성 정상 완료). (task_key, run_id)."""
     key = queue.enqueue(root, task, now)
-    res = queue.claim(root, key, os.getpid(), BOOT, now, is_alive=alive_with())
+    res = queue.claim(root, key, os.getpid(), BOOT, now)
     for rel in task["outputs"]:
         path = os.path.join(root, "tasks", key, "out", rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -48,10 +81,19 @@ def finish(root, task, now, payload=b"v1"):
     return key, res["run_id"]
 
 
-def spawn_claimers(root, key, count, gate):
-    """실제 하위 프로세스 count개를 gate 파일이 생길 때까지 대기시켜 둔다(동시 출발용). 각 프로세스는 claim 뒤 stdin을 기다린다."""
-    return [subprocess.Popen([sys.executable, "-c", WORKER, root, key, BOOT, gate], cwd=REPO,
-                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) for _ in range(count)]
+def start_workers(case, root, count, worker=WORKER, rounds=1):
+    """작업을 등록하고 실제 하위 프로세스 count개를 gate 파일이 생길 때까지 대기시킨다(동시 출발용).
+
+    (key, gate, 프로세스 목록). 정리는 거꾸로 실행되므로 kill -> wait -> 파이프 닫기 순이다.
+    """
+    key = queue.enqueue(root, make_contract(), 1_000_000.0)
+    gate = os.path.join(root, "go")
+    procs = [subprocess.Popen([sys.executable, "-c", worker, root, key, BOOT, gate, str(rounds)], cwd=REPO,
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) for _ in range(count)]
+    for proc in procs:
+        for cleanup in (proc.stdout.close, proc.stdin.close, proc.wait, proc.kill):
+            case.addCleanup(cleanup)
+    return key, gate, procs
 
 
 def dead_lease(root, key, started, run_id="r-dead", pid=999999):

@@ -45,7 +45,7 @@ class StatesTest(unittest.TestCase):
             with open(os.path.join(tdir, "out", "result.txt"), "wb") as handle:
                 handle.write(b"v1")  # 산출물이 이미 있어도 완료 기록이 없으면
             self.assertEqual(states.classify(tdir, T0, alive_with()), states.PENDING)
-            res = queue.claim(root, key, os.getpid(), BOOT, T0, is_alive=alive_with())
+            res = queue.claim(root, key, os.getpid(), BOOT, T0)
             self.assertTrue(res["ok"] and res["plan"]["action"] == "run")  # 건너뛰지 않고 실행한다
             lease.release(res["lease"])
 
@@ -55,7 +55,7 @@ class StatesTest(unittest.TestCase):
             tdir = os.path.join(root, "tasks", key)
             self.assertEqual(states.classify(tdir, T0, alive_with()), states.VERIFIED)
             self.assertFalse(os.path.exists(os.path.join(tdir, "lease.json")))
-            res = queue.claim(root, key, os.getpid(), BOOT, T0 + 5, is_alive=alive_with())
+            res = queue.claim(root, key, os.getpid(), BOOT, T0 + 5)
             self.assertEqual((res["ok"], res["reason"], res["state"]), (False, "skip", states.VERIFIED))
             self.assertFalse(os.path.exists(os.path.join(tdir, "lease.json")))
             self.assertIsNotNone(run_id)
@@ -91,12 +91,12 @@ class StatesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             key = queue.enqueue(root, make_contract(), T0)
             tdir, alive = os.path.join(root, "tasks", key), alive_with()
-            first = queue.claim(root, key, os.getpid(), BOOT, T0, is_alive=alive)
+            first = queue.claim(root, key, os.getpid(), BOOT, T0)
             queue.fail(root, key, first["run_id"], first["lease"], "transient", "ConnectionError('x')", T0 + 1)
             self.assertEqual(states.classify(tdir, T0, alive), states.FAILED)
             fdir = os.path.join(tdir, "failures")
             before = {n: pathlib.Path(fdir, n).read_text() for n in os.listdir(fdir)}
-            second = queue.claim(root, key, os.getpid(), BOOT, T0 + 2, is_alive=alive)
+            second = queue.claim(root, key, os.getpid(), BOOT, T0 + 2)
             queue.fail(root, key, second["run_id"], second["lease"], "deterministic", "TypeError('y')", T0 + 3)
             after = {n: pathlib.Path(fdir, n).read_text() for n in os.listdir(fdir)}
             self.assertEqual(len(after), 2)
@@ -107,7 +107,7 @@ class StatesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             key = queue.enqueue(root, make_contract(), T0)
             tdir, alive = os.path.join(root, "tasks", key), alive_with()
-            res = queue.claim(root, key, os.getpid(), BOOT, T0, is_alive=alive)
+            res = queue.claim(root, key, os.getpid(), BOOT, T0)
             with self.assertRaises(queue.QueueError):
                 queue.complete(root, key, "다른-run", res["lease"], T0 + 1)
             with self.assertRaises(queue.QueueError):
