@@ -119,7 +119,7 @@ harness: cas 6, checkpoint 2, contract 5, graph 3, holder 2, jsonio 2, lease 7, 
 ### 변이 비교(검증자 mutate3.py 복사본, 새 구조에 맞게 대상 문자열을 옮기고 추가)
 
 - 전(e1cafcf, 원본 mutate3.py 그대로): 29개 중 27개 시험 실패로 잡힘, 생존 2(M16 realpath 검사 제거는 동등 변이, H6 ps 종료 코드 무시).
-- 후(구조가 바뀌어 대상 문자열을 같은 의미로 옮긴 복사본, 46개 변이): 43개 잡힘. 생존 3개는 모두 동등 변이다: M16(realpath/commonpath 검사는 중간 폴더 링크 검사와 겹침), M23(done 비객체: 이제 `recorded=None`이 산출물 전체를 어긋남으로 만들어 중복), X10(이미 VERIFIED인 작업을 후보로 두어도 claim이 `skip`으로 막음). 전 단계의 H6은 이번에 ps 종료 코드 시험을 추가해 잡힌다. 새로 추가한 M8a(claim의 복구 뒤 재검증 생략)도 시험을 추가해 잡힌다.
+- 후(구조가 바뀌어 대상 문자열을 같은 의미로 옮긴 복사본, 51개 변이, 최종 코드에서 재실행): 48개 잡힘. 생존 3개는 모두 동등 변이다: M16(realpath/commonpath 검사는 중간 폴더 링크 검사와 겹침), M23(done 비객체: 이제 `recorded=None`이 산출물 전체를 어긋남으로 만들어 중복), X10(이미 VERIFIED인 작업을 후보로 두어도 claim이 `skip`으로 막음). 전 단계의 H6은 이번에 ps 종료 코드 시험을 추가해 잡힌다. 새로 추가한 M8a(claim의 복구 뒤 재검증 생략)도 시험을 추가해 잡힌다.
 - 새 방어 변이(모두 잡힘): G1 boot 검사 제거, X1 LLM 작업도 실행, X2 LLM 간접 의존, X3 의존 VERIFIED 확인 제거, X4 executor 출력 목록 대조 제거, X5·X11 정지·결정적 실패 재시도, X7 모든 예외를 결정적으로, X8 max_tasks 무시, X9 executor 없는 작업 후보, X12 완료 오류를 실패로 안 바꿈.
 
 ### S2-1 runner 구현 요약
