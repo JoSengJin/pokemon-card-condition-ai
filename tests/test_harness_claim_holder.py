@@ -10,7 +10,7 @@ import unittest
 from unittest import mock
 
 from harness import holder, lease, queue, states
-from tests.test_harness_support import BOOT, EXEC_CLAIM, REPO, alive_with, make_contract
+from tests.test_harness_support import BOOT, claim, EXEC_CLAIM, REPO, alive_with, make_contract
 
 T0 = 1_000_000.0
 
@@ -23,14 +23,22 @@ def stale(root, key, pid, boot=BOOT):
 
 
 class ClaimHolderTest(unittest.TestCase):
-    def test_claim_for_another_pid_is_rejected_before_touching_anything(self):
+    def test_claim_for_another_pid_or_a_made_up_boot_is_rejected_before_touching_anything(self):
         with tempfile.TemporaryDirectory() as root:
             key = queue.enqueue(root, make_contract(), T0)
             before = pathlib.Path(root, "ledger.jsonl").read_text()
             with self.assertRaises(queue.QueueError):  # 대리 claim: 감독자만 죽으면 작업자가 잠금 없이 실행된다
-                queue.claim(root, key, os.getpid() + 1, BOOT, T0)
+                claim(root, key, os.getpid() + 1, BOOT, T0)
+            with self.assertRaises(queue.QueueError):  # boot도 lease.boot_id()와 같아야 한다(호출자가 지어낼 수 없다)
+                claim(root, key, os.getpid(), "지어낸-부팅", T0)
+            with self.assertRaises(queue.QueueError):  # 주입 없이 실제 조회값과 비교한다
+                queue.claim(root, key, os.getpid(), BOOT, T0, boot_id_fn=lambda: "다른")
             self.assertFalse(os.path.exists(os.path.join(root, "tasks", key, "lease.json")))
             self.assertEqual(pathlib.Path(root, "ledger.jsonl").read_text(), before)
+            if sys.platform == "darwin":  # 주입 없이 실제 부팅 식별자로는 성공한다
+                real = queue.claim(root, key, os.getpid(), lease.boot_id(), T0)
+                self.assertTrue(real["ok"])
+                lease.release(real["lease"], remove=True)
 
     def test_after_exec_the_same_pid_runs_without_a_lock_and_a_second_claim_stops(self):
         with tempfile.TemporaryDirectory() as root:
@@ -48,13 +56,13 @@ class ClaimHolderTest(unittest.TestCase):
                     break
                 time.sleep(0.01)
             self.assertIsNone(proc.poll())  # 같은 pid가 계속 실행 중이다
-            stopped = queue.claim(root, key, os.getpid(), BOOT, time.time())
+            stopped = claim(root, key, os.getpid(), BOOT, time.time())
             self.assertEqual((stopped["ok"], stopped["reason"]), (False, "holder_alive_without_lock"))
             self.assertIn('"holder_alive_without_lock"', pathlib.Path(root, "ledger.jsonl").read_text())
             self.assertEqual(states.classify(os.path.join(root, "tasks", key), T0, alive_with()), states.RUNNING)
             proc.kill()
             proc.wait()
-            self.assertTrue(queue.claim(root, key, os.getpid(), BOOT, time.time())["ok"])  # 죽은 뒤에는 인수
+            self.assertTrue(claim(root, key, os.getpid(), BOOT, time.time())["ok"])  # 죽은 뒤에는 인수
 
     def test_unrelated_live_pid_stops_claim_until_it_dies_or_the_boot_differs(self):
         with tempfile.TemporaryDirectory() as root:
@@ -65,17 +73,18 @@ class ClaimHolderTest(unittest.TestCase):
             path = os.path.join(root, "tasks", key, "lease.json")
             stale(root, key, other.pid)
             self.assertEqual(states.classify(os.path.dirname(path), T0, alive_with()), states.RUNNING)
-            stopped = queue.claim(root, key, os.getpid(), BOOT, T0 + 1)
+            stopped = claim(root, key, os.getpid(), BOOT, T0 + 1)
             self.assertEqual((stopped["ok"], stopped["reason"], stopped["state"]),
                              (False, "holder_alive_without_lock", states.INTERRUPTED))
             self.assertEqual(lease.read(path)["pid"], other.pid)  # 기록을 건드리지 않았다
-            rebooted = queue.claim(root, key, os.getpid(), "다른-부팅", T0 + 2)  # 부팅 식별자가 다르면 옛 기록
+            stale(root, key, other.pid, boot="다른-부팅")  # 부팅 식별자가 다른 옛 기록(재부팅 전 pid)은 인수한다
+            rebooted = claim(root, key, os.getpid(), BOOT, T0 + 2)
             self.assertTrue(rebooted["ok"])
             lease.release(rebooted["lease"], remove=True)
             stale(root, key, other.pid)
             other.kill()
             other.wait()
-            self.assertTrue(queue.claim(root, key, os.getpid(), BOOT, T0 + 3)["ok"])  # 죽은 pid는 인수
+            self.assertTrue(claim(root, key, os.getpid(), BOOT, T0 + 3)["ok"])  # 죽은 pid는 인수
 
     def test_zombie_probe_decides_takeover_stop_or_blocked(self):
         with tempfile.TemporaryDirectory() as root:
@@ -87,7 +96,7 @@ class ClaimHolderTest(unittest.TestCase):
                                       (None, False, "blocked")):
                 stale(root, key, other.pid)
                 with mock.patch.object(holder, "is_zombie", return_value=found):
-                    res = queue.claim(root, key, os.getpid(), BOOT, T0 + 1)
+                    res = claim(root, key, os.getpid(), BOOT, T0 + 1)
                 self.assertEqual((res["ok"], res.get("reason")), (ok, reason), found)
                 if res["ok"]:
                     lease.release(res["lease"], remove=True)

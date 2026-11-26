@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 from harness import contract, graph, lease, queue, states
-from tests.test_harness_support import BOOT, alive_with, finish, make_contract
+from tests.test_harness_support import BOOT, claim, alive_with, finish, make_contract
 
 T0 = 1_000_000.0
 
@@ -36,7 +36,7 @@ class GraphTest(unittest.TestCase):
             declared = declare(first, second)
             self.assertEqual(graph.register_missing(root, declared, T0, alive_with()),
                              {"eligible": [], "registered": []})
-            res = queue.claim(root, key_a, os.getpid(), BOOT, T0)
+            res = claim(root, key_a, os.getpid(), BOOT, T0)
             self.assertEqual(graph.register_missing(root, declared, T0, alive_with())["registered"], [])
             lease.release(res["lease"])
 
@@ -61,7 +61,7 @@ class GraphTest(unittest.TestCase):
             key_a, _ = finish(root, first, T0)
             failing = make_contract(tag="f", depends_on=[key_a])
             key_f = queue.enqueue(root, failing, T0)
-            res = queue.claim(root, key_f, os.getpid(), BOOT, T0)
+            res = claim(root, key_f, os.getpid(), BOOT, T0)
             queue.fail(root, key_f, res["run_id"], res["lease"], "deterministic", "TypeError", T0)
             result = graph.register_missing(root, declare(first, failing), T0 + 1, alive_with())
             self.assertEqual(result, {"eligible": [key_f], "registered": []})  # 실패 정책은 claim/recover가 판단

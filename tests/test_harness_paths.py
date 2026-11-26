@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from harness import lease, manifest, queue, states
-from tests.test_harness_support import BOOT, alive_with, finish, make_contract
+from tests.test_harness_support import BOOT, claim, alive_with, finish, make_contract
 
 T0 = 1_000_000.0
 
@@ -28,7 +28,7 @@ class PathSafetyTest(unittest.TestCase):
                     tempfile.TemporaryDirectory() as outside:
                 task = make_contract(outputs=outputs)
                 key = queue.enqueue(root, task, T0)
-                res = queue.claim(root, key, os.getpid(), BOOT, T0)
+                res = claim(root, key, os.getpid(), BOOT, T0)
                 out = os.path.join(root, "tasks", key, "out")
                 if link_at:
                     os.makedirs(out)

@@ -16,7 +16,7 @@ from harness import queue
 root, key, boot, gate = sys.argv[1:5]
 while not os.path.exists(gate):
     time.sleep(0.005)
-res = queue.claim(root, key, os.getpid(), boot, time.time())
+res = queue.claim(root, key, os.getpid(), boot, time.time(), boot_id_fn=lambda: boot)
 print("CLAIMED " + res["run_id"] if res["ok"] else "REFUSED " + res["reason"], flush=True)
 if res["ok"]:
     sys.stdin.readline()
@@ -31,7 +31,7 @@ while not os.path.exists(gate):
     time.sleep(0.001)
 wins = overlaps = 0
 for _ in range(int(rounds)):
-    res = queue.claim(root, key, os.getpid(), boot, time.time())
+    res = queue.claim(root, key, os.getpid(), boot, time.time(), boot_id_fn=lambda: boot)
     if not res["ok"]:
         continue
     wins += 1
@@ -51,7 +51,7 @@ EXEC_CLAIM = r'''
 import os, sys, time
 from harness import queue
 root, key, boot = sys.argv[1:4]
-res = queue.claim(root, key, os.getpid(), boot, time.time())
+res = queue.claim(root, key, os.getpid(), boot, time.time(), boot_id_fn=lambda: boot)
 print("CLAIMED" if res["ok"] else "REFUSED", flush=True)
 os.execv("/bin/sleep", ["sleep", "30"])  # 같은 pid가 계속 실행되지만 잠금 fd(close-on-exec)는 사라진다
 '''
@@ -60,10 +60,12 @@ FAIL_CRASH = r'''
 import os, sys, time
 from harness import queue
 root, key, boot = sys.argv[1:4]
-res = queue.claim(root, key, os.getpid(), boot, time.time())
+res = queue.claim(root, key, os.getpid(), boot, time.time(), boot_id_fn=lambda: boot)
 queue.ledger.append = lambda *args: os.kill(os.getpid(), 9)  # 실패 기록 파일을 쓴 직후, 작업권 해제 전에 kill -9
 queue.fail(root, key, res["run_id"], res["lease"], "deterministic", "TypeError", time.time())
 '''
+
+claim = functools.partial(queue.claim, boot_id_fn=lambda: BOOT)  # 시험용 부팅 식별자 주입
 
 
 def make_contract(tag="a", depends_on=(), outputs=("result.txt",)):
@@ -81,7 +83,7 @@ def alive_with(boot=BOOT, pid_alive=None):
 def finish(root, task, now, payload=b"v1"):
     """enqueue -> claim -> 산출물 쓰기 -> complete(합성 정상 완료). (task_key, run_id)."""
     key = queue.enqueue(root, task, now)
-    res = queue.claim(root, key, os.getpid(), BOOT, now)
+    res = claim(root, key, os.getpid(), BOOT, now)
     for rel in task["outputs"]:
         path = os.path.join(root, "tasks", key, "out", rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)

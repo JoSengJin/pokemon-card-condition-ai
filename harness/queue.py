@@ -38,13 +38,14 @@ def enqueue(root, task, now):
     return key
 
 
-def claim(root, key, pid, boot, now, current=None):
+def claim(root, key, pid, boot, now, current=None, boot_id_fn=lease.boot_id):
     """작업권을 잡고 실행 여부를 정한다. 잠금 안에서 상태 분류·결정하므로 동시 claim은 한쪽만 성공한다.
 
     flock을 잡았다는 것은 이전 작업권의 주인 프로세스가 잠금을 쥐고 있지 않다는 증거일 뿐이다. 그래서 이전 기록의
     pid가 같은 부팅에서 살아 있고 좀비가 아니면 인수하지 않고 "holder_alive_without_lock"으로 멈춘다(잠금 없이
     실행 중인 주인이 있다는 뜻: 이중 실행 방지가 멈춤보다 우선). 좀비는 인수하고, 판정 불가(ps 실패)는 "blocked"다.
-    전제: 작업권을 쥔 프로세스가 끝까지 실행하고 exec하지 않는다 — 그래서 pid는 os.getpid()여야 한다(대리 claim 거절).
+    전제: 작업권을 쥔 프로세스가 끝까지 실행하고 exec하지 않는다 — 그래서 pid는 os.getpid(), boot는 lease.boot_id()여야 한다
+    (대리 claim·지어낸 부팅 식별자 거절). boot_id_fn은 시험용 주입 함수다.
 
     성공: {"ok": True, "run_id", "resumed", "lease"(complete/fail에 넘길 핸들), "state", "plan"}.
     실패: {"ok": False, "reason": "locked"|"unregistered"|plan action|holder_alive_without_lock|blocked, ...}.
@@ -52,6 +53,8 @@ def claim(root, key, pid, boot, now, current=None):
     task_dir = os.path.join(root, "tasks", ct.check_key(key))
     if pid != os.getpid():
         raise QueueError("claim의 pid는 호출 프로세스(os.getpid())여야 한다: 대리 claim은 잠금 없이 실행되는 이중 실행을 만든다")
+    if boot != boot_id_fn():  # boot도 pid처럼 호출자가 지어낼 수 없다(기록 판정이 부팅 식별자에 의존)
+        raise QueueError("claim의 boot는 lease.boot_id()와 같아야 한다: %r" % (boot,))
     if not os.path.isdir(task_dir):
         return {"ok": False, "reason": "unregistered"}
     handle = lease.lock(os.path.join(task_dir, "lease.json"))

@@ -8,7 +8,7 @@ import unittest
 from unittest import mock
 
 from harness import cas, checkpoint, contract, ledger, lease, queue, recovery, states
-from tests.test_harness_support import BOOT, alive_with, dead_lease, finish, fingerprint, make_contract
+from tests.test_harness_support import BOOT, claim, alive_with, dead_lease, finish, fingerprint, make_contract
 
 T0 = 1_000_000.0
 
@@ -44,7 +44,7 @@ class RecoveryTest(unittest.TestCase):
             self.assertNotEqual(plan["run_id"], old_run)
             self.assertEqual(states.classify(tdir, T0, alive), states.PENDING)  # 완료 기록은 history로 보관됨
             self.assertEqual(len(os.listdir(os.path.join(tdir, "history"))), 1)
-            res = queue.claim(root, key, os.getpid(), BOOT, T0 + 4)
+            res = claim(root, key, os.getpid(), BOOT, T0 + 4)
             self.assertTrue(res["ok"])
             out.write_bytes(b"rerun")
             queue.complete(root, key, res["run_id"], res["lease"], T0 + 5)
@@ -54,19 +54,19 @@ class RecoveryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             key, alive = queue.enqueue(root, make_contract(), T0), alive_with()
             for attempt in (1, 2, 3):
-                res = queue.claim(root, key, os.getpid(), BOOT, T0 + attempt)
+                res = claim(root, key, os.getpid(), BOOT, T0 + attempt)
                 self.assertTrue(res["ok"], attempt)
                 exc = ConnectionError("네트워크 차단 모사")
                 queue.fail(root, key, res["run_id"], res["lease"], recovery.kind_of(exc), repr(exc), T0 + attempt)
             plan = queue.recover(root, key, T0 + 10, is_alive=alive)
             self.assertEqual((plan["state"], plan["action"], plan["failure_kind"], plan["attempts"]),
                              (states.FAILED, "needs_failure_policy", "transient", 3))
-            refused = queue.claim(root, key, os.getpid(), BOOT, T0 + 11)
+            refused = claim(root, key, os.getpid(), BOOT, T0 + 11)
             self.assertEqual((refused["ok"], refused["reason"]), (False, "needs_failure_policy"))
             self.assertEqual(len(os.listdir(os.path.join(root, "tasks", key, "failures"))), 3)  # 1회 + 재시도 2회
             strict = dict(make_contract(tag="z"), retry_policy={"max_transient_retries": 0})
             key0 = queue.enqueue(root, strict, T0)
-            res0 = queue.claim(root, key0, os.getpid(), BOOT, T0)
+            res0 = claim(root, key0, os.getpid(), BOOT, T0)
             queue.fail(root, key0, res0["run_id"], res0["lease"], "transient", "timeout", T0)
             self.assertEqual(queue.recover(root, key0, T0 + 1, is_alive=alive)["action"], "needs_failure_policy")
 
@@ -77,13 +77,13 @@ class RecoveryTest(unittest.TestCase):
             self.assertEqual(recovery.kind_of(exc_type("x")), kind, exc_type)
         with tempfile.TemporaryDirectory() as root:
             key, alive = queue.enqueue(root, make_contract(), T0), alive_with()
-            res = queue.claim(root, key, os.getpid(), BOOT, T0)
+            res = claim(root, key, os.getpid(), BOOT, T0)
             exc = TypeError("코드 오류 주입")
             queue.fail(root, key, res["run_id"], res["lease"], recovery.kind_of(exc), repr(exc), T0)
             plan = queue.recover(root, key, T0 + 1, is_alive=alive)
             self.assertEqual((plan["action"], plan["failure_kind"], plan["attempts"], plan["runnable"]),
                              ("needs_failure_policy", "deterministic", 1, False))
-            self.assertEqual(queue.claim(root, key, os.getpid(), BOOT, T0 + 2)["reason"],
+            self.assertEqual(claim(root, key, os.getpid(), BOOT, T0 + 2)["reason"],
                              "needs_failure_policy")
 
     def test_30_minute_threshold_and_checkpoint_fingerprint_decide_resume(self):
@@ -103,7 +103,7 @@ class RecoveryTest(unittest.TestCase):
                 plan = queue.recover(root, key, T0 + minutes * 60, is_alive=dead, current=current)
                 self.assertEqual((plan["state"], plan["resumed"]), (states.INTERRUPTED, resumes))
                 self.assertEqual(plan["run_id"] == "abc123", resumes)
-                res = queue.claim(root, key, os.getpid(), BOOT, T0 + minutes * 60, current=current)
+                res = claim(root, key, os.getpid(), BOOT, T0 + minutes * 60, current=current)
                 self.assertEqual((res["ok"], res["resumed"], res["run_id"] == "abc123"), (True, resumes, resumes))
                 lease.release(res["lease"])
 
@@ -124,7 +124,7 @@ class RecoveryTest(unittest.TestCase):
             checkpoint.save(tdir, "run-old", fingerprint(), T0 + 60)
             plan = queue.recover(root, key, T0 + 3600, is_alive=dead, current=fingerprint())
             self.assertEqual((plan["action"], plan["resumed"]), ("rerun", False))
-            res = queue.claim(root, key, os.getpid(), BOOT, T0 + 3600, current=fingerprint())
+            res = claim(root, key, os.getpid(), BOOT, T0 + 3600, current=fingerprint())
             self.assertRegex(res["run_id"], r"^[0-9a-f]+$")
             queue.fail(root, key, res["run_id"], res["lease"], "deterministic", "TypeError", T0 + 3601)
             self.assertEqual(states.classify(tdir, T0, dead), states.FAILED)  # 실패 기록이 소실되지 않고 세어진다
@@ -139,13 +139,13 @@ class RecoveryTest(unittest.TestCase):
             dead_lease(root, key, T0)
             with mock.patch.object(states, "facts", side_effect=RuntimeError("주입")):
                 with self.assertRaises(RuntimeError):
-                    queue.claim(root, key, os.getpid(), BOOT, T0)
+                    claim(root, key, os.getpid(), BOOT, T0)
             handle = lease.lock(path)
             self.assertIsNotNone(handle)  # 잠금이 풀려 있다
             self.assertEqual(handle.previous["run_id"], "r-dead")  # 중단 증거도 그대로
             lease.release(handle)
             with mock.patch.object(queue.ledger, "append", side_effect=[None, OSError("장부 쓰기 실패")]):
                 with self.assertRaises(OSError):  # 첫 호출(계획 이벤트)은 통과, 둘째(claimed 기록)에서 실패
-                    queue.claim(root, key, os.getpid(), BOOT, T0 + 1)
+                    claim(root, key, os.getpid(), BOOT, T0 + 1)
             self.assertFalse(os.path.exists(path))  # 방금 쓴 작업권을 지워 잠금·기록이 남지 않는다
-            self.assertTrue(queue.claim(root, key, os.getpid(), BOOT, T0 + 2)["ok"])
+            self.assertTrue(claim(root, key, os.getpid(), BOOT, T0 + 2)["ok"])

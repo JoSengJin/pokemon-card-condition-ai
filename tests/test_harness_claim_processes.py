@@ -10,7 +10,7 @@ import time
 import unittest
 
 from harness import checkpoint, ledger, lease, queue, states
-from tests.test_harness_support import (BOOT, FAIL_CRASH, REPO, alive_with, fingerprint, make_contract,
+from tests.test_harness_support import (BOOT, FAIL_CRASH, claim, REPO, alive_with, fingerprint, make_contract,
                                         start_workers)
 
 
@@ -38,7 +38,7 @@ class ClaimProcessesTest(unittest.TestCase):
             run_id = proc.stdout.readline().split()[1]
             tdir, alive = os.path.join(root, "tasks", key), alive_with()
             self.assertEqual(states.classify(tdir, 1.0, alive), states.RUNNING)
-            refused = queue.claim(root, key, os.getpid(), BOOT, 2.0)
+            refused = claim(root, key, os.getpid(), BOOT, 2.0)
             self.assertEqual((refused["ok"], refused["reason"]), (False, "locked"))
             self.assertEqual(queue.recover(root, key, 2.0, is_alive=alive)["action"], "wait")
             self.assertEqual(lease.read(os.path.join(tdir, "lease.json"))["run_id"], run_id)  # 기록을 건드리지 않음
@@ -60,7 +60,7 @@ class ClaimProcessesTest(unittest.TestCase):
             plan = queue.recover(root, key, started + 60, is_alive=alive)
             self.assertEqual((plan["state"], plan["action"], plan["resumed"]), (states.INTERRUPTED, "rerun", False))
             self.assertNotEqual(plan["run_id"], run_id)
-            again = queue.claim(root, key, os.getpid(), BOOT, started + 61)
+            again = claim(root, key, os.getpid(), BOOT, started + 61)
             self.assertTrue(again["ok"])
             self.assertNotEqual(again["run_id"], run_id)
             self.assertEqual(lease.read(os.path.join(tdir, "lease.json"))["pid"], os.getpid())
@@ -78,7 +78,7 @@ class ClaimProcessesTest(unittest.TestCase):
             proc.wait()
             plan = queue.recover(root, key, started + 31 * 60, is_alive=alive, current=fingerprint())
             self.assertEqual((plan["action"], plan["resumed"], plan["run_id"]), ("resume", True, run_id))
-            res = queue.claim(root, key, os.getpid(), BOOT, started + 31 * 60, current=fingerprint())
+            res = claim(root, key, os.getpid(), BOOT, started + 31 * 60, current=fingerprint())
             self.assertEqual((res["ok"], res["resumed"], res["run_id"]), (True, True, run_id))
             self.assertTrue(lease.read(os.path.join(tdir, "lease.json"))["resumed"])
             lease.release(res["lease"])
@@ -97,7 +97,7 @@ class ClaimProcessesTest(unittest.TestCase):
                     break
                 time.sleep(0.01)
             self.assertEqual(states.classify(tdir, 1.0, alive_with()), states.RUNNING)  # 관찰자는 pid 조회로 판정
-            res = queue.claim(root, key, os.getpid(), BOOT, 2.0)  # flock은 이미 풀려 있다 = 쥔 쪽이 없다
+            res = claim(root, key, os.getpid(), BOOT, 2.0)  # flock은 이미 풀려 있다 = 쥔 쪽이 없다
             self.assertEqual((res["ok"], res["state"]), (True, states.INTERRUPTED))
             lease.release(res["lease"])
 
@@ -110,5 +110,5 @@ class ClaimProcessesTest(unittest.TestCase):
             self.assertEqual(len(states.failures(tdir)), 1)
             self.assertTrue(os.path.exists(os.path.join(tdir, "lease.json")))  # 작업권 해제 전에 죽었다
             self.assertEqual(states.classify(tdir, 2.0, alive_with()), states.FAILED)
-            refused = queue.claim(root, key, os.getpid(), BOOT, 3.0)  # 결정적 실패는 재실행하지 않는다
+            refused = claim(root, key, os.getpid(), BOOT, 3.0)  # 결정적 실패는 재실행하지 않는다
             self.assertEqual((refused["ok"], refused["reason"]), (False, "needs_failure_policy"))
