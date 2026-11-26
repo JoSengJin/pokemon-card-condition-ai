@@ -16,7 +16,8 @@ allowed_files:
   - harness/__init__.py, harness/contract.py, harness/cas.py, harness/lease.py,
     harness/ledger.py, harness/states.py, harness/queue.py, harness/graph.py
   - (구현 중 함수 수 제한 때문에 추가한 파일) harness/jsonio.py, harness/manifest.py,
-    harness/checkpoint.py, harness/recovery.py, tests/test_harness_support.py(시험 공용 도구)
+    harness/checkpoint.py, harness/recovery.py, tests/test_harness_support.py(시험 공용 도구),
+    tests/test_harness_claim_churn.py, test_harness_paths.py, test_harness_state_guards.py(독립 검증 반영으로 추가)
   - tests/test_harness_*.py (신규만)
   - 이 task 문서
 forbidden_files: card_condition/**, tools/**, 기존 tests/**, AGENTS.md, artifacts/**, data/**, 라벨·사진·모델·비밀 설정, .claude/**
@@ -28,11 +29,12 @@ contract:
   기존 `./develop` 잠금·`./experiment`·card_condition 모듈을 import하거나 바꾸지 않는다.
 structure: 파일당 함수 정의 ≤7(클래스 메서드·중첩 포함), 호출 깊이 ≤4(전이 수). 구현 후 아래 표를 채운다.
 checks:
-  - `.venv/bin/python -m unittest discover -s tests -p "test_harness_*.py" -t .` 종료 코드 0
+  - `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"` 종료 코드 0
+    (`-t .`는 `tests/`에 `__init__.py`가 없어 ImportError이므로 쓰지 않는다)
   - 아래 "필수 시험" 전부 포함
   - `git diff --check`, 허용 파일 대조, 파일별 함수 수·호출 경로 표
 experiment: 없음. 합성 시험이며 모델 성능 근거가 아니다.
-handoff: 아래 "구조 표 / 인계" 절. 구현 e6da279a8f5396c44d722d41a5bf8830f1d55a90, 시험 대상 19f343da2439bc81357e056cb8ce32294e87ec99.
+handoff: 아래 "구조 표 / 인계" 절(독립 검증 반영 포함). 최종 시험 대상 SHA는 그 절의 표.
 ```
 
 ## 설계 근거(원문)
@@ -90,19 +92,21 @@ handoff: 아래 "구조 표 / 인계" 절. 구현 e6da279a8f5396c44d722d41a5bf88
 
 | 항목 | 값 |
 |---|---|
-| 시험 대상(구현 e6da279 + 시험 19f343d) | `19f343da2439bc81357e056cb8ce32294e87ec99` |
-| 구현 커밋 | `e6da279a8f5396c44d722d41a5bf8830f1d55a90` (`feat(harness)`) |
-| 이 문서 커밋 | 시험 대상 위에 문서만 추가(코드 변경 없음) |
+| 1차 구현 / 1차 시험 | `e6da279a8f5396c44d722d41a5bf8830f1d55a90` / `19f343da2439bc81357e056cb8ce32294e87ec99` (독립 검증 전, 38개) |
+| 독립 검증 반영 구현 (`fix(harness)`) | `014174c` (전체 SHA는 `git log`; 아래 표의 시험 대상 SHA의 조상) |
+| **최종 시험 대상(반영 구현 + 반영 시험)** | `9fc60f839874b38c450c7419f20c3a85929e9fbe` (`test(harness)` 커밋) |
+| 이 문서 커밋 | 시험 대상 위에 문서만 추가(코드 변경 없음). SHA는 커밋 후 `git log`로 확인 |
 
-| 명령 (cwd = worktree) | 종료 코드 |
+| 명령 (cwd = worktree, 시험 대상 SHA에서 실행) | 종료 코드 |
 |---|---|
-| `.venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"` (Python 3.12.14) | 0 (38개 통과) |
-| `/usr/bin/python3 -m unittest discover -s tests -p "test_harness_*.py"` (Python 3.9.6, 호환 확인) | 0 (38개 통과) |
-| 위 두 명령에 `-W error::ResourceWarning` 추가(파일·파이프 누수 확인) | 0 |
-| `git diff --cached --check` (두 커밋 직전) | 0 |
-| 작업 지시의 원 명령 `... -s tests -p "test_harness_*.py" -t .` | **실패**(ImportError: `tests/`에 `__init__.py`가 없어 시작 폴더를 가져올 수 없음). 저장소의 기존 상태이며 이번 허용 범위에서 `tests/__init__.py`를 만들 수 없어 `-t .`를 뺀 명령으로 실행했다. 시험은 `from tests.test_harness_support import ...`(cwd 기준 네임스페이스 패키지)로 공용 도구를 읽는다. |
+| `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"` (Python 3.12.14) | 0 (51개 통과, 연속 5회·`-W error::ResourceWarning` 포함 모두 통과) |
+| `/usr/bin/python3 ... 같은 명령` (Python 3.9.6, 호환 확인) | 0 (51개 통과) |
+| 검증자 적대 스크립트 `adv.py`·`race.py` (읽기·실행만, 저장소에 복사 안 함) | adv 항목 1·2·4a·4b·5a·6·7·10 해소 확인(아래 표), race16×200: 승 72·겹침 0·장부 문제 0, 장부 16×50 800줄 정상 |
+| `git diff --check` (커밋 직전) | 0 |
+| 지시 원 명령 `... -s tests -p "test_harness_*.py" -t .` | **실패**(ImportError: `tests/`에 `__init__.py`가 없음, 저장소 기존 상태). `-t .`를 뺀 명령을 쓴다. 시험은 `from tests.test_harness_support import ...`(cwd 기준 네임스페이스 패키지)로 공용 도구를 읽는다. |
 
-시험에는 변이 확인도 했다(저장소에 남기지 않음): 잠금을 공유 잠금으로 바꾸기, 재개 임계값 0으로, 재시도 한도 +5, VERIFIED 무조건 반환, 장부 prev 검사 끄기, 일시적 실패 판정 뒤집기, 체크포인트 지문 비교 끄기 — 각각 1~6개 시험이 실패했다(원복 뒤 전체 통과).
+시험에는 변이 확인도 했다(저장소에 남기지 않음). 1차: 잠금을 공유 잠금으로 바꾸기, 재개 임계값 0, 재시도 한도 +5, VERIFIED 무조건 반환, 장부 prev 검사 끄기, 일시적 실패 판정 뒤집기, 체크포인트 지문 비교 끄기 — 각각 1~6개 시험 실패.
+독립 검증 반영 뒤: 검증자 `mutate.py`를 scratchpad에 복사해(원본 수정 안 함; M3의 대상 문자열이 코드 변경으로 달라져 M3만 새 코드에 맞게 고침) M1~M14와 추가 M15~M22를 돌렸다. M1(링크 파일 검사 제거)·M2(lease samestat 제거)·M3(실패 기록을 작업권보다 먼저 판정)·M15~M17·M19~M22를 포함해 모든 변이가 시험 실패로 잡혔다. 한 번은 M18(done 비객체 허용)이 살아남았으나 중복 코드라 제거했고, M19·M20은 처음엔 살아남아 시험(다른 필드 변조, 실제 부팅 식별자로 기록한 산 pid)을 보강해 잡히게 했다. M2는 반복 claim 경합 시험이 6회 연속 겹침(49~106건)으로 잡는다.
 
 ### 필수 시험 대응
 
@@ -129,12 +133,12 @@ handoff: 아래 "구조 표 / 인계" 절. 구현 e6da279a8f5396c44d722d41a5bf88
 | harness/contract.py | 5 | tests/test_harness_lease.py | 5 |
 | harness/graph.py | 3 | tests/test_harness_ledger.py | 7 |
 | harness/jsonio.py | 2 | tests/test_harness_states.py | 7 (시험 6 + 도우미 1) |
-| harness/lease.py | 7 | tests/test_harness_claim_processes.py | 5 (시험 4 + 도우미 1) |
-| harness/ledger.py | 6 | tests/test_harness_recovery.py | 7 |
-| harness/manifest.py | 2 | tests/test_harness_graph.py | 6 (시험 5 + 도우미 1) |
-| harness/queue.py | 7 | | |
-| harness/recovery.py | 6 | | |
-| harness/states.py | 2 | | |
+| harness/lease.py | 7 | tests/test_harness_claim_processes.py | 7 |
+| harness/ledger.py | 6 | tests/test_harness_claim_churn.py | 1 |
+| harness/manifest.py | 3 | tests/test_harness_recovery.py | 7 |
+| harness/queue.py | 7 | tests/test_harness_graph.py | 6 (시험 5 + 도우미 1) |
+| harness/recovery.py | 6 | tests/test_harness_paths.py | 4 |
+| harness/states.py | 3 | tests/test_harness_state_guards.py | 5 |
 | harness/__init__.py | 0 | | |
 
 ### 호출 깊이(전이 수, 한도 ≤4)
@@ -143,14 +147,14 @@ handoff: 아래 "구조 표 / 인계" 절. 구현 e6da279a8f5396c44d722d41a5bf88
 
 | 진입 | 최장 경로 | 전이 수 |
 |---|---|---|
-| queue.claim | claim → decide → _corrupt → cas.get → sha_file (또는 → mismatches → sha_file, → decide → _interrupted → _plan → new_run_id, → classify → is_alive → boot_id) | 4 |
+| queue.claim | claim → decide → _corrupt → cas.get → sha_file (또는 → mismatches → sha_file, → decide → _failed → load_contract → read_json, → decide → _interrupted → checkpoint.check → read_json, → classify → load_contract → task_key) | 4 |
 | queue.recover | 위 claim과 같은 경로 | 4 |
 | graph.register_missing | register_missing → enqueue → _log → ledger.append → _hash_entry | 4 |
-| queue.complete | complete → cas.put → has → sha_file / complete → _log → append → _hash_entry | 3 |
+| queue.complete | complete → cas.put → has → sha_file / complete → _log → append → _hash_entry / → load_contract → task_key | 3 |
 | queue.fail | fail → _log → append → _hash_entry | 3 |
 | queue.enqueue | enqueue → _log → append → _hash_entry | 3 |
 | ledger.verify | verify → _check_line → _hash_entry | 2 |
-| states.classify | classify → is_alive → boot_id / → mismatches → sha_file | 2 |
+| states.classify | classify → load_contract → task_key / → mismatches → sha_file / → is_alive → boot_id | 2 |
 
 공개 진입 함수 시작 기준 최대 4로 한도 이내이다. 단 시험 함수를 시작점으로 세면 시험 → claim(4) 또는 시험 → 도우미 → claim(4)이라 5~6이 된다(시험 쪽은 이번 한도 판정 대상에서 제외했다고 가정, 아래 가정 참조).
 
@@ -163,6 +167,8 @@ handoff: 아래 "구조 표 / 인계" 절. 구현 e6da279a8f5396c44d722d41a5bf88
 
 ### 가정 (명세가 모호해 가장 보수적으로 고른 해석)
 
+(10~11은 독립 검증 반영에서 추가)
+
 1. `task_key`는 계약 전체(expected_minutes만 제외)의 canonical JSON sha256이다. 필드를 바꾸면 새 키가 되어 이미 VERIFIED여도 다시 실행된다(거짓 건너뜀보다 낫다고 봄).
 2. `outputs`는 비어 있을 수 없고 안전한 상대 경로여야 한다(출력 해시로만 완료를 인정하기 때문). 산출물은 `tasks/<key>/out/<상대경로>`에 쓴다. 심볼릭 링크 산출물·manifest의 선언 외 키·읽을 수 없는 `done.json`은 모두 CORRUPT다.
 3. INTERRUPTED의 "실행 시간"은 `복구 판단 시각(now) - 작업권 획득 시각`이다. 사망 시각을 모르므로 실제 작업 시간보다 길게 잡힐 수 있다. 30분 정확히는 재개 가능(≥30).
@@ -172,6 +178,39 @@ handoff: 아래 "구조 표 / 인계" 절. 구현 e6da279a8f5396c44d722d41a5bf88
 7. 빈(또는 공백) 작업권 파일은 "작업권 없음"(잠금만 잡고 기록 전에 죽은 경우)으로, 깨진 JSON은 "죽은 작업권"으로 본다.
 8. `reconcile`은 VERIFIED·RUNNING·PENDING이 아니고 의존이 모두 VERIFIED인 작업을 모두 돌려주지만, `register_missing`은 그중 UNREGISTERED만 `enqueue`한다. FAILED·INTERRUPTED·CORRUPT는 이미 큐에 있으므로 등록하지 않고(특히 결정적 실패를 우회 재등록하지 않으려고) claim/recover의 판단에 맡긴다. 선언 키는 계약의 task_key와 같아야 한다. 해시 키는 순환이 불가능하므로 순환 시험은 임의 키 사전으로 reconcile을 직접 호출한다.
 9. 장부는 상태 변경 뒤에 기록한다(일어나지 않은 일을 주장하지 않으려고). 비정상 종료 시 장부 줄이 빠질 수 있으며 상태 파일이 정본이다. 호출 깊이 한도는 공개 진입 함수 기준으로 판단했다(시험 함수 시작 기준은 위 표 참조).
+10. (검증 반영 4) `claim` 안에서 `flock` 획득에 성공했다면 이전 작업권 기록은 pid가 살아 있어 보여도(좀비·재사용된 무관한 pid) 죽은 작업권(INTERRUPTED)으로 본다. 근거: 산 작업권의 주인은 flock을 쥐고 있어 획득이 실패하므로(→ "locked"), 획득 성공은 쥔 쪽이 없다는 확정 증거다. 관찰자용 `classify`/`recover`는 flock 없이 보므로 기존대로 pid·부팅 식별자로 판정한다(그래서 좀비는 관찰자에게 RUNNING으로 보일 수 있고 claim은 인수한다).
+11. (검증 반영 2) 작업권의 run_id가 마지막 실패 기록의 run_id와 같으면 작업권이 살아 있든 죽었든 FAILED다(그 실행은 이미 실패를 기록했다). 작업권이 없거나 run_id가 다르면 기존 규칙(재시도 실행 중 = RUNNING).
+
+### 독립 검증(Opus) 지적 반영 내역
+
+| 번호 | 조치 | 내용 |
+|---|---|---|
+| 1 | 수정 | `manifest.safe_path`: out과 중간 폴더가 링크이거나 실제 위치가 out 밖이면 거절. `build`(완료)·`mismatches`(분류)·CAS 복구 쓰기 모두 거친다. 마지막 파일이 링크인 경우는 `islink`로 따로 본다. 시험: `test_harness_paths.py`(링크 폴더·링크 out 완료 거절, 완료 뒤 링크로 바꾸면 CORRUPT, 밖에 복구 쓰기 없음) |
+| 2 | 수정 | classify: 작업권 run_id가 마지막 실패 기록 run_id와 같으면 FAILED. 시험: 실제 subprocess가 실패 기록 직후 kill -9(`test_death_right_after_writing_failure_record...`), 재시도 실행 중 RUNNING(`test_harness_state_guards.py`) |
+| 3 | 수정 | `test_harness_claim_churn.py`: 12개 프로세스×150회 claim→해제 경합, 작업권을 쥔 동안 O_EXCL 표식으로 겹침 감지. samestat 검사를 끈 변이를 잡는다 |
+| 4 | 수정 | claim은 flock을 잡은 뒤 이전 작업권을 pid 생존과 무관하게 죽은 것으로 분류한다(아래 가정 10). 시험: 좀비, 무관한 산 pid(실제 부팅 식별자) |
+| 5 | 수정 | 같은 내용 파일을 가리키는 링크 시험(M1 변이를 잡음) |
+| 6 | 수정 | 재시도 실행 중 RUNNING 시험(2번과 함께) |
+| 7 | 수정 | `done.json`이 존재하나 객체가 아니면(null 등) CORRUPT, 재실행 계획 |
+| 8 | 수정 | `states.load_contract`: task_key(계약)==폴더명, outputs 비어 있지 않음, 위반은 CORRUPT. CORRUPT 복구 단계에서 계약이 손상이면 재실행하지 않고 `blocked`로 멈춘다 |
+| 9 | 수정 | `contract.check_key`: claim·recover·complete·fail 진입에서 소문자 16진 64자가 아니면 ContractError(`fullmatch`; 끝 개행 거절). 이 때문에 adv.py 3a·3b는 이제 오류를 낸다(의도) |
+| 10 | 수정 | failures/에서 `\d{3}-[0-9a-f]+\.json`만 센다. `fail`의 번호 매김도 같은 규칙 |
+| 11 | 설계 메모 | 아래 "다음 단계 메모" |
+| 12 | 수정 | claim: stamp 뒤 로그 예외 시 작업권을 지우고 해제, 판단 중 예외 시 해제(이전 기록 보존). complete·fail: 로그가 실패해도 finally로 해제 |
+| 13 | 수정 | `ledger.py` docstring에 전체 재계산 위조는 expected_tail 복제본 없이는 감지 불가 추가 |
+| 14 | 문서만 | 아래 "사용자 결정 대기" |
+| 15 | 수정 | checks 문구를 실제 동작 명령으로 |
+
+추가 변경: `contract.canonical`을 없애고 `task_key`에 인라인(호출 깊이 한도 유지), `queue.claim`의 `is_alive` 인자는 이전 호출 형식과 검증자 스크립트 호환을 위해 받되 무시한다.
+
+### 다음 단계 메모 (3~4단계: Supervisor·실패 정책)
+
+- 결정적으로 실패한 계약의 정책 필드(`escalation_level` 등)를 바꿔 새 `task_key`로 우회 등록하는 경로가 있다(adv.py 8번: 실패한 계약의 escalation_level만 바꿔도 새 작업으로 등록되어 실행됨). 이 단계는 설계 범위 밖이라 막지 않았다. Supervisor/실패 정책 단계에서 task_type·입력 기준의 동일 작업 식별과 실패 이력 연동으로 막아야 한다.
+- `tail()`은 마지막 줄을 검증하지 않고 해시를 그대로 내보낸다(검증은 `verify`·`append`). 외부 복제 지점은 verify 통과 직후 값을 쓰도록 한다.
+
+### 사용자 결정 대기
+
+- 호출 깊이 ≤4를 "공개 진입 함수 시작 기준"으로 판정하고 시험 함수는 판정에서 제외했다(시험 함수를 시작점으로 세면 5~6). 이 해석이 PAIR_CODING.md §2.1에 부합하는지는 사용자 결정 대기 항목이다. 코드 변경 없음.
 
 ### 미검증
 
