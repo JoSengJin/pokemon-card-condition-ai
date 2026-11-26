@@ -249,7 +249,7 @@ CHAMPION → 목표 판정 → (충족) REGRESSION_CHECK → REPORTED → DONE /
 - 하네스는 `route(작업 계약) → (모델, effort, 상향 순서)`를 호출만 한다. Claude 작업은 `claude -p --model <m> --effort <e>`로 실행하고, 작업 안의 하위 에이전트는 Agent 도구의 `model` 인자로 지정한다.
 - 실제 사용한 모델·effort를 장부에 남겨 정책과 대조한다(IMPLEMENTATION T7).
 - 연결 대상: 개발·구현(고추론), 이미지 분석·Silver 라벨·출처 감사(`needs_vision`), 원인 재분석(상향 대상), 상태·집계·평가(`needs_llm=false`, LLM 미사용).
-- **정책 원문은 별도 설계 세션의 몫이며 이 저장소에서 찾지 못했다**(2026-11-27 검색, EVIDENCE 6절). 경로 확정이 D-4다. 정책이 없으면 하네스는 고정 기본값으로 동작하고 그 사실을 장부에 남긴다.
+- **정책 정본은 [model-routing-design.md](../model-routing-design.md) 1절 `routing-policy-v1`(사용자 승인 2026-11-27)이다.** 정책 표는 실행 코드와 분리해 판본과 함께 읽는다. 정책이 없거나 표에 없는 `task_type`은 고정 기본값으로 동작하고 `policy=none`을 장부에 남긴다. 지원되지 않는 모델·effort 설정은 조용히 무시하지 않고 실제 적용값과 제한 사항을 기록한다. 구현은 3~4단계다.
 
 ## 15. 기본 기능과 직접 구현의 경계
 
