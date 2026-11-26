@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from harness import cas, checkpoint, ledger, lease, queue, recovery, states
+from harness import cas, checkpoint, contract, ledger, lease, queue, recovery, states
 from tests.test_harness_support import BOOT, alive_with, dead_lease, finish, fingerprint, make_contract
 
 T0 = 1_000_000.0
@@ -97,14 +97,14 @@ class RecoveryTest(unittest.TestCase):
             with self.subTest(label), tempfile.TemporaryDirectory() as root:
                 key = queue.enqueue(root, make_contract(), T0)
                 tdir = os.path.join(root, "tasks", key)
-                dead_lease(root, key, T0, run_id="run-old")
+                dead_lease(root, key, T0, run_id="abc123")
                 if saved is not None:
-                    checkpoint.save(tdir, "run-old", saved, T0 + 60)
+                    checkpoint.save(tdir, "abc123", saved, T0 + 60)
                 plan = queue.recover(root, key, T0 + minutes * 60, is_alive=dead, current=current)
                 self.assertEqual((plan["state"], plan["resumed"]), (states.INTERRUPTED, resumes))
-                self.assertEqual(plan["run_id"] == "run-old", resumes)
+                self.assertEqual(plan["run_id"] == "abc123", resumes)
                 res = queue.claim(root, key, os.getpid(), BOOT, T0 + minutes * 60, current=current)
-                self.assertEqual((res["ok"], res["resumed"], res["run_id"] == "run-old"), (True, resumes, resumes))
+                self.assertEqual((res["ok"], res["resumed"], res["run_id"] == "abc123"), (True, resumes, resumes))
                 lease.release(res["lease"])
 
     def test_checkpoint_of_another_run_or_damaged_file_is_not_trusted(self):
@@ -112,14 +112,25 @@ class RecoveryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             key = queue.enqueue(root, make_contract(), T0)
             tdir = os.path.join(root, "tasks", key)
-            dead_lease(root, key, T0, run_id="run-old")
-            checkpoint.save(tdir, "run-other", fingerprint(), T0 + 60)
+            dead_lease(root, key, T0, run_id="abc123")
+            checkpoint.save(tdir, "def456", fingerprint(), T0 + 60)
             plan = queue.recover(root, key, T0 + 3600, is_alive=dead, current=fingerprint())
             self.assertEqual((plan["action"], plan["resumed"]), ("rerun", False))
             pathlib.Path(tdir, "checkpoint.json").write_text("{broken")
             plan = queue.recover(root, key, T0 + 3600, is_alive=dead, current=fingerprint())
             self.assertEqual((plan["action"], plan["resumed"]), ("rerun", False))
             self.assertIn("손상", plan["reason"])
+            dead_lease(root, key, T0, run_id="run-old")  # 16진이 아닌 run_id는 이어받지 않는다(실패 기록 파일 이름 규칙과 어긋남)
+            checkpoint.save(tdir, "run-old", fingerprint(), T0 + 60)
+            plan = queue.recover(root, key, T0 + 3600, is_alive=dead, current=fingerprint())
+            self.assertEqual((plan["action"], plan["resumed"]), ("rerun", False))
+            res = queue.claim(root, key, os.getpid(), BOOT, T0 + 3600, current=fingerprint())
+            self.assertRegex(res["run_id"], r"^[0-9a-f]+$")
+            queue.fail(root, key, res["run_id"], res["lease"], "deterministic", "TypeError", T0 + 3601)
+            self.assertEqual(states.classify(tdir, T0, dead), states.FAILED)  # 실패 기록이 소실되지 않고 세어진다
+            for bad in ("run-old", "", "ABC", "a/b", None):
+                with self.assertRaises(contract.ContractError):
+                    queue.fail(root, key, bad, None, "transient", "x", T0)
 
     def test_claim_releases_its_lock_when_classification_or_logging_raises(self):
         with tempfile.TemporaryDirectory() as root:

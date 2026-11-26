@@ -83,7 +83,7 @@ class ClaimProcessesTest(unittest.TestCase):
             self.assertTrue(lease.read(os.path.join(tdir, "lease.json"))["resumed"])
             lease.release(res["lease"])
 
-    def test_zombie_holder_is_running_for_observers_but_claim_takes_over(self):
+    def test_zombie_holder_is_running_for_observers_but_claim_takes_over_after_ps_says_zombie(self):
         with tempfile.TemporaryDirectory() as root:
             key, gate, (proc,) = start_workers(self, root, 1)
             open(gate, "w").close()
@@ -99,23 +99,6 @@ class ClaimProcessesTest(unittest.TestCase):
             self.assertEqual(states.classify(tdir, 1.0, alive_with()), states.RUNNING)  # 관찰자는 pid 조회로 판정
             res = queue.claim(root, key, os.getpid(), BOOT, 2.0)  # flock은 이미 풀려 있다 = 쥔 쪽이 없다
             self.assertEqual((res["ok"], res["state"]), (True, states.INTERRUPTED))
-            lease.release(res["lease"])
-
-    @unittest.skipUnless(sys.platform == "darwin", "실제 부팅 식별자는 macOS에서만 조회한다")
-    def test_unrelated_live_pid_in_stale_lease_does_not_block_claim(self):
-        boot = lease.boot_id()  # 실제 부팅 식별자로 기록해야 pid 생존 판정만이 변수가 된다
-        with tempfile.TemporaryDirectory() as root:
-            key = queue.enqueue(root, make_contract(), 1.0)
-            other = subprocess.Popen(["sleep", "30"])  # pid가 재사용된 무관한 프로세스를 모사
-            self.addCleanup(other.wait)
-            self.addCleanup(other.kill)
-            tdir = os.path.join(root, "tasks", key)
-            handle = lease.lock(os.path.join(tdir, "lease.json"))
-            lease.stamp(handle, other.pid, boot, 1.0, {"run_id": "r-old"})
-            lease.release(handle)
-            self.assertEqual(states.classify(tdir, 2.0, lease.is_alive), states.RUNNING)  # 관찰자는 산 pid를 RUNNING으로 본다
-            res = queue.claim(root, key, os.getpid(), BOOT, 2.0)
-            self.assertEqual((res["ok"], res["state"], res["run_id"] != "r-old"), (True, states.INTERRUPTED, True))
             lease.release(res["lease"])
 
     def test_death_right_after_writing_failure_record_is_failed_not_interrupted(self):

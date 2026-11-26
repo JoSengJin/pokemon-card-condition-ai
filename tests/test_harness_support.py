@@ -26,6 +26,7 @@ CHURN = r'''
 import os, sys, time
 from harness import queue, lease
 root, key, boot, gate, rounds = sys.argv[1:6]
+print("READY", flush=True)  # 모두 준비된 뒤에 동시에 출발시키려고
 while not os.path.exists(gate):
     time.sleep(0.001)
 wins = overlaps = 0
@@ -44,6 +45,15 @@ for _ in range(int(rounds)):
     os.unlink(os.path.join(root, "SENTINEL"))
     lease.release(res["lease"], remove=True)
 print(wins, overlaps, flush=True)
+'''
+
+EXEC_CLAIM = r'''
+import os, sys, time
+from harness import queue
+root, key, boot = sys.argv[1:4]
+res = queue.claim(root, key, os.getpid(), boot, time.time())
+print("CLAIMED" if res["ok"] else "REFUSED", flush=True)
+os.execv("/bin/sleep", ["sleep", "30"])  # 같은 pid가 계속 실행되지만 잠금 fd(close-on-exec)는 사라진다
 '''
 
 FAIL_CRASH = r'''
