@@ -20,8 +20,10 @@ def affected(models, batch_id):
 
 
 def invalidate_lineage(root, now, silver_batch_id):
-    """{"ok": True, "invalidated": [모델 ID...], "restore": 복원 결과 또는 None}. Champion 복원이 CAS 손상 등으로 실패하면
-    무효화는 이미 기록된 채로 ChampionError가 전파된다(포인터는 바뀌지 않음)."""
+    """{"ok": True, "invalidated": [이번에 새로 무효화한 모델 ID...], "restore": 복원 결과 또는 None}.
+
+    현재 Champion이 무효이면(이번 무효화 때문이든 이전에 죽은 호출이 남긴 것이든) 복원을 시도한다. 복원이 CAS 손상 등으로 실패하면
+    무효화는 이미 기록된 채로 ChampionError가 전파된다(포인터는 바뀌지 않음). 같은 인자로 다시 부르면 이어서 복원한다."""
     if not isinstance(silver_batch_id, str) or not silver_batch_id:
         raise registry.RegistryError("silver_batch_id는 빈 문자열이 아닌 ID여야 한다")
     with registry.lock(root):
@@ -29,11 +31,11 @@ def invalidate_lineage(root, now, silver_batch_id):
         if champion.settle(root, now, state):
             state = registry.load(root)
         ids = affected(state["models"], silver_batch_id)
-        if not ids:
-            return {"ok": True, "invalidated": [], "restore": None}
-        data = {"models": ids, "cause": "silver_batch: %s" % silver_batch_id}
-        registry.apply(state, ledger.append(os.path.join(root, registry.REGISTRY), now, "invalidated", data))
-        ledger.append(os.path.join(root, "ledger.jsonl"), now, "lineage_invalidated", data)
+        if ids:
+            data = {"models": ids, "cause": "silver_batch: %s" % silver_batch_id}
+            registry.apply(state, ledger.append(os.path.join(root, registry.REGISTRY), now, "invalidated", data))
+            ledger.append(os.path.join(root, "ledger.jsonl"), now, "lineage_invalidated", data)
+        # ids가 비어도 현재 Champion이 무효이면 복원한다: 무효화 뒤 복원 전에 죽은 호출을 같은 인자로 다시 불러 이어갈 수 있다
         holder = champion.current(root, state)
-        restore = champion.restore_locked(root, now, state) if holder is not None and holder["model_id"] in ids else None
+        restore = champion.restore_locked(root, now, state) if holder is not None and not holder["valid"] else None
     return {"ok": True, "invalidated": ids, "restore": restore}
