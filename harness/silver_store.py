@@ -41,6 +41,7 @@ def load(root, expected_tail=None):
         raise StoreError("Silver 저장소 체인 손상: %s" % (problems[:3],))
     try:
         with open(path, "r", encoding="utf-8") as handle:
-            return [json.loads(line) for line in handle.read().splitlines()]
+            text = handle.read()  # 줄은 "\n"으로만 나눈다(ledger와 같은 규칙)
+        return [json.loads(line) for line in text.removesuffix("\n").split("\n")] if text else []
     except FileNotFoundError:
         return []

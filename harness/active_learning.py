@@ -3,6 +3,8 @@
 선별 점수 = 오류 유형 우선순위 × 층 부족도 × 모델 불확실성(문턱 근처·Champion–Challenger 불일치 중 큰 값) × 예상 학습 가치(처음 1).
 다양성·대표성: 실물 카드 그룹당·판매자당 상한, 임베딩 군집별 상한, 회차마다 무작위 20%. 같은 seed는 같은 선별을 낸다(정렬 키가 seed 섞은 sha256).
 제외: 봉인 묶음과 보정 묶음의 실물 그룹(이미지 SHA·그룹 ID). 결과에 0건이어야 한다. protected 입력이 없으면 제외할 수 없으므로 오류다.
+각 목록은 비어 있지 않은 문자열의 list·tuple·set이어야 하며(문자열·None 등은 오류), 비교는 양쪽 모두 앞뒤 공백을 버리고 대소문자를 무시한다
+(제외가 넓어지는 방향). SHA 형식(64자리 hex)은 검사하지 않는다.
 라우팅: 승인된 Silver 정책 범위 안이면 Silver 큐, 밖이면 사람 큐(그 라벨은 개발용 Gold). 큐 항목에는 모델 점수·기대 라벨을 담지 않는다(앵커링 방지).
 능동 학습 표본은 대표 표본이 아니다: 결과에 representative=False를 남기고 무작위 부분에는 random_part=True를 붙인다.
 """
@@ -21,17 +23,22 @@ class ActiveLearningError(Exception):
 
 def protected_reason(item, protected):
     """item의 이미지 SHA 또는 실물 그룹이 봉인·보정 묶음이면 'sealed'/'calibration', 아니면 None. 입력 구조가 틀리면 오류(조용히 통과 금지)."""
-    for name in ("sealed", "calibration"):
+    # shortcut: 호출마다 목록을 다시 검사·정규화한다(O(후보 × 목록)). 목록이 수만 건이 되면 한 번만 정규화한다
+    found = {}
+    for name in ("sealed", "calibration"):  # 판정하기 전에 네 목록을 모두 검사한다
         part = protected.get(name) if isinstance(protected, dict) else None
-        if not isinstance(part, dict) or "image_shas" not in part or "group_ids" not in part:
-            raise ActiveLearningError("protected에는 sealed·calibration의 image_shas·group_ids가 모두 있어야 한다")
-        if item["image_sha"] in part["image_shas"] or item["group_id"] in part["group_ids"]:
-            return name
-    return None
+        for field in ("image_shas", "group_ids"):
+            values = part.get(field) if isinstance(part, dict) else None
+            if not isinstance(values, (list, tuple, set)) or not all(isinstance(v, str) and v.strip() for v in values):
+                raise ActiveLearningError("protected.%s.%s는 비어 있지 않은 문자열의 list·tuple·set이어야 한다"
+                                          "(sealed·calibration의 image_shas·group_ids가 모두 필요하다)" % (name, field))
+            found[name, field] = {v.strip().casefold() for v in values}
+    sha, group = item["image_sha"].strip().casefold(), item["group_id"].strip().casefold()
+    return next((n for n in ("sealed", "calibration") if sha in found[n, "image_shas"] or group in found[n, "group_ids"]), None)
 
 
 def check_inputs(candidates, protected, config, budget, seed):
-    """입력을 검사하고 집합으로 정규화한 protected를 돌려준다. 어긋나면 ActiveLearningError(빠진 값을 기본값으로 메우지 않는다)."""
+    """입력을 검사한다. 어긋나면 ActiveLearningError(빠진 값을 기본값으로 메우지 않는다)."""
     if not isinstance(budget, int) or isinstance(budget, bool) or budget < 0:
         raise ActiveLearningError("budget은 0 이상의 정수")
     if isinstance(seed, bool) or not isinstance(seed, (int, str)) or seed == "":
@@ -45,12 +52,12 @@ def check_inputs(candidates, protected, config, budget, seed):
     width = config.get("threshold_width")
     if isinstance(width, bool) or not isinstance(width, (int, float)) or not math.isfinite(width) or width <= 0:
         raise ActiveLearningError("threshold_width는 0보다 큰 유한한 수")
-    normalized = {}
-    for name in ("sealed", "calibration"):
-        part = protected.get(name) if isinstance(protected, dict) else None
-        if not isinstance(part, dict) or "image_shas" not in part or "group_ids" not in part:
-            raise ActiveLearningError("protected에는 sealed·calibration의 image_shas·group_ids가 모두 있어야 한다")
-        normalized[name] = {"image_shas": set(part["image_shas"]), "group_ids": set(part["group_ids"])}
+    protected_reason({"image_sha": "", "group_id": ""}, protected)  # 후보가 없어도 제외 목록 형식은 검사한다
+    for table in ("error_priority", "stratum_scarcity"):  # 안 쓰는 항목까지 검사한다. 우선순위는 >0, 부족도는 ≥0
+        for key, value in config[table].items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0 \
+                    or (value == 0 and table == "error_priority"):
+                raise ActiveLearningError("%s의 값은 유한하고 범위 안이어야 한다(우선순위 >0, 부족도 ≥0): %r" % (table, key))
     seen = set()
     for item in candidates:
         if any(not isinstance(item.get(k), str) or not item[k] for k in REQUIRED) or item["region_id"] in seen:
@@ -60,10 +67,10 @@ def check_inputs(candidates, protected, config, budget, seed):
                                                                                      "learning_value") if item.get(k) is not None]
         if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in numbers):
             raise ActiveLearningError("점수는 유한한 수여야 한다: %s" % item["region_id"])
-        priority, scarcity = config["error_priority"].get(item["error_type"]), config["stratum_scarcity"].get(item["stratum"])
-        if not isinstance(priority, (int, float)) or priority <= 0 or not isinstance(scarcity, (int, float)) or scarcity < 0:
-            raise ActiveLearningError("error_priority(>0)·stratum_scarcity(≥0)에 없는 값: %s" % item["region_id"])
-    return normalized
+        if item.get("learning_value") is not None and item["learning_value"] < 0:
+            raise ActiveLearningError("learning_value는 0 이상: %s" % item["region_id"])
+        if item["error_type"] not in config["error_priority"] or item["stratum"] not in config["stratum_scarcity"]:
+            raise ActiveLearningError("error_priority·stratum_scarcity에 없는 값: %s" % item["region_id"])
 
 
 def score(item, config):
@@ -107,7 +114,7 @@ def select(candidates, protected, config, budget, seed, scopes):
     config: error_priority{오류 유형: >0}, stratum_scarcity{층: ≥0}, threshold_width, per_group_cap, per_seller_cap, cluster_quota(군집당 최대 수).
     scopes: 승인된 Silver 정책 범위 목록(없으면 모두 사람 큐).
     """
-    protected = check_inputs(candidates, protected, config, budget, seed)
+    check_inputs(candidates, protected, config, budget, seed)
     excluded, pool = {"sealed": 0, "calibration": 0}, []
     for item in candidates:
         reason = protected_reason(item, protected)
