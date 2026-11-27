@@ -75,3 +75,26 @@ experiment: 없음. 사진 비교 HTML은 대상이 아니다(모델 평가 없�
 - 미착수: T7(우선 하), T4·T6(범위 밖).
 - 통합 순서: `921d152` → 이 인계 커밋 → T1·T2·T3·T5 각 `921d152..tip`. 파일이 겹치지 않는다.
 - 롤백: 새 파일 삭제 + `git revert <통합 SHA>`.
+
+## 5. 코드 리뷰와 수정 (2026-11-27, §2·§4와 다르면 이 절이 우선)
+
+리뷰: Superpowers `requesting-code-review`, 하위 에이전트 1명, 대상 `e15b29e904dea9d20ae44073dd36e5afbd2569fb`(기준 `921d152`). Critical 0, Important 7(I-1~I-7), 구현 세션이 모두 재현·코드 대조. 사용자 "7건 수정해".
+
+- 허용 파일 추가: T2 `card_condition/cross_review_auto_contract.py`(PROTECTED 한 줄), 새 시험 `tests/test_{experiment_sidecars,zone_rows,rater_gate,cluster_stats}_rejects.py`.
+- §1·§2 보정: 실행기가 받는 `rater_kind`는 `ai_suspect`·`unknown`만. `human`은 증거 형식이 정해지기 전까지 거절. 중복 JSON 키 거절.
+- zone_rows: `--provenance`를 주면 dict·네 verdict·`answer_sha256`을 항상 검사. side는 `back`만. 유한한 양수가 아닌 ppm 거절. `기준 판본 불일치`의 0은 미측정.
+- rater_gate: 답 파일은 주석·빈 줄 말고 못 읽는 줄이 있으면 거절. 인라인 주석 거절. `no_match_found`는 같은 화면(또는 화면 표기 없음)의 전체 포함 AI 파일이 있고, 못 읽은 AI 파일이 `.log`·숨김 파일뿐일 때만. `ai_identical`·`ai_suspect` 표시는 다른 화면 파일로도 남는다. 결과: JSON 판정 파일이 있는 묶음은 `unknown`.
+- stats: 후보·대조 점수 모두 검사, 후보 id 중복·식별 칸 누락 거절, 사진 1장은 구간 미측정.
+
+| task | 수정 후 tip SHA |
+|---|---|
+| T1 | `489d3b0ab4e91653ea6aa70c3438e8fe4a7c7c72` |
+| T2 | `1d7ebc7865df9e3cc2f9b48e630cd9c85e29f0d1` |
+| T3 | `8da1a73f97825126832d9693e5ecf6d31f2404d5` |
+| T5 | `bc37a10d6e4188baf0e930f721e040081d3b066c` |
+
+- 반례 시험은 수정 전 네 브랜치에서 모두 실패(RED), 수정 후 통과.
+- 임시 결합 `479d23c8d136d20332cc4ed6f3df8f4df1210c3e`(worktree 제거함): 13개 시험 모듈 72건 rc=0. 자료 없음 건너뜀 6, 자료 읽기 전용 지정 건너뜀 0. 합성 fixture 2종 세 파일의 바이트 동일.
+- 함수 수: 새 제품 파일 최대 6, 새 시험 파일 7 이하. `cross_review_auto_contract.py` 3→3.
+- 미검증: 자동 검토 관련 19개 모듈 212건 중 80건은 Git 제외 `nemotron-review.json`이 없어 `FileNotFoundError`(기준 `921d152`에서도 같은 목록). 통합 뒤 기본 checkout에서 돌려야 한다. 수정분 재리뷰, 실제 `./experiment`.
+- 남긴 작은 지적: 0건 정확 상한, zone_rows 입력 SHA·미매칭 측정 건수, 사이드카 교차 검사(AI 의심 수·구역 이름·input_hold·band 이름).
