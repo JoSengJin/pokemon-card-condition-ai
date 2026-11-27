@@ -8,7 +8,7 @@
 - 실패(표본 오류율 > 정책 상한, 판정이 덜 끝났어도 오류가 이미 상한을 넘으면 확정)하면 연쇄: ① audit_completed(failed) ② 정책 철회(그 정책의 Silver는
   파생 상태로 Pending) ③ 7단계 lineage.invalidate_lineage(그 묶음을 쓴 모델·후속 무효화, 현재 Champion이 포함되면 마지막 정상 Champion으로 복원)
   ④ cascade_done. 중간에 죽으면 같은 인자(verdicts 생략)로 다시 부른다: 이미 한 단계는 건너뛰고 이어간다. 연쇄가 끝나기 전에도 상태는 failed라 승격은 거절된다.
-호출 깊이: record_verdicts는 lineage.invalidate_lineage를 직접 부르므로 7단계 내부(깊이 4)를 합쳐 5다(알려진 제약, task 문서 참조).
+호출 깊이: record_verdicts는 lineage.invalidate_lineage를 직접 부르며 1·7단계 호출을 합쳐 4다(한도 안, task 문서 참조).
 """
 from fractions import Fraction
 

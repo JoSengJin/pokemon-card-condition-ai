@@ -180,22 +180,23 @@ N10·N11·N16·N6도 잡힘.
 
 ### 호출 깊이 (전이 수)
 
+현재 코드 기준(`7062c52`, 2026-11-27 재측정). 통합 뒤 `6103a41`이 `champion._materialize`를 `restore_locked` 안에, `ledger._hash_entry`를 `ledger.append`·`_check_line` 안에 펼쳐
+함수 수가 `champion.py` 6→5, `ledger.py` 6→5가 됐다(위 "파일별 함수 정의 수" 표는 구현 당시 값이며 `champion.py`는 현재 5).
 측정: ast로 이름 참조(호출과 콜백)를 간선으로 센 보수적 상한. 스크립트는 저장소에 두지 않음(scratchpad). 순환 없음.
-"이 작업 파일 안"은 registry·gate·champion·lineage 사이의 전이만, "1단계 포함"은 1단계 호출까지 더한 현재 측정값이다(통합 때 메인이 재측정).
+"이 작업 파일 안"은 registry·gate·champion·lineage·pointer 사이의 전이만, "1단계 포함"은 1단계 호출까지 더한 값이다.
 
-| 진입 | 이 작업 파일 안 최장 | 1단계 호출 포함(현재) 최장 경로 |
+| 진입 | 이 작업 파일 안 최장 | 1단계 호출 포함 최장 경로 |
 |---|---|---|
-| champion.promote | 2 (promote → registry.load → registry.apply, promote → gate.check → gate.ancestors) | 4 (promote → registry.load → ledger.verify → _check_line → _hash_entry) |
-| champion.restore_last_verified | 2 (→ registry.load → apply, → restore_locked → _materialize/_switch/current) | 4 (같은 verify 경로) |
-| lineage.invalidate_lineage | 2 (→ restore_locked → _materialize/_switch, → registry.load → apply) | 4 (같은 verify 경로) |
-| pointer.read_current | 2 (→ registry.load → apply) | 4 (같은 verify 경로) |
-| registry.register | 2 (register → load → apply, register → _validate) | 4 (같은 verify 경로) |
-| registry.load | 1 (load → apply) | 3 (load → ledger.verify → _check_line → _hash_entry) |
-| champion.settle | 1 (→ pointer.clean_tmp) | 2 (→ ledger.append → _hash_entry) |
-| champion.restore_locked | 2 (→ _materialize, → gate.ancestors) | 3 (→ _switch → ledger.append → _hash_entry) |
+| champion.promote | 2 (promote → settle → pointer.clean_tmp) | 3 (promote → gate.check → cas.has → cas.blob_path) |
+| champion.restore_last_verified | 2 (→ restore_locked → _switch) | 3 (→ restore_locked → cas.get → cas.blob_path) |
+| lineage.invalidate_lineage | 2 (→ restore_locked → _switch) | 3 (같은 cas.get 경로) |
+| pointer.read_current | 2 (→ registry.load → apply) | 3 (read_current → registry.load → ledger.verify → _check_line) |
+| registry.register | 2 (register → load → apply) | 3 (register → load → ledger.verify → _check_line) |
+| registry.load | 1 (load → apply) | 2 (load → ledger.verify → _check_line) |
+| champion.settle | 1 (→ pointer.clean_tmp) | 1 |
+| champion.restore_locked | 1 (→ _switch) | 2 (→ cas.get → cas.blob_path) |
 
-2단계가 `ledger.verify`·`ledger.append` 안쪽을 평탄화하면 "1단계 포함" 값은 줄어든다. 늘지는 않는다(이 작업은 1단계 내부 함수를 직접 부르지 않고
-`ledger.append/verify/tail/GENESIS`, `cas.put/get/has/sha_file/blob_path/CasError`, `jsonio.read_json/write_json`만 쓴다).
+이 함수들을 부르는 5단계 `audit.record_verdicts`는 합산 4다(5단계 task 문서).
 
 ### 가정 (명세가 모호해 가장 보수적으로 고른 해석)
 
@@ -248,3 +249,10 @@ N10·N11·N16·N6도 잡힘.
 이 작업은 새 파일만 추가했다(1단계·기존 파일 수정 없음). `git revert 65bb1eb552e906657f28281f7f7ee90c657a44da 053dde788e931b021ab3c7957838f8c1291e49dd 9ec67e7b578bd3068e42918d1bccbd048f1410d4 794bbb7b620cc985c34e489b388059a08565acc7`
 (또는 harness/{registry,gate,champion,lineage,pointer}.py와 tests/test_harness_champion_*.py 삭제. 지적 반영만 되돌리려면 앞의 두 커밋만 revert)로 되돌린다. 런타임 상태는 호출자가 준 root 아래에만 생기므로
 저장소에는 남는 것이 없다.
+
+
+## 후속 기록 (2026-11-27, 5단계 독립 검증 지적 반영)
+
+- 1단계 `ledger`의 줄 나누기를 `\n`으로만 하도록 고쳤다(5단계 task 문서 "독립 검증 지적 반영"). **`harness/registry.py:77`은 그 수정의 허용 파일 밖이라 `splitlines()`가 남아 있고,**
+  U+2028 등이 든 레지스트리는 `registry.load`가 `json.JSONDecodeError`로 실패한다(임시 root에서 재현). 통합 담당 결정 필요.
+- **결정 대기:** 철회된 정책의 다른 묶음으로 학습한 모델의 승격(`gate.audit_reason`, `audit.py:127-131`). 설명은 5단계 task 문서의 "결정 대기". 코드는 바꾸지 않았다.
