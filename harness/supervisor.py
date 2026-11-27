@@ -32,6 +32,7 @@ POLL_S = 60.0
 INTEGRITY_EXIT = 3  # harness.runner의 장부 무결성 종료 코드(runner.INTEGRITY_EXIT와 같은 값, 시험이 대조)
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DECLARED = os.path.join("supervisor", "declared.json")
+RUNNER = [sys.executable, "-m", "harness.runner"]  # runner 하위 프로세스 명령(뒤에 root·executors·--max 1)
 PYTHON_TOTAL_S = 3 * 3600.0  # 임시 기본값: runner 한 번(작업 1개)의 총 시간. 기존 실험 최대 113분보다 길어야 한다(시험이 대조)
 
 
@@ -42,7 +43,7 @@ def _python(root, executors, now, total_s=None):
     timeout_total을 장부에 남긴다. 그 작업은 작업권이 남아 INTERRUPTED가 되고 다음 claim이 2단계 규칙대로 다룬다."""
     total_s = PYTHON_TOTAL_S if total_s is None else total_s
     started = time.monotonic()
-    proc = subprocess.Popen([sys.executable, "-m", "harness.runner", root, executors, "--max", "1"], cwd=REPO,
+    proc = subprocess.Popen(RUNNER + [root, executors, "--max", "1"], cwd=REPO,
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                             errors="replace", start_new_session=True)
     cause = None

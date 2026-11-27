@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 from harness import claude_job, claude_run, evidence, lease, queue, states, supervisor
-from tests.test_harness_runner_kit import task
+from tests.test_harness_runner_kit import WRAPPED_RUNNER, task
 from tests.test_harness_supervisor_kit import events, llm_task, make_fake, runs
 
 ALLOWED = {"returncode", "signal", "cause", "outcome", "result_subtype", "is_error", "permission_denials", "rate_limit",
@@ -81,7 +81,8 @@ class EvidenceTest(unittest.TestCase):
     def test_python_runner_total_timeout_kills_runner_and_records_cause(self):
         root, marks = tempfile.mkdtemp(), tempfile.mkdtemp()
         key = queue.enqueue(root, task("h", task_type="slow"), 1.0)
-        with mock.patch.dict(os.environ, {"HARNESS_MARK_DIR": marks, "HARNESS_SLOW": "hang"}):
+        with mock.patch.dict(os.environ, {"HARNESS_MARK_DIR": marks, "HARNESS_SLOW": "hang"}), \
+                mock.patch.object(supervisor, "RUNNER", WRAPPED_RUNNER):
             started = time.monotonic()
             code, executed = supervisor._python(root, "tests.test_harness_executors:EXECUTORS", 2.0, total_s=1.5)
         self.assertLess(time.monotonic() - started, 20)

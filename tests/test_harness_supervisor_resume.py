@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 from harness import claude_job, opstate, queue, states, supervisor
-from tests.test_harness_runner_kit import task
+from tests.test_harness_runner_kit import WRAPPED_RUNNER, task
 from tests.test_harness_resume_kit import allow_resume
 from tests.test_harness_supervisor_kit import Clock, events, llm_task, make_fake, runs
 
@@ -101,7 +101,7 @@ class ResumeTest(unittest.TestCase):
         marks = tempfile.mkdtemp()
         key = llm_task(self.root)
         clock = Clock(time.time())
-        with mock.patch.dict(os.environ, {"HARNESS_MARK_DIR": marks}):
+        with mock.patch.dict(os.environ, {"HARNESS_MARK_DIR": marks}), mock.patch.object(supervisor, "RUNNER", WRAPPED_RUNNER):
             supervisor.run(self.root, claude, EXEC, max_cycles=1, now_fn=clock.now, sleep_fn=clock.sleep, env=env)
             self.assertEqual(opstate.effective(opstate.load(self.root)), opstate.RATE_LIMITED_SHORT)
             py = [queue.enqueue(self.root, task(n), clock.now()) for n in ("a", "b")]
