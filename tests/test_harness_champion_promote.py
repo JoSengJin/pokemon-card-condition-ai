@@ -2,7 +2,7 @@
 import os
 import unittest
 
-from harness import cas, champion, ledger, lineage, registry
+from harness import cas, champion, ledger, registry
 from tests.test_harness_champion_support import add_model, make_root, pointer_model, read_events
 
 
@@ -70,9 +70,9 @@ class PromoteTest(unittest.TestCase):
         self.assertEqual(main, read_events(self.root, "ledger.jsonl"))
 
     def test_unknown_invalidated_and_missing_weights_are_refused(self):
-        a, b = add_model(self.root, "a", batches=["s1"]), add_model(self.root, "b")
+        a, b = add_model(self.root, "a"), add_model(self.root, "b")
         self.assertEqual("unknown_model", champion.promote(self.root, 2.0, "0" * 64)["reason"])
-        lineage.invalidate_lineage(self.root, 3.0, "s1")
+        ledger.append(os.path.join(self.root, registry.REGISTRY), 3.0, "invalidated", {"models": [a], "cause": "test"})
         self.assertEqual("invalidated", champion.promote(self.root, 4.0, a)["reason"])
         blob = cas.blob_path(os.path.join(self.root, "cas"), registry.load(self.root)["models"][b]["weights_sha"])
         os.unlink(blob)

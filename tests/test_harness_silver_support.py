@@ -5,7 +5,7 @@ import signal
 import subprocess
 import sys
 
-from harness import audit, champion, silver_gate, silver_policy, silver_store
+from harness import audit, champion, registry, silver_gate, silver_policy, silver_store
 from tests.test_harness_champion_support import add_model, make_root
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -91,8 +91,8 @@ def run_kill(case, root, mode, point, payload):
 def cascade_setup(case, champion_is_failing=True):
     """감사 실패 시험용 상태: 정책 하나, 묶음 b1(Silver 20개, 감사율 50%라 표본 10개), 모델 base·m1(b1 사용)·c1(m1의 자식)·u(무관).
 
-    champion_is_failing=True이면 base → c1 승격(c1은 호출자가 audit_status를 직접 줘서 승격 = 감사 상태를 잘못 준 경우 등 복원 경로 시험용),
-    False이면 base → u 승격이다. 반환 dict: root, policy_id, ids(b1의 Silver 라벨 ID), sample(표본 ID), models(base·m1·c1·u).
+    champion_is_failing=True이면 base → c1 승격, False이면 base → u 승격이다. 두 번째 승격은 관문 없이 WAL 전환만 쓴다: 옛 코드(호출자가 준
+    audit_status를 믿던 승격)가 남겼을 수 있는 상태의 모사다(2026-11-27 뒤로는 감사가 끝나지 않은 묶음의 모델은 승격되지 않는다). 반환 dict: root, policy_id, ids(b1의 Silver 라벨 ID), sample(표본 ID), models(base·m1·c1·u).
     """
     root = make_root(case)
     policy_id = approve(root)
@@ -104,5 +104,6 @@ def cascade_setup(case, champion_is_failing=True):
     models["u"] = add_model(root, "u", batches=["b0"])
     assert champion.promote(root, 4.0, models["base"])["ok"]
     target = models["c1"] if champion_is_failing else models["u"]
-    assert champion.promote(root, 5.0, target, {"b1": "complete", "b0": "not_required"})["ok"]
+    with registry.lock(root):
+        champion._switch(root, 5.0, registry.load(root), target, "promote", models["base"])
     return {"root": root, "policy_id": policy_id, "ids": ids, "sample": plan["sample_ids"], "models": models}

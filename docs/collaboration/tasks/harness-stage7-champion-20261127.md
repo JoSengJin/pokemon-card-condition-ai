@@ -256,3 +256,11 @@ N10·N11·N16·N6도 잡힘.
 - 1단계 `ledger`의 줄 나누기를 `\n`으로만 하도록 고쳤다(5단계 task 문서 "독립 검증 지적 반영"). **`harness/registry.py:77`은 그 수정의 허용 파일 밖이라 `splitlines()`가 남아 있고,**
   U+2028 등이 든 레지스트리는 `registry.load`가 `json.JSONDecodeError`로 실패한다(임시 root에서 재현). 통합 담당 결정 필요.
 - **결정 대기:** 철회된 정책의 다른 묶음으로 학습한 모델의 승격(`gate.audit_reason`, `audit.py:127-131`). 설명은 5단계 task 문서의 "결정 대기". 코드는 바꾸지 않았다.
+
+## 후속 기록 (2026-11-27, Silver 정책 철회 보완)
+
+- `champion.promote(root, now, model_id)`는 `audit_status` 인자를 받지 않는다. 승격·복원·철회가 `silver_store.lock → registry.lock` 안에서 같은 적격성 계산
+  (`harness/eligibility.py`)을 쓴다. `gate.check`는 구조 조건(가중치·비교 가능성·봉인 층)만 본다. `harness/lineage.py`는 없앴다(계보 무효화 입구는 `withdrawal.withdraw`).
+- 위 리스크 "무효 Champion만 남고 복원 후보가 없으면 포인터는 무효 모델을 가리킨 채 남는다"는 사용자 결정 ①로 바뀌었다: 이제 같은 WAL로 "Champion 없음"(대상 None, 사유 clear)으로 전환하고,
+  `champion.set_dev_baseline`으로 개발용 Baseline(`registry.load(...)["dev_baseline"]`)을 따로 기록한다. 상세는 [`harness-withdrawal-policy-20261127.md`](harness-withdrawal-policy-20261127.md).
+- 위 "후속 기록"의 `registry.py` `splitlines()` 문제는 `c249cac`(줄바꿈 문자로만 나눠 읽기)에서 이미 고쳐졌다.

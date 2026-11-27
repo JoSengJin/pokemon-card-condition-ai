@@ -45,10 +45,13 @@ class RestoreTest(unittest.TestCase):
         self.assertEqual(b, champion.restore_last_verified(self.root, 5.0, regression="r1", model_id=c)["model_id"])
         self.assertEqual(a, champion.restore_last_verified(self.root, 6.0, regression="r2", model_id=b)["model_id"])
         last = champion.restore_last_verified(self.root, 7.0, regression="r3", model_id=a)  # 더 돌아갈 곳이 없다
-        self.assertEqual((False, "no_verified_champion"), (last["ok"], last["reason"]))
+        self.assertEqual((False, "no_verified_champion", True, a), (last["ok"], last["reason"], last["cleared"], last["restored_from"]))
+        # 2026-11-27 사용자 결정 ①: 무효 모델을 계속 가리키지 않고 "Champion 없음"으로 전환한다(예전 기대: 무효인 a를 가리킨 채 남음)
         state = registry.load(self.root)
-        self.assertEqual(a, pointer_model(self.root))
-        self.assertFalse(champion.current(self.root, state)["valid"])  # 무효인 채 남았음을 숨기지 않는다
+        self.assertIsNone(pointer_model(self.root))
+        self.assertIsNone(champion.current(self.root, state))
+        self.assertEqual("champion_cleared", read_events(self.root, "ledger.jsonl")[-1]["event"])
+        self.assertEqual("no_champion", champion.restore_last_verified(self.root, 8.0)["reason"])
 
     def test_damaged_cas_blob_raises_and_leaves_pointer_unchanged(self):
         a, b = self.ids[:2]
@@ -66,7 +69,7 @@ class RestoreTest(unittest.TestCase):
         a, b = self.ids[:2]
         self.promote_all(2)
 
-        with mock.patch.object(cas, "get", lambda cas_root, sha, dest: bad_copy(dest)):  # 복사본이 기록된 해시와 다름
+        with mock.patch.object(cas, "get", bad_copy):  # 복사본이 기록된 해시와 다름
             with self.assertRaises(champion.ChampionError):
                 champion.restore_last_verified(self.root, 5.0, regression="r", model_id=b)
         self.assertEqual(b, pointer_model(self.root))

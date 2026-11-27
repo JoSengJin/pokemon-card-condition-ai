@@ -1,7 +1,8 @@
 """모델 레지스트리(해시 체인). root/models/registry.jsonl에 1단계 ledger 형식으로 이벤트를 추가만 한다.
 
-이벤트: registered(모델 기록) / switch_intent·switched·switch_aborted(Champion 전환의 선기록 로그) /
-invalidated(모델 목록과 원인). 현재 상태는 이벤트를 처음부터 접어서(apply) 얻는다.
+이벤트: registered(모델 기록) / switch_intent·switched·switch_aborted(Champion 전환의 선기록 로그. 대상이 None이고 사유가 clear면
+"Champion 없음"으로의 전환) / invalidated(모델 목록과 원인) / dev_baseline_set(개발용 Baseline 지정. Champion이 아니며 적격성 근거가 아니다).
+현재 상태는 이벤트를 처음부터 접어서(apply) 얻는다.
 쓰기 호출(register·승격·복원·무효화)은 모두 lock(root) 안에서 load → 판단 → 추가 순서로 한다.
 """
 import contextlib
@@ -44,7 +45,8 @@ def apply(state, entry):
             raise RegistryError("모델 중복 등록: %s" % data["model_id"])
         models[data["model_id"]] = dict(data, status="valid", causes=[])
     elif event == "switch_intent":
-        if state["pending"] is not None or data["target"] not in models:
+        clear = data["target"] is None and data["reason"] == "clear"  # Champion 없음으로의 전환(대상 없음)
+        if state["pending"] is not None or (data["target"] not in models and not clear):
             raise RegistryError("전환 의도가 앞뒤와 맞지 않음(seq %s)" % entry["seq"])
         state["pending"] = dict(data, hash=entry["hash"])
     elif event in ("switched", "switch_aborted"):
@@ -55,23 +57,28 @@ def apply(state, entry):
         if event == "switched":
             state["history"].append({"model_id": data["target"], "reason": data["reason"],
                                      "intent_hash": data["intent_hash"], "ts": entry["ts"]})
-            models[data["target"]]["grade"] = "Champion"
+            if data["target"] is not None:
+                models[data["target"]]["grade"] = "Champion"
     elif event == "invalidated":
         for model_id in data["models"]:
             models[model_id]["status"] = "invalidated"
             models[model_id]["causes"].append(data["cause"])
+    elif event == "dev_baseline_set":
+        if data["model_id"] not in models:
+            raise RegistryError("모르는 모델의 개발용 Baseline(seq %s)" % entry["seq"])
+        state["dev_baseline"] = dict(data)
     else:
         raise RegistryError("알 수 없는 이벤트 %r(seq %s)" % (event, entry["seq"]))
     return state
 
 
 def load(root, expected_tail=None):
-    """체인을 검증하고 이벤트를 접어 {models, history, pending, hashes, tail}을 돌려준다. 변조는 RegistryError."""
+    """체인을 검증하고 이벤트를 접어 {models, history, pending, hashes, tail, dev_baseline}을 돌려준다. 변조는 RegistryError."""
     path = os.path.join(root, REGISTRY)
     problems = ledger.verify(path, expected_tail)
     if problems:
         raise RegistryError("레지스트리 체인 손상: %s" % (problems[:3],))
-    state = {"models": {}, "history": [], "pending": None, "hashes": set(), "tail": ledger.GENESIS}
+    state = {"models": {}, "history": [], "pending": None, "hashes": set(), "tail": ledger.GENESIS, "dev_baseline": None}
     try:
         with open(path, "r", encoding="utf-8") as handle:
             # "\n"으로만 나눈다: splitlines()는 값 안의 U+2028·U+0085에서도 줄을 나눈다(ledger와 같은 규칙)

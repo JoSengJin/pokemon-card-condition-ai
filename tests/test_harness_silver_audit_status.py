@@ -38,23 +38,23 @@ class AuditStatusTest(unittest.TestCase):
 
     def test_promotion_is_refused_while_the_audit_is_pending_or_failed_and_allowed_after_it_completes(self):
         base = add_model(self.root, "base")
-        used = add_model(self.root, "used", batches=["b1"])
         judge(self.root, "b1", self.policy, cands(20, prefix="b1"))
-        self.assertEqual("audit_pending", champion.promote(self.root, 3.0, used, {})["reason"])  # 호출자가 상태를 안 주면 pending
-        self.assertEqual("audit_pending", champion.promote(self.root, 3.0, used, audit.audit_status(self.root))["reason"])
+        used = add_model(self.root, "used", batches=["b1"])  # 학습 manifest는 b1의 Silver 라벨(라벨이 생긴 뒤에 등록)
+        self.assertEqual("audit_pending", champion.promote(self.root, 3.0, used)["reason"])  # 승격은 장부를 직접 읽는다(상태 인자 없음)
         sample = audit.plan_audit(self.root, 4.0, "b1", seed=2, schedule=FAST)["plan"]["sample_ids"]
-        self.assertEqual("audit_pending", champion.promote(self.root, 5.0, used, audit.audit_status(self.root))["reason"])
+        self.assertEqual("audit_pending", champion.promote(self.root, 5.0, used)["reason"])
         audit.record_verdicts(self.root, 6.0, "b1", {i: "correct" for i in sample[:9]})
-        refused = champion.promote(self.root, 7.0, used, audit.audit_status(self.root))
+        refused = champion.promote(self.root, 7.0, used)
         self.assertEqual(("audit_pending", {"b1": "pending"}), (refused["reason"], refused["detail"]))
         audit.record_verdicts(self.root, 8.0, "b1", {sample[9]: "correct"})
-        self.assertTrue(champion.promote(self.root, 9.0, used, audit.audit_status(self.root))["ok"])
+        self.assertTrue(champion.promote(self.root, 9.0, used)["ok"])
         sample = self.planned("b2")
         audit.record_verdicts(self.root, 10.0, "b2", {i: "incorrect" for i in sample[:3]})
         late = add_model(self.root, "late", batches=["b2"])  # 실패 뒤에 등록한 모델도 실패한 묶음을 쓰면 승격할 수 없다
-        refused = champion.promote(self.root, 11.0, late, audit.audit_status(self.root))
+        refused = champion.promote(self.root, 11.0, late)
         self.assertEqual(("audit_failed", {"b2": "failed"}), (refused["reason"], refused["detail"]))
-        self.assertTrue(champion.promote(self.root, 12.0, base, audit.audit_status(self.root))["ok"])  # 묶음을 안 쓴 모델은 영향 없음
+        self.assertEqual("policy_withdrawn_hold", champion.promote(self.root, 11.5, used)["reason"])  # 같은 정책 b1: 조건부 유지일 뿐 재승격 근거 아님
+        self.assertTrue(champion.promote(self.root, 12.0, base)["ok"])  # 묶음을 안 쓴 모델은 영향 없음
 
     def test_selection_labeling_and_planning_continue_while_an_audit_is_pending(self):
         self.planned("b1")  # b1 감사는 끝나지 않은 채로 둔다

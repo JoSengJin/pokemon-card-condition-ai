@@ -1,7 +1,7 @@
 """Silver 품질 관문: 봉인·보정 거절, 정책 범위, 교차 검증과 Pending, 사람 Gold 대조, 묶음 규칙. 합성 후보·주입 함수이며 라벨 품질 근거가 아니다."""
 import unittest
 
-from harness import active_learning, audit, silver_gate, silver_policy, silver_store
+from harness import active_learning, audit, silver_gate, silver_policy, silver_store, withdrawal
 from tests.test_harness_champion_support import make_root, read_events
 from tests.test_harness_silver_support import FAST, SCOPE, approve, cands, judge, stored_labels
 from tests.test_harness_silver_verifiers import answer
@@ -30,7 +30,7 @@ class GateTest(unittest.TestCase):
         res = judge(self.root, "b1", self.policy, other, verifiers=agree)
         self.assertEqual((0, ["out_of_policy_scope"] * 3), (len(res["silver"]), [r["reason"] for r in res["rejected"]]))
         self.assertEqual([], stored_labels(self.root))
-        silver_policy.withdraw(self.root, 3.0, self.policy, "test")
+        withdrawal.withdraw(self.root, 3.0, self.policy, "test")  # 목록 밖 사유 = unclear(보류)
         self.assertEqual({"ok": False, "reason": "policy_inactive"}, judge(self.root, "b2", self.policy, cands(2)))
         with self.assertRaises(silver_gate.GateError):
             judge(self.root, "b3", "pol-unknown", cands(1))
@@ -81,7 +81,7 @@ class GateTest(unittest.TestCase):
         self.assertEqual("pending", audit.audit_status(self.root)["b1"])
         audit.plan_audit(self.root, 4.0, "b1", seed=1, schedule=FAST)
         self.assertEqual({"ok": False, "reason": "batch_closed"}, judge(self.root, "b1", self.policy, cands(2, prefix="late")))
-        silver_policy.withdraw(self.root, 5.0, self.policy, "test")
+        withdrawal.withdraw(self.root, 5.0, self.policy, "test")
         entries = silver_store.load(self.root)
         labels = silver_gate.fold_labels(entries, silver_policy.fold(entries))["labels"]
         self.assertEqual({"Pending"}, {labels[i]["grade"] for i in first["silver"]})

@@ -1,7 +1,7 @@
 """Silver 정책: 오류율 상한 경계, 확인용 묶음 사용 기록, 철회·재승인, 등급 전이, 미리 채운 입력 거절. 합성 시험이다."""
 import unittest
 
-from harness import silver_policy, silver_store
+from harness import silver_policy, silver_store, withdrawal
 from tests.test_harness_champion_support import make_root, read_events
 from tests.test_harness_silver_support import SCOPE, approve
 
@@ -43,16 +43,18 @@ class PolicyTest(unittest.TestCase):
 
     def test_withdraw_is_idempotent_and_reapproval_is_a_new_version(self):
         first = approve(self.root)
-        self.assertEqual({"ok": True, "already": False}, silver_policy.withdraw(self.root, 2.0, first, "test"))
-        self.assertEqual({"ok": True, "already": True}, silver_policy.withdraw(self.root, 3.0, first, "again"))
-        self.assertEqual(1, len([e for e in read_events(self.root, silver_store.STORE) if e["event"] == "policy_withdrawn"]))
+        # 철회 쓰기는 수동·자동 공통 관문 withdrawal.withdraw 하나다. 목록 밖 사유("test"·"again")는 둘 다 unclear로 접혀 같은 철회다
+        res, again = withdrawal.withdraw(self.root, 2.0, first, "test"), withdrawal.withdraw(self.root, 3.0, first, "again")
+        self.assertEqual(((True, False), (True, True)), ((res["ok"], res["already"]), (again["ok"], again["already"])))
+        withdrawn = [e["data"] for e in read_events(self.root, silver_store.STORE) if e["event"] == "policy_withdrawn"]
+        self.assertEqual([("unclear", "test")], [(d["reason"], d["given"]) for d in withdrawn])
         second = approve(self.root, batch="cal-2")
         self.assertNotEqual(first, second)
         self.assertTrue(second.endswith("-v2"))
         state = silver_policy.fold(silver_store.load(self.root))["policies"]
         self.assertEqual(("withdrawn", "approved"), (state[first]["status"], state[second]["status"]))
         with self.assertRaises(silver_policy.PolicyError):
-            silver_policy.withdraw(self.root, 4.0, "no-such-policy", "x")
+            withdrawal.withdraw(self.root, 4.0, "no-such-policy", "x")
 
     def test_grade_transition_never_makes_an_ai_label_gold(self):
         for current in (None, "Pending", "Silver"):

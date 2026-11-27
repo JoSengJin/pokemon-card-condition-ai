@@ -1,4 +1,8 @@
-"""감사 실패 연쇄: 정책 철회(Silver→Pending) → 7단계 lineage 무효화 → 마지막 정상 Champion 복원이 자동으로 이어진다. 7단계 실제 함수와 합성 레지스트리."""
+"""감사 실패 연쇄: 정책 철회(Silver→Pending) → 계보 무효화 → 마지막 적격 Champion 복원이 자동으로 이어진다. 철회 관문·7단계 실제 함수와 합성 레지스트리.
+
+2026-11-27 철회 보완: 연쇄는 수동 철회와 같은 관문(withdrawal.withdraw)이 장부에서 다시 계산해 이어가므로 cascade_done 줄을 더 쓰지 않는다
+(예전 기대의 이벤트 순서에서 cascade_done을 뺐다). 승격은 audit_status 인자를 받지 않는다.
+"""
 import os
 import unittest
 
@@ -40,13 +44,14 @@ class CascadeTest(unittest.TestCase):
         self.assertEqual([], silver_gate.trainable_labels(self.root))
         self.assertEqual({"b1": "failed"}, audit.audit_status(self.root))
         order = [e["event"] for e in entries if e["event"] in ("audit_verdicts", "audit_completed", "policy_withdrawn", "cascade_done")]
-        self.assertEqual(["audit_verdicts", "audit_completed", "policy_withdrawn", "cascade_done"], order)
+        self.assertEqual(["audit_verdicts", "audit_completed", "policy_withdrawn"], order)
+        self.assertEqual(("batch_label_error", ["b1"]), tuple(e["data"][k] for e in entries if e["event"] == "policy_withdrawn" for k in ("reason", "batches")))
         main = [e["event"] for e in read_events(self.root, "ledger.jsonl")]
         self.assertTrue({"lineage_invalidated", "champion_restored"} <= set(main))
         for rel in ("ledger.jsonl", registry.REGISTRY, silver_store.STORE):
             self.assertEqual([], ledger.verify(os.path.join(self.root, rel)), rel)
-        for name in ("m1", "c1"):  # 무효화된 모델은 어떤 감사 상태를 줘도 승격할 수 없다
-            self.assertEqual("invalidated", champion.promote(self.root, 7.0, m[name], {"b1": "complete"})["reason"])
+        for name in ("m1", "c1"):  # 무효화된 모델은 승격할 수 없다(감사 상태를 줄 인자도 없다)
+            self.assertEqual("invalidated", champion.promote(self.root, 7.0, m[name])["reason"])
         before = (entries, read_events(self.root, registry.REGISTRY), read_events(self.root, "ledger.jsonl"))
         again = audit.record_verdicts(self.root, 8.0, "b1")  # 정산만
         same = audit.record_verdicts(self.root, 9.0, "b1", self.verdicts(2))  # 같은 판정 재전송: 연쇄를 다시 하지 않는다
@@ -84,8 +89,7 @@ class CascadeTest(unittest.TestCase):
         res = audit.record_verdicts(self.root, 7.0, "f1", self.verdicts(2, failed))  # 2/10 = 20% > 상한
         self.assertEqual(("failed", 2), (res["status"], res["errors"]))
         self.assertEqual("withdrawn", silver_policy.fold(silver_store.load(self.root))["policies"][policy]["status"])
-        self.assertEqual("audit_failed", champion.promote(self.root, 8.0, add_model(self.root, "again", batches=["f1"]),
-                                                          audit.audit_status(self.root))["reason"])
+        self.assertEqual("audit_failed", champion.promote(self.root, 8.0, add_model(self.root, "again", batches=["f1"]))["reason"])
 
 
 if __name__ == "__main__":

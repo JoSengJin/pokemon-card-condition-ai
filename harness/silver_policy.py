@@ -1,8 +1,9 @@
-"""Silver 정책: 범위 `(결함 유형, 층, 라벨 값)` 승인·철회, 보정 확인용 묶음 사용 횟수, 등급 전이 규칙, 미리 채운 입력 거절.
+"""Silver 정책: 범위 `(결함 유형, 층, 라벨 값)` 승인, 정책 상태 접기, 보정 확인용 묶음 사용 횟수, 등급 전이 규칙, 미리 채운 입력 거절.
 
 승인 조건(D-3, 설계 5-3): 보정 확인용 묶음에서 에이전트 제안과 사람 Gold를 대조한 오류율 ≤ 상한(10%). 오류율은 정확한 분수로 비교한다
 (경계: 정확히 10%는 승인, 그보다 크면 거절). 조정용 묶음으로는 승인할 수 없고, 확인용 묶음을 평가에 쓸 때마다 사용을 장부에 남긴다(보정 과적합 감시).
 승인된 범위 안에서는 라벨마다 승인을 받지 않는다. 철회된 정책은 되살리지 않고 같은 범위의 재승인은 새 판본(v2…)이다.
+철회 쓰기는 수동·자동 모두 `withdrawal.withdraw` 하나로만 한다(이 파일에는 철회 쓰기가 없다). fold는 철회 기록과 감사 실패 기록을 모두 철회로 접는다.
 이 파일의 쓰기 함수는 silver_store.lock 안에서 load → 판단 → append 순서이며, 다른 공개 함수를 부르지 않는다(호출 깊이).
 """
 import hashlib
@@ -44,6 +45,9 @@ def fold(entries):
             if data["policy_id"] not in policies:
                 raise PolicyError("승인 기록 없는 정책의 철회: %s" % data["policy_id"])
             policies[data["policy_id"]].update(status="withdrawn", withdraw_reason=data["reason"])
+        elif event == "audit_completed" and data["status"] == "failed" and policies.get(data["policy_id"], {}).get("status") == "approved":
+            # 감사 실패 줄만 있고 철회 줄을 쓰기 전에 죽어도 그 정책은 철회된 것으로 접는다(신규 Silver·학습 사용·승격을 같은 순간부터 막는다)
+            policies[data["policy_id"]].update(status="withdrawn", withdraw_reason="audit_failed")
         elif event == "calibration_used":
             uses[data["batch_id"]] = uses.get(data["batch_id"], 0) + 1
     return {"policies": policies, "uses": uses}
@@ -100,20 +104,6 @@ def approve(root, now, scope, confirm, *, cap, min_n):
         silver_store.append(root, now, "policy_approved", {"policy_id": policy_id, "scope": scope, "version": version, "cap": str(cap_r),
                                                            "n": n, "errors": errors, "confirm_batch_id": confirm["batch_id"]})
     return {"ok": True, "policy_id": policy_id, "error_rate": [errors, n], "confirm_uses": uses}
-
-
-def withdraw(root, now, policy_id, reason):
-    """정책을 철회한다(그 정책의 Silver는 파생 상태로 Pending이 된다). 이미 철회됐으면 아무 것도 쓰지 않는다(멱등)."""
-    if not isinstance(reason, str) or not reason:
-        raise PolicyError("철회 사유가 필요하다")
-    with silver_store.lock(root):
-        state = fold(silver_store.load(root))
-        if policy_id not in state["policies"]:
-            raise PolicyError("모르는 정책: %s" % (policy_id,))
-        if state["policies"][policy_id]["status"] == "withdrawn":
-            return {"ok": True, "already": True}
-        silver_store.append(root, now, "policy_withdrawn", {"policy_id": policy_id, "reason": reason})
-    return {"ok": True, "already": False}
 
 
 def grade_transition(current, target, created_by):

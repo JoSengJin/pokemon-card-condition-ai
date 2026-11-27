@@ -1,14 +1,13 @@
-"""승격 관문: 레지스트리 상태를 읽어 승격을 거절할 사유를 찾는다(쓰기 없음).
+"""승격 관문의 구조 조건: 레지스트리 상태만 읽어 승격을 거절할 사유를 찾는다(쓰기 없음).
 
-"개선되었는가"는 판정하지 않는다(6단계 몫). 여기서는 구조 조건만 본다:
-유효성(자신과 조상), 가중치 CAS 보관, 같은 층·분모·봉인 판본, 봉인 층, 계보 전체의 Silver 감사 완료.
+"개선되었는가"는 판정하지 않는다(6단계 몫). 여기서는 가중치 CAS 보관, 같은 층·분모·봉인 판본, 봉인 층만 본다.
+유효성·Silver 감사·정책 철회 보류·학습 manifest는 `eligibility.model_reason`이 장부에서 직접 판정한다(호출자가 준 감사 상태는 받지 않는다).
 """
 import os
 
 from harness import cas
 
 SAME = ("layer", "denominator", "seal_version")
-AUDIT_OK = ("complete", "not_required")
 
 
 def ancestors(models, model_id):
@@ -20,25 +19,10 @@ def ancestors(models, model_id):
     return chain
 
 
-def audit_reason(models, chain, audit_status):
-    """계보 전체가 쓴 Silver 묶음의 감사 상태. 실패가 하나라도 있으면 audit_failed, 완료·불필요가 아니면(누락 포함) audit_pending."""
-    batches = sorted({b for m in chain for b in models[m]["silver_batches"]})
-    seen = {b: audit_status.get(b) for b in batches}
-    if any(s == "failed" for s in seen.values()):
-        return "audit_failed", {b: s for b, s in seen.items() if s == "failed"}
-    waiting = {b: s for b, s in seen.items() if s not in AUDIT_OK}
-    return ("audit_pending", waiting) if waiting else (None, None)
-
-
-def check(root, state, model_id, champion, audit_status):
-    """승격 거절 사유 {reason, detail}, 통과하면 None. champion은 champion.current()의 결과 또는 None."""
+def check(root, state, model_id, champion):
+    """구조 거절 사유 {reason, detail}, 통과하면 None. model_id는 등록된 모델이어야 한다(eligibility가 먼저 확인).
+    champion은 champion.current()의 결과 또는 None."""
     models = state["models"]
-    if model_id not in models:
-        return {"reason": "unknown_model", "detail": model_id}
-    chain = ancestors(models, model_id)
-    bad = [m for m in chain if models[m]["status"] != "valid"]
-    if bad:
-        return {"reason": "invalidated", "detail": bad}
     if not cas.has(os.path.join(root, "cas"), models[model_id]["weights_sha"]):
         return {"reason": "weights_missing", "detail": models[model_id]["weights_sha"]}
     evaluation = models[model_id]["eval"]
@@ -49,5 +33,4 @@ def check(root, state, model_id, champion, audit_status):
             return {"reason": "not_comparable", "detail": differing}
     if evaluation["layer"] != "sealed":
         return {"reason": "not_sealed", "detail": evaluation["layer"]}
-    reason, detail = audit_reason(models, chain, audit_status)
-    return {"reason": reason, "detail": detail} if reason else None
+    return None

@@ -325,3 +325,12 @@ contract: ledger 공개 함수의 시그니처·반환 형식, 장부 줄 형식
 
 문서 커밋과 `git revert 7062c52eda64dd3e6389b227a02bee3c318a27ff 27e69c27fb2723797497055d07d262c8564cf72b 5240717ede351e6f0e5449944f9d17f5f5263d64`. 장부 형식은 바뀌지 않았다.
 다만 수정 후에 U+2028 등이 든 줄을 기록한 장부는 되돌린 코드로는 읽지 못한다.
+
+
+## 후속 기록 (2026-11-27, Silver 정책 철회 보완)
+
+- 위 "결정 대기"의 **철회된 정책의 다른 묶음으로 학습한 모델의 승격**은 사용자 최종 결정(B+D)으로 해소했다. 구현·시험·한계는
+  [`harness-withdrawal-policy-20261127.md`](harness-withdrawal-policy-20261127.md)에 있다.
+- 바뀐 계약: `silver_policy.withdraw`는 없앴다(철회 쓰기는 수동·자동 공통 관문 `withdrawal.withdraw` 하나). `silver_policy.fold`는 감사 실패 줄도 철회로 접는다.
+  `audit.record_verdicts`는 실패 시 잠금을 놓고 `withdrawal.withdraw(정책, "batch_label_error", [묶음])`을 부르며 `cascade_done`을 더 쓰지 않는다(복구는 장부에서 다시 계산).
+  `audit._status`는 `audit_rate.status_of`로 옮겼다. `audit_status(root)`는 조회용이며 승격 인자가 아니다.
