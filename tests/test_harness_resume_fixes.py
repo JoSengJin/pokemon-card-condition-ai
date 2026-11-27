@@ -13,6 +13,7 @@ import unittest
 
 from harness import cas, claude_job, claude_run, opstate, queue, ratelimit, states, supervisor
 from harness import contract as ct
+from harness.jsonio import read_json
 from tests.test_harness_resume_kit import allow_resume
 from tests.test_harness_support import BOOT, claim, finish, make_contract
 from tests.test_harness_supervisor_kit import Clock, events, llm_task, make_fake, runs
@@ -79,10 +80,10 @@ class ResumeFixTest(unittest.TestCase):
         claude, log, env = make_fake(self, [{"do": "limit", "reset": "none"}, {"do": "success"}])
         clock = Clock(1_000_000.0)
         supervisor.run(root, claude_bin=claude, max_cycles=1, poll_s=60, now_fn=clock.now, sleep_fn=clock.sleep, env=env)
-        self.assertEqual(json.load(open(os.path.join(root, claude_job.UNKNOWN_LIMIT)))["attempts"], 1)
+        self.assertEqual(read_json(os.path.join(root, claude_job.UNKNOWN_LIMIT))["attempts"], 1)
         supervisor.run(root, claude_bin=claude, max_cycles=40, poll_s=60, now_fn=clock.now, sleep_fn=clock.sleep, env=env)
         self.assertEqual(sorted([state(root, first), state(root, second)]), [states.PENDING, states.VERIFIED])
-        self.assertEqual(json.load(open(os.path.join(root, claude_job.UNKNOWN_LIMIT)))["attempts"], 0)
+        self.assertEqual(read_json(os.path.join(root, claude_job.UNKNOWN_LIMIT))["attempts"], 0)
 
     def test_n1_unrecoverable_corrupt_unregistered_task_waits_and_keeps_its_record(self):
         root = tempfile.mkdtemp()

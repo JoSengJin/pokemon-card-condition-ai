@@ -227,3 +227,77 @@ record_decision → append(4), run → settle → claim → decide(3)/facts → 
 - 전체: `git revert e46a226 a9e9b22 197b5dd`(역순) 또는 브랜치 폐기. main·원격에는 반영하지 않았다.
 - 단계별: 3단계만 되돌리면 2단계 상태(권한 묶음·sandbox 없음), 2단계까지 되돌리면 1단계 상태. 운영 상태 파일 형식이 바뀐 곳은 Claude 작업 상태
   (`supervisor/claude.json` → `supervisor/claude/<task_key>.json`)이며, 되돌리면 새 형식 파일은 읽히지 않으니 지워야 한다(실운영 root는 아직 없음).
+
+### 검증 결함 수정
+
+작성: Claude(Opus 하위 에이전트), 2026-11-27. 근거: 독립 검증 `verify-auto-resume-123.md`(F1~F13·N1), 실환경 `c-realenv.md`. 대상 `de6286b..` 이 절의 커밋.
+push·main 통합 안 함. 실제 claude 실행·모델·네트워크 호출·설치·시스템 설정 변경 0회. 자동 재개 목록 `claude_perm.AUTO_RESUME`·재실행 안전 목록
+`recovery.RERUN_SAFE_TYPES`는 계속 비어 있다(어떤 유형도 켜지 않음). 회귀 시험은 모두 수정 전에 실패를 확인했다(수정 전 결과 열).
+
+#### 커밋
+
+| 묶음 | SHA | 결함 |
+|---|---|---|
+| 1 | `e367c83` | F1·F2 |
+| 2 | `d4140d9` | F3 |
+| 3 | `fe2b440` | F4·F5·N1·4단계 세션 복원 불가 확인, F13(시험 도구) |
+| 4 | `92c9d04` | F6~F12 |
+| 인계 | 이 문서 커밋 | 이 절, 시험 열린 파일 경고 정리, 3.9에서 site-packages 폴더가 없으면 그 항목을 absent로 기록 |
+
+#### 결함별 조치·회귀 시험·남은 한계
+
+| # | 조치 | 회귀 시험 | 수정 전 | 남은 한계 |
+|---|---|---|---|---|
+| F1·F2 | `sandbox.profile`을 쓰기 기본 거절로: 허용은 그 작업 `out/`, 실행별 전용 임시 폴더(`run_one`이 시스템 임시 폴더 아래 새로 만들어 TMPDIR로 넘기고 끝나면 삭제), `/dev/null`뿐. `launchctl`·`open`·`osascript` 실행과 Apple Event 거절. `out_dir`은 root/tasks 아래, 임시 폴더는 root 밖이 아니면 ValueError | `test_harness_sandbox_writes`(실제 `sandbox.run_one` → sandbox-exec): 하네스 상태·다른 작업 out·저장소 소스·site-packages·홈·/private/tmp 쓰기, 상위 폴더 rename, 세 실행 파일 실행이 모두 `denied:1`, 자기 out·임시 폴더·/dev/null만 ok(`/usr/bin/python3` 3.9는 purelib `/Library/Python/3.9/site-packages`가 없어 그 항목만 absent, venv에서는 실제로 거절 확인). 임시 폴더는 실행마다 새것이고 끝나면 없다 | 실패: rename_parent·repo_source·site_packages·home·system_tmp·세 실행 파일 모두 ok | executor가 실행 파일 없이 launchd에 직접 XPC/mach 요청을 보내는 경로는 막지 못함(시스템 상태를 바꾸는 시험이라 하지 않음). 읽기·네트워크·신호는 막지 않음. 홈 캐시(~/.cache 등)에 쓰는 라이브러리는 sandbox 안에서 실패. sandbox-exec 전에 열린 fd로는 쓸 수 있음(runner는 close_fds라 넘기지 않음, `sbx_case_probe` inherited_fd) |
+| F3 | 등록 유형 고정 목록: `dedupe.CONDITION_TYPES`(experiment·training·evaluation 정확히)와 `PLAIN_TYPES`(권한 묶음 유형 + deterministic). 그 밖·변형 이름은 run_conditions 유무와 관계없이 ContractError, 실행 조건을 가진 비실험 유형도 거절. `run_conditions.input_roles`({입력 경로: 역할}, 역할 train·val·test·model·config·data) 필수. 키 = 유형·정규화 조건·needs_*·(역할, 입력 SHA) 쌍. 정규화: config 생략·null = {}, seed 생략 = null, 1.0 → 1(JSON 왕복), SHA 소문자·형식 검사(입력 64자, code_sha 40/64자), `--opt=value` → 두 토큰, `/` 든 토큰 normpath. 입력 SHA를 등록(`queue.enqueue`·`graph.register_missing`, `source_root` 기본 저장소)과 executor 실행 직전(`runner._execute`, `--source-root`)에 실제 파일과 대조 | `test_harness_dedupe_conditions` 4개: 변형 유형 5종(enqueue·graph) 거절, 같은 조건 다른 표기 11종 중복, 역할 맞바꿈·입력 내용·입력 추가·needs_vision·seed 다름 등록, SHA 형식·불일치·없는 파일·폴더 밖 거절과 등록 뒤 입력이 바뀌면 executor 0회·결정적 실패 | 실패: 유형 시험은 `Experiment` 등록됨, 나머지 3개는 `source_root` API 없음. 논리 실패는 `dedupe_probe.py` 원본 결과(검증 보고) | command의 인자 순서, python·python3·절대 경로 별칭, 문자열 숫자(0.1·0.10), 짧은 옵션 결합은 다르게 본다(같은 실험을 다른 조건으로 볼 수 있음 = 중복 등록 통과 가능). 역할 이름 6개는 임시값. 실험 외 Python 작업 입력은 원본 위치가 계약에 없어 대조하지 않는다. 큰 입력은 실행마다 해시 시간이 든다. 새 Python 작업 유형은 코드 목록에 추가해야 등록된다 |
+| F4 | 매 실행(새 세션·재개·복원 불가 뒤 새 세션) 직전에 `out/.harness_complete.json` 삭제, 프롬프트에 `실행 토큰: <run_token>`과 선언 형식 `{"task_key","run_token","outputs"}`, `evidence.outcome_of`는 이번 run_token이 맞을 때만 completed | `test_harness_resume_fixes.test_f4_stale_or_foreign_declaration_is_not_accepted`: 낡은 선언 + 반쯤 쓴 산출물 + 아무것도 안 하고 성공 종료(noop) / 다른 토큰 선언 → PENDING·blocked(`completion_marker_missing`), 선언 삭제 확인 | 실패: VERIFIED·done | Claude가 이번 실행에서 선언을 쓰고 일부 산출물이 이전 실행의 것이어도 해시가 맞으면 완료된다(선언은 Claude의 주장이다). 실환경 Supervisor 전체 경로로는 확인 안 함 |
+| F5 | 시각 미상 한도 시도 횟수를 작업 상태가 아니라 `supervisor/claude_unknown_limit.json`(전체)에서 센다. 처음 1회 + 3회(900초·5시간·8일) 뒤 exhausted, claude 성공 종료(settle kind=success)면 0. 시각을 아는 한도는 횟수를 바꾸지 않는다. 기록이 이상하면 소진으로 본다. 작업 상태의 `unknown_attempts` 필드는 없앴다 | 같은 파일 `test_f5_..._counted_across_tasks_and_reset_by_success`: 독립 작업 6개에서 claude 4회, 간격 900·18000·691200초, 알림 1회. 성공 뒤 0 | 실패: 6회(작업마다 0부터) | 자동 재개가 꺼진 유형은 한도에 걸린 작업이 대기가 되고 다음 시도는 다른 독립 작업이 쓴다(최대 4개 작업이 사람 대기). 횟수 3은 그대로 |
+| F6 | `default_runner`: 프로세스 종료 뒤 읽기 스레드를 총 시간 안에서 최대 `KILL_GRACE_S`만 기다리고, 남아 있으면 원인 `timeout_total`. `run_once`는 timeout 원인이 있으면 success=False | `test_harness_evidence_fixes.test_f6_...`: setsid 손자가 stdout을 쥔 채 20초 → 9초 안에 반환, cause timeout_total, run_once success False | 실패: 손자 수명까지 반환 안 함 | 남은 읽기 스레드(daemon)와 파이프 fd는 그 자손이 끝날 때까지 남는다(pid를 몰라 죽이지 못함, 코드에 `shortcut:` 표시) |
+| F7 | `evidence.mask`: 이름=값(따옴표·JSON, `aws_secret_access_key` 같은 긴 이름), `sk-`·`gh[opsur]_`·`github_pat_`·`AKIA/ASIA`·`xox?-` 접두어, `Authorization: Bearer`. 끝부분 `STDERR_TAIL + MASK_MARGIN(500)`자를 먼저 가린 뒤 자른다. 이름 부분 반복을 40자로 제한(30만 자 stderr에서 이차 시간 방지) | `test_f7_...` 9종 + 경계 잘림 | 실패: JSON 토큰 등 노출 | 최선 노력: 형식이 다른 비밀, 500자보다 긴 비밀 값이 경계에 걸린 경우는 남을 수 있다 |
+| F8 | 코드 변경 없음(시험 공백) | `test_harness_claude_perm`: A 옵션을 시험에 문자 그대로 고정(`A_PINNED`), 재개 실행 argv에도 같은 옵션 | 통과(코드는 맞았음). 변이 M34(dontAsk→acceptEdits)·M35(재개 때 옵션 제거)가 이제 잡힘 | 옵션의 실제 효과는 c-realenv 범위만 확인 |
+| F9 | 권한 거절 기록은 `tool_name`·`tool_use_id`·`tool_input.file_path`만(가림 적용, 200자) | `test_f9_f12_...` | 실패: content 본문 기록 | Glob·Grep의 pattern·path는 남기지 않는다(필요하면 추가 결정) |
+| F10 | `budget.charge` 멱등 비교를 `(kind, key)`로 | `test_f10_...` | 실패: 다른 종류 차감이 already로 빠짐 | 호출부 연결은 5단계 |
+| F11 | `stage_inputs`가 `st_nlink > 1` 입력 거절 | `test_existing_gold_named_or_hard_linked_inputs_are_refused`: 실제로 있는 gold·sealed 이름 파일(M23 공백 메움), 봉인 파일·하네스 root 파일의 하드 링크 거절, 일반 파일은 복사 | 실패: notes.txt 복사됨 | 원본을 복사한 파일(링크 아님)은 내용으로 봉인 여부를 알 수 없다 |
+| F12 | 코드 변경 없음(시험 공백) | 입력 SHA만 다른 실험 등록(`test_real_differences_are_registered`), 증거 options에 -p 본문·`--append-system-prompt`·`--settings` 없음(`test_f9_f12_...`) | 변이 M10·M28이 이제 잡힘 | - |
+| F13 | `llm_task` 이름을 산출물 이름(`<name>.md`)에 넣음 | F5 시험이 이름이 다른 6개 작업의 task_key가 모두 다름을 단언 | 수정 전 같은 키 | - |
+| N1 | `recovery.decide`: 재실행 안전 미등록 유형의 복구 불가 CORRUPT는 완료 기록을 보관(history)하지 않고 `await_result`(사유 `corrupt_unrecoverable`, 장부·알림 한 번) | `test_n1_...`: 두 번 claim 모두 await_result, done.json 유지, 상태 CORRUPT, 대기 기록 1개 | 실패: rerun claim 성공 | 해제는 수동(사람 확인) |
+| 4단계 | `claude_run.session_unrecoverable(found, resumed)`: 종료 코드 1, 한도 아님, result subtype `error_during_execution`, is_error true, num_turns 정수 0, errors가 정확히 `["No conversation found with session ID: <resumed>"]`일 때만 True. True면 장부 프롬프트로 새 세션 1회(같은 execute 안이라 실행 직전 정지 확인·선언 삭제·완료 표시 검사·crash_resumes 상한 그대로) | `test_session_unrecoverable_accepts_only_the_exact_real_output`(실환경 `t4-bogus-resume.jsonl` 줄을 그대로 넣고 ID만 바꿈, 비슷한 11종 False, 다른 ID False), `test_confirmed_unrecoverable_session_opens_a_new_session_once`(한도 → 재개 실패(실제 형식) → 새 세션 → VERIFIED) | 실패: 인자 형식 없음·새 세션 없음 | 실환경 형식은 2.1.310 하나뿐. 버전이 바뀌어 문구가 달라지면 False(대기)로 떨어진다. 자동 재개 목록이 비어 있어 운영에서는 이 경로가 아직 쓰이지 않는다 |
+
+변이 확인(수정본 복사본, 해당 시험 모듈만): M34·M35·M10·M28·M23, F11·N1·F4·F5·복원 불가 판정·F1 기본 거절 제거 변이 11개 모두 잡힘.
+
+#### 바꾼 기존 시험(기대값은 같고 준비만 바꿈, 삭제·완화·skip 없음)
+
+- sandbox 기본 쓰기 거절 때문에 시험 executor의 실행 표식 폴더(`HARNESS_MARK_DIR`, 하네스 root·저장소 밖 임시 폴더) 쓰기가 막힌다. 시험 래퍼 `RUNNER_WRAP`(runner_kit)가
+  그 시험 프로세스의 프로필에만 표식 폴더 허용을 덧붙인다. 실제 `python -m harness.runner` 프로필은 그대로이고 `test_harness_sandbox_writes`가 실제 프로필을 본다.
+  Supervisor가 띄우는 runner는 `supervisor.RUNNER` 상수(새로 둠)를 `WRAPPED_RUNNER`로 patch(`run_evidence`·`supervisor_contracts`·`supervisor_halt`·`supervisor_resume`),
+  하위 프로세스 Supervisor는 `SUPERVISOR_MARKED`(`supervisor_halt`). 근거: F1·F2.
+- F3 고정 목록: `test_harness_support`가 시험용 합성 유형(`TEST_TYPES`: RERUN_SAFE 목록·unit-r1·unit-r1b·시험 executor 이름)을 그 시험 프로세스의 `dedupe.PLAIN_TYPES`에 더한다(정확한 이름만, 변형은 그대로 거절).
+- F3 입력 역할·실제 파일: `policy_guards.experiment(src, …)`, `policy_regress.test_r2…`가 입력 파일을 만들고 `input_roles`·`source_root`를 넘긴다. R2의 경로 철자 변형은 inputs와 input_roles를 함께 바꿨다.
+- N1: `test_harness_paths.PathSafetyTest`에 `RERUN_SAFE` patch(손상 뒤 재실행 절차 시험. 미등록 유형의 대기는 N1 시험이 본다). 이전 기대 rerun 그대로.
+- F4: 가짜 claude 선언에 실행 토큰(프롬프트에서 읽음), 시나리오 `noop`·`raw` 추가. F13: `llm_task` 산출물 이름.
+- 강화: `test_only_bundle_a_runs…`의 옵션 비교를 `claude_perm.A_OPTIONS` 대신 고정 목록으로.
+
+#### 구조(함수 수·호출 깊이)
+
+harness 함수 정의 수 전→후(`de6286b` 기준): `dedupe` 2→5, `sandbox` 4→4, `claude_job` 6→6, `claude_run` 6→6, `evidence` 4→4(λ1), `recovery` 7→7, `budget` 3→3,
+`claude_perm` 4→4, `queue` 6→6, `graph` 3→3, `runner` 5→5, `supervisor` 4→4. 새 시험: `sandbox_writes` 5, `dedupe_conditions` 6, `resume_fixes` 7, `evidence_fixes` 4+λ2.
+고친 시험: `claude_perm` 5→7, 그 밖은 함수 수 그대로. 7 초과 시험 파일 14개는 `de6286b`와 같은 수(검증 `structure_measure.py`로 재측정).
+최대 호출 깊이 4, 초과 0. 새·바뀐 경로: `supervisor.run → graph.register_missing → dedupe.find_duplicate → logical_key → _command`(4),
+`runner.main → drain → _execute → dedupe.verify_inputs → cas.sha_file`(4), `supervisor.run → claude_job.settle → read_json/write_json`(2),
+`supervisor.run → claude_job.execute → claude_run.session_unrecoverable`(2), `sandbox.run_one → profile`(1). `json.loads(parse_float=_number)`의 `_number`는 표준 라이브러리 콜백(정적 미집계, 말단).
+
+#### 검사 결과(인계 커밋 직전 작업 트리)
+
+- `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"`: 377개 OK, 종료 코드 0
+- 같은 명령 `/usr/bin/python3`(3.9): 377개 OK, 종료 코드 0(두 실행을 동시에 돌렸다)
+- `git diff --check de6286b`: 문제 없음
+- 검증 스크립트 재실행(수정본 `git archive` 복사본, scratchpad): `sbx_attack` 17종 중 out/ 정상 쓰기만 성공, rename_parent·tamper_harness_code 거절. `r6_e2e rename`·`tamper`
+  (공격 executor 유형 2개를 그 프로세스에서만 등록하는 래퍼): rename 거절 → 결정적 실패, USER_STOPPED 유지 / 소스 쓰기 거절, 다음 프로세스의 RERUN_SAFE_TYPES `[]`.
+  `stale_declaration` → PENDING·blocked. `unknown_reset_cascade`(원본 400회차·60초 poll은 8일에 못 미쳐 3회에서 끝남, poll 10**6으로 다시) → claude 4회, 간격 900·18000·691200초, 5번째 작업 미실행.
+  `runner_evidence_probe` → 2.0초 반환, 가림 7종 모두 [가림], 거절 기록 3필드, options에 프롬프트 없음. `stage_probe` → 하드 링크 2종·봉인 이름 3종 거절. `budget_key_probe` → promotion 사용량 1.
+  `dedupe_probe`는 새 계약(input_roles·실제 파일)에 맞춘 사본 `dedupe_probe_roles.py`로 같은 14종 + graph 2종 모두 기대대로. `sbx_case_probe` → 대소문자·..·/tmp 별칭 거절, 상속 fd만 쓰기(위 한계).
+
+#### 롤백
+
+- 전체: `git revert 92c9d04 fe2b440 d4140d9 e367c83`(역순). 운영 상태 형식 변화: `supervisor/claude_unknown_limit.json` 새 파일(되돌리면 읽히지 않음), 실험 계약에 `input_roles` 필수
+  (되돌리면 다시 선택 아님·모르는 키로 거절). 실운영 root는 아직 없다.

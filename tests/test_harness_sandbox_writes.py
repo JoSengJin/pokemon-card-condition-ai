@@ -29,6 +29,9 @@ def attacker(task, out_dir):
                "dev_null": "/dev/null"}
     got = {}
     for name, path in targets.items():
+        if not os.path.isdir(os.path.dirname(path)):  # 그 Python에 site-packages 폴더가 없다(/usr/bin/python3 3.9): 시험할 대상이 없다
+            got[name] = "absent"
+            continue
         existed = os.path.exists(path)
         try:
             with open(path, "a") as handle:
@@ -86,7 +89,9 @@ class SandboxWriteTest(unittest.TestCase):
             got = json.load(handle)
         allowed = {"own_out", "own_tmp", "dev_null"}
         self.assertEqual({k for k, v in got.items() if v == "ok"}, allowed, got)
-        self.assertTrue(all(v == "denied:1" for k, v in got.items() if k not in allowed), got)
+        absent_ok = {"site_packages": "absent"}  # 폴더가 없는 Python에서만(아래 단언)
+        self.assertTrue(all(v in ("denied:1", absent_ok.get(k)) for k, v in got.items() if k not in allowed), got)
+        self.assertEqual(got["site_packages"] == "absent", not os.path.isdir(sysconfig.get_paths()["purelib"]))
         with open(os.path.join(root, "supervisor", "opstate.json"), encoding="utf-8") as handle:
             self.assertEqual(handle.read(), "ORIG")
         self.assertEqual(os.listdir(os.path.join(root, "tasks", "other", "out")), [])
