@@ -25,7 +25,7 @@ import os
 import uuid
 
 from . import contract as ct
-from . import cas, claude_run, ledger, lease, opstate, queue, ratelimit, route, states
+from . import cas, claude_run, evidence, ledger, lease, opstate, queue, ratelimit, route, states
 from .jsonio import read_json, write_json
 
 JOB = os.path.join("supervisor", "claude.json")
@@ -92,8 +92,10 @@ def _prompt(root, job, mode, failed_session=None):
     return base
 
 
-def execute(root, job, claude_bin, now_fn, runner=None, env=None):
-    """claude를 실행한다(재개 가능하면 --resume, 실패하면 새 세션). {"kind": success|rate_limited|failed|halted, "mode", "result"}."""
+def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None):
+    """claude를 실행한다(재개 가능하면 --resume, 실패하면 새 세션). {"kind": success|rate_limited|failed|halted, "mode", "result"}.
+    limits: {"claude_idle_s", "claude_total_s"}(없으면 claude_run 기본값). 실행마다 claude_run_evidence(허용 필드만)를 장부에 남긴다."""
+    bounds = limits or {}
     path, log = os.path.join(root, JOB), os.path.join(root, "ledger.jsonl")
     contract = read_json(os.path.join(root, "tasks", job["task_key"], "contract.json"))
     decision = route.route(contract, [], route.load_policy())
@@ -112,7 +114,8 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None):
         job.update(status="running", mode=mode, run_token=uuid.uuid4().hex, updated_at=now_fn())
         write_json(path, job)  # 실행 전에 세션 ID를 남긴다(실행 중 Supervisor가 죽어도 이어갈 수 있게)
         run = runner or functools.partial(claude_run.default_runner, pidfile=os.path.join(root, PIDFILE), stamp={
-            "boot_id": lease.boot_id(), "session_id": job["session_id"], "mode": mode, "run_token": job["run_token"]})
+            "boot_id": lease.boot_id(), "session_id": job["session_id"], "mode": mode, "run_token": job["run_token"]},
+            idle_s=bounds.get("claude_idle_s", claude_run.IDLE_S), total_s=bounds.get("claude_total_s", claude_run.TOTAL_S))
         ledger.append(log, now_fn(), "claude_run_started", {"task_key": job["task_key"], "mode": mode,
                       "session_id": job["session_id"], "model": decision["model"], "effort": decision["effort"]})
         started = now_fn()
@@ -135,6 +138,9 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None):
             "task_key": job["task_key"], "duration_s": now_fn() - started,
             "tokens": result.get("usage") if isinstance(result.get("usage"), dict) else None})
         kind = "rate_limited" if res["limited"] else "success" if res["success"] else "failed"
+        ledger.append(log, now_fn(), "claude_run_evidence", dict(evidence.claude_record(
+            res, None, round(now_fn() - started, 3), evidence.outcome_of(os.path.join(root, "tasks", job["task_key"]), contract, res)),
+            task_key=job["task_key"], mode=mode, run_token=job["run_token"]))
         if kind == "failed" and mode == "resume":  # 세션 없음·비정상 종료: 장부 상태로 새 세션을 연다
             failed_session = job["session_id"]
             ledger.append(log, now_fn(), "claude_resume_failed", {"task_key": job["task_key"], "session_id": failed_session,

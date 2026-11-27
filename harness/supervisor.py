@@ -20,36 +20,57 @@ import errno
 import fcntl
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
 
-from . import claude_job, graph, ledger, opstate
+from . import claude_job, evidence, graph, ledger, opstate
 from .jsonio import read_json
 
 POLL_S = 60.0
 INTEGRITY_EXIT = 3  # harness.runner의 장부 무결성 종료 코드(runner.INTEGRITY_EXIT와 같은 값, 시험이 대조)
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DECLARED = os.path.join("supervisor", "declared.json")
+PYTHON_TOTAL_S = 3 * 3600.0  # 임시 기본값: runner 한 번(작업 1개)의 총 시간. 기존 실험 최대 113분보다 길어야 한다(시험이 대조)
 
 
-def _python(root, executors, now):
+def _python(root, executors, now, total_s=None):
     """2단계 runner를 별도 프로세스로 한 번 돌려 Python 작업을 최대 1개 처리한다(executor의 강제 종료가 Supervisor를 죽이지 않게,
-    작업마다 정지 상태를 다시 보려고 `--max 1`). (종료 코드, 실행한 작업 수). 비정상 종료·요약 없음은 실행 0으로 본다."""
-    done = subprocess.run([sys.executable, "-m", "harness.runner", root, executors, "--max", "1"], cwd=REPO,
-                          stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False)
-    if done.returncode == INTEGRITY_EXIT:
-        return done.returncode, 0  # 장부가 손상됐으므로 여기서 장부에 쓰지 않는다(호출자가 INTEGRITY_HALT로 올린다)
-    lines = done.stdout.strip().split("\n")
+    작업마다 정지 상태를 다시 보려고 `--max 1`). (종료 코드, 실행한 작업 수). 비정상 종료·요약 없음은 실행 0으로 본다.
+    총 시간(total_s, 기본 PYTHON_TOTAL_S)을 넘기면 runner의 프로세스 그룹(executor 하위 프로세스 포함)을 KILL하고 원인
+    timeout_total을 장부에 남긴다. 그 작업은 작업권이 남아 INTERRUPTED가 되고 다음 claim이 2단계 규칙대로 다룬다."""
+    total_s = PYTHON_TOTAL_S if total_s is None else total_s
+    started = time.monotonic()
+    proc = subprocess.Popen([sys.executable, "-m", "harness.runner", root, executors, "--max", "1"], cwd=REPO,
+                            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            errors="replace", start_new_session=True)
+    cause = None
+    try:
+        out, err = proc.communicate(timeout=total_s)
+    except subprocess.TimeoutExpired:
+        cause = "timeout_total"
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        out, err = proc.communicate()
+    if cause is None and proc.returncode < 0:
+        cause = "signal"
+    if proc.returncode == INTEGRITY_EXIT:
+        return proc.returncode, 0  # 장부가 손상됐으므로 여기서 장부에 쓰지 않는다(호출자가 INTEGRITY_HALT로 올린다)
+    lines = out.strip().split("\n")
     try:
         summary = json.loads(lines[-1])
     except ValueError:
         summary = None
     executed = summary.get("executed") if isinstance(summary, dict) else None
-    if done.returncode != 0 or not isinstance(summary, dict) or executed:
+    if proc.returncode != 0 or not isinstance(summary, dict) or executed:
         ledger.append(os.path.join(root, "ledger.jsonl"), now, "python_drain",
-                      {"returncode": done.returncode, "summary": summary, "stderr_tail": done.stderr[-500:]})
-    return done.returncode, executed if done.returncode == 0 and type(executed) is int else 0
+                      {"returncode": proc.returncode, "summary": summary, "stderr_tail": evidence.mask(err, 500),
+                       "cause": cause, "signal": -proc.returncode if proc.returncode < 0 else None,
+                       "duration_s": round(time.monotonic() - started, 3)})
+    return proc.returncode, executed if proc.returncode == 0 and type(executed) is int else 0
 
 
 def _live(root, summary):
@@ -60,8 +81,8 @@ def _live(root, summary):
 
 
 def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, now_fn=time.time, sleep_fn=time.sleep,
-        runner=None, env=None):
-    """Supervisor 루프. max_cycles가 None이면 계속 돈다. 요약 dict(회차 수, 마지막으로 읽은 유효 상태, Claude 실행 수·runner 실행 수)."""
+        runner=None, env=None, limits=None):
+    """Supervisor 루프. max_cycles가 None이면 계속 돈다. limits: {"claude_idle_s", "claude_total_s", "python_total_s"}(없으면 기본값). 요약 dict(회차 수, 마지막으로 읽은 유효 상태, Claude 실행 수·runner 실행 수)."""
     root = os.path.abspath(root)
     os.makedirs(os.path.join(root, "supervisor"), exist_ok=True)
     fd = os.open(os.path.join(root, "supervisor", "supervisor.lock"), os.O_RDWR | os.O_CREAT, 0o600)
@@ -89,7 +110,7 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
                     graph.register_missing(root, declared, now)
                 while executors and _live(root, summary) is not None:  # Python 작업 하나를 시작하기 전마다 정지 상태를 본다
                     summary["python_runs"] += 1
-                    code, executed = _python(root, executors, now_fn())
+                    code, executed = _python(root, executors, now_fn(), (limits or {}).get("python_total_s"))
                     if code == INTEGRITY_EXIT:
                         opstate.set_condition(root, opstate.INTEGRITY_HALT, now_fn(), "supervisor",
                                               "runner 종료 코드 3(장부 무결성)")
@@ -113,7 +134,7 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
                     job = claude_job.pick(root, now_fn())
                     if job is not None and _live(root, summary) is not None:  # execute 직전
                         summary["claude_runs"] += 1
-                        outcome = claude_job.execute(root, job, claude_bin, now_fn, runner, env)
+                        outcome = claude_job.execute(root, job, claude_bin, now_fn, runner, env, limits)
                         summary["outcomes"].append(claude_job.settle(root, job, outcome, now_fn()))
                         wake = now_fn()  # 결과를 반영했으면 곧바로 다음 회차
             except Exception as exc:  # noqa: BLE001 — 모르는 오류는 추정하지 않고 사람 확인으로 멈춘다
@@ -132,15 +153,18 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
 def _args(argv):
     """명령행 → run 인자. 알 수 없는 인자는 ValueError."""
     names = {"--root": "root", "--claude-bin": "claude_bin", "--executors": "executors", "--max-cycles": "max_cycles",
-             "--poll": "poll_s"}
+             "--poll": "poll_s", "--claude-idle-s": "claude_idle_s", "--claude-total-s": "claude_total_s",
+             "--python-total-s": "python_total_s"}
     out = {}
     for flag, value in zip(argv[::2], argv[1::2]):
         if flag not in names:
             raise ValueError("알 수 없는 인자: %s" % flag)
-        out[names[flag]] = int(value) if flag == "--max-cycles" else float(value) if flag == "--poll" else value
+        out[names[flag]] = int(value) if flag == "--max-cycles" else float(value) if flag == "--poll" or flag.endswith("-s") else value
     if len(argv) % 2 or "root" not in out:
-        raise ValueError("사용법: --root R [--claude-bin B] [--executors mod:ATTR] [--max-cycles N] [--poll S]")
-    return out
+        raise ValueError("사용법: --root R [--claude-bin B] [--executors mod:ATTR] [--max-cycles N] [--poll S] "
+                         "[--claude-idle-s S] [--claude-total-s S] [--python-total-s S]")
+    limits = {k: out.pop(k) for k in ("claude_idle_s", "claude_total_s", "python_total_s") if k in out}
+    return dict(out, limits=limits) if limits else out
 
 
 if __name__ == "__main__":

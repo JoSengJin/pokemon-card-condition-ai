@@ -3,7 +3,9 @@
 가짜 claude는 실제 `claude`를 부르지 않고 모델을 호출하지 않는다. FAKE_CLAUDE_SCENARIO(JSON 목록)의 n번째 항목대로
 stream-json 줄을 내고 끝나며, 실행마다 FAKE_CLAUDE_LOG에 argv·시각·세션 인자를 한 줄씩 남긴다(`--help`는 kind=help).
 항목 do: limit(rate_limit_event 후 종료 코드 1) | success(계약 outputs를 산출물 폴더에 쓰고 성공 결과) |
-no_session(--resume 대상 없음, 종료 코드 1) | fail. reset: sec|ms|iso|garbage|none|past, after(초), field, type, status, delay,
+no_session(--resume 대상 없음, 종료 코드 1) | fail | noisy(stderr·stdout 각 30만 자 + 비밀 모양 값, 그 뒤 실패) |
+hang(손자 프로세스를 띄우고 출력 없이 대기) | trickle(손자 + 0.1초마다 출력) | selfkill(손자 + 스스로 SIGKILL).
+설정(시나리오·로그)은 환경변수가 아니라 실행 파일 옆 파일에서 읽는다(하네스가 env를 허용 목록으로 줄이므로). reset: sec|ms|iso|garbage|none|past, after(초), field, type, status, delay,
 session(init 이벤트가 알려줄 세션 ID를 요청값과 다르게).
 """
 import json
@@ -17,11 +19,13 @@ from harness import queue
 from tests.test_harness_support import REPO, make_contract
 
 FAKE = r'''#!%(python)s
-import datetime, json, os, re, sys, time, uuid
-argv, log = sys.argv[1:], os.environ["FAKE_CLAUDE_LOG"]
+import datetime, json, os, re, signal, subprocess, sys, time, uuid
+here = os.path.dirname(os.path.abspath(sys.argv[0]))  # 설정은 실행 파일 옆 파일에서 읽는다(env는 허용 목록만 넘어온다)
+argv, log = sys.argv[1:], os.path.join(here, "fake.log")
 def note(kind, **kw):
     with open(log, "a") as h:
-        h.write(json.dumps(dict(kw, kind=kind, argv=argv, t=time.time(), pid=os.getpid())) + "\n")
+        h.write(json.dumps(dict(kw, kind=kind, argv=argv, t=time.time(), pid=os.getpid(), cwd=os.getcwd(),
+                                env=sorted(os.environ))) + "\n")
 if argv[:1] == ["--help"]:
     note("help")
     print("Usage: claude [options]\n"
@@ -32,7 +36,7 @@ if argv[:1] == ["--help"]:
           "                                        'fable', 'opus', or 'sonnet') or a\n"
           "                                        model's full name.\n")
     sys.exit(0)
-steps = json.load(open(os.environ["FAKE_CLAUDE_SCENARIO"]))
+steps = json.load(open(os.path.join(here, "scenario.json")))
 done = [json.loads(l) for l in open(log)] if os.path.exists(log) else []
 n = len([d for d in done if d["kind"] == "run"])
 step = steps[n] if n < len(steps) else {"do": "missing"}
@@ -43,6 +47,19 @@ reset = {"sec": after, "ms": after * 1000, "garbage": "soon", "none": None, "pas
 note("run", n=n, step=step, resume=opt.get("--resume"), session_id=opt.get("--session-id"), model=opt.get("--model"),
      effort=opt.get("--effort"), prompt=argv[1] if len(argv) > 1 else None, reset=reset)
 time.sleep(step.get("delay", 0))
+if step["do"] in ("hang", "trickle", "selfkill"):
+    kid = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])  # 같은 프로세스 그룹의 손자
+    open(os.path.join(here, "grandchild.pid"), "w").write(str(kid.pid))
+    while step["do"] == "trickle":
+        print(json.dumps({"type": "assistant", "n": 1}), flush=True)
+        time.sleep(0.1)
+    if step["do"] == "selfkill":
+        os.kill(os.getpid(), signal.SIGKILL)
+    time.sleep(120)
+if step["do"] == "noisy":
+    sys.stderr.write("x" * 300000 + "\nAPI_KEY=sk-ant-secret0123456789 token: abcdefgh Bearer zzz.yyy\n")
+    sys.stderr.flush()
+    sys.stdout.write("z" * 300000 + "\n")
 if step["do"] == "no_session":
     sys.stderr.write("No conversation found with session ID: %%s\n" %% opt.get("--resume"))
     sys.exit(1)
