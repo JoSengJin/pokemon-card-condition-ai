@@ -9,8 +9,8 @@ rate_limited|done|failed|blocked|stale), session_id, unknown_attempts, crash_res
 - 사람 확인 대기(status=blocked, hold_reason)는 그 작업(과 그것에 의존하는 작업)만 멈춘다. pick은 대기 작업을 건너뛰고 다른 독립 작업을
   고른다. 공통 장애 근거(현재는 한도 이벤트 → opstate 한도 조건)만 Claude 실행 전체를 멈춘다. 대기 사유: claude 실패(원인 필드 포함),
   pid 기록 불일치, 결과 반영 claim 거절, 완료 표시 없음, 실행 중 사망 재개 한도(recovery.MAX_INTERRUPTS=2) 초과. 알림(claude_job_blocked)을
-  남기며 자동 재시도하지 않는다. 사람이 확인한 뒤 그 작업의 상태 파일을 지우면(새 세션으로 다시 고름) 또는 status를 rate_limited로
-  고치면(같은 세션 --resume) 이어간다. 큐 작업이 PENDING이 아니게 되면 닫는다(VERIFIED면 done, 그 밖은 stale).
+  남기며 자동 재시도하지 않는다. 사람이 확인한 뒤 그 작업의 상태 파일을 지우면(새 세션으로 다시 고름) 이어간다. status를 rate_limited로
+  고치는 같은 세션 --resume은 그 유형의 자동 재개가 켜져 있을 때만 된다(claude_perm.AUTO_RESUME, 3단계). 큐 작업이 PENDING이 아니게 되면 닫는다(VERIFIED면 done, 그 밖은 stale).
 - 완료 표시(contract.COMPLETION): claude가 성공 종료하고 Claude의 선언(out/ 안 contract.DECLARATION: task_key·outputs 경로 목록)이 계약과
   맞으면 execute가 산출물 sha256으로 완료 표시를 원자 저장한다. Claude는 명령 실행 도구가 없어 sha256을 직접 계산할 수 없으므로 해시는
   하네스가 붙인다(인계 "계약 충돌" 참조). 실행 전에 완료 표시가 산출물과 맞으면 claude를 다시 부르지 않고 반영만 한다(adopted).
