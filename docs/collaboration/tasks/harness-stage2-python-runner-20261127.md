@@ -11,6 +11,7 @@ goal: IMPLEMENTATION.md 2절 2행 "Claude 작업이 멈춘 상태에서 사전 �
   합성 작업으로 시험한다. 실제 ./experiment 실행은 이번 단계에 포함하지 않는다(아래 "설계와 환경의 차이").
 allowed_files:
   - harness/runner.py (신규, 필요 시 harness/executors.py 등 신규 파일 — 함수 수 제한 때문이며 이 문서에 기록)
+  - (3차 검증 반영으로 추가) tests/test_harness_interrupts.py
   - (2차 검증 반영으로 추가) tests/test_harness_runner_errors.py
   - (구현 중 추가) tests/test_harness_executors.py(시험용 executor), tests/test_harness_runner_kit.py(runner 시험 공용 도구), tests/test_harness_runner.py, tests/test_harness_runner_procs.py
   - 1단계 파일의 호출 깊이 평탄화·G 수정에 필요한 harness/{queue,states,holder,recovery,lease,ledger,manifest,checkpoint,graph,contract,cas,jsonio}.py
@@ -26,7 +27,7 @@ checks:
   - 변이 시험: 검증자 변이 스크립트(scratchpad/stage1-verify/mutate3.py)를 복사본으로 재실행해 새로 놓치는 변이가 없음을 확인(원본 수정 금지)
   - ast 재측정(함수 수·호출 깊이), `git diff --check`, 허용 파일 대조
 experiment: 없음. 합성 시험이며 모델 성능 근거가 아니다.
-handoff: 아래 "구조 표 / 인계" 절(1차 구현 + 2차 검증 반영). 최종 시험 대상 SHA f6b878055367f45e0f79eaeb03ae9c1dff07e995(시험 커밋), 문서 커밋은 그 위.
+handoff: 아래 "구조 표 / 인계" 절(1차 구현 + 2·3차 검증 반영). 최종 시험 대상 SHA b3575ee0334edc5b018cdd69b5ad3bba6c33458c(시험 커밋), 문서 커밋은 그 위.
 ```
 
 ## 이유와 범위
@@ -89,7 +90,10 @@ S2-0(평탄화·G)과 S2-1(runner)을 모두 구현했고 필수 시험 7종(T2-
 | 문서 | `5e6cb3ec62a72d1a34edfb37d9d110f747d0011a`, `3e21f2bcfa447d003ce3115905b848a7a47e8df2` | 1차 인계 |
 | `fix(harness)` (2차 검증 반영) | `d340147461dc9043db9c9d5bcc21dd35efe2b788` | R1·R2·R3·R5 코드 |
 | **`test(harness)` (2차 검증 반영, 최종 시험 대상)** | `f6b878055367f45e0f79eaeb03ae9c1dff07e995` | R1~R6 시험(75개) |
-| 문서(2차) | 이 문서 커밋(그 위) | 문서만 |
+| 문서(2차) | `f59cd54f3d96d61ae5bcbe81905bdaf39228a26d`, `38dc6294055f723744648948ace2ff4a6af15815` | 2차 인계 |
+| `fix(harness)` (3차 검증 반영) | `c4084991669d44b38da49537476790e87de8e847` | N1·N2·N4 코드 |
+| **`test(harness)` (3차 검증 반영, 최종 시험 대상)** | `b3575ee0334edc5b018cdd69b5ad3bba6c33458c` | N1·N2·N4 시험(80개) |
+| 문서(3차) | 이 문서 커밋(그 위) | 문서만 |
 
 | 명령(cwd=worktree) | 종료 코드 |
 |---|---|
@@ -117,6 +121,23 @@ R2 가정: (1) 한도 2는 최초 실행 + 이어받아 재실행 2회(총 3회)
 2차 반영 뒤 측정(`git diff --name-only 3e21f2b HEAD`는 harness/{queue,recovery,runner}.py, tests/test_harness_*.py, 이 문서): 시험 75개, 3.12 rc=0 / 3.9 rc=0(`-W error::ResourceWarning`, 종료 코드를 `> file 2>&1; echo rc=$?`로 직접 확인). 파일당 함수 정의 수는 모두 ≤7(harness: queue 6, recovery 7, runner 5 등; tests: claim_holder 7, graph 7, runner_errors 7, runner_kit 7, state_guards 7, support 7 등). 공개 진입 함수 호출 깊이 최대 4(`runner.main` → `drain` → claim/complete/fail → append/decide/put → 말단). 시험 함수를 시작점으로 세면 도우미(`finish`→`claim` 래퍼) 때문에 최대 5이며 이는 시험 쪽 한도 해석 문제로 1단계에서 남긴 사용자 결정 대기 항목과 같다. S2-0의 `claim` 주입(`functools.partial(... boot_id_fn=...)`)은 R3로 `lease.boot_id` patch 방식으로 대체됐다.
 
 변이(복사본, 2차 반영 코드에서 재실행): 검증자 mutate4.py 복사본 22개 중 A4·A6·A12·A15를 포함해 잡힘 16개, 생존은 A1·A10·A17·A19와 동등 변이 주장 S-M16·S-M23(A1: 완료 뒤에는 작업권이 항상 지워져 순서 변경이 관측되지 않음, A10: 판정 결과가 INTERRUPTED 외 상태에서는 쓰이지 않음, A19: done 비객체는 비dict 처리와 같은 결과, A17: 복구 실패를 첫 실패에서 멈추는 최적화 차이는 관측 불가 — 이 4건은 시험을 추가하지 않았고 동등/관측 불가로 판단한 것이다). 내 변이 집합(59개 중 54개 잡힘, 생존은 동등 M16·M23과 대상 문자열이 사라진 X12 STALE 대체 N7): 새 변이 N1 SystemExit 처리 제거·N2 중단 한도 검사 제거·N3 손상된 횟수를 1로 취급·N4 stamp에 횟수 미기록·N5 정적 검사를 우회하는 가짜 claude 호출·N6 claim 공개 인자로 boot_id_fn 허용·N7 기록 오류를 잡지 않음·N8 정지 사유 기록 제거는 모두 잡힌다(N3·N5는 처음에 살아남아 한도 횟수 시험과 가짜 claude 대기 시간을 보강했다). 검증자 starve.py: exiter는 runner 5회 모두 rc=0·독립 작업 VERIFIED, oom은 [-9,-9,-9,0,0]·독 작업 실행 3회·독립 작업 VERIFIED. gbypass.py는 7번째 인자에서 TypeError.
+
+### 3차 검증(Opus 재검증 조건부 통과, 중요 1건) 반영
+
+위 2차 R2의 "체크포인트 재개도 한도에 포함" 가정은 아래 N1로 **대체**됐다.
+
+| 항목 | 조치 | 내용 |
+|---|---|---|
+| N1 중단 한도가 정상 장기 작업을 정지 | 수정 | 체크포인트 판정이 횟수 검사보다 먼저다. 유효한 체크포인트로 이어받은 재개(`resumed=true`)는 진전이 있는 재개라 세지 않고 `interrupts`를 0으로 초기화한다. 체크포인트가 없거나(또는 30분 미만 등으로 재개 조건이 안 되는) 처음부터의 재실행(`rerun`)만 센다. 정상 종료(complete·fail)도 초기화(작업권 파일 삭제). 정지(`too_many_interrupts`)가 일어나면 장부에 `stopped_too_many_interrupts`(task_key·run_id·횟수)를 **한 번만** 남긴다(같은 중단 기록에 대해 `stopped.json` 표식으로 중복 억제, 다른 run_id의 새 중단 기록이면 다시 한 번). 시험: SIGTERM 3번 중지 뒤 4번째 claim 정지·정지 기록 1회(`test_harness_interrupts.py`), 한도에 닿은 기록(2)이어도 체크포인트 재개는 정지하지 않고 0으로 초기화·연속 4번 재개, 진전 없는 rerun 반복은 정지, 손상된 횟수 정지, 한도 이내 재실행은 횟수 증가 |
+| N2 release 이중 호출 | 수정 | `lease.release`는 이미 닫혔거나 닫힌 fd 번호가 다른 파일에 재사용됐으면(`Lease.ident`=(dev,ino) 불일치) 아무것도 하지 않는다. 시험: `queue.fail` 안쪽에서 장부 쓰기(`failed` 이벤트)만 실패시켜도 runner가 계속(이전에는 EBADF로 중단), `release` 두 번·fd 재사용(`dup2`) 시험 |
+| N4 장부 체인 손상 | 수정 | `LedgerError`는 작업별 오류 목록에서 뺐다. drain 전체를 멈추고 요약에 `integrity: "INTEGRITY: ..."`를 남기며 `main`은 종료 코드 3을 낸다. 작업권은 claim/complete/fail이 이미 해제한다. 시험: 실제 subprocess에서 장부 마지막 줄을 변조하면 rc=3·실행 0건·작업권 없음. 개별 작업의 기록 오류(R5)는 그대로 |
+| N3 한계(코드 변경 없음) | 문서 | 작업권 파일이 손상(깨진 JSON·빈 파일)되면 `interrupts` 횟수가 소실된다. 그러나 손상 뒤의 재실행은 다시 한도(2)까지 세므로 전체 재실행 횟수의 상한은 (한도+1) × 손상 횟수로 유한하다(무한 재실행은 아님). |
+| N5 한계(코드 변경 없음) | 문서 | 정적 LLM 검사는 `getattr` 동적 문자열·상대 import로 우회할 수 있다. 실제 보증은 PATH 맨 앞의 가짜 `claude`를 호출 0회로 단언하는 실행 시험이며, 정적 검사는 보조 방어선이다. |
+| N6 | 손대지 않음 | |
+
+N1 확정 규칙과 사용자 확인 대기: 한도 값 **2**(최초 1회 + 처음부터의 재실행 2회 = 총 3회 실행)와 **무엇을 세는가**는 메인이 제안한 값이며 사용자 확인 대기다. 세는 것: 체크포인트 없이(또는 재개 조건 미충족으로) 처음부터 다시 실행된 연속 비정상 종료. 세지 않는 것: 유효 체크포인트로 이어받은 재개(0으로 초기화). 초기화되는 것: 정상 종료(complete·fail). SIGTERM 같은 "정상적인 중지"도 체크포인트가 없으면 진전 없는 재실행으로 센다(구분할 근거가 없음). 정지 해제(사람/Supervisor가 정지를 푸는 경로: `interrupts` 초기화·`stopped.json` 정리 등)는 **3단계 항목이며 이번에 만들지 않았다**(설계에 없는 기능). 정지 이벤트는 표식을 먼저 쓰고 장부에 남기므로 그 사이 비정상 종료하면 이벤트 줄이 빠질 수 있다(표식이 정본).
+
+3차 반영 뒤 측정: 시험 80개, 3.12 rc=0 / 3.9 rc=0(`-W error::ResourceWarning`). 파일당 함수 정의 ≤7(recovery 7·lease 7·queue 6·runner 5, tests: interrupts 5·lease 6·runner_procs 6·claim_holder 6 등), 공개 진입 함수 호출 깊이 최대 4(`runner.main` → `drain` → claim 등 → 말단), 시험 함수 시작 기준 최대 5(도우미 경유, 1단계에서 남긴 사용자 결정 대기 항목). `git diff --name-only 38dc629 HEAD`: harness/{lease,recovery,runner,states}.py, tests/test_harness_{claim_holder,interrupts,lease,runner_errors,runner_procs}.py, 이 문서. 변이(복사본): 새 변이 P1 체크포인트 재개 초기화 제거·P2a/P2b 정지 이벤트 중복 기록·P3a/P3b release 이중 호출 보호 제거(닫힘·fd 재사용)·P4 LedgerError 종료 코드 제거·P5 재개도 횟수에 포함·P6 장부 오류를 작업별 오류로 취급·N2′ 한도 검사 제거는 모두 시험 실패로 잡힌다(P3b는 처음에 살아남아 fd 재사용 시험을 추가해 잡았다). 기존 변이 집합은 동등 변이(M16·M23·검증자 A1·A10·A17·A19) 외 모두 잡힌다. 검증자 interrupts.py: SIGTERM 3회 후 정지·정지 기록 1회, 체크포인트 재개는 interrupts=2여도 정지하지 않음, fail 장부 오류에도 drain 정상 종료, 장부 꼬리 손상 시 rc=3.
 
 ### S2-0: 호출 깊이 전후(공개 진입 함수 기준, 이름 참조 기반 정적 상한)
 
