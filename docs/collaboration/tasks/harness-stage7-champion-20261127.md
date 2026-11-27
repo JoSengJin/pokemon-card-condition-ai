@@ -17,6 +17,7 @@ goal: IMPLEMENTATION.md 2절 7행 "승격 중 kill -9에도 포인터 일관, �
 allowed_files:
   - harness/registry.py, harness/champion.py, harness/lineage.py
   - harness/gate.py (함수 수 제한 때문에 추가: 승격 관문 검사. 아래 "구현 명세" 참조)
+  - harness/pointer.py (독립 검증 반영으로 추가: 포인터 읽기·대조·읽기 규약·임시 파일 정리. champion.py 함수 수 한도 때문에 분리)
   - tests/test_harness_champion_*.py (신규만, 시험 공용 도구 tests/test_harness_champion_support.py 포함)
   - 이 task 문서
 forbidden_files: harness/runner.py, harness/route.py(다른 에이전트 작업 중), 1단계 파일(harness/{cas,ledger,jsonio,contract,manifest,
@@ -58,13 +59,18 @@ handoff: 아래 인계 절. 독립 Opus 검증은 메인이 따로 수행(이 �
    성공 시 이벤트를 접어 `{models, history, pending, hashes}`를 만든다. `register(...)`는 가중치를 CAS에 보관하고 모델 ID(식별 필드의 해시)를 돌려준다.
    등급(`Challenger`·`Dev-leader`·`Champion`)과 상태(`valid`·`invalidated`)를 가진다. 등급 `Champion`은 승격으로만 붙는다.
 2. `gate.py` — 승격 관문: 모델 유효성(자신과 조상), 가중치 CAS 보관, 비교 가능성(층·분모·봉인 판본), 봉인 층, 감사 상태(계보 전체의 Silver 묶음).
-3. `champion.py` — 포인터와 전환. 전환은 선기록(WAL): `switch_intent` 기록 → 포인터 원자 교체 → `switched` 기록 → 주 장부 요약.
+3. `pointer.py` — 포인터 읽기와 대조. `current(root, state)`는 포인터가 마지막 완료 전환(`history[-1]`) 또는 대기 중 의도(`pending`)의
+   (의도 해시, 대상 모델)과 정확히 같고 가중치 해시도 같을 때만 통과한다(다른 모델로 바꾼 포인터·의도가 아닌 줄 해시·오래된 포인터 파일 복귀·포인터 삭제는 `ChampionError`).
+   **읽기 규약:** `current`는 `registry.lock` 안에서 load한 state와만 쓴다. 잠금 없이 `load` 뒤에 `current`를 부르면 그 사이 다른 프로세스의 승격과 어긋나
+   거짓 오류가 날 수 있으므로, 잠금을 쥐지 않은 읽는 쪽은 `read_current(root)`(잠금 안에서 load+current, 쓰기 없음)를 쓴다.
+   `clean_tmp(root)`는 kill로 남은 `*.tmp.<pid>`를 지운다(잠금 안에서만).
+3-1. `champion.py` — 포인터와 전환. 전환은 선기록(WAL): `switch_intent` 기록 → 포인터 원자 교체 → `switched` 기록 → 주 장부 요약.
    중간에 죽으면 다음 호출의 `settle`이 포인터와 의도를 대조해 `switched`를 마저 쓰거나(포인터가 이미 바뀜) `switch_aborted`를 쓴다(안 바뀜).
    `promote`는 이미 그 모델이 현재 Champion이면 아무 것도 쓰지 않고 성공(멱등). `restore_last_verified`는 현재 Champion이 무효일 때만
-   (또는 `regression` 사유를 주면 그 사유로 무효화한 뒤) 가장 최근의 다른 유효한 이전 Champion으로 돌리고, CAS에서 꺼낸 가중치의 해시를
+   (또는 `regression` 사유와 `model_id`를 주면, 현재 Champion이 그 모델일 때만 그 사유로 무효화한 뒤) 자신과 모든 조상이 유효한 가장 최근의 다른 이전 Champion으로 돌리고, CAS에서 꺼낸 가중치의 해시를
    레지스트리 기록값과 재대조한다. 해시 불일치·CAS 손상은 `ChampionError`이며 포인터는 바꾸지 않는다.
 4. `lineage.py` — `invalidate_lineage(root, now, silver_batch_id)`: 해당 묶음을 쓴 모델 + 부모 관계로 이어진 모든 후속을 한 이벤트로 무효화하고,
-   현재 Champion이 포함되면 복원한다.
+   현재 Champion이 무효이면(이번 무효화 때문이든, 무효화 뒤 복원 전에 죽은 이전 호출 때문이든) 복원한다. 새로 무효화할 모델이 없어도 복원은 이어간다.
 5. 동시 호출은 `root/models/.lock`(`fcntl.flock`)으로 직렬화한다. 잠금은 프로세스가 죽으면 풀린다.
 
 ## 필수 시험
@@ -86,7 +92,7 @@ handoff: 아래 인계 절. 독립 Opus 검증은 메인이 따로 수행(이 �
 ### 결과
 
 필수 시험 7종을 실제 subprocess·실제 SIGKILL로 통과했다. 합성 시험이며 모델 성능·정확도 근거가 아니다. 이번 변경은 개발 진척 7단계(Champion
-레지스트리·승격·복원)의 구현이며 실험·학습·추론·외부 AI 호출은 없다. 독립 검증(Opus)은 아직 받지 않았다.
+레지스트리·승격·복원)의 구현이며 실험·학습·추론·외부 AI 호출은 없다. 1차 독립 검증(Opus, `647cd77` 기준)은 "조건부 통과"(중요 3·경미 4)였고 아래 "독립 검증 지적 반영"으로 고쳤다. 고친 뒤의 재검증은 아직 받지 않았다.
 
 ### 대상 SHA와 실행 명령
 
@@ -95,7 +101,12 @@ handoff: 아래 인계 절. 독립 Opus 검증은 메인이 따로 수행(이 �
 | 작업 계약 커밋 | `d1cb8a34e3f4445b1088215c02d524dd72d87d2d` |
 | 구현 (`feat(harness)`) | `794bbb7b620cc985c34e489b388059a08565acc7` |
 | **최종 시험 대상 (구현 + 시험, `test(harness)`)** | `9ec67e7b578bd3068e42918d1bccbd048f1410d4` (88개 = 1단계 55 + 이번 33) |
-| 이 문서 커밋 | 시험 대상 위에 문서만 추가(코드 변경 없음). SHA는 `git log`로 확인 |
+| 인계 문서 (1차) | `647cd7753332078fc4cefcdbcbd22e610920f5ce` |
+| 검증 지적 반영 구현 (`fix(harness)`) | `053dde788e931b021ab3c7957838f8c1291e49dd` |
+| **검증 지적 반영 후 최종 시험 대상 (`test(harness)`)** | `65bb1eb552e906657f28281f7f7ee90c657a44da` (95개 = 1단계 55 + 이번 40) |
+| 이 문서 갱신 커밋 | 시험 대상 위에 문서만 추가(코드 변경 없음). SHA는 `git log`로 확인 |
+
+위 표의 앞쪽 행(`9ec67e7` 등)과 그 아래 첫 번째 명령 표는 1차 인계 시점의 기록이다. 최신 결과는 "지적 반영 후 실행 명령"을 본다.
 
 | 명령 (cwd = worktree, 시험 대상 SHA에서 실행) | 종료 코드 |
 |---|---|
@@ -112,6 +123,35 @@ settle 항상 abort(M3c)·비활성(M3d), 계보 후속 처리 제거(M4), 무�
 포인터-레지스트리 대조 제거(M10), 복원이 무효 후보 선택(M11), 잠금 제거(M12), 무효 모델 승격 허용(M13), 무효 Champion을 valid로 취급(M14),
 CAS 존재 검사 제거(M15). 잡지 못하는 것: 디렉터리 fsync 제거(정전 내구성은 프로세스 kill로 시험할 수 없음).
 
+### 독립 검증 지적 반영 (`647cd77` → `65bb1eb`)
+
+| # | 지적 | 조치 | 시험 |
+|---|---|---|---|
+| 1 중요 | `invalidate_lineage` 재호출 시 `ids=[]`이면 복원을 건너뛰어 무효 Champion이 남음 | `ids`가 비어도 현재 Champion이 무효이면 `restore_locked`를 수행(`lineage.py`). 반환 `invalidated`는 "이번에 새로 무효화한 모델" | kill_points :: test_kill_during_lineage_invalidation_then_same_call_again_finishes_the_restore (무효화 전·후 + 승격 7지점 + CAS 꺼내기 중, 10지점) |
+| 2 중요 | 잠금 없이 `load` 뒤 `current` 호출 시 거짓 `ChampionError` | `pointer.read_current(root)` 신설(잠금 안에서 load+current, 쓰기 없음). `current`는 잠금 안에서 load한 state와만 쓰도록 docstring·이 문서에 규약 명시. `champion.current`·`champion.read_current`는 `pointer`의 별칭 | kill_random :: test_unlocked_readers_get_no_false_error_while_promotions_keep_happening (승격이 계속되는 2초간 `read_current` 반복, 오류 0, 두 모델 모두 관측) |
+| 3 중요 | 포인터 대조가 약함(다른 모델·registered 줄 해시·오래된 포인터 통과) | `pointer.current`가 포인터의 (의도 해시, 모델 ID)가 `history[-1]` 또는 대기 중 의도와 정확히 같고 가중치 해시도 같을 때만 통과. 포인터 삭제(승격 기록 있음)도 거절 | guards :: test_tampered_stale_or_missing_pointer_is_refused (7종 + 삭제) |
+| 4 경미 | 복원 후보가 조상 유효성을 안 봄 | `restore_locked`가 후보의 조상 사슬 전체(`gate.ancestors`)가 유효해야 선택 | guards :: test_child_of_an_invalid_ancestor_is_refused_for_promotion_and_restore |
+| 5 경미 | `restore_last_verified(regression=...)` 재호출이 복원한 정상 Champion까지 무효화 | `model_id` 인자 신설: regression은 `model_id` 필수, 현재 Champion이 그 모델일 때만 무효화 | restore :: test_regression_restores_..., kill_points 복원 시험의 같은 인자 재호출 |
+| 6 경미 | 승격 중 kill 뒤 `champion.json.tmp.<pid>` 누적 | `pointer.clean_tmp`(models/ 아래 `*.tmp.*`)를 `settle`이 잠금 안에서 호출 | guards :: test_settle_supplements_main_ledger_and_removes_leftover_temp_files |
+| 7 경미 | 시험 공백 N10·N11·N16·N6 | 무효 현재 Champion 재승격 거절, 조상 무효 자식 승격·복원 거절, 승격 kill 뒤 lineage 호출, settle의 주 장부 보충 단언 | guards :: test_invalid_current_champion_cannot_be_reconfirmed_by_promote, test_child_of_an_invalid_ancestor_..., test_lineage_call_after_a_killed_promotion_settles_first, test_settle_supplements_... |
+
+추가로 N1(settle이 모델 ID로 판단) 변이가 살아남아 같은 시험에 "포인터가 이미 같은 모델을 가리키는 오래된 의도"를 `switch_aborted`로 처리하는지 단언을 더했다.
+`champion.py`가 함수 수 한도(7)에 닿아 포인터 읽기·대조·임시 파일 정리를 `harness/pointer.py`(함수 3개)로 분리했다. `pointer.py`는 이 작업 계약의 allowed_files에 추가한다.
+
+### 지적 반영 후 실행 명령 (시험 대상 `65bb1eb552e906657f28281f7f7ee90c657a44da`)
+
+| 명령 | 종료 코드 |
+|---|---|
+| `PYTHONDONTWRITEBYTECODE=1 /Users/jueun/WebstormProjects/pokemon-card-condition/.venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"` (3.12.14) | 0 (95개) |
+| 같은 명령 `/usr/bin/python3` (3.9.6) | 0 (95개) |
+| 3.12 + `-W error::ResourceWarning`, 3회 | 0, 0, 0 |
+| `git diff --check` | 0 |
+
+변이 재실행(임시 복사본, 원본 수정 없음): 최초 22개 변이 중 지적 반영으로 대상 코드가 바뀐 4개(M4b·M10·M11·M14는 P8·N17·P7·P9로 대체)를 뺀 18개 모두 잡힘.
+검증자 `mutate.py` 복사본(바뀐 문자열만 맞춤) N1~N19 19개 중 18개 잡힘, N18(디렉터리 fsync 제거)은 프로세스 kill로 관측할 수 없어 살아남는다(알려진 한계, 미검증 참조). N1은 처음 실행에서 살아남았으나 시험 보강 뒤 잡힘.
+새 변이 P1(포인터가 과거 어느 전환이든 허용)·P2(포인터 삭제 허용)·P3(포인터 가중치 해시 미검사)·P4(`read_current` 잠금 제거)·P5(`clean_tmp` 무동작)·P6(회귀 무효화가 model_id 무시)·P7(복원 후보 조상 무시)·P8(계보 복원 조건을 옛 방식으로)·P9(valid 항상 True) 9개 모두 잡힘.
+N10·N11·N16·N6도 잡힘.
+
 ### 필수 시험 대응
 
 | 필수 | 시험 (파일 :: 이름) |
@@ -120,7 +160,7 @@ CAS 존재 검사 제거(M15). 잡지 못하는 것: 디렉터리 fsync 제거(�
 | 감사 대기 | audit :: 5개(누락·pending·부분 완료 `audit_pending`, `audit_failed`, complete·not_required 통과와 재시도, 조상 묶음, 묶음 없는 모델) |
 | 비교 불가 | promote :: test_different_layer_denominator_or_seal_version_is_refused (3개 각각), test_non_sealed_layer_cannot_become_champion |
 | 복원 | restore :: 5개 (해시 재현·기록, 한 단계씩 되돌림·더 갈 곳 없음, CAS 손상 시 오류+포인터 불변, 복사본 해시 불일치 오류, 복원 후 재복원 무변화·후속 승격) |
-| 계보 | lineage :: 5개 (직접·후속·손자 무효, 무관 유지, Champion 포함 시 이전 Champion으로 자동 복원, 무관 Champion 유지, 반복·미지 묶음 무변화, 이미 무효인 중간 모델의 후속 추적, 무효 계보 승격 거절) |
+| 계보 | lineage :: 5개 + kill_points 계보 kill 재호출 + guards 승격 kill 뒤 계보 호출 (직접·후속·손자 무효, 무관 유지, Champion 포함 시 이전 Champion으로 자동 복원, 무관 Champion 유지, 반복·미지 묶음 무변화, 이미 무효인 중간 모델의 후속 추적, 무효 계보 승격 거절) |
 | 변조 | registry :: 줄 변조·중간 삭제·순서 변경, 꼬리 잘림(포인터 대조와 `expected_tail`), 체인은 유효하나 앞뒤가 안 맞는 줄·중복 등록 |
 | 멱등 | promote :: test_double_promotion_writes_nothing_the_second_time, registry :: test_same_model_twice_is_idempotent_and_a_different_evaluation_conflicts, kill_random :: 같은 모델 동시 승격은 한 번만 전환 |
 
@@ -130,12 +170,13 @@ CAS 존재 검사 제거(M15). 잡지 못하는 것: 디렉터리 fsync 제거(�
 |---|---|---|---|
 | harness/registry.py | 5 | tests/test_harness_champion_support.py (시험 아님) | 7 |
 | harness/gate.py | 3 | tests/test_harness_champion_registry.py | 7 (시험 6) |
-| harness/champion.py | 7 | tests/test_harness_champion_promote.py | 7 (시험 6) |
+| harness/champion.py | 6 | tests/test_harness_champion_promote.py | 7 (시험 6) |
 | harness/lineage.py | 2 | tests/test_harness_champion_audit.py | 7 (시험 5) |
-| | | tests/test_harness_champion_restore.py | 7 (시험 5) |
+| harness/pointer.py (신규) | 3 | tests/test_harness_champion_restore.py | 7 (시험 5) |
 | | | tests/test_harness_champion_lineage.py | 7 (시험 5) |
-| | | tests/test_harness_champion_kill_points.py | 6 (시험 3) |
-| | | tests/test_harness_champion_kill_random.py | 5 (시험 3) |
+| | | tests/test_harness_champion_guards.py (신규) | 7 (시험 5) |
+| | | tests/test_harness_champion_kill_points.py | 6 (시험 4) |
+| | | tests/test_harness_champion_kill_random.py | 6 (시험 4) |
 
 ### 호출 깊이 (전이 수)
 
@@ -145,11 +186,13 @@ CAS 존재 검사 제거(M15). 잡지 못하는 것: 디렉터리 fsync 제거(�
 | 진입 | 이 작업 파일 안 최장 | 1단계 호출 포함(현재) 최장 경로 |
 |---|---|---|
 | champion.promote | 2 (promote → registry.load → registry.apply, promote → gate.check → gate.ancestors) | 4 (promote → registry.load → ledger.verify → _check_line → _hash_entry) |
-| champion.restore_last_verified | 2 (→ registry.load → apply, → restore_locked → _materialize/_switch/current) | 4 (→ registry.load → ledger.verify → _check_line → _hash_entry) |
-| lineage.invalidate_lineage | 2 (→ restore_locked → _materialize/_switch/current) | 4 (→ registry.load → ledger.verify → _check_line → _hash_entry) |
+| champion.restore_last_verified | 2 (→ registry.load → apply, → restore_locked → _materialize/_switch/current) | 4 (같은 verify 경로) |
+| lineage.invalidate_lineage | 2 (→ restore_locked → _materialize/_switch, → registry.load → apply) | 4 (같은 verify 경로) |
+| pointer.read_current | 2 (→ registry.load → apply) | 4 (같은 verify 경로) |
 | registry.register | 2 (register → load → apply, register → _validate) | 4 (같은 verify 경로) |
 | registry.load | 1 (load → apply) | 3 (load → ledger.verify → _check_line → _hash_entry) |
-| champion.restore_locked | 2 (→ _materialize) | 3 (→ _switch → ledger.append → _hash_entry) |
+| champion.settle | 1 (→ pointer.clean_tmp) | 2 (→ ledger.append → _hash_entry) |
+| champion.restore_locked | 2 (→ _materialize, → gate.ancestors) | 3 (→ _switch → ledger.append → _hash_entry) |
 
 2단계가 `ledger.verify`·`ledger.append` 안쪽을 평탄화하면 "1단계 포함" 값은 줄어든다. 늘지는 않는다(이 작업은 1단계 내부 함수를 직접 부르지 않고
 `ledger.append/verify/tail/GENESIS`, `cas.put/get/has/sha_file/blob_path/CasError`, `jsonio.read_json/write_json`만 쓴다).
@@ -166,29 +209,35 @@ CAS 존재 검사 제거(M15). 잡지 못하는 것: 디렉터리 fsync 제거(�
    `complete`/`not_required`여야 하며, 누락·pending·그 밖의 값은 `audit_pending`, 하나라도 `failed`면 `audit_failed`다. 레지스트리에는 감사 상태를 저장하지 않는다.
 5. 비교 대상은 포인터가 가리키는 현재 Champion(무효 상태여도)이다. 첫 Champion은 비교 없이 승격된다(초기 Champion 등록은 승격 예산을 쓰지 않는다는 설계와 맞춤).
 6. 승격 거절은 예외가 아니라 `{"ok": False, "reason", "detail"}`이다. 레지스트리 변조·포인터 손상·CAS 손상·복원 해시 불일치는 `RegistryError`/`ChampionError`다.
-7. 복원 후보는 "이전에 `switched`로 Champion이었던 모델 중 현재 모델이 아니고 유효한 가장 최근 것"이다. 후보의 CAS 가중치가 손상되어도 더 오래된 후보로
+7. 복원 후보는 "이전에 `switched`로 Champion이었던 모델 중 현재 모델이 아니고, 자신과 모든 조상(부모 사슬)이 유효한 가장 최근 것"이다(승격 관문과 같은 보수적 기준. 부모가 회귀로 무효이고 자식은 상태상 valid인 모델은 후보가 아니다). 후보의 CAS 가중치가 손상되어도 더 오래된 후보로
    조용히 넘어가지 않고 오류를 낸다(명세: 복원하지 않고 명시적 오류). 후보가 없으면 `no_verified_champion`(오류 아님)이며 포인터는 무효인 채 남고
    `champion.current(...)["valid"]`가 False로 알린다.
-8. `restore_last_verified(root, now, regression="사유")`는 현재 Champion을 그 사유로 무효화한 뒤 복원한다(회귀·장애가 감지된 호출자가 쓰는 입구).
-   무효화(`invalidated`)는 복원 전환보다 먼저 기록되므로 복원이 실패해도 무효 사실은 남는다.
+8. `restore_last_verified(root, now, regression="사유", model_id=<무효화할 모델>)`는 현재 유효한 Champion이 `model_id`와 같을 때만 그 사유로 무효화한 뒤 복원한다
+   (회귀·장애가 감지된 호출자가 쓰는 입구). 같은 인자로 다시 불러도(이미 복원된 뒤) 새 Champion을 무효화하지 않는다. `regression`을 주고 `model_id`가 없으면
+   `ChampionError`. 무효화(`invalidated`)는 복원 전환보다 먼저 기록되므로 복원이 실패해도 무효 사실은 남는다.
 9. 전환은 선기록(WAL)이다: `switch_intent` → 포인터 교체 → `switched`. 주 장부(`root/ledger.jsonl`) 요약은 그 뒤에 쓰므로(1단계 가정 9와 같음) 중간에 죽으면
    빠질 수 있다. 정본은 레지스트리와 포인터이며, 다음 호출의 settle이 짝 없는 의도를 정리할 때만 주 장부 줄을 보충한다(포인터가 이미 바뀐 경우).
 10. 복원된 가중치는 `root/models/restored/<model_id>/weights`에 쓴다. CAS는 1단계와 같은 `root/cas`를 공유한다.
+11a. 읽기 규약: 쓰는 함수는 모두 `registry.lock` 안에서 load → settle → 판단 → 쓰기 순서다. `current(root, state)`는 같은 잠금 안에서 load한 state와만 쓰고,
+    잠금을 쥐지 않은 읽는 쪽(Supervisor 점검 등)은 `read_current(root)`를 쓴다(승격이 끝나는 짧은 시간 기다림). 잠금 없이 `load` 뒤 `current`를 부르면 거짓 오류가 날 수 있다.
+11b. `invalidate_lineage`는 새로 무효화할 모델이 없어도 현재 Champion이 이미 무효이면(예: 앞선 회귀 무효화 뒤 복원 후보가 없던 경우) 복원을 시도하고 그 결과를
+    `restore`로 돌려준다(후보가 없으면 `{ok: False, reason: no_verified_champion}`).
 11. `register`의 등급은 `Challenger`·`Dev-leader`만 받는다(`Champion`은 승격으로만 붙음). Dev-leader 선정 로직은 이번 범위 밖(호출자가 등급을 준다).
 
 ### 미검증
 
 - 정전·OS 충돌(디렉터리 fsync, 파일 시스템 재정렬): kill -9로는 시험할 수 없다. 코드에 fsync를 넣었으나 효과는 미검증.
 - 실제 `./experiment`·6단계 채점·Supervisor와의 통합, 초기 Champion(현재 채택된 후면 점검 모델)의 실제 SHA 등록: 하지 않았다.
+- 지적 반영 뒤 독립 재검증(Opus): 아직 받지 않았다(메인이 따로 수행).
+- `current()`의 `valid`는 모델 자신의 상태만 본다(조상 유효성은 승격·복원 후보에만 적용). 부모가 회귀로 무효이고 자식이 현재 Champion이면 `valid`는 True다.
 - 매우 큰 레지스트리의 성능(`ledger.append`는 1단계 구현상 줄 수에 비례해 읽는다): 미측정.
 - 여러 호스트·네트워크 파일 시스템에서의 `flock`: 미검증(로컬 macOS만).
-- 독립 Opus 검증: 메인이 따로 수행.
 
 ### 리스크
 
 - 봉인 교체 뒤 Champion 재측정 결과를 기록할 방법이 이번 범위에 없다. 교체 후에는 `seal_version`이 달라 모든 후보가 `not_comparable`이 되므로,
   후속 단계에서 재측정 평가 이벤트(예: `evaluated`)를 레지스트리에 추가하는 설계가 필요하다(설계 8절 마지막 줄).
-- 무효 Champion만 남고 복원 후보가 없으면 포인터는 무효 모델을 가리킨 채 남는다. 소비자(Supervisor)는 `current()["valid"]`를 반드시 확인해야 한다.
+- 무효 Champion만 남고 복원 후보가 없으면 포인터는 무효 모델을 가리킨 채 남는다. 소비자(Supervisor)는 `read_current(root)["valid"]`를 반드시 확인해야 한다.
 - `audit_status`를 호출자가 준다: 잘못된 입력은 막지 못한다. 감사 상태의 정본 저장·변조 방지는 5단계(감사)에서 정해야 한다.
 - kill 시험이 `ledger.append`·`os.replace`·`os.fsync`를 하위 프로세스에서 감싸 SIGKILL을 보내는 방식이라 1단계 내부 구현(예: 이들 호출 방식) 변경 시
   시험의 지점 매칭이 어긋날 수 있다(그 경우 "SURVIVED"로 실패해 알려 준다).
@@ -196,6 +245,6 @@ CAS 존재 검사 제거(M15). 잡지 못하는 것: 디렉터리 fsync 제거(�
 
 ### 롤백
 
-이 작업은 새 파일만 추가했다(1단계·기존 파일 수정 없음). `git revert 9ec67e7b578bd3068e42918d1bccbd048f1410d4 794bbb7b620cc985c34e489b388059a08565acc7`
-(또는 harness/{registry,gate,champion,lineage}.py와 tests/test_harness_champion_*.py 삭제)로 되돌린다. 런타임 상태는 호출자가 준 root 아래에만 생기므로
+이 작업은 새 파일만 추가했다(1단계·기존 파일 수정 없음). `git revert 65bb1eb552e906657f28281f7f7ee90c657a44da 053dde788e931b021ab3c7957838f8c1291e49dd 9ec67e7b578bd3068e42918d1bccbd048f1410d4 794bbb7b620cc985c34e489b388059a08565acc7`
+(또는 harness/{registry,gate,champion,lineage,pointer}.py와 tests/test_harness_champion_*.py 삭제. 지적 반영만 되돌리려면 앞의 두 커밋만 revert)로 되돌린다. 런타임 상태는 호출자가 준 root 아래에만 생기므로
 저장소에는 남는 것이 없다.
