@@ -4,7 +4,9 @@
 stream-json 줄을 내고 끝나며, 실행마다 FAKE_CLAUDE_LOG에 argv·시각·세션 인자를 한 줄씩 남긴다(`--help`는 kind=help).
 항목 do: limit(rate_limit_event 후 종료 코드 1) | success(계약 outputs를 산출물 폴더에 쓰고 성공 결과) |
 no_session(--resume 대상 없음, 종료 코드 1) | fail | noisy(stderr·stdout 각 30만 자 + 비밀 모양 값, 그 뒤 실패) |
-hang(손자 프로세스를 띄우고 출력 없이 대기) | trickle(손자 + 0.1초마다 출력) | selfkill(손자 + 스스로 SIGKILL).
+hang(손자 프로세스를 띄우고 출력 없이 대기) | trickle(손자 + 0.1초마다 출력) | selfkill(손자 + 스스로 SIGKILL) |
+noop(아무것도 쓰지 않고 성공 결과) | raw(line의 {SID}를 --resume 값으로 바꿔 한 줄 내고 종료 코드 code).
+success의 완료 선언은 프롬프트의 실행 토큰을 넣는다(token을 주면 그 값).
 설정(시나리오·로그)은 환경변수가 아니라 실행 파일 옆 파일에서 읽는다(하네스가 env를 허용 목록으로 줄이므로). reset: sec|ms|iso|garbage|none|past, after(초), field, type, status, delay,
 session(init 이벤트가 알려줄 세션 ID를 요청값과 다르게).
 """
@@ -60,6 +62,11 @@ if step["do"] == "noisy":
     sys.stderr.write("x" * 300000 + "\nAPI_KEY=sk-ant-secret0123456789 token: abcdefgh Bearer zzz.yyy\n")
     sys.stderr.flush()
     sys.stdout.write("z" * 300000 + "\n")
+if step["do"] == "raw":  # 실환경에서 받은 출력 줄(세션 ID 자리 {SID})을 그대로 낸다
+    line = step["line"].replace("{SID}", opt.get("--resume") or opt.get("--session-id") or "")
+    print(line, flush=True)
+    sys.stderr.write(json.loads(line).get("errors", [""])[0] + "\n")
+    sys.exit(step.get("code", 1))
 if step["do"] == "no_session":
     sys.stderr.write("No conversation found with session ID: %%s\n" %% opt.get("--resume"))
     sys.exit(1)
@@ -74,6 +81,9 @@ if step["do"] == "limit":
     print(json.dumps({"type": "rate_limit_event", "rate_limit_info": info, "session_id": session}), flush=True)
     print(json.dumps({"type": "result", "subtype": "error", "is_error": True, "session_id": session}), flush=True)
     sys.exit(1)
+if step["do"] == "noop":
+    print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "session_id": session}), flush=True)
+    sys.exit(0)
 if step["do"] == "success":
     out_dir = re.search(r"산출물 폴더: (.+)", argv[1]).group(1).strip()
     task = json.load(open(re.search(r"계약 파일: (.+)", argv[1]).group(1).strip()))
@@ -82,7 +92,9 @@ if step["do"] == "success":
         open(os.path.join(out_dir, rel), "w").write("claude:" + session)
     if step.get("declare", True):  # Claude가 마지막에 쓰는 완료 선언(declare=false면 쓰지 않음)
         key = re.search(r"하네스 작업 ([0-9a-f]{64})", argv[1]).group(1)
-        json.dump({"task_key": key, "outputs": task["outputs"]}, open(os.path.join(out_dir, ".harness_complete.json"), "w"))
+        token = step.get("token") or re.search(r"실행 토큰: ([0-9a-f]+)", argv[1]).group(1)
+        json.dump({"task_key": key, "run_token": token, "outputs": task["outputs"]},
+                  open(os.path.join(out_dir, ".harness_complete.json"), "w"))
     print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "session_id": session,
                       "usage": {"input_tokens": 1, "output_tokens": 2}}), flush=True)
     sys.exit(0)
@@ -114,8 +126,10 @@ def runs(log, kind="run"):
 
 
 def llm_task(root, name="llm", now=1_000_000.0, task_type="misanalysis_general", depends_on=()):
-    """needs_llm=true 작업(기본: A 묶음 유형, 계약 입력 없음 → 복사할 파일 없음)을 큐에 등록하고 task_key를 돌려준다."""
-    return queue.enqueue(root, dict(make_contract(name, task_type=task_type, needs_llm=True, depends_on=depends_on), inputs={}), now)
+    """needs_llm=true 작업(기본: A 묶음 유형, 계약 입력 없음 → 복사할 파일 없음)을 큐에 등록하고 task_key를 돌려준다.
+    이름은 산출물 이름(<name>.md)에 넣는다: 같은 유형이어도 이름이 다르면 다른 작업이다(검증 결함 F13)."""
+    task = make_contract(name, task_type=task_type, needs_llm=True, depends_on=depends_on, outputs=(name + ".md",))
+    return queue.enqueue(root, dict(task, inputs={}), now)
 
 
 def events(root, name=None, path="ledger.jsonl"):

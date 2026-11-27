@@ -1,7 +1,7 @@
 """Claude 작업(Supervisor가 한 번에 하나만 돌리는 needs_llm=true 작업): 고르기(pick) → 실행(execute) → 결과 반영(settle).
 
 작업별 상태 파일 root/supervisor/claude/<task_key>.json(작업 계약 2단계 R5: 한 칸 구조를 작업별로 바꿨다): {task_key, status(new|running|
-rate_limited|done|failed|blocked|stale), session_id, unknown_attempts, crash_resumes, mode, run_token, hold_reason, ...}와
+rate_limited|done|failed|blocked|stale), session_id, crash_resumes, mode, run_token, hold_reason, ...}와
 같은 폴더의 <task_key>.pid. Supervisor가 죽었다 다시 시작해도 이 파일들과 opstate.json만으로 이어간다.
 - 큐 작업은 Claude가 일하는 동안 PENDING으로 둔다(한도로 기다리는 동안 작업권을 쥐거나 실패로 세지 않게). Claude가 끝나면 settle이
   claim → complete(완료 표시·산출물 manifest 검증)로 큐에 반영한다. 결정적 근거가 있는 실패(정책상 모델 없음, 산출물 완료 실패)만 fail(deterministic).
@@ -11,8 +11,9 @@ rate_limited|done|failed|blocked|stale), session_id, unknown_attempts, crash_res
   pid 기록 불일치, 결과 반영 claim 거절, 완료 표시 없음, 실행 중 사망 재개 한도(recovery.MAX_INTERRUPTS=2) 초과. 알림(claude_job_blocked)을
   남기며 자동 재시도하지 않는다. 사람이 확인한 뒤 그 작업의 상태 파일을 지우면(새 세션으로 다시 고름) 이어간다. status를 rate_limited로
   고치는 같은 세션 --resume은 그 유형의 자동 재개가 켜져 있을 때만 된다(claude_perm.AUTO_RESUME, 3단계). 큐 작업이 PENDING이 아니게 되면 닫는다(VERIFIED면 done, 그 밖은 stale).
-- 완료 표시(contract.COMPLETION): claude가 성공 종료하고 Claude의 선언(out/ 안 contract.DECLARATION: task_key·outputs 경로 목록)이 계약과
-  맞으면 execute가 산출물 sha256으로 완료 표시를 원자 저장한다. Claude는 명령 실행 도구가 없어 sha256을 직접 계산할 수 없으므로 해시는
+- 완료 표시(contract.COMPLETION): claude가 성공 종료하고 Claude의 선언(out/ 안 contract.DECLARATION: task_key·run_token·outputs 경로 목록)이
+  이번 실행의 run_token·계약과 맞으면 execute가 산출물 sha256으로 완료 표시를 원자 저장한다. 실행(재개·새 세션 포함) 직전마다 이전 선언을
+  지우고 프롬프트에 이번 run_token을 준다(검증 결함 F4: 낡은 선언 + 성공 종료로 반쯤 쓴 산출물이 완료되지 않게). Claude는 명령 실행 도구가 없어 sha256을 직접 계산할 수 없으므로 해시는
   하네스가 붙인다(인계 "계약 충돌" 참조). 실행 전에 완료 표시가 산출물과 맞으면 claude를 다시 부르지 않고 반영만 한다(adopted).
   선언만 있고 완료 표시가 없는 경우(성공 종료를 하네스가 보기 전에 죽음)는 완료로 보지 않는다(fail-closed).
 - 새 세션은 `--session-id <uuid>`로 시작해 실행 전에 세션 ID를 저장한다. 실행마다 run_token(uuid)을 상태 파일과 pid 파일에 함께
@@ -20,11 +21,14 @@ rate_limited|done|failed|blocked|stale), session_id, unknown_attempts, crash_res
   pid 기록의 session_id·mode·run_token이 job과 같고 pid가 같은 부팅에서 살아 있는 동안 기다리고(겹쳐 실행 안 함), 죽었으면 `--resume`
   (작업당 MAX_INTERRUPTS회까지, 넘으면 대기). 기록이 없거나 맞지 않으면 그 작업만 사람 확인 대기.
 - `--resume`이 한도가 아닌 이유로 실패하면 새 세션을 열지 않고 그 작업을 대기시킨다(R4). claude_run.session_unrecoverable이 복원 불가를
-  확인한 경우에만 장부 상태를 가리키는 프롬프트로 새 세션을 연다(현재 그 판정은 항상 False: 실제 출력 근거 미확보).
+  확인한 경우(실환경에서 확보한 '없는 세션' 출력과 정확히 같은 형식)에만 장부 상태를 가리키는 프롬프트로 새 세션을 한 번 연다. 새 세션도
+  같은 execute 안이라 재개 상한(crash_resumes)·실행 직전 정지 확인·선언 삭제·완료 표시 검사를 그대로 따른다.
 - 한도: resetsAt이 해석되고 지금보다 뒤이며 ratelimit.MAX_RESET_AHEAD_S(8일) 안이면 그 시각에 재개. 8일보다 멀면 미상으로 보고
   알린다(rate_limit_reset_too_far). 모르면(또는 이미 지난 값이면) UNKNOWN_BACKOFF_S(900초, 5시간=five_hour 창, 8일) 간격으로
-  최대 MAX_UNKNOWN_RETRIES(3)회 다시 시도하고, 그래도 한도면 exhausted로 멈추고 알림을 남긴다(자동 해제 안 됨). 한계: 주간 한도에서
-  재개 시각을 끝내 못 읽으면 마지막 시도까지 약 8일 5시간 늦어질 수 있고, 그 뒤는 사람 확인이다.
+  최대 MAX_UNKNOWN_RETRIES(3)회 다시 시도하고, 그래도 한도면 exhausted로 멈추고 알림을 남긴다(자동 해제 안 됨). 시도 횟수는 작업이 아니라
+  전체(UNKNOWN_LIMIT 파일)에서 센다: 다시 시도가 다른 독립 작업의 실행이어도 이어 세고, claude 실행이 성공하면 0으로 되돌린다(검증 결함 F5).
+  시각을 아는 한도는 횟수를 바꾸지 않는다. 한계: 주간 한도에서 재개 시각을 끝내 못 읽으면 마지막 시도까지 약 8일 5시간 늦어질 수 있고,
+  그 뒤는 사람 확인이다. 자동 재개가 꺼진 유형은 한도에 부딪힌 작업이 대기로 바뀌고 다음 시도는 다른 독립 작업이 쓴다(최대 4개 작업).
 - 모델·effort는 route.route(정책 v1)로 정하고 실행마다 route_record와 실행 증거(claude_run_evidence)를 남긴다. 실제 적용 확인(T7)은 주장하지 않는다.
 호출 깊이(시작 함수 기준): pick 2, execute 3(run_once → scan → 말단, _record_run → record_decision → append), settle 3(queue.claim·complete).
 """
@@ -38,6 +42,7 @@ from .jsonio import read_json, write_json
 
 JOBS = os.path.join("supervisor", "claude")  # 작업별 상태 <task_key>.json·<task_key>.pid
 UNKNOWN_BACKOFF_S = (900, 5 * 3600, ratelimit.MAX_RESET_AHEAD_S)  # 재시도 횟수 3은 그대로, 간격만 기존 값·창 길이로
+UNKNOWN_LIMIT = os.path.join("supervisor", "claude_unknown_limit.json")  # 시각 미상 한도의 전체 시도 횟수 {"attempts"}
 MAX_UNKNOWN_RETRIES = len(UNKNOWN_BACKOFF_S)
 ACTIVE = ("new", "running", "rate_limited")
 HOLD = "blocked"  # 사람 확인 대기(자동으로 다시 고르거나 실행하지 않는다)
@@ -93,7 +98,7 @@ def pick(root, now):
             fresh = (key, task["task_type"])
     if active is not None or fresh is None:
         return active
-    job = {"task_key": fresh[0], "status": "new", "session_id": None, "unknown_attempts": 0, "crash_resumes": 0,
+    job = {"task_key": fresh[0], "status": "new", "session_id": None, "crash_resumes": 0,
            "picked_at": now, "updated_at": now}
     write_json(paths(root, fresh[0])[0], job)
     ledger.append(log, now, "claude_job_picked", {"task_key": fresh[0], "task_type": fresh[1]})
@@ -102,15 +107,15 @@ def pick(root, now):
 
 def _prompt(root, job, mode, failed_session=None):
     task_dir = os.path.join(root, "tasks", job["task_key"])
-    base = ("하네스 작업 %s를 수행한다.\n계약 파일: %s\n산출물 폴더: %s\n계약의 outputs를 산출물 폴더에 쓴다.\n"
+    base = ("하네스 작업 %s를 수행한다.\n실행 토큰: %s\n계약 파일: %s\n산출물 폴더: %s\n계약의 outputs를 산출물 폴더에 쓴다.\n"
             "규칙(프로젝트 지침이 로드되지 않을 수 있어 여기에 적는다):\n"
             "1. 이 작업 폴더 안의 파일만 읽는다. 계약 입력은 in/ 아래 복사본만 쓴다.\n"
             "2. 쓰기는 산출물 폴더 아래에만 한다. 하네스 상태(장부·작업권·완료 기록·운영 상태·예산)를 고치려 하지 않는다.\n"
             "3. 명령 실행·외부 호출·하위 에이전트·MCP를 쓰지 않는다. 사람 라벨·Gold·봉인 자료를 만들거나 고치지 않는다.\n"
-            "4. outputs를 모두 쓴 뒤 맨 마지막에 산출물 폴더의 %s 파일에 JSON {\"task_key\": \"%s\", \"outputs\": [outputs 경로 목록]}을"
-            " 쓴다. 그 뒤에는 산출물을 고치지 않는다."
-            % (job["task_key"], os.path.join(task_dir, "contract.json"), os.path.join(task_dir, "out"), ct.DECLARATION,
-               job["task_key"]))
+            "4. outputs를 모두 쓴 뒤 맨 마지막에 산출물 폴더의 %s 파일에 JSON {\"task_key\": \"%s\", \"run_token\": \"%s\","
+            " \"outputs\": [outputs 경로 목록]}을 쓴다. 그 뒤에는 산출물을 고치지 않는다."
+            % (job["task_key"], job["run_token"], os.path.join(task_dir, "contract.json"), os.path.join(task_dir, "out"),
+               ct.DECLARATION, job["task_key"], job["run_token"]))
     if mode == "resume":
         return "사용량 한도 또는 중단으로 멈춘 같은 작업을 이어서 진행한다.\n" + base
     if failed_session:
@@ -137,7 +142,7 @@ def _record_run(root, decision, res, job, contract, mode, started, now):
         "task_key": job["task_key"], "duration_s": now - started,
         "tokens": result.get("usage") if isinstance(result.get("usage"), dict) else None})
     task_dir = os.path.join(root, "tasks", job["task_key"])
-    outcome = evidence.outcome_of(task_dir, contract, res)
+    outcome = evidence.outcome_of(task_dir, contract, res, job["run_token"])
     ledger.append(os.path.join(root, "ledger.jsonl"), now, "claude_run_evidence", dict(evidence.claude_record(
         res, task_dir if res["argv"] else None, round(now - started, 3), outcome),
         task_key=job["task_key"], mode=mode, run_token=job["run_token"]))
@@ -190,6 +195,10 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None, s
             job["session_id"] = str(uuid.uuid4())
         job.update(status="running", mode=mode, run_token=uuid.uuid4().hex, updated_at=now_fn())
         write_json(path, job)  # 실행 전에 세션 ID를 남긴다(실행 중 Supervisor가 죽어도 이어갈 수 있게)
+        try:  # 이전 실행의 완료 선언을 지운다: 성공 종료 뒤 남은 선언은 이번 실행이 쓴 것뿐이다(F4)
+            os.remove(os.path.join(task_dir, "out", ct.DECLARATION))
+        except FileNotFoundError:
+            pass
         run = runner or functools.partial(claude_run.default_runner, pidfile=paths(root, key)[1], stamp={
             "boot_id": lease.boot_id(), "session_id": job["session_id"], "mode": mode, "run_token": job["run_token"]},
             cwd=task_dir, idle_s=bounds.get("claude_idle_s", claude_run.IDLE_S), total_s=bounds.get("claude_total_s", claude_run.TOTAL_S))
@@ -209,7 +218,7 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None, s
         if kind == "failed" and mode == "resume":
             ledger.append(log, now_fn(), "claude_resume_failed", {"task_key": key, "session_id": job["session_id"],
                           "returncode": res["returncode"], "error": res["error"], "cause": res["cause"]})
-            if claude_run.session_unrecoverable(res):  # 복원 불가가 확인된 경우에만 장부 상태로 새 세션(현재 항상 False)
+            if claude_run.session_unrecoverable(res, job["session_id"]):  # 복원 불가가 확인된 경우에만 장부 상태로 새 세션
                 failed_session = job["session_id"]
                 continue
         if res["session_id"] and res["session_id"] != job["session_id"]:
@@ -220,16 +229,23 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None, s
 def settle(root, job, outcome, now):
     """실행 결과를 상태에 반영한다. 한도면 opstate 조건을 켜고, 끝났으면 큐에 complete/fail, 그 밖은 그 작업만 대기. 새 job 상태 문자열."""
     path, log, key = paths(root, job["task_key"])[0], os.path.join(root, "ledger.jsonl"), job["task_key"]
+    counter = os.path.join(root, UNKNOWN_LIMIT)
     if outcome["kind"] == "halted":  # job·큐를 그대로 둔다: 사용자가 정지를 풀면 같은 상태에서 이어간다
         return "halted"
+    if outcome["kind"] == "success" and os.path.exists(counter):  # 성공한 실행: 시각 미상 시도 횟수를 0으로
+        write_json(counter, {"attempts": 0, "updated_at": now, "task_key": key})
     if outcome["kind"] == "rate_limited":
         limit = outcome["result"]["rate_limit"]
         far = limit["resets_at"] is not None and limit["resets_at"] > now + ratelimit.MAX_RESET_AHEAD_S
         when = limit["resets_at"] if limit["resets_at"] is not None and limit["resets_at"] > now and not far else None
-        tries = job.get("unknown_attempts", 0) if when is None else 0
+        seen = read_json(counter, {"attempts": 0})  # 파일이 없으면 0회
+        tries = seen.get("attempts") if isinstance(seen, dict) else None
+        tries = tries if type(tries) is int and tries >= 0 else MAX_UNKNOWN_RETRIES  # 기록이 이상하면 소진으로 본다(보수적)
         exhausted = when is None and tries >= MAX_UNKNOWN_RETRIES
         next_try = when if when is not None else (None if exhausted else now + UNKNOWN_BACKOFF_S[tries])
-        job.update(status="rate_limited", unknown_attempts=tries + (1 if when is None and not exhausted else 0), updated_at=now)
+        if when is None and not exhausted:  # 전체 기준으로 이어 센다(작업이 바뀌어도 초기화하지 않는다)
+            write_json(counter, {"attempts": tries + 1, "updated_at": now, "task_key": key})
+        job.update(status="rate_limited", updated_at=now)
         write_json(path, job)
         info = {"resets_at": limit["resets_at"], "resets_at_raw": limit["resets_at_raw"], "kind": limit["kind"],
                 "type_raw": limit["type_raw"], "status": limit["status"], "next_try_at": next_try, "exhausted": exhausted,

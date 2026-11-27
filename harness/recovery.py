@@ -1,7 +1,7 @@
 """상태별 처리 결정(DESIGN 9절). decide()는 실행 계획(plan)을 돌려준다.
 
-작업 계약 2단계(R1): 중단(INTERRUPTED)·일시 실패(FAILED transient) 작업의 자동 재개·재실행은 RERUN_SAFE_TYPES(코드에 등록, 기본 빈 집합)
-유형만 한다. 실험·학습·평가(dedupe.CONDITION_TYPES)는 등록해도 자동 재실행하지 않는다(결과 불명). 그 밖은 await_result(결과 확인 대기):
+작업 계약 2단계(R1): 중단(INTERRUPTED)·일시 실패(FAILED transient)·복구 불가 손상(CORRUPT, 검증 N1) 작업의 자동 재개·재실행은
+RERUN_SAFE_TYPES(코드에 등록, 기본 빈 집합) 유형만 한다. 실험·학습·평가(dedupe.CONDITION_TYPES)는 등록해도 자동 재실행하지 않는다(결과 불명). 그 밖은 await_result(결과 확인 대기):
 원인·결과를 awaiting.json·장부(awaiting_result)에 한 번 남기고 알림(notification → 알림 장부)을 남긴다. 해제는 사람이 확인한 뒤
 작업 폴더의 lease.json·awaiting.json을 정리하는 수동 절차다(자동 경로 없음). 첫 실행(PENDING)은 막지 않는다.
 완료 표시(ct.COMPLETION)가 산출물과 맞는 INTERRUPTED는 재실행하지 않고 반영만 한다(adopt: 호출자가 executor를 부르지 않고 complete).
@@ -82,12 +82,15 @@ def _failed(info):
 
 def decide(task_dir, state, info, now, current=None, restored=()):
     """상태 -> 계획. info는 states.facts 결과, current는 현재 실행 지문(없으면 복원하지 않는다),
-    restored는 호출자가 CAS에서 방금 되살린 산출물 목록. CORRUPT 복구 불가 시 완료 기록을 history/로 보관한다."""
+    restored는 호출자가 CAS에서 방금 되살린 산출물 목록. CORRUPT 복구 불가 시 재실행 안전 유형만 완료 기록을 history/로 보관하고
+    재실행하며, 그 밖은 완료 기록을 그대로 두고 결과 확인 대기다(검증 N1)."""
     task_type = info["contract"]["task_type"] if isinstance(info.get("contract"), dict) else None
     safe = task_type in RERUN_SAFE_TYPES and task_type not in dedupe.CONDITION_TYPES
     wait_for = None  # 결과 확인 대기: (사유, run_id, 원인, 오류 요약)
     if state == states.CORRUPT and info["contract_state"] != "ok":  # 계약이 변조·손상: 재실행하지 않고 멈춘다
         plan = _plan("blocked", "계약 파일이 손상되었거나 task_key와 맞지 않는다")
+    elif state == states.CORRUPT and not safe:  # 완료한 단계는 다시 실행하지 않는다: 완료 기록을 보관하지 않고(PENDING이 되지 않게) 대기
+        plan, wait_for = None, ("corrupt_unrecoverable", None, "unknown", "복구 불가: %s" % info["bad"])
     elif state == states.CORRUPT:
         _archive(task_dir)  # 계약이 정상인 CORRUPT는 done.json이 있는 경우뿐이다
         plan = _plan("rerun", "복구 불가: %s" % info["bad"], events=[("corrupt_unrecoverable", {"files": info["bad"]})])

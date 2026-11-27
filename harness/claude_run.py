@@ -11,7 +11,8 @@
   default_runner는 stdout·stderr를 두 스레드로 함께 읽어 교착을 막고, 무출력 시간(idle_s)·총 시간(total_s)을 넘기면 프로세스
   그룹(start_new_session)을 TERM → KILL_GRACE_S 뒤 KILL로 끝낸다. 추가 dict: stderr, cause(timeout_idle|timeout_total|None), signal.
 - 기본 제한(임시값, 인계 참조): 무출력 IDLE_S 30분, 총 TOTAL_S 3시간. 실환경 출력 간격은 미확인이다.
-- 세션 복원 불가 판정(session_unrecoverable)은 실제 오류 출력 근거를 확보하기 전까지 어떤 출력도 복원 불가로 보지 않는다.
+- 세션 복원 불가 판정(session_unrecoverable)은 실환경(Claude Code 2.1.310, artifacts/harness-resume-20261127/c-realenv/t4-bogus-resume.jsonl)에서
+  확보한 '없는 세션 --resume' 출력과 정확히 같은 형식만 인정한다(UNRECOVERABLE_ERROR). 조금이라도 다르면 복원 불가로 보지 않는다.
 """
 import os
 import signal
@@ -28,6 +29,7 @@ FORBIDDEN_PROMPTS = ("/low-priority", "/rate-limit-options")
 IDLE_S = 30 * 60.0  # 임시 기본값: 무출력 시간 제한
 TOTAL_S = 3 * 3600.0  # 임시 기본값: 총 실행 시간 제한
 KILL_GRACE_S = 5.0
+UNRECOVERABLE_ERROR = "No conversation found with session ID: %s"  # 실환경 출력의 errors 문구(세션 ID 자리 %s)
 
 
 def build_argv(claude_bin, prompt, model, effort, resume=None, session_id=None, extra=()):
@@ -102,10 +104,15 @@ def help_text(claude_bin, runner, env, argv):
     return done.returncode, done.stdout + done.stderr
 
 
-def session_unrecoverable(found):  # noqa: ARG001 — 근거 확보 뒤 found의 확인된 형식만 True로 바꾼다
-    """--resume 실패 출력이 '세션 복원 불가'를 확인해 주는가. 실제 오류 출력 형식을 실환경에서 확보하기 전에는 항상 False
-    (어떤 문구도 복원 불가 근거로 쓰지 않는다: DESIGN 12절, 작업 계약 2단계 R4)."""
-    return False
+def session_unrecoverable(found, resumed):
+    """--resume <resumed> 실패 출력이 '세션 복원 불가'를 확인해 주는가. 실환경에서 확보한 형식만 True다: 종료 코드 1, result 이벤트의
+    subtype=error_during_execution, is_error=true, num_turns=0(정수), errors가 정확히 [UNRECOVERABLE_ERROR % resumed] 하나.
+    그 밖(다른 ID·문구·대소문자·추가 오류·종료 코드·한도 이벤트 등)은 False(DESIGN 12절, 작업 계약 2단계 R4)."""
+    result = found.get("result")
+    return isinstance(resumed, str) and bool(resumed) and found.get("returncode") == 1 and not found.get("limited") \
+        and isinstance(result, dict) and result.get("subtype") == "error_during_execution" and result.get("is_error") is True \
+        and type(result.get("num_turns")) is int and result["num_turns"] == 0 \
+        and result.get("errors") == [UNRECOVERABLE_ERROR % resumed]
 
 
 def run_once(claude_bin, prompt, model, effort, runner=None, env=None, resume=None, session_id=None, extra=()):

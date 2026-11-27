@@ -38,9 +38,10 @@ def options_of(argv):
     return kept
 
 
-def outcome_of(task_dir, task, found):
-    """Claude 실행 결과: not_started(실행 못 함) | completed(성공 + Claude 완료 표시가 계약 outputs와 맞음) | partial(산출물 일부·전부가
-    있지만 완료로 볼 근거 없음) | unknown. 산출물 내용은 읽지 않는다(존재만)."""
+def outcome_of(task_dir, task, found, run_token=None):
+    """Claude 실행 결과: not_started(실행 못 함) | completed(성공 + Claude 완료 선언이 이번 실행의 run_token·계약 outputs와 맞음) |
+    partial(산출물 일부·전부가 있지만 완료로 볼 근거 없음) | unknown. 산출물 내용은 읽지 않는다(존재만). 실행 직전에 이전 선언을 지우므로
+    (claude_job.execute) 선언은 이번 실행이 쓴 것이고, run_token으로 한 번 더 확인한다(검증 결함 F4)."""
     if found.get("cause") == "spawn_error":
         return "not_started"
     out_dir = os.path.join(task_dir, "out")
@@ -50,6 +51,7 @@ def outcome_of(task_dir, task, found):
     except (OSError, ValueError):
         said = None
     if found.get("success") and isinstance(said, dict) and said.get("task_key") == os.path.basename(task_dir) \
+            and run_token is not None and said.get("run_token") == run_token \
             and isinstance(said.get("outputs"), list) and sorted(said["outputs"]) == sorted(task["outputs"]):
         return "completed"
     if any(os.path.isfile(os.path.join(out_dir, rel)) for rel in task["outputs"]):
