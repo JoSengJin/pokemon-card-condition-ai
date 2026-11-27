@@ -67,7 +67,7 @@ class SandboxTest(unittest.TestCase):
         proc = spawn_runner(root, marks, {"HARNESS_SLOW": "hang_child"})
         self.addCleanup(proc.kill)
         deadline = time.time() + 30
-        while not [n for n in os.listdir(marks) if n.startswith("G-start-")] and time.time() < deadline:
+        while not all([n for n in os.listdir(marks) if n.startswith(p)] for p in ("G-start-", "G-child-")) and time.time() < deadline:
             time.sleep(0.05)
         [mark] = [n for n in os.listdir(marks) if n.startswith("G-child-")]
         grandchild = int(mark.split("-")[2])  # executor가 남긴 같은 그룹 자식(3차 변이 S39)
