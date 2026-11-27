@@ -15,7 +15,8 @@ from tools.d2_rows import INTAKES, TARGET, backs
 # T0 contract constants; card_condition/experiment_sidecars.py checks the same strings.
 STATES = ('정상', '결함', '미확인', '판단 불가')
 BOX = '상자 미확인'
-MARKS = ('AI 동일', 'AI 의심', '기준 판본 불일치')
+MARKS = ('AI 동일', 'AI 의심', '기준 판본 불일치')  # shortcut: 기준 판본 비교 입력이 없어 항상 0 = 미측정
+VERDICTS = ('ai_identical', 'ai_suspect', 'no_match_found', 'unknown')
 BOX_OUT = '정상·결함만 행으로 둔다. 상자 미확인 사진의 구역은 행에서 뺀다'
 BOX_IN = '정상·결함만 행으로 둔다. 상자 미확인 사진의 구역도 행에 포함한다'
 
@@ -33,7 +34,7 @@ def parse(text):
             pairs = [zone.split(':') for zone in zones]
             states = dict(pairs)
             numbers = [float(v) for v in box.removeprefix('box:').split(',')]
-            if (confirmed not in ('확인', '미확인') or not box.startswith('box:') or len(numbers) != 4 or not states
+            if (side != 'back' or confirmed not in ('확인', '미확인') or not box.startswith('box:') or len(numbers) != 4 or not states
                     or len(states) != len(pairs) or set(states.values()) - set(STATES) or (ident, side) in seen):
                 raise ValueError
         except ValueError:
@@ -45,7 +46,9 @@ def parse(text):
 
 def build(answers, info, kind, need_ok, provenance=None):
     """Rows for 정상/결함 only; every other zone is counted in exactly one exclusions column. AI-identical files give no rows."""
-    verdict = provenance['verdict'] if provenance else None
+    if provenance is not None and (not isinstance(provenance, dict) or provenance.get('verdict') not in VERDICTS):
+        raise ValueError('provenance verdict가 계약의 네 값이 아님')
+    verdict = None if provenance is None else provenance['verdict']
     rows, cell = [], {}
     for answer in answers:
         if answer['id'] not in info or set(answer['states']) - set(REGION_TARGET_AREAS[f'{kind}_defect']):
@@ -79,6 +82,8 @@ def facts(rows, measures, provenance=None):
     for row in rows:
         found = measures.get(f"{row['id']}|{row['image_sha256']}|{','.join(f'{v:.6f}' for v in row['box'])}", {})
         background, ppm = found.get('status', 'unmeasured'), found.get('ppm')
+        if ppm is not None and (type(ppm) not in (int, float) or not 0 < ppm < float('inf')):
+            raise ValueError(f"쓸 수 없는 ppm 측정값: {row['id']}")
         layer = 'unmeasured' if ppm is None else '<10' if ppm < 10 else '10-15.3' if ppm < 15.3 else '>=15.3'
         out[row['id']] = dict(background=background, px_per_mm_layer=layer, rater_kind=rater, criteria_sha256='버전 미상',
                               input_hold=background in ('corner_cut', 'no_blue_border') or layer == '<10')
@@ -112,9 +117,11 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         data = args.answers.read_bytes()
-        provenance = json.loads(args.provenance.read_text(encoding='utf-8')) if args.provenance else None
-        if provenance and provenance['answer_sha256'] != hashlib.sha256(data).hexdigest():
-            raise ValueError('provenance 기록이 이 답 파일의 것이 아님')
+        provenance = None
+        if args.provenance is not None:  # once given, it is never silently ignored
+            provenance = json.loads(args.provenance.read_text(encoding='utf-8'))
+            if not isinstance(provenance, dict) or provenance.get('answer_sha256') != hashlib.sha256(data).hexdigest():
+                raise ValueError('provenance 기록이 이 답 파일의 것이 아님')
         rows, exclusions = build(parse(data.decode('utf-8')), backs(args.intakes), args.kind, args.box == 'confirmed-only', provenance)
         measures = json.loads(args.measures.read_text(encoding='utf-8')) if args.measures else {}
         write_new(args.out, {'rows.json': rows, 'exclusions.json': exclusions, 'row_facts.json': facts(rows, measures, provenance)})
