@@ -2,6 +2,7 @@
 import os
 import pathlib
 import tempfile
+import unicodedata
 import unittest
 
 from harness import ledger, opstate, queue, supervisor
@@ -17,7 +18,7 @@ class GoldStopTest(unittest.TestCase):
         control = tempfile.mkdtemp()
         for root in (control, self.root):
             queue.enqueue(root, task("py"), 1.0)
-        reply = hook(self, self.root, "  중단 \n")
+        reply = hook(self, self.root, "  \u3000중단\u3000 \n")  # 전각 공백도 앞뒤 공백이다
         self.assertIn("중단 접수: USER_STOPPED를 기록했다.", reply)
         state = opstate.load(self.root)
         self.assertEqual(opstate.effective(state), opstate.USER_STOPPED)
@@ -33,8 +34,15 @@ class GoldStopTest(unittest.TestCase):
         self.assertIn("중단 접수", hook(self, self.root, "중단"))  # 두 번 눌러도 안전
 
     def test_only_the_exact_word_stops(self):
-        for prompt in ("작업을 중단하지 마", "중단해", "중단 중단", "중단?", "stop", "'중단'", "중단\n그리고 계속"):
+        for prompt in ("작업을 중단하지 마", "서버 중단 원인 알려줘", "stop", "중단\n그리고 계속", "중단해 주세요.."):  # 8자 초과
             self.assertEqual(hook(self, self.root, prompt), "", prompt)
+        for prompt in ("중단.", "중단!", "중단?", "중단해", "중단 중단", "'중단'", "중단\u200b", unicodedata.normalize("NFD", "중단"),
+                       "  중단해 주세요.  "):  # 마지막은 앞뒤 공백을 빼면 8자
+            reply = hook(self, self.root, prompt)
+            self.assertIn("정지 기록 안 함", reply, prompt)
+            self.assertIn("정확히 '중단'", reply, prompt)
+            self.assertNotIn("중단 접수", reply, prompt)
+        self.assertEqual(os.listdir(self.root), [])
         self.assertIn("읽지 못함", hook(self, self.root, "중단", event="Stop"))
         self.assertEqual(opstate.effective(opstate.load(self.root)), opstate.RUNNING)
 

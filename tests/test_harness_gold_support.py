@@ -9,7 +9,7 @@ import tempfile
 from harness import gold_issue, gold_store
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CRITERIA = "corner-criteria:test-1"
+CRITERIA = hashlib.sha256(b"corner-criteria:test-1").hexdigest()  # 기준 문구의 SHA-256 자리
 
 # 진입점을 __main__으로 실행하기 전에 argv[2]의 코드를 끼워 넣는 드라이버(kill -9 지점·경합 창 주입용).
 # 이 드라이버가 저장에 성공한다는 것 자체가 훅 표식이 보안 경계가 아니라는 뜻이다(gold_store 한계 설명).
@@ -29,7 +29,7 @@ def zones(*names):
              "crop_sha256": hashlib.sha256(("crop-" + n).encode()).hexdigest()} for n in names]
 
 
-def issue(root, *names, criteria=CRITERIA, judge="Judy", **kw):
+def issue(root, *names, criteria=CRITERIA, judge="judy", **kw):
     return gold_issue.issue(root, zones(*(names or ("a", "b"))), criteria, judge, 100.0, **kw)
 
 

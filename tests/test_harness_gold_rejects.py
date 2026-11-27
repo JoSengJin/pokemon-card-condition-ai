@@ -1,13 +1,16 @@
 """형식 거절(실제 훅 프로세스)과 발급 규칙."""
+import ast
 import hashlib
 import json
 import os
+import pathlib
 import tempfile
+import unicodedata
 import unittest
 from unittest import mock
 
 from harness import gold_issue, gold_parse, gold_store, ledger
-from tests.test_harness_gold_support import CRITERIA, hook, issue, paste, stored, zones
+from tests.test_harness_gold_support import CRITERIA, REPO, hook, issue, paste, stored, zones
 from tools.self_agreement import answers
 
 
@@ -21,7 +24,9 @@ class GoldRejectTest(unittest.TestCase):
         cases = {
             "duplicate_key": [good + "\nz2=결함", good + "\n# nonce=" + meta["nonce"], good + "\nz2=정상"],
             "unknown_value": [paste(meta, ["정상", "미세"]), paste(meta, ["정상", ""]), paste(meta, ["정상|2", "정상"]),
-                              paste(meta, ["정상", "정 상"])],
+                              paste(meta, ["정상", "정 상"])]
+            # 줄 구분은 "\n"(과 "\r\n")뿐이다. splitlines()가 줄로 보는 다른 문자는 한 줄 안의 모르는 값이 된다.
+            + [good.replace("\nz2=", sep + "z2=") for sep in "\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029"],
             "unknown_line": ["내 답이야\n" + good, good + "\n끝", good + "\n# 메모=급함", good + "\nz02=정상", good + "\nz0=정상",
                              good.replace("z2=정상", "z2 정상"), "```\n" + good + "\n```"],
             "zone_mismatch": [paste(meta, ["정상"]), paste(meta, ["정상"] * 3)],
@@ -30,7 +35,8 @@ class GoldRejectTest(unittest.TestCase):
             "bad_nonce_format": [paste(meta, nonce=meta["nonce"][:-1]), paste(meta, nonce="G" * 32),
                                  paste(meta, nonce=meta["nonce"] + "0")],
             "bad_submitted_at": [paste(meta, 제출시각="2026-12-01T10:00:00Z"), paste(meta, 제출시각="2026-13-01T10:00:00+09:00")],
-            "too_large": [good + "\n" * gold_parse.MAX_BYTES],
+            # 둘째는 글자 수는 상한 이하이고 UTF-8 바이트만 넘는다(전각 공백 = 3바이트)
+            "too_large": [good + "\n" * gold_parse.MAX_BYTES, good + "\u3000" * (gold_parse.MAX_BYTES // 3 + 1)],
             "not_utf8": [good + "\n\ud800"],
         }
         for code, prompts in cases.items():
@@ -73,9 +79,9 @@ class GoldRejectTest(unittest.TestCase):
                [dict(base, image_sha256="abc")], [dict(base, region="upper left")], [base, dict(base)]]
         for value in bad:
             with self.subTest(value=value), self.assertRaises(ValueError):
-                gold_issue.issue(self.root, value, CRITERIA, "Judy", 1.0)
-        for criteria, judge, planned in (("", "Judy", False), (CRITERIA, "Ju dy", False), (CRITERIA, "", False),
-                                         (CRITERIA, "Judy", "yes")):
+                gold_issue.issue(self.root, value, CRITERIA, "judy", 1.0)
+        for criteria, judge, planned in (("", "judy", False), (CRITERIA, "ju\u2028dy", False), (CRITERIA, "", False),
+                                         (CRITERIA, "judy", "yes")):
             with self.assertRaises(ValueError):
                 gold_issue.issue(self.root, [base], criteria, judge, 1.0, planned)
         with mock.patch("harness.gold_issue.ledger.append", side_effect=OSError("디스크 가득")):
@@ -87,8 +93,38 @@ class GoldRejectTest(unittest.TestCase):
         with self.assertRaises(ledger.LedgerError):
             issue(self.root)
 
+    def test_spelling_variants_cannot_mint_a_new_completed_key(self):
+        base, judge = zones("v")[0], "판정자1"
+        first = gold_issue.issue(self.root, [base], CRITERIA, judge, 1.0)
+        self.assertIn("Gold 저장됨", hook(self, self.root, paste(first)))
+        before = len(gold_store.rows(self.root, gold_store.ISSUED))
+        regions = ("Upper_Left", "UPPER_LEFT", "upper-left", "upper.left", "top_left", "upper_left ")
+        criteria = (CRITERIA.upper(), "CRIT-1", "crit-1", "corner-criteria:test-1", CRITERIA[:-1], CRITERIA + "\n")
+        judges = ("Judy", "JUDY", "\uff4a\uff55\uff44\uff59", "judy\u200b", "ju\u00addy", "\ufeffjudy", "judy ", "jude\u0301",
+                  "judy-1", judge + "\u200d")
+        variants = [(dict(base, region=r), CRITERIA, judge) for r in regions] \
+            + [(base, c, judge) for c in criteria] + [(base, CRITERIA, j) for j in judges]
+        for zone, version, name in variants:
+            for planned in (False, True):
+                with self.subTest(region=zone["region"], criteria=version, judge=name, planned=planned):
+                    with self.assertRaises(ValueError):
+                        gold_issue.issue(self.root, [zone], version, name, 1.0, planned)
+        # NFD로 쓴 같은 이름은 NFC로 맞춘 뒤 같은 키다: 끝난 판정이라 발급을 거절한다
+        decomposed = unicodedata.normalize("NFD", judge)
+        self.assertNotEqual(decomposed, judge)
+        with self.assertRaises(gold_store.GoldError) as caught:
+            gold_issue.issue(self.root, [base], CRITERIA, decomposed, 1.0)
+        self.assertEqual(caught.exception.args[0], "completed_key")
+        self.assertEqual(len(gold_store.rows(self.root, gold_store.ISSUED)), before)
+        self.assertEqual(gold_issue.issue(self.root, [base], CRITERIA, decomposed, 1.0, True)["judge"], judge)
+
     def test_values_match_existing_screen_format(self):
         self.assertEqual(gold_parse.VALUES, answers.VALUES)
+        # 구역 이름 정본은 card_condition/regions.py다. import하면 torch가 따라오므로 원문에서 읽어 대조한다.
+        tree = ast.parse(pathlib.Path(REPO, "card_condition", "regions.py").read_text(encoding="utf-8"))
+        [areas] = [ast.literal_eval(n.value) for n in tree.body
+                   if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "GLARE_AREAS"]
+        self.assertEqual(gold_store.REGIONS, areas)
         body = "\n".join(line for line in paste(self.meta, ["불가", "미확인"]).splitlines()
                          if not line.startswith(("# nonce", "# 직접판정")))
         self.assertEqual(answers.parse(body)[2], gold_parse.parse(paste(self.meta, ["불가", "미확인"]))["answers"])

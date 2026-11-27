@@ -7,13 +7,18 @@
     # 제출시각=2026-12-01T10:00:00+09:00
     z1=정상|결함|불가|미확인
 빈 줄과 줄 앞뒤 공백만 무시한다. 그 밖의 줄(붙여넣기 앞뒤의 설명 글 포함)은 거절한다.
+줄 구분은 "\\n"(과 "\\r\\n")뿐이다. splitlines()가 줄로 보는 다른 문자(\\r 단독, \\x0b, \\x1c, \\x85, U+2028 등)는 줄을 나누지 않는다.
 """
 import re
+import unicodedata
 from datetime import datetime
 
 VALUES = ("정상", "결함", "불가", "미확인")  # 정본: tools/self_agreement/answers.VALUES(시험이 대조한다)
 UNJUDGED = "미확인"  # 판정하지 않음. 완료 라벨이 아니다("불가"는 보고 내린 판정이라 완료다)
 STOP = "중단"
+# "중단." "중단해 주세요."처럼 명령하려다 어긋난 입력에만 안내한다. 두 글자에 문장부호·짧은 어미를 붙인 길이는 8자 안이고,
+# 대상이나 설명이 붙은 대화 문장("작업을 중단하지 마" 11자)은 넘는다. 안내만 하므로 경계가 어긋나도 상태는 바뀌지 않는다.
+NEAR_STOP_MAX = 8
 CONFIRM_KEY, CONFIRM_VALUE = "직접판정", "확인"
 HEADERS = ("화면", "nonce", CONFIRM_KEY, "제출시각")
 MAX_BYTES = 64 * 1024
@@ -29,10 +34,14 @@ class GoldError(ValueError):
 
 
 def classify(prompt):
-    """"stop" | "gold" | None. 중단은 앞뒤 공백을 뺀 전체가 정확히 "중단"일 때만이다(문장 속 단어는 명령이 아니다)."""
-    if prompt.strip() == STOP:
+    """"stop" | "gold" | "near_stop" | None. 중단은 앞뒤 공백을 뺀 전체가 정확히 "중단"일 때만이다(문장 속 단어는 명령이 아니다)."""
+    text = prompt.strip()
+    if text == STOP:
         return "stop"
-    return "gold" if any(MARKER.match(line) for line in prompt.splitlines()) else None
+    if any(MARKER.match(line) for line in prompt.split("\n")):
+        return "gold"
+    short = unicodedata.normalize("NFC", text)  # 분해형(NFD)으로 온 "중단"도 안내 대상이다
+    return "near_stop" if len(short) <= NEAR_STOP_MAX and STOP in short else None
 
 
 def parse(prompt):
@@ -44,8 +53,8 @@ def parse(prompt):
     if size > MAX_BYTES:
         raise GoldError("too_large", "%d바이트 초과" % MAX_BYTES)
     head, answers = {}, {}
-    for number, raw in enumerate(prompt.splitlines(), 1):
-        line = raw.strip()
+    for number, raw in enumerate(prompt.split("\n"), 1):
+        line = raw.strip()  # "\r\n"의 "\r"도 여기서 빠진다
         if not line:
             continue
         is_head = line.startswith("#")

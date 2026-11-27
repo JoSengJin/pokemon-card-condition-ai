@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import unicodedata
 import unittest
 
 from harness import gold_store, ledger
@@ -19,7 +20,9 @@ class GoldFlowTest(unittest.TestCase):
     def test_save_keeps_original_bytes_and_hash(self):
         meta = issue(self.root)
         # 정규화하면 달라지는 원문: CRLF, 줄 끝 공백, 앞뒤 빈 줄, 1단계 장부의 splitlines가 줄로 보는 U+2028·U+0085
-        prompt = "\n  " + paste(meta, ["결함", "불가"]).replace("\n", " \r\n") + " \x85\r\n\n"
+        # U+2000은 NFC가 U+2002로 바꾸는 공백이라, 해시·원문을 정규화본으로 만들면 아래 대조가 어긋난다.
+        prompt = "\n  " + paste(meta, ["결함", "불가"]).replace("\n", " \r\n") + " \u2028\x85\u2000\r\n\n"
+        self.assertNotEqual(unicodedata.normalize("NFC", prompt), prompt)
         reply = hook(self, self.root, prompt)
         [record] = stored(self.root)
         self.assertEqual(base64.b64decode(record["raw_b64"]), prompt.encode("utf-8"))
@@ -28,7 +31,7 @@ class GoldFlowTest(unittest.TestCase):
         self.assertIn("Gold 저장됨", reply)
         self.assertEqual((record["source"], record["screen_id"], record["nonce"], record["judge_confirmation"],
                           record["judge"], record["planned_repeat"], record["session_id"], record["transcript_path"]),
-                         ("human", meta["screen_id"], meta["nonce"], "확인", "Judy", False, "session-test",
+                         ("human", meta["screen_id"], meta["nonce"], "확인", "judy", False, "session-test",
                           "/tmp/transcript-test.jsonl"))
         self.assertGreater(record["received_at"], 1.0e9)
         self.assertEqual([(i["zone"], i["value"], i["image_sha256"], i["crop_sha256"]) for i in record["items"]],
@@ -60,15 +63,25 @@ class GoldFlowTest(unittest.TestCase):
         self.assertEqual(len(stored(self.root)), 2)
 
     def test_completed_key_rejected_planned_repeat_marked(self):
+        early = [issue(self.root, "b", "a") for _ in range(2)]  # 키가 끝나기 전에 발급한 화면은 저장 때 거절한다
+        late_b = issue(self.root, "b")
         self.assertIn("Gold 저장됨", hook(self, self.root, paste(issue(self.root, "a", "b"), ["결함", "미확인"])))
-        for value in ("정상", "미확인"):  # 끝난 키 a를 다시 물으면 값과 상관없이 화면 전체를 거절
-            reply = hook(self, self.root, paste(issue(self.root, "b", "a"), ["정상", value]))
+        for meta, value in zip(early, ("정상", "미확인")):  # 끝난 키 a가 있으면 값과 상관없이 화면 전체를 거절
+            reply = hook(self, self.root, paste(meta, ["정상", value]))
             self.assertIn("[completed_key]", reply)
             self.assertIn("z2", reply)
         self.assertEqual(len(stored(self.root)), 1)
+        before = len(gold_store.rows(self.root, gold_store.ISSUED))
+        with self.assertRaises(gold_store.GoldError) as caught:  # 끝난 키는 발급부터 거절(사람이 판정하기 전에)
+            issue(self.root, "b", "a")
+        self.assertEqual((caught.exception.args[0], "z2" in caught.exception.args[1]), ("completed_key", True))
+        self.assertEqual(len(gold_store.rows(self.root, gold_store.ISSUED)), before)
         self.assertIn("Gold 저장됨", hook(self, self.root, paste(issue(self.root, "b"), ["불가"])))  # 미확인은 미완료
-        self.assertIn("[completed_key]", hook(self, self.root, paste(issue(self.root, "b"))))  # 불가는 완료
-        for meta in (issue(self.root, "a", criteria="corner-criteria:test-2"), issue(self.root, "a", judge="Other"),
+        self.assertIn("[completed_key]", hook(self, self.root, paste(late_b)))  # 불가는 완료
+        with self.assertRaises(gold_store.GoldError):
+            issue(self.root, "b")
+        other_criteria = hashlib.sha256(b"corner-criteria:test-2").hexdigest()
+        for meta in (issue(self.root, "a", criteria=other_criteria), issue(self.root, "a", judge="other"),
                      issue(self.root, "a", planned_repeat=True)):
             self.assertIn("Gold 저장됨", hook(self, self.root, paste(meta)))
         self.assertEqual([r["planned_repeat"] for r in stored(self.root)], [False, False, False, False, True])

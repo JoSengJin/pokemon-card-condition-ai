@@ -6,7 +6,8 @@
 미확인: 실제 설치 상태의 동작, 데스크톱·원격 제어 경로, 사용량 한도 중 실행 여부, 표준출력이 사용자 화면에 보이는지.
 그래서 항상 종료 코드 0과 짧은 표준출력만 쓴다. 거절·중단에도 프롬프트를 막지 않는다(2는 프롬프트를 지워 대화 기록
 대조 근거가 사라질 수 있다). 따라서 붙여넣은 원문은 모델에게도 전달되고, 사용자는 모델의 전달로 결과를 안다.
-Gold·중단이 아닌 입력에는 아무것도 출력하지 않는다.
+Gold·중단이 아닌 입력에는 아무것도 출력하지 않는다. 예외: "중단"이 든 짧은 입력(gold_parse.NEAR_STOP_MAX)은 정지를
+기록하지 않았다고 알린다.
 
 shortcut: 3단계 opstate의 읽고-고쳐-쓰기에는 잠금이 없다. Supervisor가 읽은 뒤 쓰기 전에 훅이 USER_STOPPED를 쓰면
 Supervisor의 쓰기가 그것을 덮어 중단이 사라진다("중단 접수"로 답한 뒤에도. 임시 root에서 재현함). 반대 방향의 갱신도
@@ -44,6 +45,8 @@ def handle(root, data, now):
     kind = gold_parse.classify(payload["prompt"])
     if kind is None:
         return ""
+    if kind == "near_stop":
+        return PREFIX + "정지 기록 안 함. 멈추려면 정확히 '중단'을 보내라. 이 안내를 사용자에게 알려라."
     try:
         if kind == "stop":
             return PREFIX + _stop(root, now)

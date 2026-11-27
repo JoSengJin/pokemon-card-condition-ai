@@ -7,6 +7,10 @@
 - 출처는 human으로 고정이고 호출자가 바꾸는 인자가 없다. AI 라벨은 이 저장소에 넣지 않는다. human은 "직접판정=확인"
   칸의 자기 신고에 근거하며, 실제로 사람이 판정했는지는 이 코드가 확인할 수 없다.
 - fail-closed: save는 이 프로세스의 __main__이 훅 진입점 파일일 때만 쓴다. 훅이 없으면 아무것도 저장되지 않는다.
+- 발급 줄의 형식(valid_issue)은 발급·저장·audit이 같은 검사를 쓴다. 형식 밖 줄은 저장 근거가 되지 않고 audit가 알린다.
+  형식을 모두 맞춰 장부에 직접 쓴 발급 줄은 issue()가 쓴 것과 구별하지 못한다.
+- 현재 코드는 개발용 평문 채팅 경로다. 사용자 결정(2026-11-27, 설계 방향 합의이며 코드·설치 미승인): 이 경로는 봉인 Gold
+  수집에 쓰지 않는다. 보호 구조(task 문서)는 구현하지 않았고, 검증 완료 전에는 봉인 Gold 수집·확증 평가를 하지 않는다.
 
 한계(정직하게): 위 표식은 에이전트가 save를 직접 import해 부르는 실수·우회 시도를 막을 뿐 보안 경계가 아니다.
 같은 사용자 권한이면 진입점에 모의 JSON을 파이프로 넣거나, __main__.__file__을 바꾸거나, 장부 파일을 직접 쓰거나
@@ -22,7 +26,9 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import sys
+import time
 
 from . import gold_parse, ledger
 from .gold_parse import GoldError
@@ -31,6 +37,16 @@ ISSUED = os.path.join("gold", "issued.jsonl")
 STORE = os.path.join("gold", "store.jsonl")
 ENTRY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hooks", "user_prompt_submit.py")
 EVENT = "gold_received"
+ISSUE_EVENT = "gold_screen_issued"
+ISSUE_KEYS = {"screen_id", "zones", "criteria_version", "judge", "planned_repeat", "nonce_sha256"}
+ZONE_KEYS = {"image_sha256", "region", "crop_sha256"}  # crop_sha256: 그때 보여 준 사진 조각(label-provenance)
+# 완료 키의 세 칸은 철자 하나만 허용한다(대소문자·구분자·보이지 않는 문자로 같은 판정을 새 키로 만들 수 없게).
+# 정본: card_condition/regions.GLARE_AREAS. 그 모듈은 torch를 끌어오므로 상수로 두고 시험이 원문과 대조한다.
+REGIONS = ("upper_left", "upper_center", "upper_right", "middle_left", "center",
+           "middle_right", "lower_left", "lower_center", "lower_right")
+SHA256 = re.compile(r"[0-9a-f]{64}")  # criteria_version도 이 형식: 기준 문구의 SHA-256(tools/label_criteria와 같은 값)
+JUDGE = re.compile(r"[a-z0-9가-힣]{1,64}")  # 소문자 영문·숫자·완성형 한글만(NFC). 구분 기호도 없다
+LOCK_WAIT_S = 5.0  # 설정 템플릿의 훅 timeout 20초보다 먼저 "busy"로 답한다
 
 
 def rows(root, name):
@@ -46,8 +62,28 @@ def rows(root, name):
         return []
 
 
+def valid_issue(event, data):
+    """issue()가 쓰는 발급 줄의 형식인가. 칸 집합이 정확해야 하므로 예측·점수 칸이 있으면 거짓이다."""
+    if event != ISSUE_EVENT or not isinstance(data, dict) or set(data) != ISSUE_KEYS:
+        return False
+    zones = data["zones"]
+    if not isinstance(zones, dict) or not zones or set(zones) != {"z%d" % n for n in range(1, len(zones) + 1)}:
+        return False
+    for zone in zones.values():
+        if not isinstance(zone, dict) or set(zone) != ZONE_KEYS or not all(isinstance(v, str) for v in zone.values()) \
+                or not SHA256.fullmatch(zone["image_sha256"]) or not SHA256.fullmatch(zone["crop_sha256"]) \
+                or zone["region"] not in REGIONS:
+            return False
+    texts = (("screen_id", gold_parse.SCREEN_ID), ("nonce_sha256", SHA256), ("criteria_version", SHA256), ("judge", JUDGE))
+    return len({(z["image_sha256"], z["region"]) for z in zones.values()}) == len(zones) \
+        and isinstance(data["planned_repeat"], bool) \
+        and all(isinstance(data[key], str) and pattern.fullmatch(data[key]) for key, pattern in texts)
+
+
 def _derive(issued, raw):
     """발급 줄과 원문 바이트만으로 정해지는 기록 칸. save가 쓰고 audit가 다시 계산해 대조한다."""
+    if not valid_issue(issued["event"], issued["data"]):
+        raise GoldError("bad_issue_record", "발급 줄이 issue()가 쓰는 형식이 아님")
     answer, screen = gold_parse.parse(raw.decode("utf-8")), issued["data"]
     if screen["screen_id"] != answer["screen_id"] \
             or screen["nonce_sha256"] != hashlib.sha256(answer["nonce"].encode("ascii")).hexdigest():
@@ -69,6 +105,12 @@ def completed(record):
             for i in record["items"] if i["value"] != gold_parse.UNJUDGED}
 
 
+def repeated(records, zones, criteria_version, judge):
+    """zones({zN: 구역}) 가운데 저장 기록들에서 이미 판정이 끝난 번호 이름. 발급과 저장이 같이 쓴다."""
+    done = set().union(*(completed(old) for old in records))
+    return sorted(name for name, z in zones.items() if (z["image_sha256"], z["region"], criteria_version, judge) in done)
+
+
 def save(root, payload, now):
     """훅 입력(dict)의 Gold 붙여넣기를 한 번만 저장하고 장부 줄을 돌려준다. 거절은 GoldError(아무것도 쓰지 않는다)."""
     main = getattr(sys.modules.get("__main__"), "__file__", None)
@@ -80,8 +122,19 @@ def save(root, payload, now):
     raw = payload["prompt"].encode("utf-8")
     os.makedirs(os.path.join(root, "gold"), exist_ok=True)
     with open(os.path.join(root, "gold", ".lock"), "a") as handle:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)  # 읽기 → 판단 → 추가를 직렬화. 프로세스가 죽으면 풀린다
-        issued = [r for r in rows(root, ISSUED) if r["data"]["screen_id"] == answer["screen_id"]]
+        deadline = time.monotonic() + LOCK_WAIT_S
+        while True:  # 읽기 → 판단 → 추가를 직렬화. 프로세스가 죽으면 풀린다
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise GoldError("busy", "저장 안 함(busy): 저장 잠금을 %g초 안에 얻지 못함. 같은 붙여넣기를 다시 보낼 수 있음"
+                                    % LOCK_WAIT_S)
+                time.sleep(0.05)
+        # 화면 ID가 없는 형식 밖 발급 줄은 어느 화면에도 속하지 않으므로 다른 화면의 저장을 막지 않는다(audit가 알린다).
+        issued = [r for r in rows(root, ISSUED)
+                  if isinstance(r["data"], dict) and r["data"].get("screen_id") == answer["screen_id"]]
         if len(issued) != 1:
             raise GoldError("not_issued", "발급 기록에 없는 화면")
         record = _derive(issued[0], raw)
@@ -89,9 +142,7 @@ def save(root, payload, now):
         if any(old["nonce"] == record["nonce"] for old in stored):
             raise GoldError("nonce_reused", "이미 저장에 쓴 nonce")
         if not record["planned_repeat"]:
-            done = set().union(*(completed(old) for old in stored))
-            again = [i["zone"] for i in record["items"]
-                     if (i["image_sha256"], i["region"], record["criteria_version"], record["judge"]) in done]
+            again = repeated(stored, issued[0]["data"]["zones"], record["criteria_version"], record["judge"])
             if again:
                 raise GoldError("completed_key", "이미 끝난 판정: %s(화면 전체를 저장하지 않음)" % ", ".join(again))
         # 대화 기록 대조용. 줄바꿈 문자가 든 값은 장부를 깨뜨리므로 남기지 않는다.
@@ -108,7 +159,12 @@ def audit(root, issued_tail=None, store_tail=None):
                 for p in ledger.verify(os.path.join(root, name), tail)]
     if problems:
         return problems
-    issued = {r["data"]["screen_id"]: r for r in rows(root, ISSUED)}
+    issued = {}
+    for entry in rows(root, ISSUED):
+        if not valid_issue(entry["event"], entry["data"]):
+            problems.append({"file": ISSUED, "seq": entry["seq"], "problem": "invalid_issue_record"})
+        if isinstance(entry["data"], dict) and isinstance(entry["data"].get("screen_id"), str):
+            issued[entry["data"]["screen_id"]] = entry
     nonces, done = set(), set()
     for entry in rows(root, STORE):
         data, found = entry["data"], []

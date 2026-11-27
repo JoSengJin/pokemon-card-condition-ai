@@ -1,4 +1,5 @@
-"""저장 중 kill -9(정한 지점·임의 시각)와 동시 호출 경합. 모두 실제 훅 프로세스다."""
+"""저장 중 kill -9(정한 지점·임의 시각)와 동시 호출 경합·잠금 대기. 모두 실제 훅 프로세스다."""
+import fcntl
 import os
 import pathlib
 import random
@@ -45,10 +46,13 @@ class GoldCrashTest(unittest.TestCase):
 
     def test_torn_last_line_fails_closed(self):
         self.assertIn("Gold 저장됨", hook(self, self.root, paste(issue(self.root, "a"))))
+        second = paste(issue(self.root, "b"))
         path = pathlib.Path(self.root, gold_store.STORE)
         torn = path.read_bytes() + path.read_bytes()[:40]  # 쓰다 끊긴 줄(전원 차단 등)을 합성
         path.write_bytes(torn)
-        self.assertIn("[chain_broken]", hook(self, self.root, paste(issue(self.root, "b"))))
+        self.assertIn("[chain_broken]", hook(self, self.root, second))
+        with self.assertRaises(gold_store.GoldError):  # 끝난 키를 확인할 수 없으므로 발급도 하지 않는다
+            issue(self.root, "c")
         self.assertEqual(path.read_bytes(), torn)
         self.assertIn("unparseable", [p["problem"] for p in gold_store.audit(self.root)])
 
@@ -88,6 +92,23 @@ class GoldCrashTest(unittest.TestCase):
                 self.assertEqual(sum(code in r for r in replies), 4, replies)
                 self.assertEqual(len(stored(self.root)), before + 1)
                 self.assertEqual(gold_store.audit(self.root), [])
+
+    def test_held_lock_gives_up_as_busy_before_hook_timeout(self):
+        meta = issue(self.root, "a")
+        with open(os.path.join(self.root, "gold", ".lock"), "a") as held:
+            fcntl.flock(held.fileno(), fcntl.LOCK_EX)
+            proc = launch(self.root, paste(meta))
+            try:
+                self.assertEqual(proc.wait(timeout=15), 0)  # 설정 템플릿의 훅 timeout 20초보다 먼저 답해야 한다
+                reply = proc.stdout.read().decode("utf-8")
+            finally:
+                proc.kill()
+                proc.wait(timeout=60)
+                proc.stdout.close()
+                proc.stderr.close()
+        self.assertIn("저장하지 않음 [busy]", reply)
+        self.assertEqual(stored(self.root), [])
+        self.assertIn("Gold 저장됨", hook(self, self.root, paste(meta)))  # busy는 nonce를 쓰지 않는다
 
     def test_concurrent_distinct_screens_and_stop_all_land(self):
         prompts = [paste(issue(self.root, "d%d" % n)) for n in range(6)] + ["중단"]
