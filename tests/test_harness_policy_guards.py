@@ -20,8 +20,8 @@ def experiment(src, seed=1, **extra):
     with open(os.path.join(src, "data", "a.json"), "w", encoding="utf-8") as handle:
         handle.write("{}")
     task = dict(make_contract("e", task_type="experiment", inputs={"data/a.json": hashlib.sha256(b"{}").hexdigest()}), **extra)
-    task["run_conditions"] = {"command": ["python", "train.py"], "code_sha": "c" * 40, "seed": seed,
-                              "input_roles": {"data/a.json": "data"}}
+    task["run_conditions"] = {"command": ["python", "train.py", "{input:data/a.json}"], "code_sha": "c" * 40, "seed": seed,
+                              "input_roles": {"data/a.json": "data"}}  # 입력은 자리표시자로 참조한다(2차 결함 G4)
     return task
 
 

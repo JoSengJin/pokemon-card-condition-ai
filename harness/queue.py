@@ -8,6 +8,7 @@ root 아래 구조: ledger.jsonl, cas/, tasks/<task_key>/{contract.json,out/,lea
 cas·ledger·lease의 말단/중간 함수를 직접 순서대로 부르고, 그 함수들은 말단만 부른다. 그래서 같은 순서가
 claim과 recover에 한 번씩 보인다(사실 수집 → CAS 복구 → 다시 수집 → 판정 → 기록).
 """
+import fcntl
 import os
 
 from . import contract as ct
@@ -31,22 +32,25 @@ def _check_owner(handle, run_id):
 
 
 def enqueue(root, task, now, source_root=None):
-    """계약을 큐에 등록(같은 계약이면 멱등). task_key를 돌려준다. 실행 조건이 같은 다른 계약이 있으면 DuplicateTask(.existing),
+    """계약을 큐에 등록(같은 계약이면 멱등). task_key를 돌려준다. 검사·저장은 root의 ct.ENQUEUE_LOCK 잠금 안에서 한다. 실행 조건이 같은 다른 계약이 있으면 DuplicateTask(.existing),
     등록 목록에 없는 유형·실행 조건을 판별할 수 없는 실험·학습·평가 계약·입력 SHA가 source_root(기본 저장소)의 실제 파일과 다른
     실험·학습·평가 계약은 ContractError(dedupe)."""
     ct.validate_contract(task)
     key = ct.task_key(task)
     path = os.path.join(root, "tasks", key, "contract.json")
-    if not os.path.exists(path):
-        dup = dedupe.find_duplicate(root, task, key)  # 유형·실행 조건 형식 검사도 여기서 한다
-        if dup is not None:
-            err = DuplicateTask("실행 조건이 같은 작업이 이미 있다: %s" % dup)
-            err.existing = dup
-            raise err
-        dedupe.verify_inputs(task, source_root or claude_perm.REPO)  # 등록 직전 입력 SHA를 실제 파일과 대조
-        write_json(path, task)
-        ledger.append(os.path.join(root, "ledger.jsonl"), now, "enqueued",
-                      {"task_key": key, "task_type": task["task_type"]})
+    os.makedirs(root, exist_ok=True)
+    with open(os.path.join(root, ct.ENQUEUE_LOCK), "a") as guard:  # 검사와 저장 사이에 다른 등록이 끼지 않게(2차 결함 G4)
+        fcntl.flock(guard.fileno(), fcntl.LOCK_EX)
+        if not os.path.exists(path):
+            dup = dedupe.find_duplicate(root, task, key)  # 유형·실행 조건 형식 검사도 여기서 한다
+            if dup is not None:
+                err = DuplicateTask("실행 조건이 같은 작업이 이미 있다: %s" % dup)
+                err.existing = dup
+                raise err
+            dedupe.verify_inputs(task, source_root or claude_perm.REPO)  # 등록 직전 입력 SHA를 실제 파일과 대조
+            write_json(path, task)
+            ledger.append(os.path.join(root, "ledger.jsonl"), now, "enqueued",
+                          {"task_key": key, "task_type": task["task_type"]})
     return key
 
 

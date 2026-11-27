@@ -3,7 +3,8 @@
 - 작업 유형은 코드의 고정 목록으로만 판별한다. 모르는 유형·변형 이름(대소문자·접미어)은 run_conditions가 있든 없든 등록 거절이라
   중복 검사를 빠져나갈 수 없다. 실행 조건을 가진 비실험 유형도 거절한다.
 - 같은 조건의 다른 표기(config 생략·{}·null, seed 생략·null, 1과 1.0, SHA 대소문자, ./train.py, --lr=0.1, 입력 파일 경로 철자)는 중복,
-  실제로 다른 조건(입력 역할 맞바꿈, 입력 내용, needs_vision, 입력 추가)은 등록된다.
+  실제로 다른 조건(학습·검증 맞바꿈: 명령의 자리표시자 자리가 바뀜, 입력 내용, needs_vision, 입력 추가)은 등록된다(2차 G4 뒤 기준은
+  test_harness_dedupe_keys).
 - 입력 SHA는 형식을 검사하고 등록할 때와 executor 실행 직전에 실제 파일과 대조한다(다르면 등록 거절·결정적 실패, executor 실행 0).
 """
 import hashlib
@@ -34,10 +35,15 @@ def _source(case):
 
 
 def _exp(sha, roles=None, **cond):
-    """학습 data/train.csv·검증 data/val.csv를 쓰는 실험 계약. roles: {경로: 역할}(기본 train·val)."""
+    """학습 data/train.csv·검증 data/val.csv를 쓰는 실험 계약. roles: {경로: 역할}(기본 train·val). command(기본 python train.py --lr 0.1)
+    뒤에 역할 순서(train·val·test)로 --<역할> {input:<경로>}를 붙인다(2차 결함 G4: 키는 자리표시자를 입력 SHA로 바꾼 명령으로 정하고
+    input_roles는 설명이다. 그래서 역할 맞바꿈은 명령의 자리가 바뀌어 다른 조건이다)."""
     roles = roles or {"data/train.csv": "train", "data/val.csv": "val"}
     task = make_contract("x", task_type="experiment", inputs={rel: sha[rel] for rel in roles})
-    task["run_conditions"] = dict({"command": ["python", "train.py", "--lr", "0.1"], "code_sha": CODE, "input_roles": roles}, **cond)
+    order = ("train", "val", "test")
+    refs = [t for rel, role in sorted(roles.items(), key=lambda kv: order.index(kv[1])) for t in ("--" + role, "{input:%s}" % rel)]
+    base = cond.pop("command", ["python", "train.py", "--lr", "0.1"])
+    task["run_conditions"] = dict({"command": base + refs, "code_sha": CODE, "input_roles": roles}, **cond)
     return task
 
 

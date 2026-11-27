@@ -51,8 +51,8 @@ class PolicyRegressionTest(unittest.TestCase):
             handle.write("{}")
         sha = hashlib.sha256(b"{}").hexdigest()
         base = make_contract("x", task_type="experiment", inputs={"data/a.json": sha})
-        base["run_conditions"] = {"command": ["python", "train.py"], "code_sha": "c" * 40, "seed": 1, "hypothesis_id": "H-1",
-                                  "input_roles": {"data/a.json": "data"}}
+        base["run_conditions"] = {"command": ["python", "train.py", "{input:data/a.json}"], "code_sha": "c" * 40, "seed": 1,
+                                  "hypothesis_id": "H-1", "input_roles": {"data/a.json": "data"}}  # 입력은 자리표시자로 참조(2차 G4)
         first = queue.enqueue(root, base, T0, source_root=src)
         variants = [dict(base, risk="high"), dict(base, retry_policy={"max_transient_retries": 0}),
                     dict(base, escalation_level=2),

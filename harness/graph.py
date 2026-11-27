@@ -1,4 +1,5 @@
 """의존 그래프 대조(누락 방지): 의존 작업이 모두 VERIFIED인데 자신은 완료·실행·대기 중이 아닌 작업을 찾아 등록한다."""
+import fcntl
 import os
 
 from . import contract as ct
@@ -58,14 +59,19 @@ def register_missing(root, declared_tasks, now, is_alive=lease.is_alive, source_
         seen[key] = states.state_of(info, info["held"] is not None and is_alive(info["held"]))
     eligible = reconcile(declared_tasks, seen.__getitem__)
     registered, duplicates = [], {}
-    for key in [k for k in eligible if seen[k] == states.UNREGISTERED]:
-        task = ct.validate_contract(declared_tasks[key])
-        dup = dedupe.find_duplicate(root, task, key)  # queue.enqueue와 같은 중복 거절(실행 조건이 같은 실험)
-        if dup is not None:
-            duplicates[key] = dup
-            continue
-        dedupe.verify_inputs(task, source_root or claude_perm.REPO)
-        write_json(os.path.join(root, "tasks", key, "contract.json"), task)
-        ledger.append(os.path.join(root, "ledger.jsonl"), now, "enqueued", {"task_key": key, "task_type": task["task_type"]})
-        registered.append(key)
+    os.makedirs(root, exist_ok=True)
+    with open(os.path.join(root, ct.ENQUEUE_LOCK), "a") as guard:  # queue.enqueue와 같은 등록 잠금(2차 결함 G4)
+        fcntl.flock(guard.fileno(), fcntl.LOCK_EX)
+        for key in [k for k in eligible if seen[k] == states.UNREGISTERED]:
+            task = ct.validate_contract(declared_tasks[key])
+            if os.path.exists(os.path.join(root, "tasks", key, "contract.json")):
+                continue  # 잠금을 기다리는 사이 다른 등록이 먼저 했다
+            dup = dedupe.find_duplicate(root, task, key)  # queue.enqueue와 같은 중복 거절(실행 조건이 같은 실험)
+            if dup is not None:
+                duplicates[key] = dup
+                continue
+            dedupe.verify_inputs(task, source_root or claude_perm.REPO)
+            write_json(os.path.join(root, "tasks", key, "contract.json"), task)
+            ledger.append(os.path.join(root, "ledger.jsonl"), now, "enqueued", {"task_key": key, "task_type": task["task_type"]})
+            registered.append(key)
     return dict({"eligible": eligible, "registered": registered}, **({"duplicates": duplicates} if duplicates else {}))

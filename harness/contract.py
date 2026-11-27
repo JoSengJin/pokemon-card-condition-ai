@@ -22,6 +22,7 @@ _REQUIRED = {
 _OPTIONAL = {"expected_minutes": (int, float), "run_conditions": dict}  # run_conditions 규칙은 dedupe.py
 COMPLETION = "complete.json"
 DECLARATION = ".harness_complete.json"
+ENQUEUE_LOCK = "enqueue.lock"  # root 아래 등록 잠금 파일(중복 검사와 저장을 한 번에: queue.enqueue·graph.register_missing, 2차 결함 G4)
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 RUN_ID = re.compile(r"[0-9a-f]+")  # 실패 기록 파일 이름(failures/NNN-<run_id>.json)과 같은 규칙
 
