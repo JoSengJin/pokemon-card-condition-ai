@@ -15,7 +15,9 @@
 - 키 = sha256("condition"(세 유형 한 부류), 정규화한 command·code_sha(= 대조한 HEAD)·config·seed, needs_llm, needs_llm=true일 때만 needs_vision).
   needs_llm=false면 needs_vision은 실행에 쓰이지 않으므로 키에서 빼고 true는 거절한다(3차 결함 H1: 그 값만 뒤집어 다시 등록하는 우회). 정규화는 중복 쪽(같다고 보는 쪽)이
   안전한 방향만 한다: --opt=value → 두 토큰, 경로 모양 토큰(/ 포함) normpath, 저장소(claude_perm.REPO) 아래 절대 경로 → 상대 경로, 첫 토큰의
-  python 실행 파일 별칭(python·python3·python3.12·절대 경로) → python, 숫자 토큰(1·1.0·0.10) → 같은 값, config 안 seed → seed 키(둘 다 있고
+  python 실행 파일 별칭(python·python3·python3.12·절대 경로) → python, 숫자 토큰은 정확한 값으로(3차 결함 H2: 정수는 부호 표기만 +5 = 5,
+  소수·지수는 십진 값 .5 = 0.5·1e-3 = 0.001. float를 거치지 않아 큰 정수·긴 소수를 접지 않는다. 앞자리 0(01)·소수점 끝 0(1.10·0.10·1.0)·
+  끝 점(1.)은 문자열 ID·버전일 수 있어 문자열 그대로 = 다른 값), config 안 seed → seed 키(둘 다 있고
   다르면 거절), config 숫자 1.0 → 1(JSON 왕복). config 1과 1.0을 같게 보는 이유: 대부분의 실행 코드가 수치로 같게 쓰고, 같다고 봐서 생기는
   손해는 등록 거절(DuplicateTask가 기존 작업을 알려 주고 사람이 고칠 수 있음)이지만 다르다고 봐서 생기는 손해는 같은 실험의 중복 실행이다.
   남는 한계(판별할 수 없는 표기 차이): 인자 순서, 짧은 옵션 결합(-abc), 저장소 밖 절대 경로 철자, config 안의 경로 문자열 철자, 명령 안
@@ -27,6 +29,7 @@
 - 등록(검사 + 저장)은 root의 contract.ENQUEUE_LOCK 파일 잠금 안에서 한다(queue.enqueue·graph.register_missing): 동시 등록이 둘 다 통과하지 않게.
 호출 깊이: find_duplicate → logical_key → _command(말단) 2, verify_inputs → verify_code(말단)·cas.sha_file(말단) 1.
 """
+import decimal
 import hashlib
 import json
 import os
@@ -46,6 +49,8 @@ _SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _PLACEHOLDER = re.compile(r"\{input:([^{}]+)\}")
 _NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+_INTEGER = re.compile(r"[+-]?\d+")
+_LITERAL = re.compile(r"^[+-]?0\d|\.\d*0(?:[eE]|$)|\.(?:[eE]|$)")  # 앞자리 0(01)·소수점 끝 0(1.10)·끝 점(1.): 문자열 그대로(3차 H2)
 _PYTHON = re.compile(r"python(?:\d+(?:\.\d+)*)?")
 
 
@@ -64,9 +69,12 @@ def _command(command, inputs):
                 part = "".join(p if i % 2 == 0 else "{sha:%s}" % inputs[os.path.normpath(p)] for i, p in enumerate(pieces))
             elif index == 0 and _PYTHON.fullmatch(os.path.basename(part)):
                 part = "python"
-            elif _NUMBER.fullmatch(part):
-                value = float(part)
-                part = repr(int(value)) if value.is_integer() and abs(value) < 1e15 else repr(value)
+            elif _NUMBER.fullmatch(part) and not _LITERAL.search(part):  # 숫자 값 비교(float를 거치지 않는다, 3차 결함 H2)
+                if _INTEGER.fullmatch(part):  # 앞자리 0 없는 정수: 부호 표기만 정규화(= int로 정확히 비교, 자릿수 제한 없음)
+                    part = "0" if part.lstrip("+-") == "0" else part.lstrip("+")
+                else:  # 소수·지수: 자릿수만큼 정밀도를 둔 십진 값(반올림 없음)
+                    exact = decimal.Context(prec=len(part) + 2, Emax=decimal.MAX_EMAX, Emin=decimal.MIN_EMIN)
+                    part = str(decimal.Decimal(part).normalize(exact))
             elif os.path.isabs(part) and os.path.commonpath([claude_perm.REPO, os.path.normpath(part)]) == claude_perm.REPO:
                 part = os.path.relpath(os.path.normpath(part), claude_perm.REPO)
             elif "/" in part and "://" not in part and not part.startswith("-"):
