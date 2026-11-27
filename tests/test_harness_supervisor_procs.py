@@ -11,14 +11,20 @@ from tests.test_harness_runner_kit import task
 from tests.test_harness_supervisor_kit import REPO, SUPERVISOR, events, llm_task, make_fake, runs
 
 
-def until(check, timeout=30.0):
-    """check()가 참이 될 때까지 기다린다(실시간). 시간 안에 안 되면 AssertionError."""
+def until(want, what, root, arg=None, timeout=30.0):
+    """값이 want가 될 때까지 기다린다(실시간). what: opstate(유효 상태) | task(arg 작업의 큐 상태) | runs(arg 로그의 실행 수)."""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if check():
+        if what == "opstate":
+            got = opstate.effective(opstate.load(root))
+        elif what == "task":
+            got = states.state_of(states.facts(os.path.join(root, "tasks", arg)), False)
+        else:
+            got = len(runs(arg))
+        if got == want:
             return
         time.sleep(0.05)
-    raise AssertionError("시간 안에 조건이 충족되지 않음")
+    raise AssertionError("시간 안에 조건이 충족되지 않음: %s %r" % (what, want))
 
 
 class SupervisorProcessTest(unittest.TestCase):
@@ -36,12 +42,12 @@ class SupervisorProcessTest(unittest.TestCase):
         claude, log, env = make_fake(self, [{"do": "limit", "after": 3}, {"do": "success"}])
         key = llm_task(self.root)
         first = self.spawn(claude, env)
-        until(lambda: opstate.effective(opstate.load(self.root)) == opstate.RATE_LIMITED_SHORT)
+        until(opstate.RATE_LIMITED_SHORT, "opstate", self.root)
         os.kill(first.pid, signal.SIGKILL)
         first.wait()
         self.assertEqual(len(runs(log)), 1)
         self.spawn(claude, env)  # 새 프로세스: 파일 상태(opstate.json·claude.json)만으로 이어간다
-        until(lambda: states.classify(os.path.join(self.root, "tasks", key), 0, lambda h: False) == states.VERIFIED)
+        until(states.VERIFIED, "task", self.root, key)
         one, two = runs(log)
         self.assertEqual((two["resume"], two["session_id"]), (one["session_id"], None))
         self.assertGreaterEqual(two["t"], one["reset"])
@@ -52,11 +58,11 @@ class SupervisorProcessTest(unittest.TestCase):
         claude, log, env = make_fake(self, [{"do": "success", "delay": 2}, {"do": "success"}])
         key = llm_task(self.root)
         first = self.spawn(claude, env)
-        until(lambda: len(runs(log)) == 1)
+        until(1, "runs", self.root, log)
         os.kill(first.pid, signal.SIGKILL)
         first.wait()
         self.spawn(claude, env)
-        until(lambda: states.classify(os.path.join(self.root, "tasks", key), 0, lambda h: False) == states.VERIFIED)
+        until(states.VERIFIED, "task", self.root, key)
         one, two = runs(log)
         self.assertGreaterEqual(two["t"], one["t"] + 2)  # 남은 claude(고아)가 끝날 때까지 겹쳐 실행하지 않았다
         self.assertEqual(two["resume"], one["session_id"])  # 실행 전에 저장한 세션 ID로 이어간다
@@ -75,7 +81,7 @@ class SupervisorProcessTest(unittest.TestCase):
                          (opstate.INTEGRITY_HALT, [opstate.INTEGRITY_HALT], 1, 0))
         self.assertIn("종료 코드 3", cond[opstate.INTEGRITY_HALT]["reason"])
         self.assertEqual([e["data"]["kind"] for e in events(self.root, path=opstate.NOTIFICATIONS)], ["integrity_halt"])
-        self.assertEqual((runs(log), states.classify(os.path.join(self.root, "tasks", py), 0, lambda h: False)),
+        self.assertEqual((runs(log), states.state_of(states.facts(os.path.join(self.root, "tasks", py)), False)),
                          ([], states.PENDING))
 
 

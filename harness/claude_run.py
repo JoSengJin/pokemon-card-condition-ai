@@ -29,12 +29,13 @@ def build_argv(claude_bin, prompt, model, effort, resume=None, session_id=None):
     argv = [claude_bin, "-p", prompt, "--output-format", "stream-json", "--verbose", "--model", model, "--effort", effort]
     argv += ["--resume", resume] if resume is not None else ["--session-id", session_id]
     if any(a in FORBIDDEN_ARGS for a in argv[3:]):
-        raise ValueError("금지 인자: %s" % FORBIDDEN_ARGS)
+        raise ValueError("금지 인자: %s" % (FORBIDDEN_ARGS,))
     return argv
 
 
 def default_runner(argv, env, pidfile=None, stamp=None):
-    """실제 하위 프로세스로 실행. pidfile을 주면 시작 직후 stamp + {"pid"}를 원자 저장한다(실행 중 Supervisor가 죽은 경우 확인용)."""
+    """실제 하위 프로세스로 실행. pidfile을 주면 시작 직후 stamp + {"pid"}를 원자 저장한다(실행 중 Supervisor가 죽은 경우 확인용).
+    stamp에는 호출자(claude_job.execute)가 boot_id·session_id·mode·run_token을 넣는다: 낡은 pid 파일과 이번 실행을 가르는 근거다."""
     proc = subprocess.Popen(argv, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, text=True)
     if pidfile:

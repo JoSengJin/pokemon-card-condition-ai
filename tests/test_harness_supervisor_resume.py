@@ -15,7 +15,7 @@ EXEC = "tests.test_harness_executors:EXECUTORS"
 
 
 def state(root, key):
-    return states.classify(os.path.join(root, "tasks", key), 0, lambda held: False)
+    return states.state_of(states.facts(os.path.join(root, "tasks", key)), False)  # 작업권은 죽은 것으로 본다
 
 
 class ResumeTest(unittest.TestCase):

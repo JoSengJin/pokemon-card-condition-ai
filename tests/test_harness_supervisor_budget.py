@@ -39,6 +39,10 @@ class BudgetTest(unittest.TestCase):
                 budget.charge(tempfile.mkdtemp(), "vision_zone", bad, WED)
         with self.assertRaises(budget.BudgetError):
             budget.charge(tempfile.mkdtemp(), "unknown_kind", 1, WED)
+        for bad_now in (float("nan"), float("inf"), -float("inf"), True, None, "2030-01-09"):  # 시각도 유한한 숫자만
+            for kind, cycle in (("vision_zone", None), ("promotion", "seal-1")):
+                with self.assertRaises(budget.BudgetError, msg=(bad_now, kind)):
+                    budget.charge(tempfile.mkdtemp(), kind, 1, bad_now, seal_cycle=cycle)
 
     def test_promotions_per_seal_cycle_and_user_reapproval(self):
         with self.assertRaises(budget.BudgetError):
@@ -81,6 +85,17 @@ class BudgetTest(unittest.TestCase):
             worker.join()
         self.assertEqual(budget.usage(self.root, "experiment", "week:2030-W02"), 20)  # 확인·기록 사이 경합 없음
         path = os.path.join(self.root, budget.BUDGET)
+        with open(path, encoding="utf-8") as handle:
+            rows = handle.read().splitlines()
+        with open(path, "w", encoding="utf-8") as handle:  # 꼬리 잘림(마지막 줄 삭제): 체인만으로는 안 보이지만 거절한다
+            handle.write("\n".join(rows[:-1]) + "\n")
+        with self.assertRaises(budget.BudgetError):
+            budget.usage(self.root, "experiment", "week:2030-W02")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(rows) + "\n")
+        # 장부에 한 줄 쓰고 꼬리 기록 전에 죽은 경우(마지막 줄의 prev가 저장한 꼬리): 정상 기록으로 인정한다
+        ledger.append(path, WED, "charge", {"kind": "experiment", "period": "week:2030-W02", "amount": 1, "actor": "harness"})
+        self.assertEqual(budget.usage(self.root, "experiment", "week:2030-W02"), 21)
         with open(path, encoding="utf-8") as handle:
             rows = handle.read().splitlines()
         rows[3] = rows[3].replace('"amount": 1', '"amount": 0')

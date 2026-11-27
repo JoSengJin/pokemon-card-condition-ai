@@ -40,7 +40,8 @@ checks:
     재시작 상태 손실, 종료 코드 3 미승격, 예산 한도 무시, --continue 사용, T7 통과 주장 → 시험이 잡는지
   - ast 함수 수·호출 깊이, `git diff --check`, `git diff --name-only <base> HEAD`가 허용 파일 안, git status 깨끗
 experiment: 없음. 합성 시험이며 모델 성능 근거가 아니다.
-handoff: 아래 "인계" 절. 최종 시험 대상 SHA 46eb92d99e3802c45fc521f7dfc3b986b5f0a375, 문서 커밋은 그 위
+handoff: 아래 "인계" 절. 1차 최종 시험 대상 SHA 46eb92d99e3802c45fc521f7dfc3b986b5f0a375(독립 검증 미통과).
+  2차(지적 수정) 최종 시험 대상 SHA 9053d73b403df5997c6ea7635d97bfe336a21954, 아래 "검증 지적 수정" 절. 문서 커밋은 그 위
 ```
 
 ## 구현 명세 (배정 프롬프트 A~G 요약, 설계에 있는 것만)
@@ -134,13 +135,13 @@ handoff: 아래 "인계" 절. 최종 시험 대상 SHA 46eb92d99e3802c45fc521f7d
 
 1. **RATE_LIMITED_UNKNOWN 상태를 추가**했다(DESIGN 12절 표에는 SHORT/WEEKLY만). 배정 명세 B의 "구분 불가면 SHORT로 두지 말고 미상"을 기록하기 위해서이며 SHORT/WEEKLY와 같은 우선순위·같은 처리(Claude만 멈춤, 재개 시각 뒤 자동 재개)다. 한도 조건은 한 번에 하나만 둔다(새 한도가 앞의 것을 대체).
 2. 단기/주간 구분: `rateLimitType`(또는 `rate_limit_type`) 값 `five_hour` → 단기, `seven_day`·`seven_day_opus`·`seven_day_sonnet` → 주간, 그 밖·없음 → 미상. 실제 값 이름은 확인하지 않았다.
-3. 한도 판정: status가 `rejected`이면 한도. status가 `allowed`·`allowed_warning`이면 한도가 아니다(실패면 일반 실패). status가 없으면 이벤트가 있고 실행이 성공하지 않았을 때만 한도. 성공 = 종료 코드 0 + `type=result`이고 `is_error`가 true가 아님.
+3. (2차에서 바뀜, 아래 "검증 지적 수정" 6번) 1차 규칙: 한도 판정: status가 `rejected`이면 한도. status가 `allowed`·`allowed_warning`이면 한도가 아니다(실패면 일반 실패). status가 없으면 이벤트가 있고 실행이 성공하지 않았을 때만 한도. 성공 = 종료 코드 0 + `type=result`이고 `is_error`가 true가 아님.
 4. 재개 시각: 1e11 초과 숫자는 밀리초, 2001-09-09(1e9) 이전·시간대 없는 ISO·bool·무한대·NaN은 None. `resetsAtSeconds`도 절대 epoch로만 해석한다(상대 초일 가능성은 추정하지 않고 작은 값은 None). 해석된 시각이 이미 지났으면 미상과 같이 간격 재시도로 처리한다(뜨거운 반복 방지).
 5. 시각 미상 재시도: 처음 한도 뒤 60·300·900초에 한 번씩(모두 3회) 다시 시도하고, 3번째 재시도도 미상 한도면 `exhausted=true`로 멈추고 알림. 시도 횟수는 작업(claude.json) 단위로 누적한다. 사용자가 그 한도 조건을 `clear_by_user`로 풀어도 횟수는 초기화되지 않아, 다시 미상 한도면 곧바로 멈춘다.
 6. `--verbose`를 붙인다(-p + stream-json 조합에 필요할 수 있음. 이 설치본에서 필요 여부 미확인). 새 세션은 `--session-id <uuid4>`로 시작해 실행 전에 세션 ID를 저장한다.
-7. Claude 실행이 한도가 아닌 이유로 실패하면(새 세션 기준) 큐 작업을 `deterministic`으로 fail한다(자동 재시도 없음). claude 출력만으로 네트워크 장애(일시적)와 작업 실패를 구분할 근거가 없어 보수적으로 정했다. `--resume` 실패는 한 번만 새 세션으로 이어간다.
+7. (2차에서 바뀜, 아래 5번: 사람 확인 대기) 1차 규칙: Claude 실행이 한도가 아닌 이유로 실패하면(새 세션 기준) 큐 작업을 `deterministic`으로 fail한다(자동 재시도 없음). claude 출력만으로 네트워크 장애(일시적)와 작업 실패를 구분할 근거가 없어 보수적으로 정했다. `--resume` 실패는 한 번만 새 세션으로 이어간다.
 8. LLM 큐 작업은 Claude가 일하는 동안 작업권을 쥐지 않고 PENDING으로 둔다(한도 대기가 실패·중단 횟수로 세이지 않게). 끝나면 claim → complete/fail. Supervisor가 root당 하나라는 것(supervisor.lock)이 이중 실행 방지의 전제다.
-9. 실행 중 Supervisor가 죽으면: `claude.pid`의 pid가 같은 부팅에서 살아 있는 동안 기다리고, 죽었으면 저장한 세션 ID로 `--resume`한다. pid 재사용 시 불필요하게 기다릴 수 있다(정지 방향의 오류).
+9. (2차에서 보강, 아래 4번: pid 기록 대조) 1차 규칙: 실행 중 Supervisor가 죽으면: `claude.pid`의 pid가 같은 부팅에서 살아 있는 동안 기다리고, 죽었으면 저장한 세션 ID로 `--resume`한다. pid 재사용 시 불필요하게 기다릴 수 있다(정지 방향의 오류).
 10. 예상하지 못한 예외는 INTEGRITY_HALT로 멈춘다(fail-closed, 사람 확인). 일시적 디스크 오류도 정지시킬 수 있다.
 11. 주 경계는 UTC ISO 주(월요일 00:00 UTC = 한국 시각 월요일 09:00). 예산 charge는 정지 상태(네 가지)에서 모두 거절하며, Supervisor 루프는 charge를 부르지 않는다(실험 시작·비전 작업을 만드는 4·5단계가 부른다).
 12. Claude 프롬프트는 계약 파일·산출물 폴더·장부 경로를 알리는 고정 문구다(4단계 Skills가 대체할 자리). route()의 history는 빈 목록으로 넘긴다(상향은 4단계 실패 정책 몫).
@@ -164,3 +165,88 @@ handoff: 아래 "인계" 절. 최종 시험 대상 SHA 46eb92d99e3802c45fc521f7d
 ### 롤백
 
 통합 전: 이 브랜치를 통합하지 않으면 된다. 통합 뒤: `git revert`로 문서·시험·구현 커밋(위 표의 SHA)을 되돌린다. 기존 파일은 수정하지 않았고 런타임 상태는 호출자가 준 root 아래 `supervisor/`에만 생기므로 그 폴더를 지우면 상태도 원래대로다(장부의 기록 줄은 남는다). launchd는 설치하지 않았으므로 되돌릴 시스템 설정이 없다.
+
+## 검증 지적 수정 (2026-11-27, 2차)
+
+```text
+branch: claude/harness-fix-s3-20261127, base_sha: 805d9c713ed572ecb059e0b9a657d78f3b90a0d9
+수정 파일: harness/{supervisor,opstate,ratelimit,claude_run,claude_job,budget}.py (unlock.py는 코드 변경 없음, 시험만 추가)
+시험 파일: tests/test_harness_supervisor_{halt,race,hold}.py(신규), {budget,contracts,kit,procs,ratelimit,resume,unlock}.py(수정)
+하지 않은 것: 예산 미적용(4단계에서 연결) — budget.charge를 runner·비전 경로에 연결하지 않았다. 5단계 파일·ledger.py·cas.py 무수정.
+실제 claude·네트워크·모델 호출 없음(가짜 claude만), launchd 설치 없음.
+```
+
+### 커밋
+
+| 종류 | 전체 SHA | 내용 |
+|---|---|---|
+| test | `5c34782521bbee07b9306b48d8e95c869d57eaa7` | 회귀 시험(이 커밋의 시험은 수정 전 harness에서 실패) |
+| **fix(2차 최종 시험 대상)** | `9053d73b403df5997c6ea7635d97bfe336a21954` | harness 6개 파일 수정 |
+| docs | 이 문서 커밋(그 위) | 인계 |
+
+### 항목별 조치
+
+| # | 지적 | 조치 | 회귀 시험(수정 전 실패 확인) |
+|---|---|---|---|
+| 1 차단 | 정지 상태를 회차 시작에만 읽음 | runner를 `--max 1`(기존 인자)로 작업 1개씩 돌리고, Python 작업 하나를 시작하기 전마다·`_python` 뒤(clear_auto 직전)·pick 직전·execute 직전에 `_live`로 다시 읽어 정지면 `continue`(회차 종료). 회차 사이 대기는 루프 맨 앞으로 옮겨 `continue`에도 대기한다 | halt `test_user_stop_during_python_starts_nothing_after`(Python 1.5초×3 + LLM 1, 처리 중 USER_STOPPED → 시작한 작업 1개·claude 0; 수정 전 3개+claude 실행), `test_stop_after_each_step_ends_the_cycle`(`_python`(작업 있음/없음)·clear_auto·pick 뒤 정지 4종 × 4단계 = 16조합, 다음 단계 미실행) |
+| 2 중요 | 상태 쓰기 잠금 없음 | set_condition·`_clear`의 읽기→쓰기→장부 기록을 `root/supervisor/opstate.lock` flock 안에서(budget.lock과 같은 방식). 소진(exhausted) 확인도 잠금 안(`_clear`, actor=supervisor)으로 옮김 | race `test_concurrent_set_and_clear_lose_nothing`(실제 프로세스 4개, write_json 앞 0.2초 지연 주입, 3회; 수정 전 조건 소실) |
+| 3 중요 | 조건 값 형식 미검사 | load에서 조건 값 dict, next_try_at은 None 또는 bool 아닌 유한 숫자. 어기면 unreadable(INTEGRITY_HALT로 보임). Supervisor는 load가 확인한 값만 쓴다 | halt `test_malformed_condition_values_fail_closed`(null·true·"soon"·NaN·Infinity·list → 정지·claude 0, 정상 값 4종은 통과; 수정 전 null이 한도 없음으로 읽힘) |
+| 4 중요 | pid 파일에 session_id·mode 없음 | 실행마다 run_token(uuid)을 claude.json에 쓰고 pid 파일에 boot_id·session_id·mode·run_token·pid 저장. running인데 pid 기록의 세 값이 job과 다르거나 기록이 없으면 자동 재개하지 않고 status=blocked(hold_reason=pid_record_mismatch)+장부 claude_job_closed+알림 claude_job_blocked. run_token은 같은 세션·같은 mode의 반복 실행(한도 뒤 재개 등)까지 구분하려고 넣었다 | hold `test_pid_record_not_matching_job_waits_for_human`(낡은 세션·mode 불일치·이전 실행 token·옛 형식·기록 없음 5종; 수정 전 죽은 pid만 보고 재개) |
+| 5 중요 | 일시 실패도 결정적 FAILED | claude 실행 실패(mode 있음)는 queue.fail을 부르지 않고 status=blocked(hold_reason=claude_failed_cause_unknown: …)+알림. 큐 작업은 PENDING, 자동 재시도 없음. 결정적 근거가 있는 것(정책상 모델 없음 route_no_model, 산출물 완료 실패)만 deterministic fail 유지 | hold `test_unexplained_claude_failure_waits_for_human_not_failed`(수정 전 FAILED) |
+| 6 중요 | 한도 이벤트 마지막만 봄 | 모든 이벤트를 모아, 실행이 성공하지 않았고 비허용 status(rejected·없음·모르는 값)가 하나라도 있으면 한도. 보고값은 마지막 rejected → 마지막 비허용 → 마지막 이벤트 순. **rejected인데 실행 성공이면 한도가 아니다(결정)**: 성공이면 산출물이 이미 있고 settle이 manifest로 완료를 검증한다. 한도로 보면 같은 작업을 --resume으로 다시 돌려 일이 겹친다. 실제 한도였다면 다음 Claude 실행이 다시 한도 이벤트를 받아 일반 경로로 기록된다. rate_limit 요약은 claude_job_finished 장부에 남긴다 | ratelimit `test_limited_rules`(rejected→allowed 순서 등 3종 + rejected+성공; 수정 전 마지막 allowed만 보고 한도 아님) |
+| 7 경미 | 포맷 오류·먼 미래·상대 root·now NaN·꼬리 잘림 | `% (FORBIDDEN_ARGS,)`. 재개 시각이 8일(ratelimit.MAX_RESET_AHEAD_S, 주간 7일+1일) 넘게 뒤면 미상(60·300·900초 간격)+알림 rate_limit_reset_too_far. `run`이 root를 `os.path.abspath`(CLI·API 모두). budget.period_of가 모든 항목에서 now의 NaN·무한대를 BudgetError로. 꼬리 잘림: charge마다 마지막 해시를 `supervisor/budget.tail.json`에 쓰고 usage가 `ledger.verify(expected_tail=…)`로 대조(장부에 한 줄 쓰고 꼬리 기록 전에 죽은 경우만 인정) | ratelimit argv(`-c`·`--continue` 모델 값), hold `test_reset_more_than_8_days_ahead_is_unknown_and_notified`(9일=미상, 7일=그대로), contracts `test_relative_root_is_made_absolute`, budget validation(NaN·inf·-inf, 주·승격 둘 다)·tampered(마지막 줄 삭제 거절, 꼬리 기록 전 사망 1줄 인정) |
+| 8 시험 공백 | 살아남은 변이 4개 | 단언 추가 | halt `test_budget_charge_refused_in_every_halting_state`(정지 4종), unlock `test_release_interrupts_refuses_run_id_mismatch`, hold `test_pid_wait_checks_boot_id`(살아 있는 pid라도 다른 부팅이면 재개), hold `test_session_id_from_init_is_followed` |
+
+### 실행한 검사
+
+| 명령(cwd=worktree) | 대상 | 종료 코드·결과 |
+|---|---|---|
+| `PYTHONDONTWRITEBYTECODE=1 …/.venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"` (3.12) | 805d9c7(시작 전) | rc=0, 250개 |
+| 같은 명령, harness=805d9c7 + tests=5c34782 (git archive로 임시 폴더에 풀어 실행, 브랜치 전환 없음) | 수정 전 코드 + 새 시험 | rc=1, 262개 중 failures=10·errors=2(위 표의 회귀 시험 12개 모두 해당 이유로 실패: TypeError 포맷, NaN ValueError, null 조건 통과, claude 실행 1, 작업 3개 시작, 조건 소실, 죽은 pid로 재개, next_try_at=resetsAt, FAILED, 마지막 이벤트만 봄, 잘린 장부 통과, 상대 root PENDING) |
+| 같은 명령 (3.12) | 9053d73 | rc=0, 262개 통과 |
+| 같은 명령, `/usr/bin/python3` (3.9.6) | 9053d73 | rc=0, 262개 통과 |
+| `… -W error::ResourceWarning -m unittest discover -s tests -p "test_harness_supervisor_*.py"` (3.12) | 9053d73 | rc=0 |
+| race·halt·hold·procs 시험 3회 반복 (3.12) | 9053d73와 같은 내용의 작업 트리 | 3회 모두 OK |
+| 변이 시험 24종(임시 복사본, 원본 무수정, scratchpad `s3fix/mutate.py`) | 9053d73와 같은 내용 | 24/24 잡음. 1차 실행 23/24: M9(`_python` 뒤 재확인 제거)를 놓쳐 — 작업을 처리한 runner 뒤에는 루프 조건이 다시 읽으므로 같은 동작 — "아무것도 처리하지 않은 runner 뒤 정지" 경우를 시험에 추가한 뒤 잡음 |
+| `git diff --check`, `git diff --cached --check`(각 커밋 직전) | — | 0 |
+
+변이 목록: 정지 중 charge를 BUDGET_EXCEEDED만 거절, run_id 대조 제거, 부팅 ID 확인 제거, init 세션 ID 미반영, execute·pick·_python 뒤·Python 작업마다 재확인 각각 제거, `--max 1` 제거, opstate 잠금 제거, next_try_at 형식·dict 검사 각각 제거, pid 기록 대조 제거, run_token 대조 빠짐, pid 파일에 run_token 안 씀, 원인 불명 실패를 FAILED로, 한도 이벤트 마지막만 봄, 보고 이벤트를 마지막으로, 8일 확인 제거, abspath 제거, 꼬리 대조 제거, now NaN 허용, 소진 조건 자동 해제 허용, 포맷 오류 복귀.
+
+### 구조 (ast 재측정, scratchpad `s3fix/measure.py`: 모듈 경계를 넘어 합산, 호출뿐 아니라 함수 참조(`functools.partial`·`runner or default_runner`)도 간선으로 보수 측정, 시험 코드 제외)
+
+| 파일 | 함수 수 전→후 | 공개 함수 최대 깊이(경로 예) |
+|---|---|---|
+| supervisor.py | 3→4 (`_live` 추가) | run 4 (run → claude_job.execute → route.route → route._valid → route._step; run → _live → opstate.load → read_json은 3) |
+| opstate.py | 7→7 | clear_auto·clear_by_user 3 (→ _clear → load → read_json), set_condition 2 |
+| ratelimit.py | 4→4 | scan 1 |
+| claude_run.py | 4→4 | run_once 2 (→ default_runner → write_json) |
+| claude_job.py | 4→4 | execute 3, settle 3, pick 2 (pick → opstate.notify → ledger.append 포함) |
+| budget.py | 3→3 | charge 3 (→ usage → ledger.verify → _check_line), usage 2 |
+| unlock.py | 4→4(무수정) | 2 |
+
+- lambda: harness 7개 파일 0개. 시험 파일(lambda 포함 계약): procs 13→6(lambda 7개 제거, `until(want, what, root, arg)`로), resume 8→7(`lambda held: False` → `states.state_of(states.facts(...), False)`, 같은 판정), 신규 halt 6·hold 6·race 1, 나머지 ≤7. 재귀(순환) 경로 없음.
+- `_python`의 runner는 별도 프로세스라 깊이에 넣지 않았다(1차와 같음).
+
+### 가정 (2차에서 정한 것, 검토 대상)
+
+1. 사람 확인 대기는 기존 status `blocked`와 기존 알림 `claude_job_blocked`를 쓴다. pick은 blocked 작업의 큐 상태가 PENDING인 동안 그 작업을 다시 고르지도 실행하지도 않는다(Claude 칸이 그 작업에서 멈춘다. Python 작업은 계속). 큐 작업이 PENDING이 아니게 되면 stale로 닫는다. 이 때문에 1차의 "claim 거절 → blocked"도 PENDING이면 같은 대기가 된다(1차에서는 다음 회차에 같은 작업을 새 작업으로 다시 골라 겹쳐 실행할 수 있었다).
+2. 해제 함수는 만들지 않았다(설계에 없음). 사람이 확인한 뒤 `root/supervisor/claude.json`을 지우면 새 세션으로 다시 고르고, status를 `rate_limited`로 고치면 같은 세션으로 --resume한다. 결정적 실패로 확정하려면 queue.claim → queue.fail을 직접 부른다.
+3. 결정적 근거로 인정한 것: route_no_model(정책상 모델 없음, 실행 전), 성공 뒤 산출물 완료 실패(manifest). 그 밖의 claude 실패(종료 코드 ≠ 0, 실행 파일 없음 포함)는 모두 원인 불명으로 본다.
+4. rejected+성공은 한도가 아니다(위 6번 근거). 실제 출력에서 이 조합이 나오는지는 미확인.
+5. 재개 시각 상한 8일: 주간 한도 7일 + 여유 1일. 넘으면 재개 시각을 믿지 않고 미상 간격 재시도(3회 뒤 exhausted).
+6. 예산 꼬리 파일이 없으면 GENESIS로 본다(장부에 줄이 있으면 거절). 꼬리 기록 전에 죽어 장부가 정확히 한 줄 앞선 경우만 인정한다.
+
+### 미검증·남은 리스크
+
+- 정지 확인과 runner의 claim 사이(밀리초)에 건 정지는 그 Python 작업 1개를 막지 못한다. runner(2단계 파일, 이번 허용 밖)가 운영 상태를 읽지 않기 때문이다. 이미 실행 중인 작업(Python·claude)은 끊지 않고 끝까지 둔다.
+- 정지 확인과 execute의 Popen 사이도 같은 틈이 있다(밀리초).
+- 사람 확인 대기는 사람이 claude.json을 직접 고쳐야 풀린다(해제 함수 없음). 대기 중에는 그 뒤의 LLM 작업도 시작하지 않는다.
+- pid 기록 불일치 판정은 "기록 전에 죽음"과 "claude가 실제로 안 뜸"을 가르지 못한다(그래서 사람 확인). 실제 고아 claude가 있는지 ps로 찾는 기능은 넣지 않았다.
+- 예산 꼬리는 같은 root 안의 복제본이다: 장부와 꼬리 파일을 함께 지우거나 함께 고치면 알 수 없다(외부 복제는 DESIGN 9절 cardeval 몫, 미구현).
+- 예산 미적용(4단계에서 연결): budget.charge는 아직 어떤 실행 경로에도 연결되지 않았다.
+- 실제 `claude -p` 출력 형태(rate_limit_event 여러 개·rejected+성공 조합·resetsAt 단위), 실제 단기 한도, 구독 인증, launchd 동작은 1차와 같이 미검증.
+- opstate 잠금은 같은 호스트의 flock이다(네트워크 파일 시스템에서는 보장 안 함).
+
+### 롤백
+
+통합 전: 이 브랜치를 통합하지 않으면 된다. 통합 뒤: `git revert 9053d73b403df5997c6ea7635d97bfe336a21954 5c34782521bbee07b9306b48d8e95c869d57eaa7`(문서 커밋도 함께). 런타임에 새로 생기는 파일은 `root/supervisor/opstate.lock`·`budget.tail.json`뿐이며 지워도 된다(단 budget.tail.json을 지우고 장부가 남아 있으면 수정 후 코드는 장부를 거절한다. 되돌린 코드는 이 파일을 읽지 않는다).
