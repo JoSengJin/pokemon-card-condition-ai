@@ -53,4 +53,25 @@
 | T5 cluster-stats | `claude/rec-t5-cluster-stats-20261127` | `tools/diagnostics/cluster-stats-20261127/stats.py`, `tests/test_cluster_stats.py` | 05 2-2 DEFF 1.33·1.44, S4 b=30·c=26 | stats 0→≤7 / ≤4 |
 
 handoff: 전체 커밋 SHA, 변경 파일, 구조 확인, 검사 명령·종료 코드, 미검증, 리스크, 롤백.
-experiment: 없음. HTML: 모델 성능 평가가 없으므로 사진 비교 HTML 대상이 아니다.
+experiment: 없음. 사진 비교 HTML은 대상이 아니다(모델 평가 없음). 성과·진척 HTML은 `docs/collaboration/HTML_REPORTING.md`에 따라 기본 checkout의 Git 제외 `artifacts/record-sidecars-20261127/report.html`에 만든다.
+
+## 4. 계약 갱신과 인계 (2026-11-27, status = ready_for_review, 미통합·미push)
+
+- 허용 파일 추가: 파일당 함수 7개(PAIR_CODING §2.1)를 시험 파일에도 적용해 `tests/test_zone_rows_files.py`(T1), `tests/test_experiment_sidecars_gates.py`(T2), `tests/test_rater_gate_real.py`(T3)를 더했다.
+- T3 구현 중 고정(07에 없던 것): 값은 `=` 뒤 전체 문자열로 비교(07의 50·56·62/64가 재현되는 방식). 답의 구역을 모두 담지 않은 AI 파일은 기록만 하고 판정에 쓰지 않는다. 전체를 담은 AI 파일이 0개면 `unknown`. `ai_identical`·`ai_suspect`는 확인 문장과 무관하게 남는다.
+- T5 구현 중 고정: 대조 결과가 후보보다 행이 많으면(E 946 대 942) 후보 행 전부가 정답·그룹·사진·상자까지 같을 때만 비교하고 안 쓴 행 수를 출력한다.
+
+| task | tip SHA | 함수 수(제품 파일) | 자료 없는 worktree | 기본 checkout 자료 읽기 전용 지정 |
+|---|---|---|---|---|
+| T1 | `b2653cce826ef659824463b5586246b69ade8dec` | zone_rows 5 | 9건 rc=0, 건너뜀 3(실자료 2 + 실행기 모듈 1) | 9건 rc=0, 건너뜀 1(실행기 모듈) |
+| T2 | `626c2feaf261b65372be7b95ae944ebc54ea362f` | sidecars 5, experiment_record 17→17 | 40건 rc=0, 건너뜀 1 | 40건 rc=0 |
+| T3 | `443c783595c100d34bf018592d17c261cf903037` | rater_gate 5 | 6건 rc=0, 건너뜀 2 | 6건 rc=0 |
+| T5 | `3fd03cfe2e01a08d81ac99fe32a1553368fbf170` | stats 6 | 4건 rc=0, 건너뜀 1 | 4건 rc=0 |
+
+- 임시 결합(detached, T0 위에 네 브랜치 cherry-pick, `e15b29e904dea9d20ae44073dd36e5afbd2569fb`, 확인 후 worktree 제거): 59건 rc=0. 자료 없음은 건너뜀 6, 자료 지정은 건너뜀 0.
+- 바이트 동일성: 합성 fixture 2종의 `plan.json`·`reference.json`·`result.json` SHA256이 `ceed731` 코드와 T2 코드에서 같았다.
+- `git diff --check` 각 worktree rc=0.
+- 미검증: 실제 `./experiment` 실행(금지 범위), 통합 뒤 기본 checkout 검사, 엣지·표면 4상태 실답, 별도 코드 리뷰(하위 모델 호출 미승인).
+- 미착수: T7(우선 하), T4·T6(범위 밖).
+- 통합 순서: `921d152` → 이 인계 커밋 → T1·T2·T3·T5 각 `921d152..tip`. 파일이 겹치지 않는다.
+- 롤백: 새 파일 삭제 + `git revert <통합 SHA>`.
