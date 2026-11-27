@@ -1,0 +1,27 @@
+{
+  "version": "routing-policy-v1",
+  "source": "docs/collaboration/plans/model-routing-design.md 1절 (사용자 승인 2026-11-27)",
+  "default": {"model": "sonnet", "effort": "medium"},
+  "escalation_order": [
+    {"model": "sonnet", "effort": "medium"},
+    {"model": "sonnet", "effort": "high"},
+    {"model": "opus", "effort": "high"}
+  ],
+  "xhigh": {"model": "opus", "effort": "xhigh"},
+  "escalate_causes": ["quality_gate_miss", "verification_failed", "unresolved_disagreement"],
+  "no_escalate_causes": ["data_shortage", "image_quality", "code_error"],
+  "task_types": {
+    "general_dev": {"model": "sonnet", "effort": "medium"},
+    "complex_algorithm": {"model": "sonnet", "effort": "high"},
+    "image_analysis_general": {"model": "sonnet", "effort": "medium"},
+    "silver_labeling": {"model": "sonnet", "effort": "medium"},
+    "defect_analysis_precise": {"model": "sonnet", "effort": "high"},
+    "label_cross_validation": {"model": "sonnet", "effort": "high"},
+    "label_disagreement": {"model": "opus", "effort": "high"},
+    "misanalysis_general": {"model": "sonnet", "effort": "medium"},
+    "repeated_failure_analysis": {"model": "opus", "effort": "high"},
+    "model_redesign": {"model": "opus", "effort": "high"},
+    "experiment_log_summary": {"model": "haiku", "effort": "low"},
+    "deterministic": {"llm": false}
+  }
+}
