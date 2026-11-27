@@ -10,9 +10,11 @@
 - 상태는 모두 파일(opstate.json·supervisor/claude/<task_key>.json·장부)에 있어 kill -9 뒤 다시 시작해도 같은 상태에서 이어간다.
 - root마다 Supervisor는 하나만 돈다(root/supervisor/supervisor.lock 비차단 flock, 이미 돌고 있으면 already_running).
 - 자동 해제하지 않는 상태의 해제(opstate.clear_by_user)와 정지 해제(unlock)는 이 루프에서 부르지 않는다(사람 확인 함수).
-- 예상하지 못한 예외는 추정해서 계속하지 않고 INTEGRITY_HALT로 멈춘다(fail-closed, 사람 확인).
+- 예상하지 못한 예외는 추정해서 계속하지 않고 INTEGRITY_HALT로 멈춘다(fail-closed, 사람 확인). 단 한 작업·한 선언의 문제(선언 거절, Claude
+  작업의 선언 자리 모양, 깨진 시각 미상 한도 횟수 기록)는 그 작업만 대기·거절하고 알린다(2차 결함 G5·G9·G11). INTEGRITY_HALT는 장부·상태
+  무결성 오류에 남긴다.
 - 실행: python -m harness.supervisor --root R [--claude-bin B] [--executors mod:ATTR] [--max-cycles N] [--poll S]
-호출 깊이: run → runner.drain은 별도 프로세스라 세지 않는다. run → _live(2)·opstate.clear_auto(3)·graph.register_missing(2)·
+호출 깊이: run → runner.drain은 별도 프로세스라 세지 않는다. run → _live(2)·opstate.clear_auto(3)·graph.register_missing(3)·graph.note_rejected(1)·
 claude_job.pick(2)·execute(3)·settle(3)이라 최대 4다. 모듈 맨 아래 __main__ 블록은 _args와 run만 부른다.
 - root는 절대 경로로 바꿔 쓴다(runner는 cwd=REPO에서 돌기 때문에 상대 경로면 다른 폴더를 본다).
 """
@@ -107,9 +109,12 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
             try:
                 if _live(root, summary) is None:
                     continue
-                declared = read_json(os.path.join(root, DECLARED), {})
-                if declared:
-                    graph.register_missing(root, declared, now, source_root=source_root)
+                try:  # 선언 파일 자체의 문제(깨진 JSON·dict 아님·순환)는 그 회차의 그래프 등록만 건너뛰고 한 번 알린다(2차 결함 G5)
+                    declared = read_json(os.path.join(root, DECLARED), {})
+                    if declared:
+                        graph.register_missing(root, declared, now, source_root=source_root)
+                except (graph.GraphError, ValueError) as exc:  # ValueError: read_json의 깨진 JSON(장부 오류 LedgerError는 여기서 잡지 않는다)
+                    graph.note_rejected(root, {"<declared.json>": "%s: %s" % (type(exc).__name__, exc)}, now)
                 while executors and _live(root, summary) is not None:  # Python 작업 하나를 시작하기 전마다 정지 상태를 본다
                     summary["python_runs"] += 1
                     code, executed = _python(root, executors, now_fn(), (limits or {}).get("python_total_s"), source_root)

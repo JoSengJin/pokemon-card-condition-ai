@@ -41,7 +41,7 @@ def _exp(sha, roles=None, **cond):
     roles = roles or {"data/train.csv": "train", "data/val.csv": "val"}
     task = make_contract("x", task_type="experiment", inputs={rel: sha[rel] for rel in roles})
     order = ("train", "val", "test")
-    refs = [t for rel, role in sorted(roles.items(), key=lambda kv: order.index(kv[1])) for t in ("--" + role, "{input:%s}" % rel)]
+    refs = [t for role in order for rel, mine in sorted(roles.items()) if mine == role for t in ("--" + role, "{input:%s}" % rel)]
     base = cond.pop("command", ["python", "train.py", "--lr", "0.1"])
     task["run_conditions"] = dict({"command": base + refs, "code_sha": CODE, "input_roles": roles}, **cond)
     return task
@@ -57,8 +57,8 @@ class DedupeConditionTest(unittest.TestCase):
                     task.pop("run_conditions")
                 with self.assertRaises(ct.ContractError, msg=name):
                     queue.enqueue(root, task, T0)
-                with self.assertRaises(ct.ContractError, msg=name):
-                    graph.register_missing(root, {ct.task_key(task): task}, T0)
+                got = graph.register_missing(root, {ct.task_key(task): task}, T0)  # 2차 G5: 그 선언만 거절(이전 기대: ContractError)
+                self.assertIn("ContractError", got["rejected"][ct.task_key(task)], name)
         plain = dict(make_contract("p", task_type="misanalysis_general"), run_conditions=_exp(sha)["run_conditions"])
         with self.assertRaises(ct.ContractError):  # 실행 조건을 가진 비실험 유형(조건인지 판별 불가)
             queue.enqueue(root, plain, T0)

@@ -59,11 +59,17 @@ class ResumeTest(unittest.TestCase):
                  {"do": "limit", "reset": "past"}, {"do": "limit", "reset": "garbage", "field": "resetsAtSeconds"},
                  {"do": "success"}]
         claude, log, env = make_fake(self, steps)
-        llm_task(self.root)
+        # 2차 결함 G3: 한 작업의 자동 재개는 합쳐 2회(recovery.MAX_INTERRUPTS)라 같은 작업은 3번째 재개 전에 대기한다. 전체 3회 다시 시도를
+        # 보려고 독립 작업을 하나 더 둔다(이전: 작업 1개로 4회 실행). 4번째 시도는 다른 작업의 첫 실행이다.
+        keys = [llm_task(self.root, "a"), llm_task(self.root, "b")]
         clock = Clock(time.time())
         with allow_resume(self, "misanalysis_general"):
             supervisor.run(self.root, claude, max_cycles=40, poll_s=10 ** 6, now_fn=clock.now, sleep_fn=clock.sleep, env=env)
         self.assertEqual(len(runs(log)), 4)  # 처음 1회 + 다시 시도 3회, 그 뒤로는 실행하지 않는다
+        self.assertEqual([r["resume"] is None for r in runs(log)], [True, False, False, True])
+        first = sorted(keys)[0]  # pick은 task_key 순으로 고른다
+        with open(claude_job.paths(self.root, first)[0]) as handle:
+            self.assertTrue(json.load(handle)["hold_reason"].startswith("too_many_interrupts"))
         starts = [e["ts"] for e in events(self.root, "claude_run_started")]
         gaps = [b - a for a, b in zip(starts, starts[1:])]
         self.assertEqual(len(gaps), 3)
@@ -75,7 +81,7 @@ class ResumeTest(unittest.TestCase):
         self.assertEqual((len(cond), name, info["exhausted"], info["next_try_at"], info["resets_at"]),
                          (1, opstate.RATE_LIMITED_SHORT, True, None, None))
         notes = [e["data"]["kind"] for e in events(self.root, path=opstate.NOTIFICATIONS)]
-        self.assertEqual(notes, ["rate_limit_unknown_exhausted"])
+        self.assertEqual(notes, ["claude_job_blocked", "rate_limit_unknown_exhausted"])  # 이전 기대: exhausted 하나(G3 대기 알림이 더해짐)
         kinds = [e["data"]["condition"] for e in events(self.root, "opstate_transition") if e["data"]["op"] == "set"]
         self.assertEqual(kinds[1], opstate.RATE_LIMITED_UNKNOWN)  # rateLimitType 없음: 단기로 두지 않고 미상
         with self.assertRaises(opstate.OpStateError):

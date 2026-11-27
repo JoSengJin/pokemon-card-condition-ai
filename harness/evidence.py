@@ -2,7 +2,8 @@
 
 - 원인(cause)과 결과(outcome)는 별도 필드다. 원인은 근거가 있는 것만(claude_run.run_once 참조), 결과는
   not_started | completed | checkpoint | partial | unknown.
-- stderr는 비밀처럼 보이는 값(이름=값·따옴표 JSON 값·sk-·ghp_·github_pat_·AKIA·xox 접두어·Bearer)을 가린 뒤 끝부분 STDERR_TAIL자만
+- stderr는 비밀처럼 보이는 값(이름=값·따옴표 JSON 값(이스케이프·공백 포함)·sk-·ghp_·github_pat_·AKIA·xox 접두어·Bearer·Basic·URL 사용자
+  정보·PEM 블록·쿠키 헤더 줄)을 가린 뒤 끝부분 STDERR_TAIL자만
   남긴다(가림은 최선 노력, 한계는 인계). 권한 거절은 tool_name·tool_use_id·file_path만 남긴다.
 - CLI 인자는 모델·effort·권한·세션·출력 형식 옵션과 그 값만 남긴다(프롬프트 본문 제외).
 호출 깊이: 모든 함수가 말단이다(서로·다른 harness 함수를 부르지 않는다. claude_record는 mask를 부르므로 1).
@@ -16,11 +17,16 @@ STDERR_TAIL = 2000
 MASK_MARGIN = 500  # 자르기 전에 가리는 여유 글자 수(경계에서 잘린 키를 가리되 전체 출력을 훑지 않게)
 VALUE_LIMIT = 200
 MAX_DENIALS = 20
-_SECRETS = re.compile(  # 이름=값(따옴표·JSON 포함)과 알려진 비밀 접두어. 최선 노력이며 형식이 다른 비밀은 남을 수 있다(인계)
-    r"(?i)([\"']?[a-z0-9_-]{0,40}(?:api[_-]?key|token|secret|password|passwd|authorization|cookie|access[_-]?key)[a-z0-9_-]{0,40}[\"']?"
-    r"\s*[:=]\s*[\"']?)(?:bearer\s+)?[^\s,\"'}]+|"
+_NAMES = r"[a-z0-9_-]{0,40}(?:api[_-]?key|token|secret|password|passwd|authorization|cookie|access[_-]?key)[a-z0-9_-]{0,40}"
+_SECRETS = re.compile(  # 최선 노력이며 형식이 다른 비밀은 남을 수 있다(인계). 그룹 1·2는 남기는 앞부분(이름과 구분자)
+    r"(?i)-----BEGIN [a-z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [a-z ]*PRIVATE KEY-----|\Z)|"  # PEM 블록(끝이 잘렸으면 끝까지)
+    r"(\b(?:set-)?cookie\s*:\s*)[^\n]+|"  # 쿠키 헤더는 줄 끝까지(여러 값)
+    r"(\\?[\"']?" + _NAMES + r"\\?[\"']?\s*[:=]\s*)"  # 이름=값(따옴표·이스케이프된 따옴표 JSON 포함)
+    r"(?:\"[^\"\n]{0,500}\"|'[^'\n]{0,500}'|\\\"(?:[^\"\\\n]|\\[^\"]){0,500}\\\"|"  # 따옴표 값은 닫는 따옴표까지(공백 포함)
+    r"(?:(?:bearer|basic|digest|token)\s+)?\\?[\"']?[^\s,\"'}\\]+)|"
+    r"(?<=://)[^/\s:@]+:[^/\s@]+@|"  # URL 사용자 정보(user:pass@)
     r"sk-[a-z0-9_-]{8,}|gh[opsur]_[a-z0-9]{8,}|github_pat_[a-z0-9_]{8,}|(?:AKIA|ASIA)[0-9a-z]{12,}|xox[abprs]-[a-z0-9-]{8,}|"
-    r"bearer\s+[^\s\"']+")
+    r"bearer\s+[^\s\"']+|basic\s+[a-z0-9+/=]{8,}")
 OPTION_FLAGS = {"--model": 1, "--effort": 1, "--permission-mode": 1, "--tools": 1, "--allowedTools": 1,
                 "--disallowedTools": 1, "--output-format": 1, "--resume": 1, "--session-id": 1, "--restricted": 0,
                 "--strict-mcp-config": 0, "--disable-slash-commands": 0, "--verbose": 0}
@@ -29,7 +35,7 @@ OPTION_FLAGS = {"--model": 1, "--effort": 1, "--permission-mode": 1, "--tools": 
 def mask(text, limit=STDERR_TAIL):
     """비밀처럼 보이는 값을 [가림]으로 바꾼 뒤 끝부분 limit자. 끝부분 limit + MASK_MARGIN자를 먼저 가리고 자른다(경계에서 잘린 키 조각이
     남지 않게, 검증 결함 F7). 한계: MASK_MARGIN보다 긴 비밀 값이 경계에 걸리면 조각이 남을 수 있다."""
-    return _SECRETS.sub(lambda m: (m.group(1) or "") + "[가림]", (text or "")[-(limit + MASK_MARGIN):])[-limit:]
+    return _SECRETS.sub(lambda m: (m.group(1) or m.group(2) or "") + "[가림]", (text or "")[-(limit + MASK_MARGIN):])[-limit:]
 
 
 def options_of(argv):

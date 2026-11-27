@@ -12,12 +12,17 @@ import time
 from harness import contract as ct
 
 
-def _try(got, name, fn):
+def _try(got, name, fn, *args):
     try:
-        fn()
+        fn(*args)
         got[name] = "ok"
     except OSError as exc:
         got[name] = "denied:%d" % exc.errno
+
+
+def _append(path):
+    with open(path, "a") as handle:
+        handle.write("changed")
 
 
 def lingerer(task, out_dir):
@@ -28,8 +33,8 @@ def lingerer(task, out_dir):
     with open(os.path.join(out_dir, "result.txt"), "w") as handle:
         handle.write("PAYLOAD")
     got = {}
-    _try(got, "write_final", lambda: open(os.path.join(final, "result.txt"), "a").close())
-    _try(got, "plant_final_tmp_link", lambda: os.symlink(os.path.join(marks, "victim"), os.path.join(final, "result.txt.tmp.1")))
+    _try(got, "write_final", _append, os.path.join(final, "result.txt"))
+    _try(got, "plant_final_tmp_link", os.symlink, os.path.join(marks, "victim"), os.path.join(final, "result.txt.tmp.1"))
     with open(os.path.join(marks, "now.json"), "w") as handle:
         json.dump(got, handle)
     if os.fork() == 0:  # 같은 프로세스 그룹 자식: 실행이 끝나면 하네스가 그룹째 끝내야 한다
@@ -45,8 +50,8 @@ def lingerer(task, out_dir):
             os.dup2(fd, n)
         time.sleep(1.0)
         late = {}
-        _try(late, "append_final", lambda: open(os.path.join(final, "result.txt"), "a").write("changed"))
-        _try(late, "append_staging", lambda: open(os.path.join(out_dir, "result.txt"), "a").write("changed"))
+        _try(late, "append_final", _append, os.path.join(final, "result.txt"))
+        _try(late, "append_staging", _append, os.path.join(out_dir, "result.txt"))
         with open(os.path.join(marks, "late.json"), "w") as handle:
             json.dump(late, handle)
         os._exit(0)
@@ -71,7 +76,7 @@ def shaper(task, out_dir):
         os.symlink(os.path.join(root, "tasks"), out_dir)
     else:
         got = {}
-        _try(got, "write_other", lambda: open(os.path.join(root, "tasks", "other", "done.json"), "w").write("{}"))
+        _try(got, "write_other", _append, os.path.join(root, "tasks", "other", "done.json"))
         with open(path, "w") as handle:
             json.dump(got, handle)
     return ["result.txt"]
@@ -84,7 +89,7 @@ def reader(task, out_dir):
     with open(copy, "rb") as handle:
         seen = hashlib.sha256(handle.read()).hexdigest()
     got = {"seen": seen}
-    _try(got, "write_input_copy", lambda: open(copy, "a").write("x"))
+    _try(got, "write_input_copy", _append, copy)
     with open(os.path.join(out_dir, "metrics.json"), "w") as handle:
         json.dump(got, handle)
     return ["metrics.json"]

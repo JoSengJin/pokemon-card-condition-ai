@@ -10,8 +10,9 @@
 - 실행기는 주입한다: runner(argv, env) -> (종료 코드, 표준 출력) 또는 (종료 코드, 표준 출력, 추가 dict). 기본은 default_runner.
   default_runner는 stdout·stderr를 두 스레드로 함께 읽어 교착을 막고, 무출력 시간(idle_s)·총 시간(total_s)을 넘기면 프로세스
   그룹(start_new_session)을 TERM → KILL_GRACE_S 뒤 KILL로 끝낸다. 추가 dict: stderr, cause(timeout_idle|timeout_total|None), signal.
-  claude가 끝난 뒤에도 그룹 밖(setsid) 자손이 파이프를 쥐고 있으면 총 시간 안에서 최대 KILL_GRACE_S만 더 읽고 돌아오며 원인을
-  timeout_total로 남긴다(검증 결함 F6). 시간 제한 원인이 있는 실행은 run_once가 성공으로 보지 않는다.
+  claude가 끝난 뒤에도 그룹 밖(setsid) 자손이 파이프를 쥐고 있으면 최대 KILL_GRACE_S만 더 읽고 돌아오며 원인을 timeout_total로 남긴다
+  (검증 결함 F6). 정상 종료 뒤 읽기 대기는 총 시간과 무관하게 KILL_GRACE_S다(2차 결함 G12). 시간 제한 원인이 있는 실행은 run_once가 성공으로
+  보지 않는다.
 - 기본 제한(임시값, 인계 참조): 무출력 IDLE_S 30분, 총 TOTAL_S 3시간. 실환경 출력 간격은 미확인이다.
 - 세션 복원 불가 판정(session_unrecoverable)은 실환경(Claude Code 2.1.310, artifacts/harness-resume-20261127/c-realenv/t4-bogus-resume.jsonl)에서
   확보한 '없는 세션 --resume' 출력과 정확히 같은 형식만 인정한다(UNRECOVERABLE_ERROR). 조금이라도 다르면 복원 불가로 보지 않는다.
@@ -89,8 +90,11 @@ def default_runner(argv, env, pidfile=None, stamp=None, cwd=None, idle_s=IDLE_S,
         os.killpg(proc.pid, signal.SIGKILL)  # 정상 종료 뒤 남은 하위 프로세스(같은 그룹)도 정리한다: 파이프를 쥔 채 남지 않게
     except (ProcessLookupError, PermissionError):
         pass
-    for pump in pumps:  # 그룹 밖(새 세션) 자손이 파이프를 쥐면 EOF가 오지 않는다: 총 시간 안(최대 KILL_GRACE_S)까지만 기다린다
-        pump.join(max(0.0, min(KILL_GRACE_S, start + total_s - time.monotonic())))
+    # 남은 출력을 다 읽을 시간: 정상 종료면 총 시간과 무관하게 KILL_GRACE_S(2차 결함 G12: 총 시간 직전에 끝난 실행의 출력을 잘라 timeout으로
+    # 보지 않게), 시간 제한으로 끊었으면 남은 총 시간까지. 그룹 밖(새 세션) 자손이 파이프를 쥐면 EOF가 오지 않으므로 이 시간까지만 기다린다
+    deadline = time.monotonic() + (KILL_GRACE_S if cause is None else max(0.0, min(KILL_GRACE_S, start + total_s - time.monotonic())))
+    for pump in pumps:
+        pump.join(max(0.0, deadline - time.monotonic()))
     if any(pump.is_alive() for pump in pumps):  # shortcut: 남은 읽기 스레드(daemon)는 그 자손이 끝날 때까지 남는다(죽일 pid를 모른다)
         cause = cause or "timeout_total"
     code = proc.returncode
@@ -109,11 +113,13 @@ def help_text(claude_bin, runner, env, argv):
 
 
 def session_unrecoverable(found, resumed):
-    """--resume <resumed> 실패 출력이 '세션 복원 불가'를 확인해 주는가. 실환경에서 확보한 형식만 True다: 종료 코드 1, result 이벤트의
+    """--resume <resumed> 실패 출력이 '세션 복원 불가'를 확인해 주는가. 실환경에서 확보한 형식만 True다: 종료 코드가 정확히 int 1, stdout의
+    비어 있지 않은 줄이 그 result 이벤트 하나뿐(ratelimit.scan의 events 1·bad_lines 0, 실환경 t4-bogus-resume.jsonl도 한 줄, 2차 결함 G8),
     subtype=error_during_execution, is_error=true, num_turns=0(정수), errors가 정확히 [UNRECOVERABLE_ERROR % resumed] 하나.
-    그 밖(다른 ID·문구·대소문자·추가 오류·종료 코드·한도 이벤트 등)은 False(DESIGN 12절, 작업 계약 2단계 R4)."""
+    그 밖(다른 ID·문구·대소문자·추가 오류·앞뒤의 다른 줄·종료 코드·한도 이벤트 등)은 False(DESIGN 12절, 작업 계약 2단계 R4)."""
     result = found.get("result")
-    return isinstance(resumed, str) and bool(resumed) and found.get("returncode") == 1 and not found.get("limited") \
+    return isinstance(resumed, str) and bool(resumed) and type(found.get("returncode")) is int and found["returncode"] == 1 \
+        and found.get("events") == 1 and found.get("bad_lines") == 0 and not found.get("limited") \
         and isinstance(result, dict) and result.get("subtype") == "error_during_execution" and result.get("is_error") is True \
         and type(result.get("num_turns")) is int and result["num_turns"] == 0 \
         and result.get("errors") == [UNRECOVERABLE_ERROR % resumed]
