@@ -115,3 +115,18 @@ class RunnerProcessTest(unittest.TestCase):
             self.assertEqual(len(glob.glob(os.path.join(marks, "N%d-run-*" % i))), 1)  # 독립 작업은 한 번 실행됐다
             self.assertEqual(states.classify(os.path.join(root, "tasks", kf), T0, lease.is_alive), states.VERIFIED)
             self.assertEqual(ledger.verify(os.path.join(root, "ledger.jsonl")), [])
+
+    def test_damaged_ledger_chain_stops_the_whole_drain_with_an_integrity_exit_code(self):
+        with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as marks:
+            keys = [queue.enqueue(root, task(n), T0) for n in ("A", "B")]
+            path = os.path.join(root, "ledger.jsonl")
+            text = pathlib.Path(path).read_text()
+            pathlib.Path(path).write_text('"task_typX"'.join(text.rsplit('"task_type"', 1)))  # 마지막 줄 변조(해시 불일치)
+            proc = spawn_runner(root, marks)
+            self.addCleanup(proc.kill)
+            summary = json.loads(proc.communicate(timeout=120)[0])
+            self.assertEqual(proc.returncode, 3)  # 0이 아니다
+            self.assertTrue(summary["integrity"].startswith("INTEGRITY: "))
+            self.assertEqual((summary["done"], summary["executed"], glob.glob(os.path.join(marks, "*"))), ([], 0, []))  # 아무 작업도 실행하지 않았다
+            for key in keys:
+                self.assertFalse(os.path.exists(os.path.join(root, "tasks", key, "lease.json")))  # 작업권을 쥔 채 죽지 않았다

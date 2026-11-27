@@ -51,3 +51,19 @@ class LeaseTest(unittest.TestCase):
                 with open(path, "w") as handle:
                     handle.write(text)
                 self.assertEqual(lease.read(path), want, text)
+
+    def test_release_twice_is_safe_and_never_closes_a_reused_fd(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            handle = lease.lock(os.path.join(tmp, "lease.json"))
+            lease.release(handle)
+            lease.release(handle)  # 이미 닫힌 fd: EBADF 없이 무시
+            other = open(os.path.join(tmp, "other"), "w")
+            if other.fileno() != handle.fd:
+                os.dup2(other.fileno(), handle.fd)  # 닫힌 fd 번호가 다른 파일에 재사용된 상황
+            try:
+                lease.release(handle)
+                os.fstat(handle.fd)  # 남의 fd를 닫지 않았다
+            finally:
+                if other.fileno() != handle.fd:
+                    os.close(handle.fd)
+                other.close()

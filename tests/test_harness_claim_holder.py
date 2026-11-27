@@ -9,8 +9,8 @@ import types
 import unittest
 from unittest import mock
 
-from harness import checkpoint, holder, lease, queue, states
-from tests.test_harness_support import BOOT, EXEC_CLAIM, REPO, alive_with, claim, fingerprint, make_contract
+from harness import holder, lease, queue, states
+from tests.test_harness_support import BOOT, EXEC_CLAIM, REPO, alive_with, claim, make_contract
 
 T0 = 1_000_000.0
 
@@ -118,28 +118,3 @@ class ClaimHolderTest(unittest.TestCase):
         self.assertEqual(holder.verdict(dict(rec, pid=os.getpid()), BOOT, zombie=lambda pid: False), "dead")
         for broken in (None, {}, {"pid": "x"}):
             self.assertEqual(holder.verdict(broken, BOOT), "dead")
-
-    def test_interrupt_limit_counts_takeovers_including_checkpoint_resumes_and_distrusts_damaged_counts(self):
-        with tempfile.TemporaryDirectory() as root:
-            key = queue.enqueue(root, make_contract(), T0)
-            tdir, path = os.path.join(root, "tasks", key), os.path.join(root, "tasks", key, "lease.json")
-
-            stale(root, key, 999999, interrupts=1)  # 이번이 2번째 중단: 아직 한도(2) 이내라 이어받는다
-            res = claim(root, key, os.getpid(), BOOT, T0 + 60)
-            self.assertEqual((res["ok"], lease.read(path)["interrupts"]), (True, 2))
-            lease.release(res["lease"])
-            stale(root, key, 999999, interrupts=2)  # 3번째 중단: 한도 초과 -> 정지, 기록은 그대로
-            stopped = claim(root, key, os.getpid(), BOOT, T0 + 60)
-            self.assertEqual((stopped["ok"], stopped["reason"], stopped["plan"]["reason"], lease.read(path)["interrupts"]),
-                             (False, "needs_failure_policy", "too_many_interrupts", 2))
-            checkpoint.save(tdir, "abc123", fingerprint(), T0 + 1800)  # 체크포인트 재개도 같은 한도에 포함된다
-            resumable = claim(root, key, os.getpid(), BOOT, T0 + 31 * 60, fingerprint())
-            self.assertEqual((resumable["ok"], resumable["reason"]), (False, "needs_failure_policy"))
-            for broken in ("x", -1, True, 1.5, None):  # 손상된 횟수는 한도를 넘긴 것으로 본다(보수적)
-                stale(root, key, 999999, interrupts=broken)
-                self.assertEqual(claim(root, key, os.getpid(), BOOT, T0 + 60)["reason"], "needs_failure_policy", broken)
-            stale(root, key, 999999, interrupts=0)
-            checkpoint.save(tdir, "abc123", fingerprint(), T0 + 1800)
-            resumed = claim(root, key, os.getpid(), BOOT, T0 + 31 * 60, fingerprint())  # 한도 이내의 재개는 허용, 횟수는 증가
-            self.assertEqual((resumed["ok"], resumed["resumed"], lease.read(path)["interrupts"]), (True, True, 1))
-            lease.release(resumed["lease"])

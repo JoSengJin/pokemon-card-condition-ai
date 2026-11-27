@@ -47,7 +47,7 @@ class RunnerErrorsTest(unittest.TestCase):
             self.assertEqual((summary["done"], sorted(summary["failed"])), ([], sorted([[k, "deterministic"] for k in keys])))
             self.assertTrue(all(not os.path.exists(os.path.join(root, "tasks", k, "lease.json")) for k in keys))
 
-    def test_failure_record_error_stops_only_that_task(self):
+    def test_failure_record_error_stops_only_that_task_even_when_only_the_ledger_write_fails(self):
         with tempfile.TemporaryDirectory() as root:
             bad, good = queue.enqueue(root, task("BAD", task_type="bad"), T0), queue.enqueue(root, task("GOOD", task_type="ok"), T0)
             executors = {"bad": lambda t, o: raise_(TypeError("x")), "ok": write_result}
@@ -55,6 +55,14 @@ class RunnerErrorsTest(unittest.TestCase):
                 summary = runner.drain(root, executors, now_fn=lambda: T0)
             self.assertEqual(summary["done"], [good])
             self.assertTrue(summary["stopped"][bad].startswith("fail_record_error: QueueError"))
+        with tempfile.TemporaryDirectory() as root:  # queue.fail 안쪽에서 장부 쓰기만 실패: fail의 finally가 이미 작업권을 닫았다
+            bad, good = queue.enqueue(root, task("BAD", task_type="bad"), T0), queue.enqueue(root, task("GOOD", task_type="ok"), T0)
+            hook = functools.partial(failing_on, "failed", OSError("장부 쓰기 실패(실패 기록 직후)"), ledger.append)
+            with mock.patch.object(queue.ledger, "append", side_effect=hook):
+                summary = runner.drain(root, executors, now_fn=lambda: T0)  # 이중 해제로 EBADF가 나면 여기서 중단된다
+            self.assertEqual(summary["done"], [good])
+            self.assertTrue(summary["stopped"][bad].startswith("fail_record_error: OSError"))
+            self.assertEqual(states.classify(os.path.join(root, "tasks", bad), T0, alive_with()), states.FAILED)  # 실패 기록은 남았다
 
     def test_claim_recording_error_stops_only_that_task_and_leaves_no_lease(self):
         with tempfile.TemporaryDirectory() as root:
