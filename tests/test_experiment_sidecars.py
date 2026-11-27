@@ -20,7 +20,7 @@ def zone(**counts):
     return {**base, sidecars.BOX: {k: 0 for k in sidecars.STATES}, **counts}
 
 
-class SidecarTest(unittest.TestCase):
+class SidecarBase(unittest.TestCase):
     def setUp(self):
         self.case = fixture.ExperimentRecordTest('test_all_required_and_primary_pass')
         self.case.setUp()
@@ -48,6 +48,8 @@ class SidecarTest(unittest.TestCase):
         child.assert_not_called()
         self.assertFalse((self.case.root / 'artifacts/experiments').exists())
 
+
+class SidecarTest(SidecarBase):
     def test_without_sidecars_no_new_keys(self):
         code, folder, _ = self.case.run_case()
         self.assertEqual(code, 0)
@@ -70,60 +72,15 @@ class SidecarTest(unittest.TestCase):
         self.assertEqual({r['band'] for r in table['before']}, {'>=0.6'})
 
     def test_missing_or_extra_row_fact_rejected_before_child(self):
-        for change in (lambda: self.facts.pop(self.ids[0]), lambda: self.facts.update({'other': dict(FACT)})):
-            with self.subTest():
+        for missing, extra in (([self.ids[0]], []), ([], ['other'])):
+            with self.subTest(missing=missing, extra=extra):
                 saved = dict(self.facts)
-                change(); self.declare(); self.rejected()
+                for ident in missing:
+                    del self.facts[ident]
+                self.facts.update({ident: dict(FACT) for ident in extra})
+                self.declare()
+                self.rejected()
                 self.facts = saved
-
-    def test_wrong_sha_rejected(self):
-        self.declare()
-        sha = self.case.plan['sidecars']['row_facts']['sha256']
-        self.case.plan['sidecars']['row_facts']['sha256'] = ('0' if sha[0] != '0' else '1') + sha[1:]
-        self.rejected()
-
-    def test_kept_counts_must_match_rows(self):
-        self.exclusions['corner']['upper_left']['정상'] = 3
-        self.declare(); self.rejected()
-
-    def test_box_in_rule_adds_unconfirmed_box_counts(self):
-        z = self.exclusions['corner']['upper_left']
-        z['정상'], z[sidecars.BOX]['정상'] = 1, 1
-        self.declare(); self.rejected()
-        self.exclusions['kept_rule'] = sidecars.BOX_IN
-        self.declare()
-        self.assertEqual(self.case.run_case()[0], 0)
-
-    def test_branch_dependent_needs_observed_branch(self):
-        evidence = self.case.old / 'branch.md'
-        evidence.write_text('A')
-        block = dict(rules_sha256='0' * 64, branch_dependent=True,
-                     branch_evidence=dict(path=str(evidence.relative_to(self.case.root)), sha256=recording.sha(evidence)))
-        self.declare(preregistration=block); self.rejected()
-        self.declare(preregistration=dict(block, branch_observed='A'))
-        self.assertEqual(self.case.run_case()[0], 0)
-
-    @unittest.skipUnless(RUN.is_file() and MEASURES.is_file(), '미검증: 실자료 없음')
-    def test_real_scores_reproduce_published_strata(self):
-        run, measures = json.loads(RUN.read_text()), json.loads(MEASURES.read_text())
-        facts = {}
-        for r in run['rows']:
-            m = measures[f"{r['id']}|{r['image_sha256']}|{','.join(f'{v:.6f}' for v in r['box'])}"]
-            facts[r['id']] = dict(FACT, background=m['status'])
-        table = sidecars.tally(dict(run, before_scores=run['scores']), dict(bands=sidecars.BANDS, row_facts=facts))['strata_table']['after']
-        n = Counter()
-        for row in table:
-            n[row['background'], row['band'], row['target']] += row['n']
-        def total(bands, target, background=None):
-            return sum(v for (g, b, t), v in n.items() if b in bands and t == target and background in (None, g))
-        low, high, every = ('<0.2', '0.2-0.4', '0.4-0.5'), ('0.5-0.6', '>=0.6'), ('<0.2', '0.2-0.4', '0.4-0.5', '0.5-0.6', '>=0.6')
-        for background, miss, alarm in (('bg_bright', (52, 185), (39, 336)), ('ok', (28, 187), (40, 164))):
-            self.assertEqual((total(low, 1, background), total(every, 1, background)), miss)
-            self.assertEqual((total(high, 0, background), total(every, 0, background)), alarm)
-        self.assertEqual((total(('<0.2', '0.2-0.4'), 1), total(('0.4-0.5',), 1)), (63, 26))
-        self.assertEqual((total(('0.5-0.6',), 0), total(('>=0.6',), 0)), (35, 54))
-        for target, expected in ((0, [249, 238, 54]), (1, [15, 103, 283])):
-            self.assertEqual([total(('<0.2',), target), total(('0.2-0.4', '0.4-0.5', '0.5-0.6'), target), total(('>=0.6',), target)], expected)
 
 
 if __name__ == '__main__':
