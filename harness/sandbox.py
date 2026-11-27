@@ -15,13 +15,15 @@
   물려받아 그 실행 폴더 밖에는 쓰지 못하고, 확정 out/은 바꾸지 못한다. 표준 출력은 이름 없는 임시 파일로 받아(파이프 아님) 그런 자손이
   쥐고 있어도 runner가 기다리지 않는다.
 - 프로필: 쓰기 기본 거절. launchd·LaunchServices·AppleScript를 거쳐 sandbox 밖에서 명령을 돌리는 실행 파일(DENY_EXEC) 실행과 Apple Event
-  보내기도 거절한다. 실제 경로(realpath)로 적는다.
+  보내기도 거절한다. 3차 결함 H9: 네트워크 전부(network*: 로컬·외부 TCP·UDP·bind·유닉스 소켓. executor 계약에 네트워크가 필요 없다:
+  모델 가중치 내려받기 같은 네트워크가 필요한 executor는 실패하며, 켜려면 별도 결정), localhost 나가기, LaunchServices 열기(lsopen),
+  launchservicesd mach-lookup도 거절한다(DENY_MORE). 실제 경로(realpath)로 적는다.
 - sandbox-exec가 없거나 시험 실행이 실패하면 available()이 False이고 runner는 executor를 실행하지 않는다(fail-closed).
 - 결과: 자식이 마지막 줄에 JSON({"ok": true, "produced"} | {"ok": false, "kind", "error"})을 낸다. 자식이 신호로 죽으면 kind=interrupted
   (runner가 작업권을 남겨 다음 claim이 INTERRUPTED 규칙대로 다룬다), JSON이 없거나 산출물을 거절하면 deterministic.
 - 한계(인계): 같은 macOS 사용자의 다른 프로세스(Codex·대화형 Claude·사용자 셸)는 막지 못한다(OS 사용자 분리 D-7 보류). sandbox는 쓰기·
-  위 실행 파일만 막는다(읽기·네트워크·프로세스 신호는 막지 않는다). executor 코드가 실행 파일 없이 launchd에 직접 XPC/mach 요청을 보내는
-  경로는 막지 못한다(시스템 상태를 바꾸는 시험이라 하지 않았다). sandbox-exec는 Apple이 폐기 예정으로 표시한 도구다. 홈 캐시(~/.cache 등)에
+  위 실행 파일·네트워크·lsopen·launchservicesd 조회만 막는다(읽기·프로세스 신호·그 밖의 mach/XPC 서비스는 막지 않는다). executor 코드가
+  실행 파일 없이 launchd 자체(bootstrap)나 다른 XPC 서비스에 직접 요청을 보내는 경로는 막지 못한다(시스템 상태를 바꾸는 시험이라 하지 않았다). sandbox-exec는 Apple이 폐기 예정으로 표시한 도구다. 홈 캐시(~/.cache 등)에
   써야 하는 라이브러리는 sandbox 안에서 실패한다(TMPDIR·staging만 쓸 수 있다).
 호출 깊이: sandboxed·run_one → profile·safefs.open_regular·safefs.replace_new(말단) 1.
 """
@@ -42,6 +44,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHILD = [sys.executable, "-m", "harness.sandbox_child"]
 DEVICES = ("/dev/null",)  # 쓰기를 허용하는 장치 파일(이것뿐)
 DENY_EXEC = ("/bin/launchctl", "/usr/bin/open", "/usr/bin/osascript")  # sandbox 밖(launchd·LaunchServices·AppleScript)에서 명령을 돌리는 도구
+DENY_MORE = ('(deny network*)', '(deny network-outbound (remote ip "localhost:*"))', '(deny lsopen)',
+             '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd"))')  # 3차 결함 H9(이 macOS에서 문법·효과 확인)
 
 
 class ChildError(Exception):
@@ -59,7 +63,8 @@ def profile(root, run_dir=None):
         raise ValueError("실행 폴더는 하네스 root·저장소 밖이어야 한다")
     grant = ['(subpath "%s")' % os.path.join(run, sub) for sub in ("out", "tmp") if run] + ['(literal "%s")' % d for d in DEVICES]
     return "\n".join(['(version 1)', '(allow default)', '(deny file-write*)', '(allow file-write* %s)' % " ".join(grant),
-                      '(deny process-exec %s)' % " ".join('(literal "%s")' % p for p in DENY_EXEC), '(deny appleevent-send)'])
+                      '(deny process-exec %s)' % " ".join('(literal "%s")' % p for p in DENY_EXEC), '(deny appleevent-send)']
+                     + list(DENY_MORE))
 
 
 def available():
