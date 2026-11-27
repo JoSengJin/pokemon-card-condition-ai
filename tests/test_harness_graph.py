@@ -70,3 +70,10 @@ class GraphTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             with self.assertRaises(graph.GraphError):
                 graph.register_missing(root, {"0" * 64: make_contract()}, T0, alive_with())
+
+    def test_register_missing_validates_each_contract_before_writing_it(self):
+        with tempfile.TemporaryDirectory() as root:
+            invalid = make_contract(outputs=[])  # 키는 계약 해시와 맞지만 계약 자체가 규칙 위반
+            with self.assertRaises(contract.ContractError):
+                graph.register_missing(root, {contract.task_key(invalid): invalid}, T0, alive_with())
+            self.assertFalse(os.path.exists(os.path.join(root, "tasks", contract.task_key(invalid))))

@@ -30,8 +30,13 @@ def flaky(task, out_dir):
     return _compute(task, out_dir)
 
 
-def buggy(task, out_dir):
+def poison(task, out_dir):
+    """task_type에 따라 비정상 동작: buggy=코드 오류, exiter=sys.exit(), oom=SIGKILL(메모리 부족 강제 종료 모사)."""
     _mark(task, "run")
+    if task["task_type"] == "exiter":
+        raise SystemExit(3)
+    if task["task_type"] == "oom":
+        os.kill(os.getpid(), 9)
     raise TypeError("코드 오류 주입")
 
 
@@ -44,4 +49,4 @@ def slow(task, out_dir):
     return calc(task, out_dir)
 
 
-EXECUTORS = {"calc": calc, "flaky": flaky, "buggy": buggy, "slow": slow}
+EXECUTORS = {"calc": calc, "flaky": flaky, "slow": slow, "buggy": poison, "exiter": poison, "oom": poison}

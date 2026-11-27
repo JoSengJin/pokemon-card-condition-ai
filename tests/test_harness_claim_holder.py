@@ -9,16 +9,16 @@ import types
 import unittest
 from unittest import mock
 
-from harness import holder, lease, queue, states
-from tests.test_harness_support import BOOT, claim, EXEC_CLAIM, REPO, alive_with, make_contract
+from harness import checkpoint, holder, lease, queue, states
+from tests.test_harness_support import BOOT, EXEC_CLAIM, REPO, alive_with, claim, fingerprint, make_contract
 
 T0 = 1_000_000.0
 
 
-def stale(root, key, pid, boot=BOOT):
-    """주인이 없는 작업권 파일(잠금은 풀려 있고 기록만 남음)을 만든다."""
+def stale(root, key, pid, boot=BOOT, **extra):
+    """주인이 없는 작업권 파일(잠금은 풀려 있고 기록만 남음)을 만든다. extra는 기록에 더할 필드(예: interrupts)."""
     handle = lease.lock(os.path.join(root, "tasks", key, "lease.json"))
-    lease.stamp(handle, pid, boot, T0, {"run_id": "abc123"})
+    lease.stamp(handle, pid, boot, T0, dict({"run_id": "abc123"}, **extra))
     lease.release(handle)
 
 
@@ -31,8 +31,12 @@ class ClaimHolderTest(unittest.TestCase):
                 claim(root, key, os.getpid() + 1, BOOT, T0)
             with self.assertRaises(queue.QueueError):  # boot도 lease.boot_id()와 같아야 한다(호출자가 지어낼 수 없다)
                 claim(root, key, os.getpid(), "지어낸-부팅", T0)
-            with self.assertRaises(queue.QueueError):  # 주입 없이 실제 조회값과 비교한다
-                queue.claim(root, key, os.getpid(), BOOT, T0, boot_id_fn=lambda: "다른")
+            with self.assertRaises(queue.QueueError):  # 실제 lease.boot_id()와 비교한다(BOOT는 이 기기의 부팅 식별자가 아니다)
+                queue.claim(root, key, os.getpid(), BOOT, T0)
+            with self.assertRaises(TypeError):  # 공개 인자로는 부팅 식별자 조회를 바꿀 수 없다(G 우회 불가)
+                queue.claim(root, key, os.getpid(), "가짜", T0, None, lambda: "가짜")
+            with self.assertRaises(TypeError):
+                queue.claim(root, key, os.getpid(), "가짜", T0, boot_id_fn=lambda: "가짜")
             self.assertFalse(os.path.exists(os.path.join(root, "tasks", key, "lease.json")))
             self.assertEqual(pathlib.Path(root, "ledger.jsonl").read_text(), before)
             if sys.platform == "darwin":  # 주입 없이 실제 부팅 식별자로는 성공한다
@@ -114,3 +118,28 @@ class ClaimHolderTest(unittest.TestCase):
         self.assertEqual(holder.verdict(dict(rec, pid=os.getpid()), BOOT, zombie=lambda pid: False), "dead")
         for broken in (None, {}, {"pid": "x"}):
             self.assertEqual(holder.verdict(broken, BOOT), "dead")
+
+    def test_interrupt_limit_counts_takeovers_including_checkpoint_resumes_and_distrusts_damaged_counts(self):
+        with tempfile.TemporaryDirectory() as root:
+            key = queue.enqueue(root, make_contract(), T0)
+            tdir, path = os.path.join(root, "tasks", key), os.path.join(root, "tasks", key, "lease.json")
+
+            stale(root, key, 999999, interrupts=1)  # 이번이 2번째 중단: 아직 한도(2) 이내라 이어받는다
+            res = claim(root, key, os.getpid(), BOOT, T0 + 60)
+            self.assertEqual((res["ok"], lease.read(path)["interrupts"]), (True, 2))
+            lease.release(res["lease"])
+            stale(root, key, 999999, interrupts=2)  # 3번째 중단: 한도 초과 -> 정지, 기록은 그대로
+            stopped = claim(root, key, os.getpid(), BOOT, T0 + 60)
+            self.assertEqual((stopped["ok"], stopped["reason"], stopped["plan"]["reason"], lease.read(path)["interrupts"]),
+                             (False, "needs_failure_policy", "too_many_interrupts", 2))
+            checkpoint.save(tdir, "abc123", fingerprint(), T0 + 1800)  # 체크포인트 재개도 같은 한도에 포함된다
+            resumable = claim(root, key, os.getpid(), BOOT, T0 + 31 * 60, fingerprint())
+            self.assertEqual((resumable["ok"], resumable["reason"]), (False, "needs_failure_policy"))
+            for broken in ("x", -1, True, 1.5, None):  # 손상된 횟수는 한도를 넘긴 것으로 본다(보수적)
+                stale(root, key, 999999, interrupts=broken)
+                self.assertEqual(claim(root, key, os.getpid(), BOOT, T0 + 60)["reason"], "needs_failure_policy", broken)
+            stale(root, key, 999999, interrupts=0)
+            checkpoint.save(tdir, "abc123", fingerprint(), T0 + 1800)
+            resumed = claim(root, key, os.getpid(), BOOT, T0 + 31 * 60, fingerprint())  # 한도 이내의 재개는 허용, 횟수는 증가
+            self.assertEqual((resumed["ok"], resumed["resumed"], lease.read(path)["interrupts"]), (True, True, 1))
+            lease.release(resumed["lease"])

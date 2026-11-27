@@ -98,3 +98,16 @@ class StateGuardsTest(unittest.TestCase):
             again = claim(root, key, os.getpid(), BOOT, T0 + 2)  # 보관본도 손상: 새로 실행한다
             self.assertEqual((again["ok"], again["plan"]["action"]), (True, "rerun"))
             lease.release(again["lease"])
+
+    def test_complete_refuses_a_contract_that_no_longer_matches_its_task_key(self):
+        with tempfile.TemporaryDirectory() as root:
+            key = queue.enqueue(root, make_contract(), T0)
+            res = claim(root, key, os.getpid(), BOOT, T0)
+            path = pathlib.Path(root, "tasks", key, "contract.json")
+            path.write_text(json.dumps(dict(json.loads(path.read_text()), risk="high")))  # outputs는 그대로, 다른 필드만 변조
+            pathlib.Path(root, "tasks", key, "out").mkdir()
+            pathlib.Path(root, "tasks", key, "out", "result.txt").write_text("x")
+            with self.assertRaises(queue.QueueError):
+                queue.complete(root, key, res["run_id"], res["lease"], T0 + 1)
+            self.assertFalse(os.path.exists(os.path.join(root, "tasks", key, "done.json")))
+            lease.release(res["lease"])

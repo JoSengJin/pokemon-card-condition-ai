@@ -7,10 +7,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 from harness import ledger, lease, queue, runner, states
-from tests.test_harness_runner_kit import count, link_result, run, task, write_result
+from tests.test_harness_runner_kit import count, link_result, llm_free_violations, run, task, write_result
 from tests.test_harness_support import BOOT, REPO, RUNNER_PATH, alive_with
 
 T0 = 1_000_000.0
@@ -25,7 +26,14 @@ class RunnerTest(unittest.TestCase):
             dep = queue.enqueue(root, task("D", depends_on=[llm]), T0)
             dep2 = queue.enqueue(root, task("D2", depends_on=[dep]), T0)  # LLM 작업에 간접으로 의존
             self.assertIsNone(shutil.which("claude", path=RUNNER_PATH))  # runner 환경 PATH에 claude가 없다
-            summary = run(self, root, marks)
+            fake = pathlib.Path(root, "..", os.path.basename(marks) + "-bin").resolve()  # PATH 맨 앞의 가짜 claude: 호출하면 기록한다
+            fake.mkdir()
+            self.addCleanup(shutil.rmtree, str(fake))
+            fake.joinpath("claude").write_text('#!/bin/sh\necho called >> "%s/calls"\n' % fake)
+            fake.joinpath("claude").chmod(0o755)
+            summary = run(self, root, marks, extra_env={"PATH": "%s:%s" % (fake, RUNNER_PATH)})
+            time.sleep(0.5)  # 비동기로 띄운 호출이 있었다면 기록이 남을 시간
+            self.assertFalse(fake.joinpath("calls").exists())  # claude 호출 0회
             self.assertEqual((sorted(summary["done"]), summary["failed"], summary["stopped"]), (sorted([a, b]), [], {}))
             self.assertEqual((summary["untouched"]["llm"], summary["untouched"]["llm_dependents"]), ([llm], sorted([dep, dep2])))
             alive = alive_with()
@@ -42,21 +50,13 @@ class RunnerTest(unittest.TestCase):
             self.assertEqual(ledger.verify(path), [])
             self.assertEqual(sorted(e["data"]["task_key"] for e in events if e["event"] == "claimed"), sorted([a, b]))
 
-    def test_runner_source_has_no_llm_or_network_imports_or_calls(self):
+    def test_runner_source_passes_the_static_llm_free_check_and_bypasses_are_caught(self):
         src = pathlib.Path(REPO, "harness", "runner.py").read_text()
-        tree, imported, called = ast.parse(src), set(), set()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                imported |= {a.name.split(".")[0] for a in node.names}
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                imported.add(node.module.split(".")[0])
-            elif isinstance(node, ast.Attribute):
-                called.add(node.attr)
-        banned = {"subprocess", "socket", "ssl", "urllib", "http", "requests", "anthropic", "openai", "asyncio", "multiprocessing"}
-        self.assertEqual(imported & banned, set())
-        self.assertEqual(called & {"system", "popen", "Popen", "run", "execv", "execvp", "fork", "urlopen"}, set())
-        self.assertNotIn("claude", src.lower())
-        self.assertNotIn("anthropic", src.lower())
+        self.assertEqual(llm_free_violations(src), [])
+        for evil in ('\n_sp = importlib.import_module("sub" + "process")\n', "\nimport subprocess\n", "\nfrom socket import socket\n",
+                     '\n__import__("os").system("x")\n', '\nos.execv("/bin/sh", [])\n', '\nos.spawnl(0, "x")\n',
+                     '\nx = "Claude"\n', "\nimportlib.import_module('a')\nimportlib.import_module('b')\n"):
+            self.assertNotEqual(llm_free_violations(src + evil), [], evil)
 
     def test_transient_errors_retry_twice_then_stop_and_later_drains_leave_it_alone(self):
         with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as marks:
@@ -106,23 +106,26 @@ class RunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             noexec = queue.enqueue(root, task("NOEXEC", task_type="nobody"), T0)
             wrong = queue.enqueue(root, task("WRONG", task_type="wrong"), T0)
+            extra = queue.enqueue(root, task("EXTRA", task_type="extra"), T0)  # 선언보다 많은 출력을 돌려주는 executor
             fine = [queue.enqueue(root, task("F%d" % i, task_type="ok"), T0) for i in range(3)]
-
-            executors = {"wrong": lambda t, o: write_result(t, o) and ["other.txt"], "ok": write_result}
-            summary = runner.drain(root, executors, now_fn=lambda: T0, max_tasks=2, boot_id_fn=lambda: BOOT)
+            executors = {"wrong": lambda t, o: write_result(t, o) and ["other.txt"], "ok": write_result,
+                         "extra": lambda t, o: write_result(t, o) + ["extra.txt"]}
+            summary = runner.drain(root, executors, now_fn=lambda: T0, max_tasks=2)
             self.assertEqual(summary["executed"], 2)  # max_tasks를 지킨다
             self.assertEqual(summary["untouched"]["no_executor"], [noexec])
-            rest = runner.drain(root, executors, now_fn=lambda: T0, boot_id_fn=lambda: BOOT)
-            self.assertEqual(sorted(summary["done"] + rest["done"] + [wrong]), sorted(fine + [wrong]))
-            self.assertEqual([k for k, kind in rest["failed"]], [wrong] if wrong not in summary["failed"] else [])
-            self.assertEqual(states.classify(os.path.join(root, "tasks", wrong), T0, alive_with()), states.FAILED)
-            self.assertIn("OutputMismatch", states.failures(os.path.join(root, "tasks", wrong))[0]["error"])
+            rest = runner.drain(root, executors, now_fn=lambda: T0)
+            self.assertEqual(sorted(summary["done"] + rest["done"]), sorted(fine))
+            self.assertEqual(sorted(summary["failed"] + rest["failed"]), sorted([[wrong, "deterministic"], [extra, "deterministic"]]))
+            for key in (wrong, extra):  # 출력 목록이 선언과 다르면(적어도·많아도) 결정적 실패
+                tdir = os.path.join(root, "tasks", key)
+                self.assertEqual(states.classify(tdir, T0, alive_with()), states.FAILED)
+                self.assertIn("OutputMismatch", states.failures(tdir)[0]["error"])
 
     def test_unsafe_output_that_cannot_be_completed_becomes_a_deterministic_failure(self):
         with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as elsewhere:
             key = queue.enqueue(root, task("LINK", task_type="link"), T0)
 
-            summary = runner.drain(root, {"link": lambda t, o: link_result(o, elsewhere)}, now_fn=lambda: T0, boot_id_fn=lambda: BOOT)
+            summary = runner.drain(root, {"link": lambda t, o: link_result(o, elsewhere)}, now_fn=lambda: T0)
             self.assertEqual((summary["done"], summary["failed"]), ([], [[key, "deterministic"]]))
             tdir = os.path.join(root, "tasks", key)
             self.assertEqual(states.classify(tdir, T0, alive_with()), states.FAILED)

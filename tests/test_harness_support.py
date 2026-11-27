@@ -3,6 +3,7 @@ import functools
 import os
 import subprocess
 import sys
+from unittest import mock
 
 from harness import checkpoint, lease, queue
 
@@ -13,11 +14,12 @@ SHA_A = "ab" * 32
 
 WORKER = r'''
 import os, sys, time
-from harness import queue
+from harness import lease, queue
 root, key, boot, gate = sys.argv[1:5]
+lease.boot_id = lambda: boot  # 합성 부팅 식별자(claim은 lease.boot_id()와 대조한다)
 while not os.path.exists(gate):
     time.sleep(0.005)
-res = queue.claim(root, key, os.getpid(), boot, time.time(), boot_id_fn=lambda: boot)
+res = queue.claim(root, key, os.getpid(), boot, time.time())
 print("CLAIMED " + res["run_id"] if res["ok"] else "REFUSED " + res["reason"], flush=True)
 if res["ok"]:
     sys.stdin.readline()
@@ -27,12 +29,13 @@ CHURN = r'''
 import os, sys, time
 from harness import queue, lease
 root, key, boot, gate, rounds = sys.argv[1:6]
+lease.boot_id = lambda: boot
 print("READY", flush=True)  # 모두 준비된 뒤에 동시에 출발시키려고
 while not os.path.exists(gate):
     time.sleep(0.001)
 wins = overlaps = 0
 for _ in range(int(rounds)):
-    res = queue.claim(root, key, os.getpid(), boot, time.time(), boot_id_fn=lambda: boot)
+    res = queue.claim(root, key, os.getpid(), boot, time.time())
     if not res["ok"]:
         continue
     wins += 1
@@ -50,29 +53,34 @@ print(wins, overlaps, flush=True)
 
 EXEC_CLAIM = r'''
 import os, sys, time
-from harness import queue
+from harness import lease, queue
 root, key, boot = sys.argv[1:4]
-res = queue.claim(root, key, os.getpid(), boot, time.time(), boot_id_fn=lambda: boot)
+lease.boot_id = lambda: boot
+res = queue.claim(root, key, os.getpid(), boot, time.time())
 print("CLAIMED" if res["ok"] else "REFUSED", flush=True)
 os.execv("/bin/sleep", ["sleep", "30"])  # 같은 pid가 계속 실행되지만 잠금 fd(close-on-exec)는 사라진다
 '''
 
 FAIL_CRASH = r'''
 import os, sys, time
-from harness import queue
+from harness import lease, queue
 root, key, boot = sys.argv[1:4]
-res = queue.claim(root, key, os.getpid(), boot, time.time(), boot_id_fn=lambda: boot)
+lease.boot_id = lambda: boot
+res = queue.claim(root, key, os.getpid(), boot, time.time())
 queue.ledger.append = lambda *args: os.kill(os.getpid(), 9)  # 실패 기록 파일을 쓴 직후, 작업권 해제 전에 kill -9
 queue.fail(root, key, res["run_id"], res["lease"], "deterministic", "TypeError", time.time())
 '''
-
-claim = functools.partial(queue.claim, boot_id_fn=lambda: BOOT)  # 시험용 부팅 식별자 주입
-
 
 def make_contract(tag="a", depends_on=(), outputs=("result.txt",), inputs=None, needs_llm=False, task_type=None):
     return {"task_type": task_type or "unit-" + tag, "inputs": inputs or {"in.txt": SHA_A}, "outputs": list(outputs),
             "depends_on": list(depends_on), "needs_llm": needs_llm, "needs_vision": False,
             "risk": "low", "retry_policy": {}, "escalation_level": 0}
+
+
+def claim(root, key, pid, boot, now, current=None):
+    """queue.claim을 시험용 부팅 식별자(BOOT)로 부른다. 주입은 공개 인자가 아니라 lease.boot_id patch다."""
+    with mock.patch.object(lease, "boot_id", return_value=BOOT):
+        return queue.claim(root, key, pid, boot, now, current)
 
 
 def alive_with(boot=BOOT, pid_alive=None):
@@ -119,11 +127,3 @@ def dead_lease(root, key, started, run_id="r-dead", pid=999999):
 def fingerprint(**override):
     """체크포인트·현재 실행 지문(코드·자료 SHA, seed, 난수·옵티마이저·데이터 순서)."""
     return dict({name: "v-" + name for name in checkpoint.REQUIRED}, **override)
-
-
-def spawn_runner(root, marks, extra_env=None, args=()):
-    """실제 하위 프로세스로 runner를 실행한다. 환경은 새로 만든다: PATH에 claude 없음, 모델 관련 환경변수 없음."""
-    env = {"PATH": RUNNER_PATH, "HARNESS_MARK_DIR": marks, "PYTHONDONTWRITEBYTECODE": "1"}
-    env.update(extra_env or {})
-    return subprocess.Popen([sys.executable, "-m", "harness.runner", root, "tests.test_harness_executors:EXECUTORS",
-                             *args], cwd=REPO, env=env, stdout=subprocess.PIPE, text=True)
