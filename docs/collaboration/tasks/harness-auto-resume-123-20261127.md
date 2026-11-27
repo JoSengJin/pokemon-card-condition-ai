@@ -442,3 +442,109 @@ champion.restore_locked → cas.get → replace_new`(4). 동적 호출(정적 �
 
 - 전체: `git revert <인계 커밋> 8020053 442884f 1c62133`(역순). 운영 상태 형식 변화: 새 파일 `root/enqueue.lock`·`supervisor/declared_rejected.json`, 실험 작업 폴더 `in/`, 실험 계약 command 자리표시자 필수
   (되돌리면 `input_roles`가 다시 필수), `crash_resumes` 뜻 확대. 실운영 root는 아직 없다.
+
+### 3차 결함 수정
+
+작성: Claude(Opus 하위 에이전트), 2026-11-28. 근거: 독립 재검증 `verify-auto-resume-123-r3.md`(H1~H11, T3, T4, 생존 변이 7개), 실환경 `c-realenv/t4-bogus-resume.jsonl`.
+대상 `101bf8d..` 이 절의 커밋. push·main 통합 안 함. 실제 claude 실행·모델·외부 네트워크 호출·설치·시스템 설정 변경·사용자 서비스 접속·앱 실행 0회
+(로컬 통신은 시험이 직접 연 대기 소켓에 sandbox 안에서 접속을 시도해 거절되는 것만 확인). 자동 재개 목록 `claude_perm.AUTO_RESUME`·재실행 안전 목록
+`recovery.RERUN_SAFE_TYPES`는 계속 비어 있다(어떤 유형도 켜지 않음). 새 회귀 시험은 수정 전 코드에서 실패를 확인했고(아래 "수정 전"), 시험 공백(T3·T4)용
+단언은 수정 전에도 통과하므로 변이로 확인했다.
+
+#### 커밋
+
+| 묶음 | SHA | 결함 |
+|---|---|---|
+| 1 | `3ac39c6` | H1 code_sha 실제 코드 대조·needs_vision 우회 |
+| 2 | `9c21e8f` | H2 숫자 토큰 오거절 |
+| 3 | `6f42eba` | H6·H8·S30 자동 재개 근거 fail-closed |
+| 4 | `fe86096` | H9 sandbox 네트워크·lsopen·launchservicesd |
+| 5 | `b776f74`, `8baa6af`, `7137726` | H4·H5·H7·H10, T3·T4(S09·S10·S18·S26·S39) 시험, 반영 시험 보강, S39 시험 표식 대기(부하 때 경합) |
+| 6 | 이 문서 커밋 | 이 절 |
+
+#### 결함별 조치·회귀 시험
+
+| # | 조치 | 회귀 시험 | 수정 전 |
+|---|---|---|---|
+| H1 | `dedupe.verify_code`: 실험·학습·평가의 `code_sha`가 source_root(`git -C <source_root>`)의 최상위(`--show-toplevel` = source_root)·`rev-parse HEAD`(소문자)와 같고 `status --porcelain --untracked-files=no`가 비어 있어야(추적 파일 변경·스테이징 없음) 통과. git 실행 실패·저장소 아님·하위 폴더·다름은 ContractError(fail-closed, 그 작업만). 사용자 `GIT_*` 변수 제거, `GIT_OPTIONAL_LOCKS=0`(index 갱신 안 함), fsmonitor 끔. 등록(`verify_inputs` 안, enqueue·graph)과 `runner._execute` 실행 직전 둘 다. 64자는 HEAD가 64자(sha256 저장소)일 때만 같을 수 있다. 키의 code_sha = 대조한 HEAD. needs_llm=false면 needs_vision=true 거절, 키에서 needs_vision 제외 | `test_harness_code_sha`(다른 16진·64자·한 글자 다름·저장소 아님·추적 파일 변경·하위 폴더 → enqueue ContractError·graph rejected, 대문자 HEAD = 중복, 등록 뒤 새 커밋·변경 → executor 0회·결정적 실패, needs_vision) | 3개 모두 실패(등록됨·executor 1회) |
+| H2 | 정수 모양(앞자리 0 없음)은 부호 표기만 정규화(+5 = 5, -0 = 0: int 정확 비교와 같고 자릿수 제한 없음), 소수·지수는 자릿수+2 정밀도 `decimal`로 normalize(.5 = 0.5, 1e-3 = 0.001), 앞자리 0(`01`)·소수점 끝 0(`1.10`·`0.10`·`1.0`)·끝 점(`1.`)은 문자열 그대로. float·1e15 경계 제거 | `test_harness_dedupe_numbers`(다른 값 9쌍 등록, 같은 값 7쌍 중복) | 실패(`12345678901234567`/`…568` 중복) |
+| H6·S30 | `claude_job.pick`: 상태 파일이 깨진 JSON·dict 아님·`KNOWN`(new·running·rate_limited·blocked·done·failed·stale) 밖 status면 큐 PENDING일 때 그 작업만 `blocked`(`job_state_invalid: <앞 200자>`, crash_resumes 없음) + 장부 `claude_job_closed` + 알림 `claude_job_blocked` 한 번. `execute`: `crash_resumes` 없음·null·정수 아님(bool 포함)·음수는 상한 도달 | `test_harness_job_state` 1·2(5종 파일 × Supervisor 2회: 독립 작업만 실행·알림 1번, 7종 값 → held·claude 0회) | 둘 다 실패(새 세션 다시 열림, 키 없음 → --help 호출) |
+| H8 | `session_unrecoverable`에 `result.session_id == resumed` 추가(실환경 t4는 같음: 직접 확인) | `test_harness_job_state` 3(다른 ID·키 없음 False) | 실패(True) |
+| H9 | `sandbox.DENY_MORE`: `(deny network*)`, `(deny network-outbound (remote ip "localhost:*"))`, `(deny lsopen)`, `(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd"))`. 외부 네트워크도 거절(executor 계약에 네트워크가 필요 없다) | `test_harness_sandbox_deny`(실제 sandbox-exec: 시험이 연 TCP 대기 소켓 접속·UDP·0.0.0.0 bind·시험이 연 유닉스 소켓 접속 EPERM, 처리할 앱이 없는 URL 체계 `LSOpenCFURLRef` -54(거절 없으면 -10814 = 앱 없음, 부작용 없음), launchservicesd `bootstrap_look_up` 1100(이름 조회만), 같은 실행에서 정상 산출물 생성, 대기 소켓에 들어온 접속 0) | 실패(규칙 없음). 규칙을 뺀 수동 실행: 접속·bind ok, -10814, 0 |
+| H4 | `run_one`: 산출물을 연 순간의 fstat 크기까지만 복사(`safefs.replace_new(limit=)`), 크기가 `sandbox.MAX_OUTPUT_BYTES`(1 GiB) 초과 → EFBIG 결정적 실패, 표준 출력은 fstat 크기 기준 `MAX_STDOUT_BYTES`(16 MiB) 초과 → 결정적 실패·그만큼만 읽음, stderr는 끝 300바이트만 읽음 | `test_harness_output_commit` 4·5(상한 4096으로 1 MiB 희소 파일·100 KB 표준 출력 거절, 열어 잰 뒤 원본이 커져도 잰 크기만 복사(F_GETPATH로 원본에 덧붙이는 주입), replace_new limit) | 실패(속성·인자 없음) |
+| H5·S09 | 확정 out/은 실행 전에 `O_NOFOLLOW|O_DIRECTORY`로 연 fd로만 반영(링크면 executor 실행 전 ChildError). 산출물을 모두 검사해 하네스 소유 `작업 폴더/.out-pending-*`에 복사한 뒤 `safefs.publish`가 중간 폴더를 모두 O_NOFOLLOW로 열고(없으면 만듦) 자리가 폴더가 아닌지 본 뒤에야 `os.replace(dst_dir_fd)`로 옮김. 실패하면 임시 폴더 삭제, 확정 out/ 그대로 | `test_harness_output_commit` 1·2(확정 out/ 자체·안의 중간 폴더가 링크 + `n/a.txt` → 피해 폴더 그대로, 출력 목록 불일치 → 비어 있음, 링크 하나 → 이전 `a_report.json` OLD 유지·임시 폴더 없음, 옮길 자리가 폴더 → 다른 산출물도 안 옮김) | 실패(NEW ≠ OLD). S09·S10은 수정 전 통과(시험 공백) |
+| H10 | `runner.main`이 `sandbox.sandboxed`의 ChildError를 잡아 `{"executor_table_error", "executed": 0}` 한 줄과 종료 코드 `runner.EXECUTOR_TABLE_EXIT`(6) | `test_harness_sandbox.test_runner_killed_ends…`(감싼 표 → 6, traceback 없음) | 실패(JSON 없음) |
+| H7 | `runner._execute`가 command의 `{input:<경로>}`를 작업 폴더 `in/` 사본 절대 경로로 바꾼 계약 사본을 executor에 넘김(계약 파일은 그대로) | `test_harness_code_sha.test_executor_gets_the_command…` | 실패(자리표시자 그대로) |
+| S39 | 코드 변경 없음 | `test_harness_sandbox.test_runner_killed_ends…`(executor가 남긴 같은 그룹 자식이 runner kill -9 뒤 죽음. 시험 executor `slow`에 `hang_child` 모드) | 통과(시험 공백) |
+| S26 | 코드 변경 없음 | `test_harness_register_race`(enqueue+graph·graph×2 각 5회, 항상 REG 1·DUP 1, 작업 폴더 1개) | 통과(시험 공백) |
+| S18 | 코드 변경 없음 | `test_harness_output_commit` 5(해시 검사를 통과했다고 두고 보관본을 바꿈 → restore 실패 목록, 대상 그대로) | 통과(시험 공백) |
+
+#### 변이 확인(수정본 `8baa6af`, 변이마다 새 복사본 + git init·커밋 + 전체 harness 시험 -f, .venv Python, 병렬 6)
+
+변이 32개 모두 잡힘: r3 생존 S09(새 위치: 확정 out fd O_NOFOLLOW 제거)·S10·S18·S26·S30(새 위치)·S39, 새 경계 P1(publish 중간 폴더 NOFOLLOW 제거)·P2(폴더 자리 사전 검사 제거),
+H1a~f(실행 직전 대조·등록 대조·추적 파일 검사·최상위 검사·needs_vision 거절·needs_vision 키 포함), H2a~c(문자열 숫자 보존·정수 float 경유·십진 16자리), H6a~c(형식 검사·깨진 JSON을 없음으로·음수 허용),
+H8, H9a~d(규칙 하나씩 제거), H4a~d(잰 크기 제한·산출물 상한·표준 출력 상한·replace_new limit 무시), H5(확정 out에 바로 복사), H10, H7. r3의 S41·S42는 숫자 정규화를 다시 써서 원문이 없다(H2a~c로 대신).
+변이 없는 기준(S00)이 그 병렬 실행(부하 평균 27)에서 내 새 S39 시험의 표식 경합으로 실패해 시험을 고쳤고(`7137726`: 자식 표식까지 기다림), 고친 `7137726`에서 S00·S39·H10·H6c를
+해당 모듈만(sandbox·job_state·exec_boundary·output_commit) 다시 돌렸다: S00 통과, 셋 모두 의도한 시험으로 잡힘(H6c는 전체 실행 때 첫 실패가 기존 `exec_boundary` 늦은 자손 시험의
+부하 시간 초과였다. 그 시험은 부하가 크면 불안정할 수 있다). 결과: scratchpad `fix3/mutants.log`·`mutants_targeted.log`(커밋하지 않음).
+
+#### 재현 스크립트 재실행(수정본 `8baa6af` git archive 복사본을 git init·커밋, 사본 스크립트만 고침)
+
+- `r3_dedupe_probe.py`(사본: 원본 폴더를 복사본 저장소의 clone으로, code_sha 기본값 = 그 HEAD, 추적 파일인 README.md 대신 `extra/r.md`): A의 `code_sha` 다른 16진·64자 → ContractError(HEAD와 다름),
+  needs_vision 뒤집기 → ContractError. 남는 등록: 실행에 안 쓰는 config 키·`python -u`·인자 순서(한계 H3), `python3`+`0.10`(0.10 ≠ 0.1이 새 규칙). B의 큰 정수 seed·`1.10`/`1.1`·`01`/`1` → 등록,
+  config 1/1.0 → 중복(설계 유지). C 동시 등록 20회 × 3종 이중 등록 0(이 스크립트는 multiprocessing spawn이라 자식이 모듈 머리를 다시 실행해 출발선이 맞지 않는다: 경합 확인은 `test_harness_register_race`가 한다). D 등록 뒤 원본 변경 5종 모두 거절.
+- `r3_session_jobfile_probe.py`(원본 그대로): 판정 11종 중 True는 exact·빈 줄뿐(결과 session_id 다름 → False). 빈 AUTO_RESUME: claude 1회·resume 0. 상태 파일 변형 4종(`[]`·`"Blocked"`·crash_resumes 삭제·null)
+  모두 변형 뒤 claude 추가 0회, 최종 blocked.
+- `r3_runner_e2e.py`(사본: 원본 폴더를 git 저장소로 + code_sha = HEAD, `r3_exp_exec` 사본은 runner가 바꿔 넘긴 사본 절대 경로를 읽음): 실험 copy → VERIFIED·계약 SHA·사본 쓰기 EPERM·사본 0600,
+  source(원본 직접 읽기) → VERIFIED·바뀐 내용(한계 H7), 감싼 표 → 종료 코드 6·요약 JSON·stderr 없음, 결정적 normal → VERIFIED, symlink → FAILED·확정 out/ 비어 있음(H5).
+- `r3_sbx_drive.py`(사본: 늦은 자손 보고를 127.0.0.1 대신 구동기가 그 프로필에만 쓰기를 허용한 관찰 폴더 파일로, 실패 때 report.json도 그 폴더에서 읽음. 네트워크 거절 때문):
+  symlink·hardlinks·fifo·dirlink·swap_after → ChildError, 확정 out/에는 이전 `prev.txt`뿐(관찰용 report.json도 남지 않음), sparse 2 GiB → EFBIG 거절(0.4초 안), grow(기본 1.5 GB) → 연 순간 1.15 GB라 EFBIG 거절
+  (300 MB로 줄인 실행은 손자가 이미 다 쓴 뒤라 300 MB 복사, 상한 안), rmtree_trap·brokers(`defaults write` Could not write domain)·signals·normal → 정상, 모든 경우 피해 파일·피해 폴더·opstate·prev 그대로,
+  남은 실행 폴더 0, swap_after 늦은 손자의 실행 폴더 재생성 EPERM.
+
+#### 바꾼 기존 시험
+
+| 시험 | 이전 기대 | 새 기대 | 근거 |
+|---|---|---|---|
+| `test_harness_dedupe_conditions.test_real_differences_are_registered` | `needs_vision=True`만 다른 실험이 등록(6번째 키) | ContractError, 키 5개 | 사용자 지시 1(needs_llm=false 대상 유형은 needs_vision=true 거절) |
+| `test_harness_dedupe_keys.test_registrant_labels…` | 명령 `0.10` = `0.1` 중복 | 등록(다른 키) | 사용자 지시 2·승인 계약 "실행 조건이 하나라도 실제로 다르면 통과": 소수점 끝 0은 버전·ID 문자열일 수 있어 같은지 판별할 수 없다. 다르게 봐서 생기는 손해(같은 실험 중복 등록 가능)를 택했다 |
+
+기대값은 같고 준비만 바꾼 시험(삭제·완화·skip 없음): 실험 계약을 만드는 `dedupe_conditions`·`dedupe_keys`·`exec_boundary`·`policy_guards`·`policy_regress`·`task_isolation`이 원본 폴더를
+`test_harness_git_kit.git_source`로 git 저장소(고정 작성자·시각의 커밋 하나, 입력 자료는 추적 안 함)로 만들고 code_sha를 그 HEAD(`CODE`, 모든 폴더에서 같음)로 바꿨다(근거 H1: 이전 `"c"*40`은
+이제 거절). `policy_guards`의 판별 불가 키(`lr`) 거절 시험은 code_sha 대조 전에 거절되므로 `"c"*40` 그대로. `test_harness_executors.slow`에 `hang_child` 모드 추가(기존 모드 동작 같음).
+config 1 = 1.0(중복)은 유지: config 값은 계약 작성자가 숫자로 적은 JSON 숫자이고, 같다고 봐서 생기는 손해는 등록 거절(DuplicateTask가 기존 작업을 알려 줌)이다. 단 실행 코드가 정수만
+받으면(`range(1.0)`) 실제로 다르게 동작할 수 있다(사용자 결정 후보).
+
+#### 구조(함수 수·호출 깊이)
+
+harness 함수 정의 수 전→후(`101bf8d` 기준): `dedupe` 5→6(verify_code), `safefs` 2+λ1→3(publish, λ 제거), `sandbox` 4→4, `runner` 5→5+λ1(H7 치환), `claude_job` 6→6, `claude_run` 6→6.
+새 시험(def+λ): `git_kit` 2, `code_sha` 7, `dedupe_numbers` 4, `job_state` 4, `sandbox_deny` 3+λ4, `output_commit` 7, `register_race` 1. 고친 시험: `sandbox` 3→4, 나머지 함수 수 그대로.
+최대 호출 깊이 4, 초과 0(`structure_measure.py`). 새·바뀐 경로: `supervisor.run → graph.register_missing → dedupe.verify_inputs → verify_code`(3), `runner.main → drain → _execute → dedupe.verify_code`(3),
+동적 `runner.main → drain → _execute → sandbox.run_one → safefs.publish`(4), `supervisor.run → claude_job.pick → opstate.notify → ledger.append`(3).
+
+#### 검사 결과(`7137726` 작업 트리)
+
+- `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"`: 416개 OK, 종료 코드 0
+- 같은 명령 `/usr/bin/python3`(3.9): 416개 OK, 종료 코드 0(두 실행 동시)
+- `git diff --check 101bf8d`: 문제 없음
+
+#### 남는 한계(판별 불가·fail-closed로 둔 것 포함)
+
+- H1: code_sha는 source_root의 git HEAD와 비교한다. executor가 실제로 도는 코드는 runner의 저장소(`sandbox.REPO`)이고 기본 source_root도 같지만, 다른 source_root를 주면 그 폴더의 HEAD를 본다.
+  추적하지 않는 파일(새 스크립트를 커밋하지 않고 실행)은 코드 변경으로 보지 않는다. 등록과 실행 사이에 커밋이 하나라도 생기면 그 실험은 실행 직전 결정적 실패다(다시 등록해야 한다).
+  git이 없거나 실패하면 실험·학습·평가는 등록·실행되지 않는다(fail-closed).
+- H3(판별 불가 표기, 같은 실험이 중복 등록될 수 있다): 인자 순서, 짧은 옵션 결합, 인터프리터 옵션(`python -u` 등), 실행에 쓰이지 않는 config 키, 저장소 밖 절대 경로 철자, config 안 경로 문자열 철자,
+  명령 안 `--seed`와 seed 키, 그 밖의 실행 파일 별칭. 숫자: `1.0`과 `1`, `0.10`과 `0.1`처럼 소수점 끝 0은 이제 다르게 본다(같은 실험 중복 가능 쪽).
+- H7: executor가 사본 대신 원본(또는 저장소 안 같은 내용의 다른 파일)을 직접 읽는 것은 막지 않는다(읽기 비거절). runner는 사본 경로로 바꾼 명령을 넘길 뿐이다.
+- H9: sandbox는 네트워크 전부·lsopen·launchservicesd 조회를 막지만 그 밖의 mach/XPC 서비스(launchd bootstrap 자체 등)는 막지 않는다. 네트워크가 필요한 executor(모델 가중치 내려받기 등)는
+  실패한다(켜려면 사용자 결정). 복사한 Apple 실행 파일(`/usr/bin/open` 사본)은 이 macOS에서 실행 즉시 SIGKILL됨을 확인했지만 그 밖의 경로 실행 거절은 DENY_EXEC 세 경로뿐이다.
+- H4: 상한 1 GiB·16 MiB는 임시값(코드 상수 `sandbox.MAX_OUTPUT_BYTES`·`MAX_STDOUT_BYTES`, 명령행 설정은 없음). 산출물 수 × 1 GiB 합계 상한은 없다. 상한 안의 희소 파일은 실제 바이트로 복사된다.
+- H5: 반영 도중 `os.replace`가 실패하면(같은 파일 시스템 rename 실패, 예외적) 일부만 옮겨질 수 있다. 사전 검사에서 실패해도 빈 중간 폴더는 남을 수 있다. runner가 반영 중 kill되면 `작업 폴더/.out-pending-*`가 남는다(다음 실행에 영향 없음, 수동 정리).
+- H11: 하네스가 만드는 새 파일(확정 out/·입력 사본·CAS·JSON)은 mkstemp 0600이다. 실행 비트가 필요한 산출물, OS 사용자 분리(D-7) 때 다른 사용자 읽기는 별도 규칙이 필요하다(문서화만).
+- 기존 한계 유지: setsid 자손 잔존(쓰기는 막힘), Claude out/ staging 아님, replace_new는 바로 위 폴더까지만 링크 검사, sandbox 전에 열린 fd, 비밀 가림 최선 노력, 시각 미상 한도 횟수는 성공으로만 0.
+- 실환경 미검증 그대로: Supervisor → 실제 claude → 큐 반영 전체 경로, 실제 한도 거절 이벤트 형식, 무인 재개, A 옵션의 실제 효과.
+
+#### 롤백
+
+- 전체: `git revert <이 문서 커밋> 7137726 8baa6af b776f74 fe86096 6f42eba 9c21e8f 3ac39c6`(역순) 또는 `git reset --hard 101bf8d`(이 브랜치만, push 전). 운영 상태 형식 변화: 실험 계약의
+  code_sha가 source_root HEAD여야 함(되돌리면 형식만 검사), 작업 폴더 `.out-pending-*` 임시 폴더, 상태 파일 `job_state_invalid` 대기, runner 종료 코드 6. 실운영 root는 아직 없다.
