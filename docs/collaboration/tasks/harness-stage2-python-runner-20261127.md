@@ -11,6 +11,7 @@ goal: IMPLEMENTATION.md 2절 2행 "Claude 작업이 멈춘 상태에서 사전 �
   합성 작업으로 시험한다. 실제 ./experiment 실행은 이번 단계에 포함하지 않는다(아래 "설계와 환경의 차이").
 allowed_files:
   - harness/runner.py (신규, 필요 시 harness/executors.py 등 신규 파일 — 함수 수 제한 때문이며 이 문서에 기록)
+  - (2차 검증 반영으로 추가) tests/test_harness_runner_errors.py
   - (구현 중 추가) tests/test_harness_executors.py(시험용 executor), tests/test_harness_runner_kit.py(runner 시험 공용 도구), tests/test_harness_runner.py, tests/test_harness_runner_procs.py
   - 1단계 파일의 호출 깊이 평탄화·G 수정에 필요한 harness/{queue,states,holder,recovery,lease,ledger,manifest,checkpoint,graph,contract,cas,jsonio}.py
   - tests/test_harness_*.py (신규·기존 harness 시험 조정)
@@ -25,7 +26,7 @@ checks:
   - 변이 시험: 검증자 변이 스크립트(scratchpad/stage1-verify/mutate3.py)를 복사본으로 재실행해 새로 놓치는 변이가 없음을 확인(원본 수정 금지)
   - ast 재측정(함수 수·호출 깊이), `git diff --check`, 허용 파일 대조
 experiment: 없음. 합성 시험이며 모델 성능 근거가 아니다.
-handoff: 아래 "구조 표 / 인계" 절. 최종 시험 대상 SHA dac25beb61d3b837e6db99d225ce432e543864c4(시험 커밋), 문서 커밋은 그 위.
+handoff: 아래 "구조 표 / 인계" 절(1차 구현 + 2차 검증 반영). 최종 시험 대상 SHA f6b878055367f45e0f79eaeb03ae9c1dff07e995(시험 커밋), 문서 커밋은 그 위.
 ```
 
 ## 이유와 범위
@@ -84,8 +85,11 @@ S2-0(평탄화·G)과 S2-1(runner)을 모두 구현했고 필수 시험 7종(T2-
 | `refactor(harness)` | `5a60464121684de382a60d8638a5568b0417fd4e` | 1단계 공개 함수 호출 깊이 2 이하 평탄화(동작 보존) |
 | `fix(harness)` | `e89d0bb85fe4a1f344c07f01b7ff5227b772570f` | G: claim의 boot는 `lease.boot_id()`와 같아야 함 |
 | `feat(harness)` | `eddc20d5e32f623b0128cae36e2e0ea13beccdd0` | `harness/runner.py` |
-| **`test(harness)`(시험 대상)** | `dac25beb61d3b837e6db99d225ce432e543864c4` | runner 시험·executor·공용 도구 |
-| 문서 | 이 문서 커밋(그 위) | 문서만 |
+| `test(harness)`(1차 시험 대상) | `dac25beb61d3b837e6db99d225ce432e543864c4` | runner 시험·executor·공용 도구(65개) |
+| 문서 | `5e6cb3ec62a72d1a34edfb37d9d110f747d0011a`, `3e21f2bcfa447d003ce3115905b848a7a47e8df2` | 1차 인계 |
+| `fix(harness)` (2차 검증 반영) | `d340147461dc9043db9c9d5bcc21dd35efe2b788` | R1·R2·R3·R5 코드 |
+| **`test(harness)` (2차 검증 반영, 최종 시험 대상)** | `f6b878055367f45e0f79eaeb03ae9c1dff07e995` | R1~R6 시험(75개) |
+| 문서(2차) | 이 문서 커밋(그 위) | 문서만 |
 
 | 명령(cwd=worktree) | 종료 코드 |
 |---|---|
@@ -95,6 +99,24 @@ S2-0(평탄화·G)과 S2-1(runner)을 모두 구현했고 필수 시험 7종(T2-
 | `git diff --name-only d582cc2 HEAD` | harness/{cas,checkpoint,contract,graph,holder,lease,manifest,queue,recovery,runner,states}.py, tests/test_harness_*.py, 이 문서. 허용 범위 안 |
 
 1단계 55개 시험은 평탄화 뒤에도 의미 그대로 통과한다(시험 조정은 호출 형태: `mock.patch` 대상 `states.classify`→`states.facts`·`queue._log`→`queue.ledger.append`, claim 호출에 `boot_id_fn` 주입용 `claim` 도우미(functools.partial). 단언 강도는 낮추지 않았고 오히려 4개를 추가했다: claim의 CAS 복구 뒤 재검증, ps 종료 코드 실패 무시, boot 검증, 비16진 run_id 등).
+
+### 2차 검증(Opus 조건부 통과, 중요 2건) 반영
+
+| 항목 | 조치 | 내용 |
+|---|---|---|
+| R1 SystemExit | 수정 | `_execute`가 `(Exception, SystemExit)`을 잡아 결정적 실패로 기록하고 drain이 계속된다. KeyboardInterrupt는 전파. 시험: 실제 subprocess(exiter가 정렬상 앞)에서 runner rc=0·독립 작업 VERIFIED·실패 기록·작업권 없음·재drain 불변, 프로세스 안 시험(SystemExit 실패/KeyboardInterrupt 전파) |
+| R2 반복 비정상 종료 | 수정(설계 추가) | `recovery.MAX_INTERRUPTS = 2`. **메인이 제안한 값(일시적 실패 재시도 한도와 같은 값), 사용자 확인 대기.** 같은 작업이 비정상 종료한 뒤 이어받아 다시 실행하는 횟수를 작업권 기록의 `interrupts` 필드에 남긴다(기존 구조 변경 최소). 이번 중단까지 센 횟수(`deaths`)가 한도를 넘으면 `needs_failure_policy`(사유 `too_many_interrupts`)로 멈추고 이후 drain은 건드리지 않는다(요약 `stop_reasons`에 사유). 시험: 실제 SIGKILL을 내는 독 작업(키가 정렬상 앞)에서 runner 5회: 앞 3번은 -9로 죽고 4번째가 정지시킨 뒤 독립 작업을 끝내며 5번째는 아무것도 실행하지 않는다(독 작업 실행 3회·독립 작업 1회) |
+| R3 G 우회 | 수정 | `claim`의 `boot_id_fn` 공개 인자를 없앴다. claim은 `lease.boot_id()`를 호출 시점에 부르고, 시험은 `lease.boot_id`를 patch(`mock.patch.object`; 하위 프로세스는 `lease.boot_id = ...`)한다. 검증자 gbypass.py의 7번째 인자 우회는 TypeError. `runner.drain`의 `boot_id_fn` 인자도 없앴다 |
+| R4 정적 검사 우회 | 수정 | 허용 목록 방식(`llm_free_violations`: import 허용 {importlib,json,os,sys,time}, `__import__`·eval·exec·compile·system·popen·run·exec*·spawn*·connect 금지, `import_module`은 `main` 안 한 곳만, claude/anthropic 문자열 금지). 우회 사례 8종을 소스에 덧붙여 모두 잡히는지 시험. T2-main은 PATH 맨 앞에 호출을 기록하는 가짜 `claude`를 두고 호출 0회를 단언 |
+| R5 예외 범위 | 수정 | 한 작업의 기록 오류(OSError·ValueError·QueueError·LedgerError·CasError·LeaseError)는 그 작업만 멈추고 drain은 계속한다: claim 오류 → 요약 `stopped: claim_error`, complete 뒤 장부 오류(done.json은 남음) → `warnings`(VERIFIED 유지), 산출물·CAS 오류 → 결정적 실패 기록, 실패 기록 오류 → 작업권 해제 + `stopped: fail_record_error`. 시험 `test_harness_runner_errors.py` |
+| R6 시험 공백 | 수정 | A4(complete 계약 키 대조)·A6(register_missing 계약 검증)·A12(선언보다 많은 출력도 거절)·A15(twin이 실제 locked 발생을 단언, 작업 16개로 충돌 확률 상향) 단언 추가 |
+| R7 | 손대지 않음 | 문서 유지 |
+
+R2 가정: (1) 한도 2는 최초 실행 + 이어받아 재실행 2회(총 3회) 뒤 정지로, 일시적 실패(최초 + 재시도 2회)와 같은 모양이다. 값은 설계에 없다. (2) 체크포인트 재개(`resumed=true`)도 같은 횟수에 **포함**한다(가장 보수적). (3) 횟수는 실행이 정상 종료(complete·fail)하면 작업권 파일이 지워지며 초기화된다. 즉 "연속으로 비정상 종료한 횟수"다. (4) 작업권 기록의 `interrupts`가 손상(비정수·음수·bool)이면 한도를 넘긴 것으로 본다. (5) 정지된 작업은 사람/Supervisor(3단계)가 풀어야 하며 자동 인수 경로는 없다.
+
+2차 반영 뒤 측정(`git diff --name-only 3e21f2b HEAD`는 harness/{queue,recovery,runner}.py, tests/test_harness_*.py, 이 문서): 시험 75개, 3.12 rc=0 / 3.9 rc=0(`-W error::ResourceWarning`, 종료 코드를 `> file 2>&1; echo rc=$?`로 직접 확인). 파일당 함수 정의 수는 모두 ≤7(harness: queue 6, recovery 7, runner 5 등; tests: claim_holder 7, graph 7, runner_errors 7, runner_kit 7, state_guards 7, support 7 등). 공개 진입 함수 호출 깊이 최대 4(`runner.main` → `drain` → claim/complete/fail → append/decide/put → 말단). 시험 함수를 시작점으로 세면 도우미(`finish`→`claim` 래퍼) 때문에 최대 5이며 이는 시험 쪽 한도 해석 문제로 1단계에서 남긴 사용자 결정 대기 항목과 같다. S2-0의 `claim` 주입(`functools.partial(... boot_id_fn=...)`)은 R3로 `lease.boot_id` patch 방식으로 대체됐다.
+
+변이(복사본, 2차 반영 코드에서 재실행): 검증자 mutate4.py 복사본 22개 중 A4·A6·A12·A15를 포함해 잡힘 17개, 생존은 A1·A10·A17·A19와 동등 변이 주장 S-M16·S-M23(A1: 완료 뒤에는 작업권이 항상 지워져 순서 변경이 관측되지 않음, A10: 판정 결과가 INTERRUPTED 외 상태에서는 쓰이지 않음, A19: done 비객체는 비dict 처리와 같은 결과, A17: 복구 실패를 첫 실패에서 멈추는 최적화 차이는 관측 불가 — 이 4건은 시험을 추가하지 않았고 동등/관측 불가로 판단한 것이다). 내 변이 집합(59개 중 54개 잡힘, 생존은 동등 M16·M23과 대상 문자열이 사라진 X12 STALE 대체 N7): 새 변이 N1 SystemExit 처리 제거·N2 중단 한도 검사 제거·N3 손상된 횟수를 1로 취급·N4 stamp에 횟수 미기록·N5 정적 검사를 우회하는 가짜 claude 호출·N6 claim 공개 인자로 boot_id_fn 허용·N7 기록 오류를 잡지 않음·N8 정지 사유 기록 제거는 모두 잡힌다(N3·N5는 처음에 살아남아 한도 횟수 시험과 가짜 claude 대기 시간을 보강했다). 검증자 starve.py: exiter는 runner 5회 모두 rc=0·독립 작업 VERIFIED, oom은 [-9,-9,-9,0,0]·독 작업 실행 3회·독립 작업 VERIFIED. gbypass.py는 7번째 인자에서 TypeError.
 
 ### S2-0: 호출 깊이 전후(공개 진입 함수 기준, 이름 참조 기반 정적 상한)
 
