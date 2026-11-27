@@ -8,7 +8,7 @@ from tests.test_harness_scoring_support import clustered, codes, make_rows, row
 
 FA = {"fa": range(90, 100)}  # 두 모델 모두 정상 구역 10%를 오탐
 BASE = dict(miss=range(0, 40), **FA)  # 기준 A: 결함 구역 40% 누락
-SETTING = dict(noise_rate=0.1, direction_min_fraction=0.9)
+SETTING = dict(noise_rate=0.1, direction_min_fraction=0.9, min_defect_cards=10, min_valid_fraction=0.9)
 
 
 class Promotion(unittest.TestCase):
@@ -18,36 +18,37 @@ class Promotion(unittest.TestCase):
         self.assertEqual((result["baseline"]["miss"]["rate"], result["candidate"]["miss"]["rate"]), (0.4, 0.1))
         self.assertGreater(result["bootstrap"]["lower"], 0.2)
         self.assertEqual((result["candidate"]["coverage"]["rate"], result["inputs"]["n_cards"]), (1.0, 100))
-        few = clustered(3, 10, 1) + [row("n%d" % c, "normal", card="card%d" % c) for c in range(3)]  # 점추정 +33%p, 카드 3장
-        small = promotion.evaluate(few, **SETTING)
+        few = [dict(r, uncertain=r["card_group"] != "card0") for r in clustered(3, 10, 1)]  # 점추정 +33%p, 카드 3장
+        few += [row("n%d" % c, "normal", card="card%d" % c) for c in range(3)]
+        small = promotion.evaluate(few, **dict(SETTING, min_defect_cards=3))
         self.assertAlmostEqual(small["bootstrap"]["point"], 1 / 3)
         self.assertEqual((small["verdict"], codes(small)), ("미달", ["bootstrap_lower_not_positive"]))
 
     def test_abstaining_on_every_normal_zone_is_rejected_by_false_alarm_and_cap(self):
         cand = dict(miss=range(0, 10), abs_normal=range(100), **FA)  # 누락은 줄었지만 정상을 전부 보류
-        result = promotion.evaluate(make_rows(BASE, cand), **SETTING)
+        result = promotion.evaluate(make_rows(BASE, cand, uncertain=range(0, 5)), **SETTING)
         self.assertEqual(result["verdict"], "미달")
         self.assertEqual(result["candidate"]["false_alarm"]["rate"], 1.0)  # 보류는 오탐으로 센다
         self.assertEqual(sorted(codes(result)), ["abstain_cap", "abstain_cap", "false_alarm_not_noninferior"])
 
     def test_abstaining_only_on_defect_zones_to_cut_misses_is_rejected_by_abstain_cap_alone(self):
-        result = promotion.evaluate(make_rows(BASE, dict(abs_defect=range(0, 40), **FA)), **SETTING)  # 누락 40% → 0%
+        result = promotion.evaluate(make_rows(BASE, dict(abs_defect=range(0, 40), **FA), uncertain=range(0, 5)), **SETTING)  # 누락 40% → 0%
         self.assertEqual(result["candidate"]["miss"]["rate"], 0.0)
         self.assertGreater(result["bootstrap"]["lower"], 0.3)  # 개선·민감도·오탐은 모두 좋아 보인다
         self.assertEqual(result["sensitivity"]["fraction"], 1.0)
         self.assertEqual(codes(result), ["abstain_cap", "abstain_cap"])  # 층(front·back)마다 20% > 0%+5%p
-        self.assertEqual(sorted(v["layer"] for v in result["abstain_cap"]["violations"]), ["back", "front"])
+        self.assertEqual(sorted(v["stratum"] for v in result["abstain_cap"]["violations"]), ["back", "front"])
 
     def test_small_gain_that_label_noise_erases_is_not_promoted(self):
         a, b = dict(miss=range(0, 20), **FA), dict(miss=range(20, 30), **FA)  # 순개선 +10%p
         fragile = make_rows(a, b, uncertain=range(0, 20))  # 개선이 전부 불확실한 구역에서 나온다
-        settings = dict(noise_rate=0.4, direction_min_fraction=0.95)
+        settings = dict(SETTING, noise_rate=0.4, direction_min_fraction=0.95)
         result = promotion.evaluate(fragile, **settings)
         self.assertGreater(result["bootstrap"]["lower"], 0)  # 부트스트랩만으로는 통과할 개선이다
         self.assertLess(result["sensitivity"]["fraction"], 0.95)
         self.assertLess(result["sensitivity"]["min_improvement"], 0)  # 보고만 한다
         self.assertEqual((result["verdict"], codes(result)), ("미달", ["direction_unstable"]))
-        control = promotion.evaluate(make_rows(a, b), **settings)  # 같은 개선, 불확실 구역 없음
+        control = promotion.evaluate(make_rows(a, b, uncertain=range(30, 40)), **settings)  # 같은 개선, 불확실 구역은 개선과 무관한 카드
         self.assertEqual((control["verdict"], control["sensitivity"]["fraction"]), ("통과", 1.0))
 
     def test_zero_denominators_are_unmeasured_and_never_pass(self):
@@ -55,7 +56,7 @@ class Promotion(unittest.TestCase):
         result = promotion.evaluate(only_normal, **SETTING)
         self.assertEqual((result["verdict"], result["baseline"]["miss"]["rate"]), ("미달", "미측정"))
         self.assertIn("bootstrap_unmeasured", codes(result))
-        only_defect = [row("d%d" % i, "defect", "normal", "defect", card="g%d" % i) for i in range(30)]
+        only_defect = [row("d%d" % i, "defect", "normal", "defect", card="g%d" % i, uncertain=True) for i in range(30)]
         result = promotion.evaluate(only_defect, **SETTING)  # 큰 개선이 있어도 오탐을 못 재면 통과하지 않는다
         self.assertGreater(result["bootstrap"]["lower"], 0)
         self.assertEqual((result["verdict"], codes(result)), ("미달", ["false_alarm_unmeasured"]))
@@ -64,18 +65,22 @@ class Promotion(unittest.TestCase):
         self.assertIn("abstain_unmeasured", codes(all_pending))
 
     def test_inputs_are_validated_and_preregistered_values_are_required(self):
-        rows = make_rows(BASE, BASE, cards=10)
-        with self.assertRaises(TypeError):  # 기본값 없음: 코드가 정하지 않는다
-            promotion.evaluate(rows, noise_rate=0.1)
-        with self.assertRaises(TypeError):
-            promotion.evaluate(rows, direction_min_fraction=0.9)
-        for bad in (dict(noise_rate=-0.1), dict(noise_rate=1.5), dict(direction_min_fraction=2), dict(delta=-1),
-                    dict(replicates=0), dict(trials=0), dict(noise_rate=float("nan"))):
-            with self.assertRaises(ValueError):
+        rows = make_rows(BASE, BASE, cards=10, uncertain=range(2))
+        for missing in ("noise_rate", "direction_min_fraction", "min_defect_cards", "min_valid_fraction"):
+            with self.assertRaises(TypeError):  # 기본값 없음: 코드가 정하지 않는다
+                promotion.evaluate(rows, **{k: v for k, v in SETTING.items() if k != missing})
+        for bad in (dict(noise_rate=-0.1), dict(noise_rate=0), dict(noise_rate=1), dict(noise_rate=1.5), dict(noise_rate=float("nan")),
+                    dict(direction_min_fraction=0), dict(direction_min_fraction=2), dict(min_valid_fraction=0), dict(min_valid_fraction=1.1),
+                    dict(min_defect_cards=0), dict(min_defect_cards=True), dict(min_defect_cards=2.5),
+                    dict(seed=None), dict(seed=True), dict(seed=1.5), dict(replicates=0), dict(replicates=True), dict(trials=2.5),
+                    dict(delta=-0.01), dict(delta=1.01)):
+            with self.assertRaises(ValueError, msg=str(bad)):
                 promotion.evaluate(rows, **dict(SETTING, **bad))
-        clash = [dict(r, layer="sealed" if r["id"].endswith("z0") else r["layer"]) for r in rows]
-        with self.assertRaisesRegex(ValueError, "여러 층"):
-            promotion.evaluate(clash, **SETTING)  # 같은 카드가 층 사이에 걸치면 판정하지 않는다
+        for good in (dict(direction_min_fraction=1), dict(min_valid_fraction=1), dict(delta=0), dict(delta=1), dict(seed=-3)):
+            promotion.evaluate(rows, **dict(SETTING, replicates=20, trials=20, **good))  # 경계값은 받는다
+        clash = [dict(r, eval_tier="calib" if r["id"].endswith("z0") else r["eval_tier"]) for r in rows]
+        with self.assertRaisesRegex(ValueError, "여러 eval_tier"):
+            promotion.evaluate(clash, **SETTING)  # 같은 카드가 eval_tier 사이에 걸치면 판정하지 않는다
 
     def test_result_records_inputs_config_and_seed_and_is_reproducible(self):
         rows = make_rows(BASE, dict(miss=range(0, 10), **FA), uncertain=range(0, 5))

@@ -1,6 +1,7 @@
 """부트스트랩·민감도 시험. 카드 단위 재표집, 재현성, 분모 0, 라벨 잡음 뒤집기. 합성 시험이며 모델 성능 근거가 아니다."""
 import random
 import unittest
+from operator import itemgetter
 
 from harness import bootstrap
 from harness.scoring import UNMEASURED
@@ -58,7 +59,7 @@ class Sensitivity(unittest.TestCase):
 
     def test_flip_noise_extremes_decide_whether_direction_survives(self):
         none = bootstrap.sensitivity(self.ROWS, 0.0, 50, 0)  # 잡음 0: 개선 (2-1)/4가 매번 유지
-        self.assertEqual((none["fraction"], none["min_improvement"], none["n_uncertain"]), (1.0, 0.25, 3))
+        self.assertEqual((none["fraction"], none["min_improvement"], none["n_uncertain"]), (1.0, 0.25, 2))
         every = bootstrap.sensitivity(self.ROWS, 1.0, 50, 0)  # 잡음 1: r1·r2가 정상으로 뒤집혀 B가 오히려 나쁘다(0-1)/2
         self.assertEqual((every["fraction"], every["min_improvement"]), (0.0, -0.5))
         tie = bootstrap.sensitivity([row("e1", "defect", "normal", "normal"), row("e2", "defect")], 0.0, 10, 0)
@@ -69,6 +70,10 @@ class Sensitivity(unittest.TestCase):
                 row("d", "pending", uncertain=True)]
         self.assertEqual(bootstrap.flip_truths(rows, 1.0, random.Random(0)), ["normal", "defect", "defect", "pending"])
         self.assertEqual(bootstrap.flip_truths(rows, 0.0, random.Random(0)), ["defect", "normal", "defect", "pending"])
+        for seed in range(10):  # 보고한 seed가 실제 난수의 seed다: 1시행을 손으로 재현해 대조
+            ordered = sorted(self.ROWS, key=itemgetter("id"))
+            by_hand = bootstrap.improvement(*bootstrap.totals(ordered, bootstrap.flip_truths(ordered, 0.5, random.Random(seed))))
+            self.assertEqual(bootstrap.sensitivity(self.ROWS, 0.5, 1, seed)["min_improvement"], by_hand)
 
 
 if __name__ == "__main__":

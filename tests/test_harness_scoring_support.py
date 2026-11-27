@@ -15,25 +15,20 @@ def predict(truth, card, spec):
 
 
 def make_rows(spec_a, spec_b, cards=100, uncertain=(), zones=ZONES):
-    """카드 i의 모든 구역이 같은 층(짝수=front, 홀수=back)에 속한다. uncertain 카드의 결함 구역만 uncertain 표시."""
+    """카드 i의 모든 구역이 같은 stratum(짝수=front, 홀수=back)·eval_tier=dev에 속한다. uncertain 카드의 결함 구역만 uncertain 표시."""
     rows = []
     for card in range(cards):
         for index, truth in enumerate(zones):
             rows.append({"id": "c%03dz%d" % (card, index), "card_group": "card%03d" % card,
-                         "layer": "front" if card % 2 == 0 else "back", "truth": truth,
+                         "eval_tier": "dev", "stratum": "front" if card % 2 == 0 else "back", "truth": truth,
                          "pred_a": predict(truth, card, spec_a), "pred_b": predict(truth, card, spec_b),
                          "uncertain": card in uncertain and truth == "defect"})
     return rows
 
 
-def row(row_id, truth, pred_a="normal", pred_b="normal", card="g1", layer="L1", **extra):
+def row(row_id, truth, pred_a="normal", pred_b="normal", card="g1", stratum="S1", tier="dev", **extra):
     """시험 한 줄용 행."""
-    return dict(id=row_id, card_group=card, layer=layer, truth=truth, pred_a=pred_a, pred_b=pred_b, **extra)
-
-
-def layer_report(**rates):
-    """층별 보류율만 담은 최소 보고(abstain_cap 시험용)."""
-    return {"abstain_by_layer": {layer: {"rate": value} for layer, value in rates.items()}}
+    return dict(id=row_id, card_group=card, eval_tier=tier, stratum=stratum, truth=truth, pred_a=pred_a, pred_b=pred_b, **extra)
 
 
 def clustered(cards, zones, improved):
