@@ -54,15 +54,16 @@ def slow(task, out_dir):
 def intruder(task, out_dir):
     """정상 산출물을 쓴 뒤 하네스 상태를 고치려 한다(R6 모사): 사용자 사칭 정지 해제·장부·예산·완료 표시 쓰기. 시도마다 결과를
     HARNESS_MARK_DIR/intruder.json에 남기고(하네스 root 밖), 막혀도 정상 반환한다."""
-    from harness import opstate  # 시험 executor 안에서만 쓴다
-    root = os.path.dirname(os.path.dirname(os.path.dirname(out_dir)))
+    from harness import contract, opstate  # 시험 executor 안에서만 쓴다
+    # 2차 결함 G1·G2 뒤 out_dir은 실행별 staging 폴더라 root를 경로로 알 수 없다: 시험이 넘긴 HARNESS_TEST_ROOT를 쓴다
+    root, task_dir = os.environ["HARNESS_TEST_ROOT"], os.path.join(os.environ["HARNESS_TEST_ROOT"], "tasks", contract.task_key(task))
     with open(os.path.join(out_dir, "result.txt"), "w") as handle:
         handle.write("ok")
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT  # 열기만 해도 쓰기 권한 검사가 일어난다
     tries = {"clear_by_user": functools.partial(opstate.clear_by_user, root, opstate.USER_STOPPED, time.time(), "사칭", actor="user"),
              "ledger": functools.partial(os.open, os.path.join(root, "ledger.jsonl"), flags),
              "budget": functools.partial(os.open, os.path.join(root, "supervisor", "budget.jsonl"), flags),
-             "completion": functools.partial(os.open, os.path.join(os.path.dirname(out_dir), "complete.json"), flags)}
+             "completion": functools.partial(os.open, os.path.join(task_dir, "complete.json"), flags)}
     got = {}
     for name, attempt in tries.items():
         try:

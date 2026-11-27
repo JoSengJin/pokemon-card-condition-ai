@@ -1,4 +1,5 @@
-"""검증 결함 F1·F2: executor sandbox는 기본 쓰기 거절이다. 그 실행의 out/·실행별 전용 임시 폴더(TMPDIR)·/dev/null만 쓸 수 있고,
+"""검증 결함 F1·F2: executor sandbox는 기본 쓰기 거절이다. 그 실행의 staging out/·실행별 전용 임시 폴더(TMPDIR)·/dev/null만 쓸 수 있고(2차 G1 뒤
+자기 작업의 확정 out/도 쓸 수 없다),
 하네스 root(상위 폴더 rename 우회 포함)·저장소 소스·site-packages·홈·시스템 임시 폴더·다른 작업 out/ 쓰기와 launchd·LaunchServices·
 AppleScript 실행 파일 실행은 실제 sandbox-exec 하위 프로세스(sandbox.run_one, runner와 같은 경로)에서 거절된다.
 공격 executor는 혹시 쓰기에 성공하면 그 자리에서 지우고 이름을 되돌린 뒤 결과를 자기 out/에 남긴다(시험이 실제 상태를 더럽히지 않게)."""
@@ -9,18 +10,21 @@ import subprocess
 import sysconfig
 import tempfile
 import unittest
+from unittest import mock
 
 from harness import sandbox
 
 SPEC = "tests.test_harness_sandbox_writes:EXECUTORS"
+TASK = {"outputs": ["result.txt"]}  # run_one은 계약 outputs만 확정 out/으로 복사한다(2차)
 
 
 def attacker(task, out_dir):
     """하네스 root·저장소·site-packages·홈·/tmp 쓰기와 상위 폴더 rename, 실행 파일 실행을 시도한다. {이름: ok|denied:<errno>}."""
-    root = os.path.dirname(os.path.dirname(os.path.dirname(out_dir)))
+    root = os.environ["HARNESS_TEST_ROOT"]  # 2차 결함 G1·G2 뒤 out_dir은 실행별 staging이라 root를 경로로 알 수 없다
     parent, tag = os.path.dirname(root), "harness_sbx_probe_%d" % os.getpid()
     targets = {"harness_state": os.path.join(root, "supervisor", "opstate.json"),
                "other_task_out": os.path.join(root, "tasks", "other", "out", "x"),
+               "final_out": os.path.join(root, "tasks", "k", "out", "x"),  # 자기 작업의 확정 out/도 executor는 쓸 수 없다(2차 G1)
                "repo_source": os.path.join(sandbox.REPO, "harness", tag + ".py"),
                "site_packages": os.path.join(sysconfig.get_paths()["purelib"], tag + ".pth"),
                "home": os.path.join(os.path.expanduser("~"), "." + tag),
@@ -84,7 +88,8 @@ class SandboxWriteTest(unittest.TestCase):
     def test_default_deny_blocks_root_rename_repo_site_home_and_launch_tools(self):
         root = self._root()
         out = os.path.join(root, "tasks", "k", "out")
-        self.assertEqual(sandbox.run_one(root, SPEC, "attacker", {}, out), ["result.txt"])
+        with mock.patch.dict(os.environ, {"HARNESS_TEST_ROOT": root}):
+            self.assertEqual(sandbox.run_one(root, SPEC, "attacker", TASK, out), ["result.txt"])
         with open(os.path.join(out, "result.txt"), encoding="utf-8") as handle:
             got = json.load(handle)
         allowed = {"own_out", "own_tmp", "dev_null"}
@@ -95,12 +100,13 @@ class SandboxWriteTest(unittest.TestCase):
         with open(os.path.join(root, "supervisor", "opstate.json"), encoding="utf-8") as handle:
             self.assertEqual(handle.read(), "ORIG")
         self.assertEqual(os.listdir(os.path.join(root, "tasks", "other", "out")), [])
+        self.assertEqual(os.listdir(out), ["result.txt"])  # 확정 out/에는 계약 outputs만(executor의 probe.txt는 staging에 남고 지워진다)
         self.assertFalse(os.path.exists(os.path.dirname(root) + "_moved"))
 
     def test_each_run_gets_a_private_tmpdir_that_is_removed_afterwards(self):
         root = self._root()
         out = os.path.join(root, "tasks", "k", "out")
-        sandbox.run_one(root, SPEC, "tmp_probe", {}, out)
+        sandbox.run_one(root, SPEC, "tmp_probe", TASK, out)
         with open(os.path.join(out, "result.txt"), encoding="utf-8") as handle:
             used = handle.read()
         self.assertNotEqual(os.path.realpath(used), os.path.realpath(tempfile.gettempdir()))

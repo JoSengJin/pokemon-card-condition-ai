@@ -3,7 +3,8 @@
 - executor는 호출자가 task_type -> callable(contract, out_dir) -> 출력 상대 경로 목록 으로 주입한다.
   이 파일은 외부 모델 호출·네트워크·하위 프로세스를 쓰지 않는다(시험이 소스를 검사한다).
 - main(Supervisor가 띄우는 경로)은 executor 모듈을 직접 가져오지 않고 sandbox.sandboxed로 macOS sandbox-exec 하위 프로세스에서 실행한다
-  (작업 계약 3단계 R6: executor는 하네스 root에 쓰지 못하고 자기 out/에만 쓴다). sandbox를 쓸 수 없으면 아무것도 실행하지 않고
+  (작업 계약 3단계 R6, 2차 결함 G1·G2: executor는 하네스 root에 쓰지 못하고 실행별 staging 폴더에만 쓴다. 확정 out/에는 하네스가
+  계약 outputs를 검사해 새 파일로 복사한다). sandbox를 쓸 수 없으면 아무것도 실행하지 않고
   SANDBOX_EXIT로 끝난다(fail-closed). 하위 프로세스 실행은 sandbox.py에 있다. drain에 dict를 직접 넘기는 경로(시험)는 sandbox가 없다.
 - sandbox 안 executor가 신호로 죽으면(메모리 부족 등) 작업권 기록을 남긴 채 놓아 다음 claim이 INTERRUPTED 규칙(2단계 R1)대로 다룬다.
 - LLM 작업(needs_llm=true)과 그것에 (간접으로) 의존하는 작업은 건드리지 않는다(claim도 하지 않으므로 장부에도 안 남는다).
@@ -21,7 +22,7 @@ import sys
 import time
 
 from . import contract as ct
-from . import cas, dedupe, ledger, lease, manifest, queue, recovery, sandbox, states
+from . import cas, claude_perm, dedupe, ledger, lease, manifest, queue, recovery, sandbox, states
 from .jsonio import read_json, write_json
 
 
@@ -71,11 +72,13 @@ def _scan(root, executors):
                   "unreadable_contract": sorted(k for k, i in infos.items() if i["contract_state"] == "bad")}
 
 
-def _execute(executors, task, out_dir, source_root):
+def _execute(root, executors, task, out_dir, source_root):
     """executor를 실행한다. 정상이면 None, 오류면 (실패 종류, 설명). 종류는 1단계 규칙(recovery.kind_of).
-    실험·학습·평가는 실행 직전에 입력 SHA를 source_root의 실제 파일과 대조한다(다르면 executor를 부르지 않고 결정적 실패, 검증 결함 F3)."""
+    실험·학습·평가는 실행 직전에 입력을 source_root에서 작업 폴더 in/으로 복사하며 복사본 SHA를 계약과 대조한다(다르거나 폴더 밖·링크·봉인
+    이름이면 executor를 부르지 않고 결정적 실패, 검증 결함 F3). executor는 그 사본을 읽는다(sandbox 경로는 HARNESS_INPUT_DIR, 2차 결함 G6)."""
     try:
-        dedupe.verify_inputs(task, source_root)
+        if task["task_type"] in dedupe.CONDITION_TYPES:
+            claude_perm.stage_inputs(os.path.dirname(out_dir), task, source_root, root)
         produced = executors[task["task_type"]](task, out_dir)
         if sorted(produced) != sorted(task["outputs"]):
             raise OutputMismatch("executor가 돌려준 출력 목록이 계약의 outputs와 다르다: %r" % (produced,))
@@ -133,7 +136,7 @@ def drain(root, executors, now_fn=time.time, max_tasks=None, source_root=None):
                 task, out_dir = read_json(os.path.join(task_dir, "contract.json")), os.path.join(task_dir, "out")
                 os.makedirs(out_dir, exist_ok=True)
                 adopt = res["plan"]["action"] == "adopt"  # 완료 표시가 이미 맞다: executor를 다시 부르지 않고 반영만 한다
-                error = None if adopt else _execute(executors, task, out_dir, source_root or sandbox.REPO)
+                error = None if adopt else _execute(root, executors, task, out_dir, source_root or sandbox.REPO)
                 if error is not None and error[0] == "interrupted":  # 작업권 기록은 남기고 잠금만 놓는다 → 다음 claim이 INTERRUPTED로 본다
                     lease.release(res["lease"])
                     progressed |= _note(summary, parked, key, "stopped", "executor_killed: %s" % error[1])

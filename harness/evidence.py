@@ -10,6 +10,7 @@
 import json
 import os
 import re
+import stat
 
 STDERR_TAIL = 2000
 MASK_MARGIN = 500  # 자르기 전에 가리는 여유 글자 수(경계에서 잘린 키를 가리되 전체 출력을 훑지 않게)
@@ -50,9 +51,10 @@ def outcome_of(task_dir, task, found, run_token=None):
     if found.get("cause") == "spawn_error":
         return "not_started"
     out_dir = os.path.join(task_dir, "out")
-    try:
-        with open(os.path.join(out_dir, ".harness_complete.json"), encoding="utf-8") as handle:
-            said = json.load(handle)
+    try:  # Claude가 쓴 자리라 믿지 않는다: 링크를 따라가지 않고(O_NOFOLLOW) FIFO에서 멈추지 않게(O_NONBLOCK) 열고 일반 파일만 읽는다
+        fd = os.open(os.path.join(out_dir, ".harness_complete.json"), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as handle:
+            said = json.loads(handle.read(1 << 20).decode("utf-8")) if stat.S_ISREG(os.fstat(fd).st_mode) else None
     except (OSError, ValueError):
         said = None
     if found.get("success") and isinstance(said, dict) and said.get("task_key") == os.path.basename(task_dir) \

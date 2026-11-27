@@ -12,15 +12,18 @@
 - cwd는 작업 폴더(root/tasks/<task_key>). 하네스 상태 폴더(root/supervisor·장부·예산)는 cwd 밖이라 읽기·쓰기 모두 자동 거절 대상이고,
   작업 폴더 안의 하네스 파일(lease.json·done.json·complete.json)은 쓰기 허용 규칙(out/ 아래만)에 없어 거절 대상이다(문서 기준).
 - 계약 입력은 stage_inputs가 source_root(기본 저장소) 아래에서 SHA를 확인해 작업 폴더 in/으로 복사한다. 링크(심볼릭·하드 링크 수 2 이상)·
-  폴더 밖·하네스 root 안·이름에 gold/seal이 든 경로(봉인·Gold 임시 규칙)는 거절한다.
+  폴더 밖·하네스 root 안·이름에 gold/seal이 든 경로(봉인·Gold 임시 규칙)는 거절한다. 복사는 safefs.replace_new(새 임시 파일, 쓴 내용의
+  sha256이 계약과 같을 때만 교체: 대조와 사용 사이 틈이 없다)로 한다. Python 실험·학습·평가 executor도 같은 함수로 실행 직전에 복사한
+  사본(작업 폴더 in/, sandbox가 쓰기를 허용하지 않는 곳)을 읽는다(2차 결함 G6, runner._execute).
 - 환경변수는 ENV_ALLOW만 넘긴다(구독 인증 최소 추정값. API 키·토큰류는 넘기지 않는다). 인증이 이것으로 되는지는 실환경 미확인.
 - 자동 재개 활성화 목록 AUTO_RESUME(작업 유형 → 실환경 증거 {"evidence": 경로, "sha256": 그 파일 sha256})은 빈 dict로 시작한다. 증거 파일이
   있고 해시가 맞는 유형만 켜진 것으로 본다(auto_resume_allowed). 목록에 없으면 한도 해제·실행 중 사망 뒤에도 자동 재개하지 않는다(첫 실행은 허용).
-호출 깊이: 모든 함수가 말단이다(서로·다른 harness 함수를 부르지 않는다).
+호출 깊이: stage_inputs만 safefs.replace_new(말단)를 부른다(1). 나머지는 말단이다.
 """
 import hashlib
 import os
-import shutil
+
+from .safefs import replace_new
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUNDLE_OF = {"experiment_log_summary": "A", "misanalysis_general": "A", "repeated_failure_analysis": "A",
@@ -77,15 +80,12 @@ def stage_inputs(task_dir, contract, source_root, harness_root):
             raise ValueError("입력이 원본 폴더 밖·하네스 root 안이거나 일반 파일이 아니다: %r" % rel)
         if os.stat(real).st_nlink > 1:  # 하드 링크는 이름 검사를 피해 봉인·하네스 파일을 가리킬 수 있다(검증 결함 F11)
             raise ValueError("하드 링크 입력은 복사하지 않는다: %r" % rel)
-        dest = os.path.join(task_dir, "in", *parts)
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        tmp = "%s.tmp.%d" % (dest, os.getpid())
-        shutil.copyfile(real, tmp)
-        with open(tmp, "rb") as handle:
-            got = hashlib.sha256(handle.read()).hexdigest()
-        if got != want:
-            os.unlink(tmp)
+        fd = os.open(real, os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            replace_new(os.path.join(task_dir, "in", *parts), fd, expect=str(want).lower())  # 다르면 ValueError, 사본은 그대로
+        except ValueError:
             raise ValueError("입력 SHA 불일치: %r" % rel)
-        os.replace(tmp, dest)
+        finally:
+            os.close(fd)
         copied.append(rel)
     return copied

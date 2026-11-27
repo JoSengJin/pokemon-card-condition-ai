@@ -61,7 +61,7 @@ def spawn_runner(root, marks, extra_env=None, args=()):
     """실제 하위 프로세스로 runner를 실행한다. 환경은 새로 만든다: PATH에 claude 없음, 모델 관련 환경변수 없음.
     재실행 절차 시험용으로 기본은 시험 executor 유형을 재실행 안전으로 본다(extra_env의 TEST_RERUN_SAFE로 바꿀 수 있다)."""
     env = {"PATH": RUNNER_PATH, "HARNESS_MARK_DIR": marks, "PYTHONDONTWRITEBYTECODE": "1",
-           "TEST_RERUN_SAFE": ",".join(sorted(RERUN_SAFE))}
+           "TEST_RERUN_SAFE": ",".join(sorted(RERUN_SAFE)), "HARNESS_TEST_ROOT": root}  # 공격 시험 executor가 노릴 하네스 root(G1 뒤 out_dir은 staging)
     env.update(extra_env or {})
     return subprocess.Popen([sys.executable, "-c", RUNNER_WRAP, root, "tests.test_harness_executors:EXECUTORS",
                              *args], cwd=REPO, env=env, stdout=subprocess.PIPE, text=True)
