@@ -36,14 +36,15 @@ RUNNER = [sys.executable, "-m", "harness.runner"]  # runner 하위 프로세스 
 PYTHON_TOTAL_S = 3 * 3600.0  # 임시 기본값: runner 한 번(작업 1개)의 총 시간. 기존 실험 최대 113분보다 길어야 한다(시험이 대조)
 
 
-def _python(root, executors, now, total_s=None):
+def _python(root, executors, now, total_s=None, source_root=None):
     """2단계 runner를 별도 프로세스로 한 번 돌려 Python 작업을 최대 1개 처리한다(executor의 강제 종료가 Supervisor를 죽이지 않게,
     작업마다 정지 상태를 다시 보려고 `--max 1`). (종료 코드, 실행한 작업 수). 비정상 종료·요약 없음은 실행 0으로 본다.
     총 시간(total_s, 기본 PYTHON_TOTAL_S)을 넘기면 runner의 프로세스 그룹(executor 하위 프로세스 포함)을 KILL하고 원인
     timeout_total을 장부에 남긴다. 그 작업은 작업권이 남아 INTERRUPTED가 되고 다음 claim이 2단계 규칙대로 다룬다."""
     total_s = PYTHON_TOTAL_S if total_s is None else total_s
     started = time.monotonic()
-    proc = subprocess.Popen(RUNNER + [root, executors, "--max", "1"], cwd=REPO,
+    argv = RUNNER + [root, executors, "--max", "1"] + (["--source-root", source_root] if source_root else [])
+    proc = subprocess.Popen(argv, cwd=REPO,
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                             errors="replace", start_new_session=True)
     cause = None
@@ -83,7 +84,7 @@ def _live(root, summary):
 
 def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, now_fn=time.time, sleep_fn=time.sleep,
         runner=None, env=None, limits=None, source_root=None):
-    """Supervisor 루프. max_cycles가 None이면 계속 돈다. limits: {"claude_idle_s", "claude_total_s", "python_total_s"}(없으면 기본값). source_root: Claude 작업 입력 원본 폴더(기본 저장소). 요약 dict(회차 수, 마지막으로 읽은 유효 상태, Claude 실행 수·runner 실행 수)."""
+    """Supervisor 루프. max_cycles가 None이면 계속 돈다. limits: {"claude_idle_s", "claude_total_s", "python_total_s"}(없으면 기본값). source_root: Claude 작업·실험 입력 원본 폴더(기본 저장소, 등록·실행 직전 입력 SHA 대조). 요약 dict(회차 수, 마지막으로 읽은 유효 상태, Claude 실행 수·runner 실행 수)."""
     root = os.path.abspath(root)
     os.makedirs(os.path.join(root, "supervisor"), exist_ok=True)
     fd = os.open(os.path.join(root, "supervisor", "supervisor.lock"), os.O_RDWR | os.O_CREAT, 0o600)
@@ -108,10 +109,10 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
                     continue
                 declared = read_json(os.path.join(root, DECLARED), {})
                 if declared:
-                    graph.register_missing(root, declared, now)
+                    graph.register_missing(root, declared, now, source_root=source_root)
                 while executors and _live(root, summary) is not None:  # Python 작업 하나를 시작하기 전마다 정지 상태를 본다
                     summary["python_runs"] += 1
-                    code, executed = _python(root, executors, now_fn(), (limits or {}).get("python_total_s"))
+                    code, executed = _python(root, executors, now_fn(), (limits or {}).get("python_total_s"), source_root)
                     if code == INTEGRITY_EXIT:
                         opstate.set_condition(root, opstate.INTEGRITY_HALT, now_fn(), "supervisor",
                                               "runner 종료 코드 3(장부 무결성)")

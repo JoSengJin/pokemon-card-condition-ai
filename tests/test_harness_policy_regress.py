@@ -4,6 +4,7 @@ R1 등록하지 않은 유형의 중단·일시 실패 작업은 자동 재실�
 R3 Claude가 끝낸 뒤 Supervisor가 죽어도 다시 --resume하지 않는다 / R4 한도가 아닌 --resume 실패 뒤 새 세션을 열지 않는다 /
 R5 원인 불명 실패 1건이 다른 독립 Claude 작업을 막지 않는다.
 """
+import hashlib
 import os
 import subprocess
 import sys
@@ -12,7 +13,7 @@ import unittest
 
 from harness import contract as ct
 from harness import queue, states, supervisor
-from tests.test_harness_support import BOOT, SHA_A, claim, dead_lease, make_contract
+from tests.test_harness_support import BOOT, claim, dead_lease, make_contract
 from tests.test_harness_resume_kit import allow_resume
 from tests.test_harness_supervisor_kit import REPO, llm_task, make_fake, runs
 
@@ -44,22 +45,28 @@ class PolicyRegressionTest(unittest.TestCase):
         self.assertEqual((again["ok"], again["reason"]), (False, "await_result"))
 
     def test_r2_same_run_conditions_with_different_wording_is_refused(self):
-        root = tempfile.mkdtemp()
-        base = make_contract("x", task_type="experiment", inputs={"data/a.json": SHA_A})
-        base["run_conditions"] = {"command": ["python", "train.py"], "code_sha": "c" * 40, "seed": 1, "hypothesis_id": "H-1"}
-        first = queue.enqueue(root, base, T0)
+        root, src = tempfile.mkdtemp(), tempfile.mkdtemp()
+        os.makedirs(os.path.join(src, "data"))  # 입력은 실제 파일과 대조한다(검증 결함 F3)
+        with open(os.path.join(src, "data", "a.json"), "w", encoding="utf-8") as handle:
+            handle.write("{}")
+        sha = hashlib.sha256(b"{}").hexdigest()
+        base = make_contract("x", task_type="experiment", inputs={"data/a.json": sha})
+        base["run_conditions"] = {"command": ["python", "train.py"], "code_sha": "c" * 40, "seed": 1, "hypothesis_id": "H-1",
+                                  "input_roles": {"data/a.json": "data"}}
+        first = queue.enqueue(root, base, T0, source_root=src)
         variants = [dict(base, risk="high"), dict(base, retry_policy={"max_transient_retries": 0}),
-                    dict(base, escalation_level=2), dict(base, inputs={"./data/a.json": SHA_A}),
+                    dict(base, escalation_level=2),
+                    dict(base, inputs={"./data/a.json": sha}, run_conditions=dict(base["run_conditions"], input_roles={"./data/a.json": "data"})),
                     dict(base, run_conditions=dict(base["run_conditions"], hypothesis_id="H-2", description="다른 설명"))]
         for variant in variants:
             with self.assertRaises(queue.DuplicateTask) as caught:
-                queue.enqueue(root, variant, T0 + 1)
+                queue.enqueue(root, variant, T0 + 1, source_root=src)
             self.assertEqual(caught.exception.existing, first)
         with self.assertRaises(ct.ContractError):  # 실행 조건이 없어 중복을 판별할 수 없는 실험은 등록 거절
             queue.enqueue(root, make_contract("y", task_type="experiment"), T0)
         other = dict(base, run_conditions=dict(base["run_conditions"], seed=2))
-        self.assertNotEqual(queue.enqueue(root, other, T0), first)  # 조건 하나라도 다르면 통과
-        self.assertEqual(queue.enqueue(root, base, T0 + 3), first)  # 같은 계약은 그대로 멱등
+        self.assertNotEqual(queue.enqueue(root, other, T0, source_root=src), first)  # 조건 하나라도 다르면 통과
+        self.assertEqual(queue.enqueue(root, base, T0 + 3, source_root=src), first)  # 같은 계약은 그대로 멱등
 
     def test_r3_finished_claude_work_is_not_resumed_after_supervisor_death(self):
         root = tempfile.mkdtemp()

@@ -1,5 +1,6 @@
 """2단계 보조 규칙: 예산 멱등 키, 그래프 등록의 중복 거절, 실험 유형은 등록해도 자동 재실행 금지, 결과 확인 대기는 장부·알림 한 번,
 이미 완료한 작업은 다시 반영하지 않음."""
+import hashlib
 import os
 import tempfile
 import unittest
@@ -7,15 +8,20 @@ from unittest import mock
 
 from harness import budget, graph, opstate, queue, recovery
 from harness import contract as ct
-from tests.test_harness_support import BOOT, SHA_A, claim, dead_lease, finish, make_contract
+from tests.test_harness_support import BOOT, claim, dead_lease, finish, make_contract
 from tests.test_harness_supervisor_kit import events
 
 T0 = 1_800_000_000.0
 
 
-def experiment(seed=1, **extra):
-    task = dict(make_contract("e", task_type="experiment", inputs={"data/a.json": SHA_A}), **extra)
-    task["run_conditions"] = {"command": ["python", "train.py"], "code_sha": "c" * 40, "seed": seed}
+def experiment(src, seed=1, **extra):
+    """src에 입력 data/a.json을 쓰고 그 SHA로 만든 실험 계약(검증 결함 F3: 입력은 실제 파일과 대조하고 입력마다 역할을 적는다)."""
+    os.makedirs(os.path.join(src, "data"), exist_ok=True)
+    with open(os.path.join(src, "data", "a.json"), "w", encoding="utf-8") as handle:
+        handle.write("{}")
+    task = dict(make_contract("e", task_type="experiment", inputs={"data/a.json": hashlib.sha256(b"{}").hexdigest()}), **extra)
+    task["run_conditions"] = {"command": ["python", "train.py"], "code_sha": "c" * 40, "seed": seed,
+                              "input_roles": {"data/a.json": "data"}}
     return task
 
 
@@ -33,19 +39,20 @@ class PolicyGuardTest(unittest.TestCase):
         self.assertFalse(budget.charge(root, "vision_zone", 1, T0, key="task-1:run-a")["ok"])  # 정지 중에는 키가 있어도 거절
 
     def test_graph_registration_refuses_logical_duplicates(self):
-        root = tempfile.mkdtemp()
-        known = queue.enqueue(root, experiment(), T0)
-        twin, other = experiment(risk="high"), experiment(seed=7)
+        root, src = tempfile.mkdtemp(), tempfile.mkdtemp()
+        known = queue.enqueue(root, experiment(src), T0, source_root=src)
+        twin, other = experiment(src, risk="high"), experiment(src, seed=7)
         declared = {ct.task_key(twin): twin, ct.task_key(other): other}
-        got = graph.register_missing(root, declared, T0)
+        got = graph.register_missing(root, declared, T0, source_root=src)
         self.assertEqual((got["registered"], got["duplicates"]), ([ct.task_key(other)], {ct.task_key(twin): known}))
         self.assertFalse(os.path.exists(os.path.join(root, "tasks", ct.task_key(twin))))
         with self.assertRaises(ct.ContractError):  # 판별할 수 없는 실행 조건(설명인지 조건인지 모르는 키)
-            queue.enqueue(root, dict(experiment(), run_conditions={"command": ["x"], "code_sha": "c" * 40, "lr": 1}), T0)
+            queue.enqueue(root, dict(experiment(src), run_conditions={"command": ["x"], "code_sha": "c" * 40, "lr": 1}), T0,
+                          source_root=src)
 
     def test_experiment_is_never_auto_rerun_even_if_registered_and_waits_once(self):
-        root = tempfile.mkdtemp()
-        key = queue.enqueue(root, experiment(), T0)
+        root, src = tempfile.mkdtemp(), tempfile.mkdtemp()
+        key = queue.enqueue(root, experiment(src), T0, source_root=src)
         dead_lease(root, key, T0, run_id="ab12")
         with mock.patch.object(recovery, "RERUN_SAFE_TYPES", frozenset({"experiment"})):
             plans = [claim(root, key, os.getpid(), BOOT, T0 + 7200 + i) for i in range(3)]

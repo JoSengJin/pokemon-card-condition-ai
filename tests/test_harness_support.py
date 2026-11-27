@@ -5,7 +5,7 @@ import subprocess
 import sys
 from unittest import mock
 
-from harness import checkpoint, lease, manifest, queue
+from harness import checkpoint, dedupe, lease, manifest, queue
 from harness.contract import COMPLETION
 from harness.jsonio import write_json
 
@@ -16,6 +16,11 @@ SHA_A = "ab" * 32
 # 재실행 안전으로 등록한 것처럼 볼 시험용 유형(작업 계약 2단계 R1: 실제 등록 목록 recovery.RERUN_SAFE_TYPES는 비어 있다).
 # 재실행·재개 절차 자체를 시험하는 기존 시험만 이 목록으로 patch한다. 등록하지 않은 유형의 대기는 test_harness_policy_regress가 본다.
 RERUN_SAFE = frozenset(["unit-" + c for c in "abcdefghijklmnopqrstuvwxyz"] + ["calc", "flaky", "slow", "oom", "buggy", "exiter"])
+# 검증 결함 F3: 등록 가능한 작업 유형은 코드의 고정 목록(dedupe.PLAIN_TYPES·CONDITION_TYPES)뿐이다. 시험용 합성 유형(make_contract 기본
+# "unit-<tag>"·시험 executor 이름)은 이 시험 프로세스에서만 목록에 더한다(정확한 이름만, 변형 이름은 그대로 거절: test_harness_dedupe_conditions).
+TEST_TYPES = frozenset(RERUN_SAFE | {"unit-r1", "unit-r1b", "ok", "nap", "bad", "wrong", "unknown_type", "nobody", "link", "ki",
+                                     "intruder", "extra", "exit"})
+dedupe.PLAIN_TYPES = dedupe.PLAIN_TYPES | TEST_TYPES
 
 WORKER = r'''
 import os, sys, time

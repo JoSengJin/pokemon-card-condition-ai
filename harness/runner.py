@@ -21,7 +21,7 @@ import sys
 import time
 
 from . import contract as ct
-from . import cas, ledger, lease, manifest, queue, recovery, sandbox, states
+from . import cas, dedupe, ledger, lease, manifest, queue, recovery, sandbox, states
 from .jsonio import read_json, write_json
 
 
@@ -71,9 +71,11 @@ def _scan(root, executors):
                   "unreadable_contract": sorted(k for k, i in infos.items() if i["contract_state"] == "bad")}
 
 
-def _execute(executors, task, out_dir):
-    """executor를 실행한다. 정상이면 None, 오류면 (실패 종류, 설명). 종류는 1단계 규칙(recovery.kind_of)."""
+def _execute(executors, task, out_dir, source_root):
+    """executor를 실행한다. 정상이면 None, 오류면 (실패 종류, 설명). 종류는 1단계 규칙(recovery.kind_of).
+    실험·학습·평가는 실행 직전에 입력 SHA를 source_root의 실제 파일과 대조한다(다르면 executor를 부르지 않고 결정적 실패, 검증 결함 F3)."""
     try:
+        dedupe.verify_inputs(task, source_root)
         produced = executors[task["task_type"]](task, out_dir)
         if sorted(produced) != sorted(task["outputs"]):
             raise OutputMismatch("executor가 돌려준 출력 목록이 계약의 outputs와 다르다: %r" % (produced,))
@@ -100,11 +102,12 @@ def _note(summary, parked, key, kind, detail):
     return kind in ("done", "failed")
 
 
-def drain(root, executors, now_fn=time.time, max_tasks=None):
+def drain(root, executors, now_fn=time.time, max_tasks=None, source_root=None):
     """실행 가능한 Python 작업을 더 진행되지 않을 때까지(또는 max_tasks번 실행할 때까지) 처리하고 요약을 돌려준다.
 
     작업마다 claim -> executor -> complete/fail. 잠겨 있는(다른 runner가 실행 중) 작업과 정지 사유가 있는 작업은
     이번 drain에서 다시 시도하지 않는다. 일시적 실패는 다음 회차에서 곧바로 재시도한다(대기·백오프는 3단계).
+    source_root: 실험·학습·평가 입력 원본 폴더(기본 저장소 sandbox.REPO).
     """
     summary = {"done": [], "failed": [], "stopped": {}, "stop_reasons": {}, "locked": [], "warnings": [], "executed": 0}
     parked = set()
@@ -130,7 +133,7 @@ def drain(root, executors, now_fn=time.time, max_tasks=None):
                 task, out_dir = read_json(os.path.join(task_dir, "contract.json")), os.path.join(task_dir, "out")
                 os.makedirs(out_dir, exist_ok=True)
                 adopt = res["plan"]["action"] == "adopt"  # 완료 표시가 이미 맞다: executor를 다시 부르지 않고 반영만 한다
-                error = None if adopt else _execute(executors, task, out_dir)
+                error = None if adopt else _execute(executors, task, out_dir, source_root or sandbox.REPO)
                 if error is not None and error[0] == "interrupted":  # 작업권 기록은 남기고 잠금만 놓는다 → 다음 claim이 INTERRUPTED로 본다
                     lease.release(res["lease"])
                     progressed |= _note(summary, parked, key, "stopped", "executor_killed: %s" % error[1])
@@ -163,12 +166,14 @@ def drain(root, executors, now_fn=time.time, max_tasks=None):
 
 
 def main(argv):
-    """python -m harness.runner <root> <module:EXECUTORS> [--max N] -> 요약을 JSON 한 줄로 출력. executor는 sandbox 안에서만 실행한다."""
+    """python -m harness.runner <root> <module:EXECUTORS> [--max N] [--source-root D] -> 요약을 JSON 한 줄로 출력.
+    executor는 sandbox 안에서만 실행한다."""
     limit = int(argv[argv.index("--max") + 1]) if "--max" in argv else None
+    source = argv[argv.index("--source-root") + 1] if "--source-root" in argv else None
     if not sandbox.available():
         print(json.dumps({"sandbox_unavailable": sandbox.SANDBOX_EXEC, "executed": 0}, ensure_ascii=False), flush=True)
         return SANDBOX_EXIT
-    summary = drain(argv[0], sandbox.sandboxed(os.path.abspath(argv[0]), argv[1]), max_tasks=limit)
+    summary = drain(argv[0], sandbox.sandboxed(os.path.abspath(argv[0]), argv[1]), max_tasks=limit, source_root=source)
     print(json.dumps(summary, sort_keys=True, ensure_ascii=False), flush=True)
     return INTEGRITY_EXIT if "integrity" in summary else 0
 
