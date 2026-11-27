@@ -38,14 +38,14 @@ def enqueue(root, task, now):
     return key
 
 
-def claim(root, key, pid, boot, now, current=None, boot_id_fn=lease.boot_id):
+def claim(root, key, pid, boot, now, current=None):
     """작업권을 잡고 실행 여부를 정한다. 잠금 안에서 상태 분류·결정하므로 동시 claim은 한쪽만 성공한다.
 
     flock을 잡았다는 것은 이전 작업권의 주인 프로세스가 잠금을 쥐고 있지 않다는 증거일 뿐이다. 그래서 이전 기록의
     pid가 같은 부팅에서 살아 있고 좀비가 아니면 인수하지 않고 "holder_alive_without_lock"으로 멈춘다(잠금 없이
     실행 중인 주인이 있다는 뜻: 이중 실행 방지가 멈춤보다 우선). 좀비는 인수하고, 판정 불가(ps 실패)는 "blocked"다.
     전제: 작업권을 쥔 프로세스가 끝까지 실행하고 exec하지 않는다 — 그래서 pid는 os.getpid(), boot는 lease.boot_id()여야 한다
-    (대리 claim·지어낸 부팅 식별자 거절). boot_id_fn은 시험용 주입 함수다.
+    (대리 claim·지어낸 부팅 식별자 거절). 시험은 공개 인자가 아니라 lease.boot_id를 patch해 합성 부팅 식별자를 쓴다(호출자가 우회하지 못하게).
 
     성공: {"ok": True, "run_id", "resumed", "lease"(complete/fail에 넘길 핸들), "state", "plan"}.
     실패: {"ok": False, "reason": "locked"|"unregistered"|plan action|holder_alive_without_lock|blocked, ...}.
@@ -53,7 +53,7 @@ def claim(root, key, pid, boot, now, current=None, boot_id_fn=lease.boot_id):
     task_dir = os.path.join(root, "tasks", ct.check_key(key))
     if pid != os.getpid():
         raise QueueError("claim의 pid는 호출 프로세스(os.getpid())여야 한다: 대리 claim은 잠금 없이 실행되는 이중 실행을 만든다")
-    if boot != boot_id_fn():  # boot도 pid처럼 호출자가 지어낼 수 없다(기록 판정이 부팅 식별자에 의존)
+    if boot != lease.boot_id():  # boot도 pid처럼 호출자가 지어낼 수 없다(기록 판정이 부팅 식별자에 의존)
         raise QueueError("claim의 boot는 lease.boot_id()와 같아야 한다: %r" % (boot,))
     if not os.path.isdir(task_dir):
         return {"ok": False, "reason": "unregistered"}
@@ -73,7 +73,7 @@ def claim(root, key, pid, boot, now, current=None, boot_id_fn=lease.boot_id):
             plan = recovery.decide(task_dir, state, info, now, current, restored)
         else:  # 잠금 없이 주인이 살아 있거나 판정 불가: 인수하지 않고 사유를 장부에 남긴다
             why = "holder_alive_without_lock" if who == "alive" else "blocked"
-            plan = {"runnable": False, "action": why, "events": [(why, {"task_key": key, "holder": info["held"]})]}
+            plan = {"runnable": False, "action": why, "reason": why, "events": [(why, {"task_key": key, "holder": info["held"]})]}
         for event, data in plan["events"]:
             ledger.append(os.path.join(root, "ledger.jsonl"), now, event, data)
     except BaseException:  # 판단 중 오류가 잠금을 쥔 채 남지 않게 한다(이전 기록은 보존)
@@ -83,7 +83,8 @@ def claim(root, key, pid, boot, now, current=None, boot_id_fn=lease.boot_id):
         lease.release(handle)
         return {"ok": False, "reason": plan["action"], "state": shown, "plan": plan}
     try:
-        lease.stamp(handle, pid, boot, now, {"run_id": plan["run_id"], "resumed": plan["resumed"]})
+        lease.stamp(handle, pid, boot, now, {"run_id": plan["run_id"], "resumed": plan["resumed"],
+                                             "interrupts": plan.get("interrupts", 0)})
         ledger.append(os.path.join(root, "ledger.jsonl"), now, "claimed",
                       {"task_key": key, "run_id": plan["run_id"], "pid": pid, "state_before": shown,
                        "action": plan["action"], "resumed": plan["resumed"]})

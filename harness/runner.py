@@ -15,12 +15,16 @@ import sys
 import time
 
 from . import contract as ct
-from . import lease, queue, recovery, states
+from . import cas, ledger, lease, queue, recovery, states
 from .jsonio import read_json
 
 
 class OutputMismatch(Exception):
     pass
+
+
+# 한 작업의 기록(장부·파일·CAS·계약·부팅 식별자) 오류. 그 작업만 멈추고 drain은 계속한다.
+_RECORDING_ERRORS = (OSError, ValueError, queue.QueueError, ledger.LedgerError, cas.CasError, lease.LeaseError)
 
 
 def _scan(root, executors):
@@ -62,8 +66,8 @@ def _execute(executors, task, out_dir):
         produced = executors[task["task_type"]](task, out_dir)
         if sorted(produced) != sorted(task["outputs"]):
             raise OutputMismatch("executor가 돌려준 출력 목록이 계약의 outputs와 다르다: %r" % (produced,))
-    except Exception as exc:
-        return recovery.kind_of(exc), "%s: %s" % (type(exc).__name__, exc)
+    except (Exception, SystemExit) as exc:  # executor가 sys.exit()를 내도 runner가 죽지 않고 결정적 실패로 기록한다
+        return recovery.kind_of(exc), "%s: %s" % (type(exc).__name__, exc)  # KeyboardInterrupt는 그대로 전파한다
     return None
 
 
@@ -83,13 +87,13 @@ def _note(summary, parked, key, kind, detail):
     return kind in ("done", "failed")
 
 
-def drain(root, executors, now_fn=time.time, max_tasks=None, boot_id_fn=lease.boot_id):
+def drain(root, executors, now_fn=time.time, max_tasks=None):
     """실행 가능한 Python 작업을 더 진행되지 않을 때까지(또는 max_tasks번 실행할 때까지) 처리하고 요약을 돌려준다.
 
     작업마다 claim -> executor -> complete/fail. 잠겨 있는(다른 runner가 실행 중) 작업과 정지 사유가 있는 작업은
     이번 drain에서 다시 시도하지 않는다. 일시적 실패는 다음 회차에서 곧바로 재시도한다(대기·백오프는 3단계).
     """
-    summary = {"done": [], "failed": [], "stopped": {}, "locked": [], "executed": 0}
+    summary = {"done": [], "failed": [], "stopped": {}, "stop_reasons": {}, "locked": [], "warnings": [], "executed": 0}
     parked = set()
     while True:
         todo, summary["untouched"] = _scan(root, executors)
@@ -97,9 +101,15 @@ def drain(root, executors, now_fn=time.time, max_tasks=None, boot_id_fn=lease.bo
         for key in [k for k in todo if k not in parked]:
             if max_tasks is not None and summary["executed"] >= max_tasks:
                 break
-            res = queue.claim(root, key, os.getpid(), boot_id_fn(), now_fn(), None, boot_id_fn)
+            try:
+                res = queue.claim(root, key, os.getpid(), lease.boot_id(), now_fn())
+            except _RECORDING_ERRORS as exc:  # 이 작업만 못 잡는다(장부·부팅 식별자 조회 오류 등). drain은 계속한다
+                progressed |= _note(summary, parked, key, "stopped", "claim_error: %s: %s" % (type(exc).__name__, exc))
+                continue
             if not res["ok"]:
                 kinds = {"locked": "locked", "skip": "skipped", "wait": "skipped", "unregistered": "skipped"}
+                if "plan" in res:
+                    summary["stop_reasons"][key] = res["plan"]["reason"]
                 progressed |= _note(summary, parked, key, kinds.get(res["reason"], "stopped"), res["reason"])
                 continue
             task_dir = os.path.join(root, "tasks", key)
@@ -109,10 +119,18 @@ def drain(root, executors, now_fn=time.time, max_tasks=None, boot_id_fn=lease.bo
             if error is None:
                 try:
                     queue.complete(root, key, res["run_id"], res["lease"], now_fn())
-                except (ValueError, OSError) as exc:  # 산출물 경로·파일 문제: 완료할 수 없다 = 결정적 실패
-                    error = ("deterministic", "%s: %s" % (type(exc).__name__, exc))
+                except _RECORDING_ERRORS as exc:
+                    if os.path.exists(os.path.join(task_dir, "done.json")):  # 완료 기록은 남았고 장부만 빠졌다: VERIFIED다
+                        summary["warnings"].append([key, "complete_error_after_commit: %s: %s" % (type(exc).__name__, exc)])
+                    else:  # 산출물 경로·파일 문제 등: 완료할 수 없다 = 결정적 실패
+                        error = ("deterministic", "%s: %s" % (type(exc).__name__, exc))
             if error is not None:
-                queue.fail(root, key, res["run_id"], res["lease"], error[0], error[1], now_fn())
+                try:
+                    queue.fail(root, key, res["run_id"], res["lease"], error[0], error[1], now_fn())
+                except _RECORDING_ERRORS as exc:  # 실패 기록도 못 남김: 작업권만 놓고 이 작업만 멈춘다
+                    lease.release(res["lease"])
+                    progressed |= _note(summary, parked, key, "stopped", "fail_record_error: %s: %s" % (type(exc).__name__, exc))
+                    continue
             progressed |= _note(summary, parked, key, "done" if error is None else "failed",
                                 res["run_id"] if error is None else error[0])
         if not progressed:

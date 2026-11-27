@@ -10,6 +10,9 @@ from . import checkpoint, states
 from .contract import RUN_ID, new_run_id
 
 RESUME_MIN_MINUTES = 30.0
+# 설계에 없는 한도(메인이 제안한 값: 일시적 실패 재시도 한도와 같은 2, 사용자 확인 대기). 같은 작업이 비정상 종료한 뒤
+# 이어받아 다시 실행하는 횟수의 상한(체크포인트 재개 포함). 넘으면 needs_failure_policy(too_many_interrupts)로 멈춘다.
+MAX_INTERRUPTS = 2
 RUNNABLE = ("run", "rerun", "retry", "resume")
 
 
@@ -23,6 +26,14 @@ def _plan(action, reason="", run_id=None, resumed=False, events=(), extra=None):
             "run_id": run_id, "events": list(events)}
     plan.update(extra or {})
     return plan
+
+
+def _deaths(prev):
+    """중단된 작업권 기록의 이전 중단 횟수 + 이번 1회. 값이 손상됐으면 한도를 넘긴 것으로 본다(보수적)."""
+    before = prev.get("interrupts", 0)
+    if not isinstance(before, int) or isinstance(before, bool) or before < 0:
+        return MAX_INTERRUPTS + 1
+    return before + 1
 
 
 def _archive(task_dir):
@@ -43,8 +54,8 @@ def _interrupted(prev, now, cp_reason):
     else:
         why = cp_reason
     if why is None:
-        return ("resume", "체크포인트 일치", run_id, True, [("interrupted_resumed", {"run_id": run_id})], None)
-    return ("rerun", why, None, False, [("interrupted_rerun", {"prev_run_id": run_id, "reason": why})], None)
+        return ("resume", "체크포인트 일치", run_id, True, [("interrupted_resumed", {"run_id": run_id})])
+    return ("rerun", why, None, False, [("interrupted_rerun", {"prev_run_id": run_id, "reason": why})])
 
 
 def _failed(info):
@@ -70,7 +81,12 @@ def decide(task_dir, state, info, now, current=None, restored=()):
         plan = _plan("skip", "CAS에서 복구하고 해시 재검증 통과", events=[("corrupt_restored", {"files": list(restored)})])
     elif state == states.INTERRUPTED:
         prev = info["held"] or {}
-        plan = _plan(*_interrupted(prev, now, checkpoint.check(info["checkpoint"], prev.get("run_id"), current)))
+        deaths = _deaths(prev)  # 이번 중단까지 센 비정상 종료 횟수
+        if deaths > MAX_INTERRUPTS:
+            plan = _plan("needs_failure_policy", "too_many_interrupts", extra={"interrupts": deaths})
+        else:
+            plan = _plan(*_interrupted(prev, now, checkpoint.check(info["checkpoint"], prev.get("run_id"), current)),
+                         extra={"interrupts": deaths})
     elif state == states.FAILED:
         plan = _plan(*_failed(info))
     elif state == states.PENDING:
