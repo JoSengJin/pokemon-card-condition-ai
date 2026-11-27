@@ -2,7 +2,7 @@
 import os
 
 from . import contract as ct
-from . import ledger, lease, states
+from . import dedupe, ledger, lease, states
 from .jsonio import write_json
 
 
@@ -45,7 +45,8 @@ def register_missing(root, declared_tasks, now, is_alive=lease.is_alive):
     """디스크 상태로 reconcile하고, 큐에 없는(UNREGISTERED) 대상만 등록한다.
 
     FAILED·INTERRUPTED·CORRUPT 대상은 eligible에만 나타나며 등록·재실행하지 않는다(실패 정책은 claim/recover가 판단).
-    호출 깊이 설계: queue.enqueue를 거치지 않고 같은 3단계(계약 검증·저장·장부 기록)를 직접 한다.
+    호출 깊이 설계: queue.enqueue를 거치지 않고 같은 단계(계약 검증·중복 확인·저장·장부 기록)를 직접 한다.
+    실행 조건이 같은 기존 작업이 있는 선언은 등록하지 않고 duplicates({선언 키: 기존 키})로 돌려준다.
     """
     for key, task in declared_tasks.items():
         if ct.task_key(task) != key:
@@ -55,9 +56,14 @@ def register_missing(root, declared_tasks, now, is_alive=lease.is_alive):
         info = states.facts(os.path.join(root, "tasks", key))
         seen[key] = states.state_of(info, info["held"] is not None and is_alive(info["held"]))
     eligible = reconcile(declared_tasks, seen.__getitem__)
-    registered = [k for k in eligible if seen[k] == states.UNREGISTERED]
-    for key in registered:
+    registered, duplicates = [], {}
+    for key in [k for k in eligible if seen[k] == states.UNREGISTERED]:
         task = ct.validate_contract(declared_tasks[key])
+        dup = dedupe.find_duplicate(root, task, key)  # queue.enqueue와 같은 중복 거절(실행 조건이 같은 실험)
+        if dup is not None:
+            duplicates[key] = dup
+            continue
         write_json(os.path.join(root, "tasks", key, "contract.json"), task)
         ledger.append(os.path.join(root, "ledger.jsonl"), now, "enqueued", {"task_key": key, "task_type": task["task_type"]})
-    return {"eligible": eligible, "registered": registered}
+        registered.append(key)
+    return dict({"eligible": eligible, "registered": registered}, **({"duplicates": duplicates} if duplicates else {}))

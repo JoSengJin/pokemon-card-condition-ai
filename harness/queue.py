@@ -11,12 +11,16 @@ claim과 recover에 한 번씩 보인다(사실 수집 → CAS 복구 → 다시
 import os
 
 from . import contract as ct
-from . import cas, holder, ledger, lease, manifest, recovery, states
+from . import cas, dedupe, holder, ledger, lease, manifest, opstate, recovery, states
 from .jsonio import read_json, write_json
 
 
 class QueueError(Exception):
     pass
+
+
+class DuplicateTask(QueueError):
+    """실행 조건이 같은 작업이 이미 있다(dedupe). existing 속성에 기존 task_key."""
 
 
 def _check_owner(handle, run_id):
@@ -27,11 +31,17 @@ def _check_owner(handle, run_id):
 
 
 def enqueue(root, task, now):
-    """계약을 큐에 등록(같은 계약이면 멱등). task_key를 돌려준다."""
+    """계약을 큐에 등록(같은 계약이면 멱등). task_key를 돌려준다. 실행 조건이 같은 다른 계약이 있으면 DuplicateTask(.existing),
+    실행 조건을 판별할 수 없는 실험·학습·평가 계약은 ContractError(dedupe)."""
     ct.validate_contract(task)
     key = ct.task_key(task)
     path = os.path.join(root, "tasks", key, "contract.json")
     if not os.path.exists(path):
+        dup = dedupe.find_duplicate(root, task, key)
+        if dup is not None:
+            err = DuplicateTask("실행 조건이 같은 작업이 이미 있다: %s" % dup)
+            err.existing = dup
+            raise err
         write_json(path, task)
         ledger.append(os.path.join(root, "ledger.jsonl"), now, "enqueued",
                       {"task_key": key, "task_type": task["task_type"]})
@@ -74,8 +84,8 @@ def claim(root, key, pid, boot, now, current=None):
         else:  # 잠금 없이 주인이 살아 있거나 판정 불가: 인수하지 않고 사유를 장부에 남긴다
             why = "holder_alive_without_lock" if who == "alive" else "blocked"
             plan = {"runnable": False, "action": why, "reason": why, "events": [(why, {"task_key": key, "holder": info["held"]})]}
-        for event, data in plan["events"]:
-            ledger.append(os.path.join(root, "ledger.jsonl"), now, event, data)
+        for event, data in plan["events"]:  # notification은 알림 장부로(opstate.notify와 같은 형식)
+            ledger.append(os.path.join(root, opstate.NOTIFICATIONS if event == "notification" else "ledger.jsonl"), now, event, data)
     except BaseException:  # 판단 중 오류가 잠금을 쥔 채 남지 않게 한다(이전 기록은 보존)
         lease.release(handle)
         raise
@@ -96,14 +106,24 @@ def claim(root, key, pid, boot, now, current=None):
 
 
 def complete(root, key, run_id, handle, now):
-    """out/의 산출물 해시를 manifest로 기록하고 CAS에 보관한 뒤 done.json을 쓴다(그 뒤에 작업권 해제)."""
+    """out/의 산출물 해시를 manifest로 기록하고 CAS에 보관한 뒤 done.json을 쓴다(그 뒤에 작업권 해제).
+    완료 표시(ct.COMPLETION)가 task_key·산출물 해시와 정확히 같을 때만 완료한다(산출물 존재만으로는 완료가 아니다).
+    이미 done.json이 있으면 다시 반영하지 않는다(QueueError). 거절하면 작업권은 호출자가 fail 또는 release로 놓는다."""
     task_dir = os.path.join(root, "tasks", ct.check_key(key))
     held = _check_owner(handle, run_id)
     task = read_json(os.path.join(task_dir, "contract.json"))
     if not isinstance(task, dict) or ct.task_key(task) != key or not task.get("outputs"):
         raise QueueError("계약 파일이 손상되었거나 task_key와 맞지 않는다")
+    if os.path.exists(os.path.join(task_dir, "done.json")):
+        raise QueueError("이미 완료 기록이 있다: 다시 반영하지 않는다")
     out_dir = os.path.join(task_dir, "out")
     recorded = manifest.build(out_dir, task["outputs"])
+    try:
+        marker = read_json(os.path.join(task_dir, ct.COMPLETION))
+    except ValueError:
+        marker = None
+    if marker != {"task_key": key, "outputs": recorded}:
+        raise QueueError("완료 표시가 없거나 산출물 해시·task_key와 맞지 않는다")
     for rel in recorded:
         cas.put(os.path.join(root, "cas"), os.path.join(out_dir, rel))
     write_json(os.path.join(task_dir, "done.json"), {"task_key": key, "run_id": run_id,
@@ -146,5 +166,5 @@ def recover(root, key, now, is_alive=lease.is_alive, current=None):
     state = states.state_of(info, held is not None and is_alive(held))
     plan = recovery.decide(task_dir, state, info, now, current, restored)
     for event, data in plan["events"]:
-        ledger.append(os.path.join(root, "ledger.jsonl"), now, event, data)
+        ledger.append(os.path.join(root, opstate.NOTIFICATIONS if event == "notification" else "ledger.jsonl"), now, event, data)
     return dict(plan, state=states.CORRUPT if restored else state)

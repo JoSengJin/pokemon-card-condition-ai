@@ -1,4 +1,5 @@
-"""한도 감지·재개(가짜 claude = 실제 하위 프로세스): resetsAt 뒤 --resume, --resume 실패 → 새 세션, 시각 미상 → 60·300·900초 3회 뒤 정지·알림,
+"""한도 감지·재개(가짜 claude = 실제 하위 프로세스): resetsAt 뒤 --resume, --resume 실패 → 새 세션 없이 그 작업 대기(R4),
+시각 미상 → 900초·5시간·8일 간격 3회 뒤 정지·알림,
 USER_STOPPED는 한도가 지나도 재개 안 함, 한도 중에도 Python 작업은 계속."""
 import json
 import os
@@ -9,6 +10,7 @@ from unittest import mock
 
 from harness import claude_job, opstate, queue, states, supervisor
 from tests.test_harness_runner_kit import task
+from tests.test_harness_resume_kit import allow_resume
 from tests.test_harness_supervisor_kit import Clock, events, llm_task, make_fake, runs
 
 EXEC = "tests.test_harness_executors:EXECUTORS"
@@ -37,20 +39,19 @@ class ResumeTest(unittest.TestCase):
         self.assertAlmostEqual(limit["next_try_at"], first["reset"], places=3)
         self.assertFalse(any("--continue" in r["argv"] or "-c" in r["argv"] for r in runs(log) + runs(log, "help")))
 
-    def test_resume_failure_opens_new_session_from_ledger_state(self):
+    def test_resume_failure_holds_the_task_without_opening_a_new_session(self):
         claude, log, env = make_fake(self, [{"do": "limit", "after": 1}, {"do": "no_session"}, {"do": "success"}])
         key = llm_task(self.root)
-        supervisor.run(self.root, claude, max_cycles=5, poll_s=3, env=env)
-        first, failed, fresh = runs(log)
+        with allow_resume(self, "misanalysis_general"):
+            out = supervisor.run(self.root, claude, max_cycles=5, poll_s=3, env=env)
+        first, failed = runs(log)  # 세 번째(새 세션) 실행은 없다: 복원 불가가 확인되지 않았다
         self.assertEqual(failed["resume"], first["session_id"])
-        self.assertIsNone(fresh["resume"])
-        self.assertNotEqual(fresh["session_id"], first["session_id"])
-        self.assertIn("이어받지 못해", fresh["prompt"])
-        self.assertIn(os.path.join(self.root, "ledger.jsonl"), fresh["prompt"])
         self.assertEqual([e["data"]["session_id"] for e in events(self.root, "claude_resume_failed")], [first["session_id"]])
-        self.assertEqual(state(self.root, key), states.VERIFIED)
-        with open(os.path.join(self.root, claude_job.JOB)) as handle:
-            self.assertEqual(json.load(handle)["session_id"], fresh["session_id"])
+        self.assertEqual((state(self.root, key), out["outcomes"]), (states.PENDING, ["rate_limited", "blocked"]))
+        with open(claude_job.paths(self.root, key)[0]) as handle:
+            job = json.load(handle)
+        self.assertEqual((job["status"], job["session_id"]), ("blocked", first["session_id"]))
+        self.assertTrue(job["hold_reason"].startswith("claude_failed_cause_unknown"))
 
     def test_unknown_reset_backs_off_three_times_then_stops_and_notifies(self):
         steps = [{"do": "limit", "reset": "garbage"}, {"do": "limit", "reset": "none", "type": None},
@@ -59,12 +60,12 @@ class ResumeTest(unittest.TestCase):
         claude, log, env = make_fake(self, steps)
         llm_task(self.root)
         clock = Clock(time.time())
-        supervisor.run(self.root, claude, max_cycles=40, poll_s=120, now_fn=clock.now, sleep_fn=clock.sleep, env=env)
+        supervisor.run(self.root, claude, max_cycles=40, poll_s=10 ** 6, now_fn=clock.now, sleep_fn=clock.sleep, env=env)
         self.assertEqual(len(runs(log)), 4)  # 처음 1회 + 다시 시도 3회, 그 뒤로는 실행하지 않는다
         starts = [e["ts"] for e in events(self.root, "claude_run_started")]
         gaps = [b - a for a, b in zip(starts, starts[1:])]
         self.assertEqual(len(gaps), 3)
-        for gap, want in zip(gaps, (60, 300, 900)):  # 간격을 늘려 가며 다시 시도한다(설계값을 시험에 고정)
+        for gap, want in zip(gaps, (900, 5 * 3600, 8 * 86400)):  # 간격을 늘려 가며 다시 시도한다(승인 값: 900초·5시간·8일을 시험에 고정)
             self.assertGreaterEqual(gap, want)
             self.assertLess(gap, want + 1)
         cond = opstate.load(self.root)["conditions"]

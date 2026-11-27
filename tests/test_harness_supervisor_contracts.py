@@ -25,7 +25,7 @@ class SupervisorContractTest(unittest.TestCase):
         supervisor.run(self.root, claude, max_cycles=3, poll_s=0.01, env=env)
         rows = [e["data"] for e in events(self.root, "route_decision")]
         self.assertEqual(sorted((r["task_type"], r["requested"]["model"], r["requested"]["effort"]) for r in rows),
-                         [("general_dev", "sonnet", "medium"), ("label_disagreement", "opus", "high")])
+                         [("label_disagreement", "opus", "high"), ("misanalysis_general", "sonnet", "medium")])  # 기본 유형이 A 묶음으로 바뀜
         self.assertEqual(sorted((r["model"], r["effort"]) for r in runs(log)), [("opus", "high"), ("sonnet", "medium")])
         for row in rows:
             self.assertEqual((row["policy"], row["applied"]["verified"], row["applied"]["effort"]), ("routing-policy-v1", False, None))

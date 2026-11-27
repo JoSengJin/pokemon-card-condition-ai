@@ -77,7 +77,7 @@ class HaltMidCycleTest(unittest.TestCase):
             self.assertEqual((hooked.call_count, out["state"], out["claude_runs"]), (1, name, 0), where)
             verified = [states.state_of(states.facts(os.path.join(root, "tasks", k)), False) == states.VERIFIED for k in py]
             cond = opstate.load(root)["conditions"]
-            picked = os.path.exists(os.path.join(root, claude_job.JOB))
+            picked = bool(os.path.isdir(os.path.join(root, claude_job.JOBS)) and os.listdir(os.path.join(root, claude_job.JOBS)))
             if attr == "_python":  # 작업 1개 처리 뒤 정지: 다음 Python 작업·한도 해제·Claude 고르기 모두 안 함
                 self.assertEqual((out["python_runs"], sorted(verified), opstate.RATE_LIMITED_SHORT in cond, picked),
                                  (1, [False, True][:count], True, False), where)

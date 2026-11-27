@@ -8,12 +8,14 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
-from harness import checkpoint, ledger, lease, queue, states
-from tests.test_harness_support import (BOOT, FAIL_CRASH, claim, REPO, alive_with, fingerprint, make_contract,
+from harness import checkpoint, lease, ledger, queue, recovery, states
+from tests.test_harness_support import (RERUN_SAFE, BOOT, FAIL_CRASH, claim, REPO, alive_with, fingerprint, make_contract,
                                         start_workers)
 
 
+@mock.patch.object(recovery, "RERUN_SAFE_TYPES", RERUN_SAFE)  # 재실행 절차 시험: 등록 유형으로 본다
 class ClaimProcessesTest(unittest.TestCase):
     def test_race_exactly_one_of_many_processes_gets_running(self):
         with tempfile.TemporaryDirectory() as root:

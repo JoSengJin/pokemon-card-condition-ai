@@ -64,10 +64,16 @@ def usage(root, kind, period):
     return sum(r["data"]["amount"] for r in rows if r["data"].get("kind") == kind and r["data"].get("period") == period)
 
 
-def charge(root, kind, amount, now, seal_cycle=None, actor="harness"):
-    """사용량 amount를 기록한다. {"ok", "kind", "period", "used", "limit"}. 넘으면 기록하지 않고 BUDGET_EXCEEDED(ok=False)."""
+def charge(root, kind, amount, now, seal_cycle=None, actor="harness", key=None):
+    """사용량 amount를 기록한다. {"ok", "kind", "period", "used", "limit"}. 넘으면 기록하지 않고 BUDGET_EXCEEDED(ok=False).
+
+    key(멱등 키, 작업 계약 2단계): 같은 key의 charge가 이미 장부에 있으면 다시 차감하지 않고 ok=True·already=True를 돌려준다(같은 단계의
+    반영·복구에서 두 번 차감 방지). 언어 모델 재개처럼 실제 사용이 더 생기는 경우는 호출 시도마다 다른 key(예: task_key:run_token)를
+    써서 승인 예산 안에서 차감한다. 호출부 연결은 5단계다."""
     if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
         raise BudgetError("amount는 양의 정수여야 한다")
+    if key is not None and (not isinstance(key, str) or not key):
+        raise BudgetError("key는 빈 문자열이 아닌 문자열이어야 한다")
     period, limit = period_of(kind, now, seal_cycle), LIMITS[kind][1]
     os.makedirs(os.path.join(root, "supervisor"), exist_ok=True)
     with open(os.path.join(root, "supervisor", "budget.lock"), "a") as guard:  # 확인과 기록 사이에 다른 charge가 끼지 않게
@@ -76,13 +82,17 @@ def charge(root, kind, amount, now, seal_cycle=None, actor="harness"):
         halted = opstate.effective(opstate.load(root))
         if halted in opstate.HALTING:  # 예산 초과·무결성 정지·사용자 중단·종료 중에는 새 개발 작업을 허락하지 않는다
             return dict(result, ok=False, reason="halted:" + halted, used=None)
-        used = usage(root, kind, period)
+        used = usage(root, kind, period)  # 장부 검증도 여기서 한다(손상이면 BudgetError)
+        if key is not None and os.path.exists(os.path.join(root, BUDGET)):
+            with open(os.path.join(root, BUDGET), "r", encoding="utf-8") as handle:
+                if any(json.loads(raw)["data"].get("key") == key for raw in handle):
+                    return dict(result, ok=True, already=True, used=used)
         if used + amount > limit:
             info = dict(result, used=used)
             opstate.set_condition(root, opstate.BUDGET_EXCEEDED, now, actor, "개발 예산 초과: %s" % kind, info)
             opstate.notify(root, now, "budget_exceeded", "개발 예산 초과(재승인 필요): %s %s" % (kind, period), info)
             return dict(info, ok=False, reason="limit")
-        entry = ledger.append(os.path.join(root, BUDGET), now, "charge",
-                              {"kind": kind, "period": period, "amount": amount, "actor": actor})
+        entry = ledger.append(os.path.join(root, BUDGET), now, "charge", dict(
+            {"kind": kind, "period": period, "amount": amount, "actor": actor}, **({"key": key} if key is not None else {})))
         write_json(os.path.join(root, TAIL), {"hash": entry["hash"], "seq": entry["seq"]})
         return dict(result, ok=True, used=used + amount)

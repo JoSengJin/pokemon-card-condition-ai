@@ -7,7 +7,7 @@
 - 정지 상태는 회차 시작에만 보지 않는다: Python 작업 하나를 시작하기 전마다, Python 처리 뒤(clear_auto 직전), pick 직전, execute 직전에
   다시 읽어 정지면 그 회차를 끝낸다(처리 중 건 USER_STOPPED 뒤에 새 작업을 시작하지 않는다). 이미 돌고 있는 작업은 강제로 끊지 않는다.
   남는 틈: 확인과 runner의 claim 사이(밀리초)에 건 정지는 그 작업 1개를 막지 못한다(runner는 운영 상태를 읽지 않는다, 2단계 파일).
-- 상태는 모두 파일(opstate.json·claude.json·장부)에 있어 kill -9 뒤 다시 시작해도 같은 상태에서 이어간다.
+- 상태는 모두 파일(opstate.json·supervisor/claude/<task_key>.json·장부)에 있어 kill -9 뒤 다시 시작해도 같은 상태에서 이어간다.
 - root마다 Supervisor는 하나만 돈다(root/supervisor/supervisor.lock 비차단 flock, 이미 돌고 있으면 already_running).
 - 자동 해제하지 않는 상태의 해제(opstate.clear_by_user)와 정지 해제(unlock)는 이 루프에서 부르지 않는다(사람 확인 함수).
 - 예상하지 못한 예외는 추정해서 계속하지 않고 INTEGRITY_HALT로 멈춘다(fail-closed, 사람 확인).

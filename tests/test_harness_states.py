@@ -4,9 +4,10 @@ import os
 import pathlib
 import tempfile
 import unittest
+from unittest import mock
 
-from harness import lease, queue, states
-from tests.test_harness_support import BOOT, claim, alive_with, finish, make_contract
+from harness import lease, queue, recovery, states
+from tests.test_harness_support import RERUN_SAFE, BOOT, claim, alive_with, finish, make_contract
 
 T0 = 1_000_000.0
 
@@ -32,6 +33,7 @@ def mutate(task_dir, how):
             json.dump(record, handle)
 
 
+@mock.patch.object(recovery, "RERUN_SAFE_TYPES", RERUN_SAFE)  # 재실행 절차 시험: 등록 유형으로 본다
 class StatesTest(unittest.TestCase):
     def test_unregistered_pending_and_same_input_hash_is_not_verified(self):
         with tempfile.TemporaryDirectory() as root:

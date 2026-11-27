@@ -6,7 +6,9 @@
 - 일시적 실패는 1단계 규칙대로 최대 2회 재시도한 뒤 정지, 결정적 실패·needs_failure_policy·blocked·
   holder_alive_without_lock은 우회하지 않고 요약에 남기고 그 작업만 멈춘다.
   장부 체인 손상(LedgerError)은 무결성 문제라 drain 전체를 멈추고 요약에 INTEGRITY를 남기며 종료 코드 3을 낸다. 데몬·예산·한도 감지는 하지 않는다(3단계).
-- 호출 깊이: main -> drain -> queue.claim/complete/fail(각각 깊이 2 이하)이라 최대 4다.
+- 완료 표시(작업 계약 2단계): executor가 정상 반환하면 산출물 해시로 complete.json을 원자 저장한 뒤 complete한다. claim 계획이 adopt
+  (중단 전에 표시까지 남겼다)면 executor를 부르지 않고 complete만 한다.
+- 호출 깊이: main -> drain -> queue.claim/complete/fail(각각 깊이 2 이하)이라 최대 4다. drain -> manifest.build -> safe_path는 3.
   executor는 호출자 코드(동적 호출)이며 이 깊이에 포함하지 않았다.
 """
 import importlib
@@ -16,8 +18,8 @@ import sys
 import time
 
 from . import contract as ct
-from . import cas, ledger, lease, queue, recovery, states
-from .jsonio import read_json
+from . import cas, ledger, lease, manifest, queue, recovery, states
+from .jsonio import read_json, write_json
 
 
 INTEGRITY_EXIT = 3  # 장부 무결성 오류로 drain이 중단된 경우의 종료 코드
@@ -121,9 +123,13 @@ def drain(root, executors, now_fn=time.time, max_tasks=None):
                 task_dir = os.path.join(root, "tasks", key)
                 task, out_dir = read_json(os.path.join(task_dir, "contract.json")), os.path.join(task_dir, "out")
                 os.makedirs(out_dir, exist_ok=True)
-                error = _execute(executors, task, out_dir)
+                adopt = res["plan"]["action"] == "adopt"  # 완료 표시가 이미 맞다: executor를 다시 부르지 않고 반영만 한다
+                error = None if adopt else _execute(executors, task, out_dir)
                 if error is None:
                     try:
+                        if not adopt:  # executor가 정상 반환한 뒤에만 쓰는 완료 표시(원자 저장)
+                            write_json(os.path.join(task_dir, ct.COMPLETION),
+                                       {"task_key": key, "outputs": manifest.build(out_dir, task["outputs"])})
                         queue.complete(root, key, res["run_id"], res["lease"], now_fn())
                     except _RECORDING_ERRORS as exc:
                         if os.path.exists(os.path.join(task_dir, "done.json")):  # 완료 기록은 남았고 장부만 빠졌다: VERIFIED다

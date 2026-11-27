@@ -26,14 +26,15 @@ class ClaudeHoldTest(unittest.TestCase):
             root = tempfile.mkdtemp()
             key = llm_task(root)
             job = claude_job.pick(root, 1.0)
-            # Supervisor가 claude.json에 새 세션을 적은 뒤 pid를 기록하기 전에 죽은 상태(claude가 떠 있을 수도 있다)
-            write_json(os.path.join(root, claude_job.JOB),
+            # Supervisor가 작업 상태 파일에 새 세션을 적은 뒤 pid를 기록하기 전에 죽은 상태(claude가 떠 있을 수도 있다)
+            jobfile, pidfile = claude_job.paths(root, key)
+            write_json(jobfile,
                        dict(job, status="running", mode="new", session_id="s-new", run_token="t-new"))
             if record is not None:
-                write_json(os.path.join(root, claude_job.PIDFILE), record)
+                write_json(pidfile, record)
             self.assertIsNone(claude_job.pick(root, 2.0), record)
             out = supervisor.run(root, claude, max_cycles=3, poll_s=0, env=env)
-            held = read_json(os.path.join(root, claude_job.JOB))
+            held = read_json(jobfile)
             self.assertEqual((held["status"], held["session_id"], out["claude_runs"]), ("blocked", "s-new", 0), record)
             self.assertEqual(_queue_state(root, key), states.PENDING)  # 큐 작업은 그대로(다시 고르지도 않는다)
             self.assertEqual([e["data"]["kind"] for e in events(root, path=opstate.NOTIFICATIONS)], ["claude_job_blocked"])
@@ -42,13 +43,13 @@ class ClaudeHoldTest(unittest.TestCase):
 
     def test_pid_wait_checks_boot_id(self):
         root = tempfile.mkdtemp()
-        llm_task(root)
+        jobfile, pidfile = claude_job.paths(root, llm_task(root))
         job = claude_job.pick(root, 1.0)
-        write_json(os.path.join(root, claude_job.JOB), dict(job, status="running", mode="new", session_id="s-1", run_token="t-1"))
+        write_json(jobfile, dict(job, status="running", mode="new", session_id="s-1", run_token="t-1"))
         record = {"pid": os.getpid(), "boot_id": lease.boot_id(), "session_id": "s-1", "mode": "new", "run_token": "t-1"}
-        write_json(os.path.join(root, claude_job.PIDFILE), record)
+        write_json(pidfile, record)
         self.assertIsNone(claude_job.pick(root, 2.0))  # 같은 부팅에서 살아 있음: 겹쳐 실행하지 않고 기다린다
-        write_json(os.path.join(root, claude_job.PIDFILE), dict(record, boot_id="other-boot"))
+        write_json(pidfile, dict(record, boot_id="other-boot"))
         again = claude_job.pick(root, 3.0)  # 다른 부팅의 pid: 살아 있는 번호여도 그 claude가 아니다 → 이어간다
         self.assertEqual((again["status"], again["session_id"]), ("running", "s-1"))
 
@@ -59,7 +60,7 @@ class ClaudeHoldTest(unittest.TestCase):
         out = supervisor.run(root, claude, max_cycles=3, poll_s=0, env=env)
         self.assertEqual((out["outcomes"], len(runs(log))), (["blocked"], 1))  # 자동 재시도 없음
         self.assertEqual((_queue_state(root, key), states.failures(os.path.join(root, "tasks", key))), (states.PENDING, []))
-        self.assertEqual(read_json(os.path.join(root, claude_job.JOB))["status"], "blocked")
+        self.assertEqual(read_json(claude_job.paths(root, key)[0])["status"], "blocked")
         self.assertEqual([e["data"]["kind"] for e in events(root, path=opstate.NOTIFICATIONS)], ["claude_job_blocked"])
 
     def test_session_id_from_init_is_followed(self):

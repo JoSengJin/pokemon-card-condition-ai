@@ -80,6 +80,9 @@ if step["do"] == "success":
     for rel in task["outputs"]:
         os.makedirs(os.path.dirname(os.path.join(out_dir, rel)), exist_ok=True)
         open(os.path.join(out_dir, rel), "w").write("claude:" + session)
+    if step.get("declare", True):  # Claude가 마지막에 쓰는 완료 선언(declare=false면 쓰지 않음)
+        key = re.search(r"하네스 작업 ([0-9a-f]{64})", argv[1]).group(1)
+        json.dump({"task_key": key, "outputs": task["outputs"]}, open(os.path.join(out_dir, ".harness_complete.json"), "w"))
     print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "session_id": session,
                       "usage": {"input_tokens": 1, "output_tokens": 2}}), flush=True)
     sys.exit(0)
@@ -110,7 +113,7 @@ def runs(log, kind="run"):
         return [r for r in (json.loads(line) for line in handle) if r["kind"] == kind]
 
 
-def llm_task(root, name="llm", now=1_000_000.0, task_type="general_dev", depends_on=()):
+def llm_task(root, name="llm", now=1_000_000.0, task_type="misanalysis_general", depends_on=()):
     """needs_llm=true 작업을 큐에 등록하고 task_key를 돌려준다."""
     return queue.enqueue(root, make_contract(name, task_type=task_type, needs_llm=True, depends_on=depends_on), now)
 

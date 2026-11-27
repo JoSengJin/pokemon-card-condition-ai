@@ -6,7 +6,7 @@ import pathlib
 import subprocess
 import sys
 
-from tests.test_harness_support import REPO, RUNNER_PATH, make_contract
+from tests.test_harness_support import REPO, RERUN_SAFE, RUNNER_PATH, make_contract
 
 
 def task(name, task_type="calc", n="10", fails="0", **kw):
@@ -39,11 +39,19 @@ def link_result(out_dir, elsewhere):
     return ["result.txt"]
 
 
+RUNNER_WRAP = (  # 시험 전용: runner 하위 프로세스 안에서만 재실행 안전 목록을 TEST_RERUN_SAFE(쉼표 목록)로 바꾼 뒤 runner.main을 부른다
+    "import os, sys\nfrom harness import recovery, runner\n"
+    "recovery.RERUN_SAFE_TYPES = frozenset(filter(None, os.environ.get('TEST_RERUN_SAFE', '').split(',')))\n"
+    "sys.exit(runner.main(sys.argv[1:]))\n")
+
+
 def spawn_runner(root, marks, extra_env=None, args=()):
-    """실제 하위 프로세스로 runner를 실행한다. 환경은 새로 만든다: PATH에 claude 없음, 모델 관련 환경변수 없음."""
-    env = {"PATH": RUNNER_PATH, "HARNESS_MARK_DIR": marks, "PYTHONDONTWRITEBYTECODE": "1"}
+    """실제 하위 프로세스로 runner를 실행한다. 환경은 새로 만든다: PATH에 claude 없음, 모델 관련 환경변수 없음.
+    재실행 절차 시험용으로 기본은 시험 executor 유형을 재실행 안전으로 본다(extra_env의 TEST_RERUN_SAFE로 바꿀 수 있다)."""
+    env = {"PATH": RUNNER_PATH, "HARNESS_MARK_DIR": marks, "PYTHONDONTWRITEBYTECODE": "1",
+           "TEST_RERUN_SAFE": ",".join(sorted(RERUN_SAFE))}
     env.update(extra_env or {})
-    return subprocess.Popen([sys.executable, "-m", "harness.runner", root, "tests.test_harness_executors:EXECUTORS",
+    return subprocess.Popen([sys.executable, "-c", RUNNER_WRAP, root, "tests.test_harness_executors:EXECUTORS",
                              *args], cwd=REPO, env=env, stdout=subprocess.PIPE, text=True)
 
 

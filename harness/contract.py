@@ -1,4 +1,9 @@
-"""작업 계약 검증, task_key(입력 해시), run_id(시도) 발급."""
+"""작업 계약 검증, task_key(입력 해시), run_id(시도) 발급.
+
+완료 표시(작업 계약 2단계): COMPLETION(작업 폴더의 complete.json) = {"task_key", "outputs": {상대 경로: sha256}}. Python 작업은 executor가
+정상 반환한 뒤 runner가, Claude 작업은 claude가 성공 종료하고 DECLARATION(out/ 안, Claude가 마지막에 쓰는 {"task_key", "outputs": [경로]})이
+계약과 맞을 때 claude_job이 원자적으로 쓴다. queue.complete는 이 표시가 산출물 해시와 맞을 때만 완료한다. 두 이름은 outputs로 쓸 수 없다.
+"""
 import hashlib
 import json
 import re
@@ -14,7 +19,9 @@ _REQUIRED = {
     "needs_llm": bool, "needs_vision": bool, "risk": str,
     "retry_policy": dict, "escalation_level": int,
 }
-_OPTIONAL = {"expected_minutes": (int, float)}
+_OPTIONAL = {"expected_minutes": (int, float), "run_conditions": dict}  # run_conditions 규칙은 dedupe.py
+COMPLETION = "complete.json"
+DECLARATION = ".harness_complete.json"
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 RUN_ID = re.compile(r"[0-9a-f]+")  # 실패 기록 파일 이름(failures/NNN-<run_id>.json)과 같은 규칙
 
@@ -64,8 +71,8 @@ def validate_contract(task):
         raise ContractError("outputs는 비어 있지 않고 중복이 없어야 한다(산출물 해시로만 완료를 인정)")
     for rel in outputs:
         parts = rel.split("/") if isinstance(rel, str) else None
-        if not parts or rel.startswith("/") or any(p in ("", ".", "..") for p in parts):
-            raise ContractError("outputs는 안전한 상대 경로여야 한다: %r" % (rel,))
+        if not parts or rel.startswith("/") or any(p in ("", ".", "..") for p in parts) or rel == DECLARATION:
+            raise ContractError("outputs는 안전한 상대 경로여야 한다(완료 표시 이름 제외): %r" % (rel,))
     if not all(isinstance(k, str) and isinstance(v, str) for k, v in task["inputs"].items()):
         raise ContractError("inputs는 경로→SHA 문자열 사전이어야 한다")
     if not all(isinstance(d, str) and _HEX64.fullmatch(d) for d in task["depends_on"]):

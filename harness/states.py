@@ -7,13 +7,14 @@ failures/NNN-<run_id>.json(실패 기록, 추가만), checkpoint.json.
 state_of·failures는 아무것도 부르지 않는다. 그래서 claim/recover/register_missing이 facts → state_of를 직접
 부르면 깊이가 2다. classify는 같은 순서를 한 번 감싼 관찰자용 진입점이다.
 """
+import hashlib
 import json
 import os
 import re
 
 from . import lease
 from .cas import sha_file
-from .contract import RUN_ID, task_key
+from .contract import COMPLETION, RUN_ID, task_key
 from .jsonio import read_json
 from .manifest import safe_path
 
@@ -37,15 +38,47 @@ def failures(task_dir):
     return found
 
 
+def _completion(task_dir, task):
+    """완료 표시(COMPLETION) 판정: (None | "ok" | "bad", 산출물이 하나라도 있는가). 말단(표준 라이브러리만 쓴다: 호출 깊이 설계).
+    ok는 task_key·outputs 목록이 계약과 같고 모든 산출물이 out/ 안의 링크 아닌 파일이며 sha256이 표시와 같을 때뿐이다."""
+    out_dir = os.path.realpath(os.path.join(task_dir, "out"))
+    present = any(os.path.isfile(os.path.join(task_dir, "out", rel)) for rel in task["outputs"])
+    try:
+        with open(os.path.join(task_dir, COMPLETION), "r", encoding="utf-8") as handle:
+            mark = json.load(handle)
+    except FileNotFoundError:
+        return None, present
+    except (OSError, ValueError):
+        return "bad", present
+    hashes = mark.get("outputs") if isinstance(mark, dict) else None
+    if not isinstance(hashes, dict) or mark.get("task_key") != os.path.basename(task_dir) \
+            or sorted(hashes) != sorted(task["outputs"]):
+        return "bad", present
+    for rel, want in hashes.items():
+        path = os.path.join(task_dir, "out", rel)
+        if os.path.islink(path) or not os.path.isfile(path) \
+                or os.path.commonpath([out_dir, os.path.realpath(path)]) != out_dir:
+            return "bad", present
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1 << 20), b""):  # noqa: B023 — 같은 반복 안에서만 쓴다
+                digest.update(chunk)
+        if digest.hexdigest() != want:
+            return "bad", present
+    return "ok", present
+
+
 def facts(task_dir):
     """판정에 필요한 사실(읽기만 한다). contract_state: absent|ok|bad, done_state: absent|ok|bad.
 
     bad: 완료 기록과 어긋난 산출물 상대 경로, restorable: CAS에서 되살릴 수 있는 (sha, 대상 경로) 목록,
     held: 작업권 기록(없음 None, 깨짐 {}), records: 실패 기록, checkpoint: 없음 None / 손상 "damaged", stopped: 중단 한도 정지 표식(없음 None).
+    completion: 완료 표시 판정(None | ok | bad, 계약이 정상일 때만), outputs_present: 산출물 파일이 하나라도 있는가,
+    awaiting: 결과 확인 대기 표식(awaiting.json, 없음 None).
     """
     found = {"contract": None, "contract_state": "absent", "done_state": "absent", "bad": [], "restorable": [],
              "held": lease.read(os.path.join(task_dir, "lease.json")), "records": failures(task_dir),
-             "checkpoint": None, "stopped": None}
+             "checkpoint": None, "stopped": None, "completion": None, "outputs_present": False, "awaiting": None}
     path = os.path.join(task_dir, "contract.json")
     if os.path.exists(path):
         try:
@@ -58,10 +91,13 @@ def facts(task_dir):
         found["checkpoint"] = read_json(os.path.join(task_dir, "checkpoint.json"))
     except ValueError:
         found["checkpoint"] = "damaged"
-    try:
-        found["stopped"] = read_json(os.path.join(task_dir, "stopped.json"))
-    except ValueError:
-        found["stopped"] = "damaged"
+    for name in ("stopped", "awaiting"):
+        try:
+            found[name] = read_json(os.path.join(task_dir, name + ".json"))
+        except ValueError:
+            found[name] = "damaged"
+    if found["contract_state"] == "ok":
+        found["completion"], found["outputs_present"] = _completion(task_dir, found["contract"])
     done_path = os.path.join(task_dir, "done.json")
     if found["contract_state"] != "ok" or not os.path.exists(done_path):
         return found

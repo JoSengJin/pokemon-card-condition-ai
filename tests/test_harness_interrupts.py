@@ -5,9 +5,10 @@ import pathlib
 import signal
 import tempfile
 import unittest
+from unittest import mock
 
-from harness import checkpoint, lease, queue, states
-from tests.test_harness_support import BOOT, alive_with, claim, fingerprint, make_contract, start_workers
+from harness import checkpoint, lease, queue, recovery, states
+from tests.test_harness_support import RERUN_SAFE, BOOT, alive_with, claim, fingerprint, make_contract, start_workers
 
 T0 = 1_000_000.0
 
@@ -19,6 +20,7 @@ def stale(root, key, pid, **extra):
     lease.release(handle)
 
 
+@mock.patch.object(recovery, "RERUN_SAFE_TYPES", RERUN_SAFE)  # 재실행 절차 시험: 등록 유형으로 본다
 class InterruptLimitTest(unittest.TestCase):
     def test_interrupt_limit_counts_only_reruns_resets_on_checkpoint_resume_and_logs_the_stop_once(self):
         with tempfile.TemporaryDirectory() as root:
