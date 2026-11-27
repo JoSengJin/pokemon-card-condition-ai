@@ -17,7 +17,13 @@ BOX_OUT = '정상·결함만 행으로 둔다. 상자 미확인 사진의 구역
 BOX_IN = '정상·결함만 행으로 둔다. 상자 미확인 사진의 구역도 행에 포함한다'
 FACTS = {'background': ('bg_bright', 'ok', 'corner_cut', 'no_blue_border', 'unmeasured'),
          'px_per_mm_layer': ('<10', '10-15.3', '>=15.3', 'unmeasured'),
-         'rater_kind': ('human', 'ai_identical', 'ai_suspect', 'unknown')}
+         'rater_kind': ('ai_suspect', 'unknown')}  # ai_identical rows must be removed; 'human' has no proof format yet
+
+
+def unique_keys(pairs):
+    if len({key for key, _ in pairs}) != len(pairs):
+        raise ValueError('Duplicate key in a sidecar')
+    return dict(pairs)
 
 
 def freeze(root, plan, rows, required):
@@ -39,7 +45,7 @@ def freeze(root, plan, rows, required):
         data = path.read_bytes()
         if hashlib.sha256(data).hexdigest() != entry['sha256']:
             raise ValueError('Sidecar SHA256 does not match: ' + name)
-        bodies[name], sources[name] = json.loads(data), dict(entry)
+        bodies[name], sources[name] = json.loads(data, object_pairs_hook=unique_keys), dict(entry)
     bands = block.get('bands', BANDS)
     if (not isinstance(bands, list) or not bands or any(type(b) not in (int, float) or not 0 < b < 1 for b in bands)
             or any(a >= b for a, b in zip(bands, bands[1:]))):

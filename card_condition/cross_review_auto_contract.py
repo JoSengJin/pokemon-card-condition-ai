@@ -34,7 +34,7 @@ VERDICT = obj(dict(critique_responses=array(CRITIQUE_REPLY),action={'type': 'str
                    debate_assessment=obj(dict(advocate=RATINGS,skeptic=RATINGS,unresolved_issues=array(TEXT),revision_required={'type':'boolean'})),
                    review_claims=obj(dict(completed_diagnostic_ids=array(TEXT),missing_evidence_ids=array(TEXT),gemini_required_for_select={'type':'boolean'}))))
 IMPLEMENTATION = obj(dict(judge_issue_responses=array(obj(dict(issue=TEXT,plan_quote=TEXT,rationale=TEXT))),final_decision={'type':'string','enum':['proceed','stop','wait']},final_rationale=TEXT,edits=array(obj({k: TEXT for k in ('path', 'before_sha256', 'old', 'new')})), worker=TEXT))
-PROTECTED = {'acceptance_caps.py', 'experiment_record.py', 'regression_audit.py', 'review.py'}
+PROTECTED = {'acceptance_caps.py', 'experiment_record.py', 'experiment_sidecars.py', 'regression_audit.py', 'review.py'}
 
 
 class VerdictValidationError(ValueError):
