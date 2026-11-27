@@ -205,8 +205,8 @@ CHAMPION → 목표 판정 → (충족) REGRESSION_CHECK → REPORTED → DONE /
 |---|---|
 | `VERIFIED` | 재실행 안 함. 산출물 해시 불일치면 `CORRUPT` |
 | `RUNNING` | 작업권(pid·부팅 시각) 생존 시 대기, 죽었으면 `INTERRUPTED` |
-| `INTERRUPTED` | 30분 이상 작업이고 유효한 체크포인트(코드·자료 SHA, seed, 난수·옵티마이저·데이터 순서 일치)가 있으면 복원(`resumed=true`), 아니면 새 `run_id`로 재실행 |
-| `FAILED` | 일시적 원인은 최대 2회 재시도. 결정적 원인(코드 오류, 기준 미달)은 재시도 없이 14절로 |
+| `INTERRUPTED` | 완료 기록·산출물 해시가 확인되면 재실행하지 않고 반영. 부작용·중복 반영 방지가 확인되어 코드에 재실행 안전으로 등록한 작업만 재개(30분 이상 + 유효한 체크포인트: 코드·자료 SHA, seed, 난수·옵티마이저·데이터 순서 일치) 또는 새 `run_id` 재실행. 그 밖(결과 불명 실험·학습·평가·외부 호출·배포·승격 포함)은 결과 확인 전 대기 |
+| `FAILED` | 일시적 원인은 최대 2회 재시도(재실행 안전으로 등록한 작업만. 외부 요청을 보낸 뒤 결과를 모르는 실패는 일시 원인이 아니다). 결정적 원인(코드 오류, 기준 미달)은 재시도 없이 14절로 |
 | `CORRUPT` | 내용 주소 저장소에서 복구, 실패하면 재실행 |
 
 - 누락 방지: Supervisor가 시작 시와 주기적으로 의존 그래프를 대조해, 의존 작업은 모두 `VERIFIED`인데 자신은 아닌 작업을 큐에 넣는다.
@@ -243,7 +243,7 @@ CHAMPION → 목표 판정 → (충족) REGRESSION_CHECK → REPORTED → DONE /
 | `RATE_LIMITED_SHORT` / `RATE_LIMITED_WEEKLY` | Claude 작업만 멈추고 Python 작업은 계속 | `resetsAt` 이후 자동 |
 
 - 구독 한도는 종료 조건이 아니다.
-- **재개 경로:** Supervisor가 비대화형 출력의 `rate_limit_event.resetsAt`을 장부에 기록하고, 그 시각 이후 `claude -p --resume <id>`로 재개한다. `--resume`이 실패하면 장부의 상태로 새 세션을 열어 이어간다. 시각을 모르면 간격을 늘려 최대 3회 시도 후 멈추고 알린다.
+- **재개 경로:** Supervisor가 비대화형 출력의 `rate_limit_event.resetsAt`을 장부에 기록하고, 그 시각 이후 `claude -p --resume <id>`로 재개한다. 세션 복원 불가가 확인된 경우에만 장부의 상태로 새 세션을 열어 이어간다. 그 밖의 `--resume` 실패는 그 작업을 대기시킨다. 자동 재개 대상은 [HARNESS_RULES](../../../agent/HARNESS_RULES.md)의 등록 작업 유형이다. 시각을 모르면 간격을 늘려 최대 3회 시도 후 멈추고 알린다.
 - `/low-priority`, `/rate-limit-options`는 자동으로 쓰지 않는다.
 - 그 밖: RC 끊김은 `claude remote-control --session-id`로 재연결, 네트워크 장애는 대기 후 복귀, 인증 2회 실패는 사람 확인, 재부팅 후 로그인 전에는 복구 불가(한계).
 
