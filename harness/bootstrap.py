@@ -50,7 +50,7 @@ def paired_bootstrap(rows, replicates, seed, quantile=0.10):
             values.append(value)
     return {"point": improvement(*totals(rows)), "lower": percentile(values, quantile) if values else UNMEASURED,
             "quantile": quantile, "replicates": replicates, "valid_replicates": len(values),
-            "n_cards": len(stats), "seed": seed}
+            "n_cards": len(stats), "defect_cards": sum(1 for stat in stats if stat[0] > 0), "seed": seed}
 
 
 def flip_truths(rows, noise_rate, rng):
@@ -75,4 +75,4 @@ def sensitivity(rows, noise_rate, trials, seed):
     return {"noise_rate": noise_rate, "trials": trials, "seed": seed, "maintained": kept,
             "fraction": kept / trials, "unmeasured_trials": unmeasured,
             "min_improvement": UNMEASURED if worst is None else worst,
-            "n_uncertain": sum(1 for row in rows if row.get("uncertain", False))}
+            "n_uncertain": sum(1 for row in rows if row.get("uncertain", False) and row["truth"] != "pending")}
