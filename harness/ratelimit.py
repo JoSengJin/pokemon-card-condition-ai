@@ -5,8 +5,15 @@
   한 단계 아래 dict(예: rate_limit_info)에서 찾는다.
 - 재개 시각: epoch 초, epoch 밀리초(1e11 초과), 숫자 문자열, 시간대가 있는 ISO 8601 문자열만 받는다. 시간대 없는 ISO·
   2001년 이전 값(상대 초일 수 있음)·bool·그 밖은 None(추정 금지). resetsAtSeconds도 같은 규칙(상대 초로 해석하지 않는다).
-- 한도에 걸렸는가: status가 LIMIT_STATUSES이거나, 이벤트가 있고 status가 ALLOWED_STATUSES가 아니며 실행이 성공하지 않았을 때.
-  (status가 허용이면 성공·실패와 무관하게 한도가 아니다: 실패는 일반 실패로 다룬다.)
+- 한도에 걸렸는가: 이벤트가 여러 개면 모두 본다(마지막만 보지 않는다). 실행이 성공하지 않았고, 이벤트 중 하나라도 status가
+  ALLOWED_STATUSES가 아니면(rejected·없음·모르는 값) 한도다. 모든 이벤트가 허용이면 실패는 일반 실패로 다룬다.
+  보고하는 rate_limit은 마지막 rejected 이벤트, 없으면 마지막 비허용 이벤트, 없으면 마지막 이벤트다.
+- rejected 이벤트가 있는데 실행이 성공(종료 코드 0 + result.is_error가 true 아님)하면 한도로 보지 않는다(결정). 근거: 성공이면
+  산출물이 이미 만들어졌고 settle이 manifest로 완료를 검증한다. 한도로 보면 같은 작업을 --resume으로 다시 돌려 일을 겹치게 한다.
+  그 거절이 실제 한도였다면 다음 Claude 실행이 다시 한도 이벤트를 받아 일반 한도 경로로 기록된다. rate_limit 요약은 남겨
+  claude_job_finished 장부에 함께 적는다. 실제 출력에서 이 조합이 나오는지는 확인하지 않았다(EVIDENCE 7절 1번).
+- 재개 시각이 MAX_RESET_AHEAD_S(8일, 주간 한도 7일 + 여유 1일)보다 먼 미래면 claude_job.settle이 미상으로 다루고 알린다
+  (parse_reset은 현재 시각을 모르므로 여기서는 거절하지 않는다).
 - 단기/주간: rateLimitType(또는 type 이름 필드) 값으로만 나눈다. 모르는 값·없음은 "unknown"(단기로 두지 않는다).
 """
 import datetime
@@ -18,6 +25,7 @@ SHORT_TYPES = ("five_hour",)
 WEEKLY_TYPES = ("seven_day", "seven_day_opus", "seven_day_sonnet")
 _MIN_EPOCH = 1e9  # 2001-09-09. 이보다 작은 값은 상대 초일 수 있어 해석하지 않는다
 _MS_EPOCH = 1e11  # 이보다 크면 밀리초로 본다(초라면 서기 5138년)
+MAX_RESET_AHEAD_S = 8 * 86400  # 이보다 먼 재개 시각은 믿지 않고 미상으로 본다(claude_job.settle)
 
 
 def parse_reset(value):
@@ -63,6 +71,7 @@ def classify_kind(value):
 def scan(lines, returncode):
     """출력 줄 → 요약 dict. 해석 못 한 줄은 bad_lines로 센다(무시하지 않고 기록)."""
     found = {"session_id": None, "init": None, "result": None, "rate_limit": None, "events": 0, "bad_lines": 0}
+    limits = []
     for raw in lines:
         if not raw.strip():
             continue
@@ -84,13 +93,14 @@ def scan(lines, returncode):
             found["result"] = event
         elif event.get("type") == "rate_limit_event":
             raw_reset = _lookup(event, ("resetsAt", "resetsAtSeconds"))
-            found["rate_limit"] = {"resets_at": parse_reset(raw_reset), "resets_at_raw": raw_reset,
-                                   "status": _lookup(event, ("status",)),
-                                   "type_raw": _lookup(event, ("rateLimitType", "rate_limit_type")),
-                                   "kind": classify_kind(_lookup(event, ("rateLimitType", "rate_limit_type")))}
+            limits.append({"resets_at": parse_reset(raw_reset), "resets_at_raw": raw_reset,
+                           "status": _lookup(event, ("status",)),
+                           "type_raw": _lookup(event, ("rateLimitType", "rate_limit_type")),
+                           "kind": classify_kind(_lookup(event, ("rateLimitType", "rate_limit_type")))})
     result = found["result"]
     found["success"] = returncode == 0 and isinstance(result, dict) and result.get("is_error") is not True
-    limit = found["rate_limit"]
-    found["limited"] = limit is not None and (limit["status"] in LIMIT_STATUSES or (
-        limit["status"] not in ALLOWED_STATUSES and not found["success"]))
+    blocking = [limit for limit in limits if limit["status"] not in ALLOWED_STATUSES]
+    rejected = [limit for limit in blocking if limit["status"] in LIMIT_STATUSES]
+    found["rate_limit"] = (rejected or blocking or limits or [None])[-1]
+    found["limited"] = bool(blocking) and not found["success"]
     return found
