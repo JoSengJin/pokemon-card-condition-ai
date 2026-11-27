@@ -79,6 +79,23 @@ class UnlockTest(unittest.TestCase):
         self.assertEqual(len(events(self.root)), before)
         self.assertTrue(os.path.exists(os.path.join(self.dir, "stopped.json")))
 
+    def test_release_interrupts_refuses_run_id_mismatch(self):
+        dead_lease(self.root, self.key, 1_000_000.0, run_id="abc4")
+        path = os.path.join(self.dir, "lease.json")
+        with open(path) as handle:
+            record = dict(json.load(handle), interrupts=3)
+        with open(path, "w") as handle:
+            json.dump(record, handle)
+        with open(os.path.join(self.dir, "stopped.json"), "w") as handle:
+            json.dump({"run_id": "other-run", "interrupts": 3}, handle)  # 정지 표식이 다른 실행의 것
+        before = len(events(self.root))
+        got = unlock.release_interrupts(self.root, self.key, "user", "확인", 1_000_200.0, confirm=True)
+        self.assertEqual(got, {"ok": False, "reason": "not_too_many_interrupts"})
+        with open(path) as handle:
+            self.assertEqual(json.load(handle)["interrupts"], 3)  # 작업권 기록 그대로
+        self.assertTrue(os.path.exists(os.path.join(self.dir, "stopped.json")))
+        self.assertEqual(len(events(self.root)), before)
+
     def test_no_automatic_call_path(self):
         harness = os.path.join(REPO, "harness")
         for name in sorted(os.listdir(harness)):

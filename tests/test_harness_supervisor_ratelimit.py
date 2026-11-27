@@ -37,14 +37,23 @@ class RateLimitTest(unittest.TestCase):
         init = {"type": "system", "subtype": "init", "session_id": "s-1", "model": "claude-sonnet-x"}
         ok = {"type": "result", "subtype": "success", "is_error": False}
         bad = {"type": "result", "subtype": "error", "is_error": True}
-        cases = [("rejected", ok, 0, True), ("allowed", ok, 0, False), ("allowed_warning", bad, 1, False),
-                 (None, bad, 1, True), (None, ok, 0, False), ("rejected", None, 0, True)]
+        # ("rejected", ok, 0): 실행이 성공했으면 한도가 아니다(결정, 근거는 ratelimit 모듈 설명·task 문서 가정 3)
+        cases = [("rejected", ok, 0, False), ("allowed", ok, 0, False), ("allowed_warning", bad, 1, False),
+                 (None, bad, 1, True), (None, ok, 0, False), ("rejected", None, 0, True), ("rejected", bad, 1, True)]
         for status, result, code, want in cases:
             event = {"type": "rate_limit_event", "rate_limit_info": {"status": status, "resetsAt": T}}
             found = ratelimit.scan(lines(init, event, *([result] if result else [])) + ["not json", "[1]"], code)
             self.assertEqual(found["limited"], want, (status, result, code))
             self.assertEqual((found["session_id"], found["init"]["model"], found["init"]["effort"], found["bad_lines"]),
                              ("s-1", "claude-sonnet-x", None, 2))
+        rejected = {"type": "rate_limit_event", "rate_limit_info": {"status": "rejected", "resetsAt": T, "rateLimitType": "five_hour"}}
+        allowed = {"type": "rate_limit_event", "rate_limit_info": {"status": "allowed", "resetsAt": T + 99}}
+        for order in ((rejected, allowed), (allowed, rejected), (allowed, rejected, allowed)):  # 마지막 이벤트만 보지 않는다
+            found = ratelimit.scan(lines(init, *order, bad), 1)
+            self.assertTrue(found["limited"], order)
+            self.assertEqual((found["rate_limit"]["status"], found["rate_limit"]["resets_at"], found["rate_limit"]["kind"]),
+                             ("rejected", T, "short"))
+        self.assertFalse(ratelimit.scan(lines(init, rejected, allowed, ok), 0)["limited"])  # 성공한 실행은 한도로 보지 않는다
         self.assertFalse(ratelimit.scan(lines(init, bad), 1)["limited"])  # 이벤트 없는 실패는 한도가 아니다
         self.assertTrue(ratelimit.scan(lines(init, ok), 0)["success"])
         self.assertFalse(ratelimit.scan(lines(init, ok), 1)["success"])
@@ -59,7 +68,8 @@ class RateLimitTest(unittest.TestCase):
             self.assertFalse({"--continue", "-c"} & set(argv))
         bad_calls = [("/low-priority", "sonnet", {"session_id": "u"}), (" /rate-limit-options now", "sonnet", {"session_id": "u"}),
                      ("", "sonnet", {"session_id": "u"}), ("작업", "sonnet", {"resume": "a", "session_id": "b"}),
-                     ("작업", "sonnet", {}), ("작업", None, {"session_id": "u"})]
+                     ("작업", "sonnet", {}), ("작업", None, {"session_id": "u"}), ("작업", "-c", {"session_id": "u"}),
+                     ("작업", "--continue", {"session_id": "u"})]  # 금지 인자는 TypeError가 아니라 ValueError
         for prompt, model, kw in bad_calls:
             with self.assertRaises(ValueError, msg=(prompt, model, kw)):
                 claude_run.build_argv("claude", prompt, model, "medium", **kw)

@@ -3,7 +3,8 @@
 가짜 claude는 실제 `claude`를 부르지 않고 모델을 호출하지 않는다. FAKE_CLAUDE_SCENARIO(JSON 목록)의 n번째 항목대로
 stream-json 줄을 내고 끝나며, 실행마다 FAKE_CLAUDE_LOG에 argv·시각·세션 인자를 한 줄씩 남긴다(`--help`는 kind=help).
 항목 do: limit(rate_limit_event 후 종료 코드 1) | success(계약 outputs를 산출물 폴더에 쓰고 성공 결과) |
-no_session(--resume 대상 없음, 종료 코드 1) | fail. reset: sec|ms|iso|garbage|none|past, after(초), field, type, status, delay.
+no_session(--resume 대상 없음, 종료 코드 1) | fail. reset: sec|ms|iso|garbage|none|past, after(초), field, type, status, delay,
+session(init 이벤트가 알려줄 세션 ID를 요청값과 다르게).
 """
 import json
 import os
@@ -45,7 +46,7 @@ time.sleep(step.get("delay", 0))
 if step["do"] == "no_session":
     sys.stderr.write("No conversation found with session ID: %%s\n" %% opt.get("--resume"))
     sys.exit(1)
-session = opt.get("--resume") or opt.get("--session-id") or str(uuid.uuid4())
+session = step.get("session") or opt.get("--resume") or opt.get("--session-id") or str(uuid.uuid4())
 print(json.dumps({"type": "system", "subtype": "init", "session_id": session, "model": opt.get("--model")}), flush=True)
 if step["do"] == "limit":
     info = {"status": step.get("status", "rejected")}

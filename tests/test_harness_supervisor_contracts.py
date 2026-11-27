@@ -5,8 +5,10 @@ import plistlib
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
-from harness import supervisor
+from harness import queue, states, supervisor
+from tests.test_harness_runner_kit import task
 from tests.test_harness_supervisor_kit import REPO, SUPERVISOR, events, llm_task, make_fake, runs
 
 TEMPLATE = os.path.join(REPO, "harness", "launchd", "harness-supervisor.plist.template")
@@ -45,6 +47,17 @@ class SupervisorContractTest(unittest.TestCase):
         self.assertEqual(supervisor.run(self.root, max_cycles=1, poll_s=0)["cycles"], 1)
         with self.assertRaises(ValueError):
             supervisor._args(["--root", self.root, "--continue", "x"])
+
+    def test_relative_root_is_made_absolute(self):
+        base = tempfile.mkdtemp()
+        key = queue.enqueue(os.path.join(base, "rel-root"), task("p"), 1.0)
+        here = os.getcwd()
+        os.chdir(base)  # runner는 cwd=REPO에서 돈다: 상대 경로를 그대로 넘기면 다른 폴더를 본다
+        self.addCleanup(os.chdir, here)
+        with mock.patch.dict(os.environ, {"HARNESS_MARK_DIR": tempfile.mkdtemp()}):
+            out = supervisor.run("rel-root", executors="tests.test_harness_executors:EXECUTORS", max_cycles=1, poll_s=0)
+        task_dir = os.path.join(base, "rel-root", "tasks", key)
+        self.assertEqual((out["python_runs"] >= 1, states.state_of(states.facts(task_dir), False)), (True, states.VERIFIED))
 
     def test_launchd_template_is_only_a_template(self):
         with open(TEMPLATE, encoding="utf-8") as handle:
