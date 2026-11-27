@@ -1,5 +1,6 @@
 """Silver 입력 경계: 제외 목록 형식·정규화, 선별 설정의 수 범위, 판정 함수의 이상 반환, 미리 채운 0, 재라벨 대상의 모델 필드. 합성 입력이다."""
 import unittest
+from functools import partial
 
 from harness import active_learning, relabel, silver_gate, silver_policy, silver_store
 from tests.test_harness_champion_support import make_root
@@ -21,10 +22,10 @@ class InputBoundaryTest(unittest.TestCase):
             for name, field in (("sealed", "image_shas"), ("sealed", "group_ids"), ("calibration", "image_shas"),
                                 ("calibration", "group_ids")):
                 protected = dict(PROTECTED, **{name: dict(good, **{field: bad})})
-                for call in (lambda: active_learning.select(al_pool(4), protected, CONFIG, 2, 1, []),
-                             lambda: active_learning.select([], protected, CONFIG, 2, 1, []),
-                             lambda: active_learning.protected_reason(al_pool(1)[0], protected),
-                             lambda: judge(root, "b1", policy, cands(2), protected=protected)):
+                for call in (partial(active_learning.select, al_pool(4), protected, CONFIG, 2, 1, []),
+                             partial(active_learning.select, [], protected, CONFIG, 2, 1, []),
+                             partial(active_learning.protected_reason, al_pool(1)[0], protected),
+                             partial(judge, root, "b1", policy, cands(2), protected=protected)):
                     with self.assertRaises(active_learning.ActiveLearningError, msg=(name, field, bad)):
                         call()
         # sealed에 걸리는 항목이라도 calibration 목록이 틀리면 조용히 'sealed'를 돌려주지 않는다
