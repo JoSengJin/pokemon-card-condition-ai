@@ -16,6 +16,7 @@ from unittest import mock
 from harness import claude_job, opstate, queue, runner, states, supervisor
 from harness import contract as ct
 from harness.jsonio import write_json
+from tests.test_harness_git_kit import CODE, git_source
 from tests.test_harness_runner_kit import WRAPPED_RUNNER, task
 from tests.test_harness_supervisor_kit import events, llm_task, make_fake, runs
 
@@ -27,13 +28,14 @@ def _state(root, key):
 
 
 def _experiment(src, rel="data/a.json", text=b"v1"):
-    """src 아래 rel을 쓰고 그 SHA로 만든 실험 계약(입력 자리표시자 포함)."""
+    """src 아래 rel을 쓰고 그 SHA로 만든 실험 계약(입력 자리표시자 포함). src는 git 저장소, code_sha는 그 HEAD(3차 결함 H1)."""
+    git_source(src)
     os.makedirs(os.path.dirname(os.path.join(src, os.path.normpath(rel))), exist_ok=True)
     with open(os.path.join(src, os.path.normpath(rel)), "wb") as handle:
         handle.write(text)
     return {"task_type": "experiment", "inputs": {rel: hashlib.sha256(text).hexdigest()}, "outputs": ["m.json"], "depends_on": [],
             "needs_llm": False, "needs_vision": False, "risk": "low", "retry_policy": {}, "escalation_level": 0,
-            "run_conditions": {"command": ["python", "t.py", "{input:%s}" % rel], "code_sha": "c" * 40,
+            "run_conditions": {"command": ["python", "t.py", "{input:%s}" % rel], "code_sha": CODE,
                                "input_roles": {rel: "data"}}}
 
 

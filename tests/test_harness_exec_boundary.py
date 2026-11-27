@@ -20,6 +20,7 @@ from unittest import mock
 from harness import contract as ct
 from harness import queue, runner, sandbox, states
 from tests import test_harness_boundary_kit as kit
+from tests.test_harness_git_kit import CODE, git_source
 from tests.test_harness_support import make_contract
 
 SPEC = "tests.test_harness_boundary_kit:EXECUTORS"
@@ -82,12 +83,13 @@ class ExecBoundaryTest(unittest.TestCase):
         root, _ = self._root()
         src = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, src, True)
+        git_source(src)  # code_sha는 source_root의 HEAD와 대조한다(3차 결함 H1)
         os.makedirs(os.path.join(src, "data"))
         with open(os.path.join(src, "data", "a.json"), "wb") as handle:
             handle.write(b"verified")
         want = hashlib.sha256(b"verified").hexdigest()
         task = make_contract("E", task_type="experiment", inputs={"data/a.json": want}, outputs=("metrics.json",))
-        task["run_conditions"] = {"command": ["python", "t.py", "{input:data/a.json}"], "code_sha": "c" * 40,
+        task["run_conditions"] = {"command": ["python", "t.py", "{input:data/a.json}"], "code_sha": CODE,
                                   "input_roles": {"data/a.json": "data"}}
         key = queue.enqueue(root, task, 1.0, source_root=src)
 

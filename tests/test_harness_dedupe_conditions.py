@@ -3,8 +3,8 @@
 - 작업 유형은 코드의 고정 목록으로만 판별한다. 모르는 유형·변형 이름(대소문자·접미어)은 run_conditions가 있든 없든 등록 거절이라
   중복 검사를 빠져나갈 수 없다. 실행 조건을 가진 비실험 유형도 거절한다.
 - 같은 조건의 다른 표기(config 생략·{}·null, seed 생략·null, 1과 1.0, SHA 대소문자, ./train.py, --lr=0.1, 입력 파일 경로 철자)는 중복,
-  실제로 다른 조건(학습·검증 맞바꿈: 명령의 자리표시자 자리가 바뀜, 입력 내용, needs_vision, 입력 추가)은 등록된다(2차 G4 뒤 기준은
-  test_harness_dedupe_keys).
+  실제로 다른 조건(학습·검증 맞바꿈: 명령의 자리표시자 자리가 바뀜, 입력 내용, 입력 추가)은 등록된다(2차 G4 뒤 기준은
+  test_harness_dedupe_keys). needs_llm=false 실험의 needs_vision=true는 등록 거절이다(3차 결함 H1, 이전 기대: 다른 조건으로 등록).
 - 입력 SHA는 형식을 검사하고 등록할 때와 executor 실행 직전에 실제 파일과 대조한다(다르면 등록 거절·결정적 실패, executor 실행 0).
 """
 import hashlib
@@ -16,17 +16,18 @@ from unittest import mock
 
 from harness import contract as ct
 from harness import graph, queue, runner, states
+from tests.test_harness_git_kit import CODE, git_source
 from tests.test_harness_support import make_contract
 
 T0 = 1_800_000_000.0
-CODE = "0123456789abcdef0123456789abcdef01234567"
 FILES = {"data/train.csv": "train-rows", "data/val.csv": "val-rows", "copy/train_copy.csv": "train-rows", "data/other.csv": "other"}
 
 
 def _source(case):
-    """입력 원본 폴더와 {경로: sha256}."""
+    """입력 원본 폴더(git 저장소, HEAD = CODE: 3차 결함 H1)와 {경로: sha256}."""
     src = tempfile.mkdtemp()
     case.addCleanup(shutil.rmtree, src, True)
+    git_source(src)
     for rel, text in FILES.items():
         os.makedirs(os.path.dirname(os.path.join(src, rel)), exist_ok=True)
         with open(os.path.join(src, rel), "w", encoding="utf-8") as handle:
@@ -89,9 +90,11 @@ class DedupeConditionTest(unittest.TestCase):
         swapped = _exp(sha, roles={"data/train.csv": "val", "data/val.csv": "train"})  # 학습·검증 역할 맞바꿈
         other_input = _exp(sha, roles={"data/other.csv": "train", "data/val.csv": "val"})  # 입력 SHA만 다름(F12)
         more = _exp(sha, roles={"data/train.csv": "train", "data/val.csv": "val", "data/other.csv": "test"})
-        for task in (swapped, other_input, more, dict(_exp(sha), needs_vision=True), _exp(sha, seed=7)):
+        for task in (swapped, other_input, more, _exp(sha, seed=7)):
             keys.append(queue.enqueue(root, task, T0, source_root=src))
-        self.assertEqual(len(set(keys)), 6)
+        self.assertEqual(len(set(keys)), 5)
+        with self.assertRaises(ct.ContractError):  # 3차 H1: 실행에 쓰이지 않는 needs_vision만 뒤집은 재등록(이전 기대: 등록, 6번째 키)
+            queue.enqueue(root, dict(_exp(sha), needs_vision=True), T0, source_root=src)
 
     def test_input_sha_is_checked_against_files_at_registration_and_right_before_execution(self):
         root, (src, sha) = tempfile.mkdtemp(), _source(self)

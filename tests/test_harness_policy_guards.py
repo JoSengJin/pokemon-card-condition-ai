@@ -8,6 +8,7 @@ from unittest import mock
 
 from harness import budget, graph, opstate, queue, recovery
 from harness import contract as ct
+from tests.test_harness_git_kit import CODE, git_source
 from tests.test_harness_support import BOOT, claim, dead_lease, finish, make_contract
 from tests.test_harness_supervisor_kit import events
 
@@ -15,12 +16,14 @@ T0 = 1_800_000_000.0
 
 
 def experiment(src, seed=1, **extra):
-    """src에 입력 data/a.json을 쓰고 그 SHA로 만든 실험 계약(검증 결함 F3: 입력은 실제 파일과 대조하고 입력마다 역할을 적는다)."""
+    """src에 입력 data/a.json을 쓰고 그 SHA로 만든 실험 계약(검증 결함 F3: 입력은 실제 파일과 대조하고 입력마다 역할을 적는다).
+    src는 git 저장소로 만들고 code_sha는 그 HEAD다(3차 결함 H1)."""
+    git_source(src)
     os.makedirs(os.path.join(src, "data"), exist_ok=True)
     with open(os.path.join(src, "data", "a.json"), "w", encoding="utf-8") as handle:
         handle.write("{}")
     task = dict(make_contract("e", task_type="experiment", inputs={"data/a.json": hashlib.sha256(b"{}").hexdigest()}), **extra)
-    task["run_conditions"] = {"command": ["python", "train.py", "{input:data/a.json}"], "code_sha": "c" * 40, "seed": seed,
+    task["run_conditions"] = {"command": ["python", "train.py", "{input:data/a.json}"], "code_sha": CODE, "seed": seed,
                               "input_roles": {"data/a.json": "data"}}  # 입력은 자리표시자로 참조한다(2차 결함 G4)
     return task
 

@@ -19,10 +19,10 @@ import unittest
 
 from harness import contract as ct
 from harness import queue, sandbox
+from tests.test_harness_git_kit import CODE, git_source
 from tests.test_harness_support import REPO, make_contract
 
 T0 = 1_800_000_000.0
-CODE = "c" * 40
 RACE = r'''
 import sys, time
 from harness import queue
@@ -57,6 +57,7 @@ class DedupeKeyTest(unittest.TestCase):
     def setUp(self):
         self.root, self.src = tempfile.mkdtemp(), tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.src, True)
+        git_source(self.src)  # code_sha는 source_root의 HEAD와 대조한다(3차 결함 H1)
 
     def test_registrant_labels_and_spelling_do_not_change_the_key(self):
         first = queue.enqueue(self.root, exp(self.src), T0, source_root=self.src)
@@ -87,9 +88,11 @@ class DedupeKeyTest(unittest.TestCase):
                                                                 "--val", "{input:data/train.csv}"]), T0, source_root=self.src)]
         sub = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, sub, True)
+        git_source(sub)
         keys.append(queue.enqueue(self.root, exp(sub, files=same_role), T0, source_root=sub))
         other = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, other, True)
+        git_source(other)
         keys.append(queue.enqueue(self.root, exp(other, files=swapped), T0, source_root=other))
         keys.append(queue.enqueue(self.root, exp(self.src, seed=1), T0, source_root=self.src))
         self.assertEqual(len(set(keys)), 5)

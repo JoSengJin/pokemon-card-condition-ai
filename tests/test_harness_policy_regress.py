@@ -13,6 +13,7 @@ import unittest
 
 from harness import contract as ct
 from harness import queue, states, supervisor
+from tests.test_harness_git_kit import CODE, git_source
 from tests.test_harness_support import BOOT, claim, dead_lease, make_contract
 from tests.test_harness_resume_kit import allow_resume
 from tests.test_harness_supervisor_kit import REPO, llm_task, make_fake, runs
@@ -46,12 +47,13 @@ class PolicyRegressionTest(unittest.TestCase):
 
     def test_r2_same_run_conditions_with_different_wording_is_refused(self):
         root, src = tempfile.mkdtemp(), tempfile.mkdtemp()
+        git_source(src)  # code_sha는 source_root의 HEAD와 대조한다(3차 결함 H1)
         os.makedirs(os.path.join(src, "data"))  # 입력은 실제 파일과 대조한다(검증 결함 F3)
         with open(os.path.join(src, "data", "a.json"), "w", encoding="utf-8") as handle:
             handle.write("{}")
         sha = hashlib.sha256(b"{}").hexdigest()
         base = make_contract("x", task_type="experiment", inputs={"data/a.json": sha})
-        base["run_conditions"] = {"command": ["python", "train.py", "{input:data/a.json}"], "code_sha": "c" * 40, "seed": 1,
+        base["run_conditions"] = {"command": ["python", "train.py", "{input:data/a.json}"], "code_sha": CODE, "seed": 1,
                                   "hypothesis_id": "H-1", "input_roles": {"data/a.json": "data"}}  # 입력은 자리표시자로 참조(2차 G4)
         first = queue.enqueue(root, base, T0, source_root=src)
         variants = [dict(base, risk="high"), dict(base, retry_policy={"max_transient_retries": 0}),

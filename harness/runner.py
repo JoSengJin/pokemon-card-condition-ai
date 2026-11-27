@@ -77,7 +77,8 @@ def _execute(root, executors, task, out_dir, source_root):
     실험·학습·평가는 실행 직전에 입력을 source_root에서 작업 폴더 in/으로 복사하며 복사본 SHA를 계약과 대조한다(다르거나 폴더 밖·링크·봉인
     이름이면 executor를 부르지 않고 결정적 실패, 검증 결함 F3). executor는 그 사본을 읽는다(sandbox 경로는 HARNESS_INPUT_DIR, 2차 결함 G6)."""
     try:
-        if task["task_type"] in dedupe.CONDITION_TYPES:
+        if task["task_type"] in dedupe.CONDITION_TYPES:  # 실행 직전 code_sha를 source_root HEAD와 다시 대조(3차 결함 H1)
+            dedupe.verify_code(task, source_root)
             claude_perm.stage_inputs(os.path.dirname(out_dir), task, source_root, root)
         produced = executors[task["task_type"]](task, out_dir)
         if sorted(produced) != sorted(task["outputs"]):
