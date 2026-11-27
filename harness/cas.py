@@ -65,6 +65,14 @@ def restore(cas_root, items):
 
 
 def get(cas_root, sha, dest):
-    """restore의 단일 파일판. 없거나 손상이면 CasError."""
-    if restore(cas_root, [(sha, dest)]):
+    """restore의 단일 파일판. 없거나 손상이면 CasError. 호출 깊이를 줄이려고 말단만 부른다(restore와 같은 검사·원자 복사)."""
+    blob = blob_path(cas_root, sha)
+    if not os.path.isfile(blob) or sha_file(blob) != sha:
         raise CasError("보관본이 없거나 손상됨: %s" % sha)
+    try:
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        tmp = "%s.tmp.%d" % (dest, os.getpid())
+        shutil.copyfile(blob, tmp)
+        os.replace(tmp, dest)
+    except OSError:
+        raise CasError("보관본을 꺼내지 못함: %s" % sha)
