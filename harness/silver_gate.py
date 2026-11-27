@@ -61,9 +61,12 @@ def cross_verify(cand, verifiers):
         if func is None:
             continue
         try:
-            results[name] = func(dict(probe))
+            value = func(dict(probe))
         except Exception as err:  # 주입 함수의 어떤 오류도 조용히 넘기지 않고 Pending 사유로 남긴다
             return {"resolved": False, "reason": "verifier_error:%s:%s" % (name, type(err).__name__), "results": results}
+        # 라벨·None이 아닌 반환(list·dict·NaN 등)은 집합에 넣거나 장부에 쓸 수 없으므로 타입 이름만 남긴다(아래에서 invalid)
+        valid = value is None or (isinstance(value, str) and value in silver_policy.LABEL_VALUES)
+        results[name] = value if valid else "invalid:%s" % type(value).__name__
     values = set(results.values())
     if not results:
         return {"resolved": False, "reason": "no_verifier", "results": results}

@@ -2,7 +2,8 @@
 
 - 정당한 재라벨: 기준 판본이 바뀌었고(old != new) 영향받는 결함 유형(affected_types)에 한해, 모델 결과를 보지 않고 전체 또는 무작위(seed 고정)로 고른다.
   후보에 모델 결과 필드(점수·예측·오류 여부 등)가 하나라도 있으면 거절한다: 모델이 틀린 구역만 골라 재라벨하는 경로를 입력 단계에서 막는다.
-  (필드 이름 목록으로만 판단하므로 다른 이름으로 숨긴 모델 결과는 못 잡는다. 호출자가 지켜야 하는 계약이다.)
+  요청 대상(request_relabel·request_repeat)에도 같은 검사를 하며, 중첩 dict·list·tuple까지 필드 이름의 대소문자·앞뒤 공백을 무시한다.
+  (필드 이름 목록으로만 판단하므로 다른 이름(isError 등)으로 숨긴 모델 결과는 못 잡는다. 호출자가 지켜야 하는 계약이다.)
 - 중복으로 거절: 같은 `(이미지 SHA, 구역, 기준 판본, 판정자)` 키. 이미 끝난 라벨(이 저장소의 에이전트 라벨, 또는 호출자가 준 완료 키)은 다시 요청하지 않는다.
 - 자기 일치도 재판정은 같은 키를 다시 판정하는 일이라 위 규칙의 예외지만, 계획 ID(plan_id)와 반복 번호가 있는 별도 종류(kind=self_agreement)로만 허용하고
   원래 끝난 라벨이 있어야 하며 `planned_repeat: true`로 따로 표시한다(새 라벨로 세지 않는다).
@@ -21,6 +22,20 @@ MODEL_FIELDS = frozenset(("pred", "pred_a", "pred_b", "prediction", "predicted",
 
 class RelabelError(Exception):
     pass
+
+
+def reject_model_fields(node):
+    """node(후보·대상 목록) 안에 MODEL_FIELDS 이름의 필드가 있으면 값과 무관하게 RelabelError."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, dict):
+            leaked = sorted(str(k) for k in current if str(k).strip().casefold() in MODEL_FIELDS)
+            if leaked:
+                raise RelabelError("모델 결과 필드가 있는 항목은 재라벨에 쓰지 않는다: %s" % (leaked,))
+            stack.extend(current.values())
+        elif isinstance(current, (list, tuple)):
+            stack.extend(current)
 
 
 def key_of(item):
@@ -60,9 +75,7 @@ def select_targets(candidates, change, judge, seed, fraction=None):
         raise RelabelError("judge는 human|agent, seed는 정수 또는 비어 있지 않은 문자열")
     pool = {}
     for item in candidates:
-        leaked = sorted(MODEL_FIELDS & set(item))
-        if leaked:
-            raise RelabelError("모델 결과 필드가 있는 후보는 재라벨 대상 선정에 쓰지 않는다: %s" % (leaked,))
+        reject_model_fields(item)
         if any(not isinstance(item.get(k), str) or not item[k] for k in ("image_sha", "zone", "defect_type")):
             raise RelabelError("후보에는 image_sha·zone·defect_type(문자열)이 필요하다")
         if item["defect_type"] in types:
@@ -86,15 +99,16 @@ def request_relabel(root, now, selection, completed=()):
 
     completed: 호출자가 아는 끝난 라벨 키(예: 사람 Gold의 (이미지 SHA, 구역, 기준 판본, human))의 목록.
     """
-    basis, targets = selection["basis"], selection["targets"]
+    basis, targets = selection["basis"], list(selection["targets"])
     if basis.get("kind") != "criteria_change" or basis.get("model_results_used") is not False:
         raise RelabelError("select_targets의 결과(기준 판본 변경 기반, 모델 결과 미사용)만 받는다")
+    silver_policy.reject_prefilled(targets)  # 두 검사 모두 아무 것도 쓰기 전에 전체 대상에 한다
+    reject_model_fields(targets)
     finished = {tuple(k) for k in completed}
     accepted, rejected = [], []
     with silver_store.lock(root):
         state = fold_requests(silver_store.load(root))
         for item in targets:
-            silver_policy.reject_prefilled(item)
             key = key_of(item)
             if item["criteria_version"] != basis["new"] or item["defect_type"] not in basis["affected_types"]:
                 raise RelabelError("대상이 기준 판본 변경 범위(new 판본·affected_types) 밖이다: %r" % (key,))
@@ -115,12 +129,14 @@ def request_repeat(root, now, items, plan_id, completed=()):
     (키, plan_id, repeat_index)는 한 번만 받는다. 기록은 kind=self_agreement, planned_repeat=true다(새 라벨로 세지 않는다)."""
     if not isinstance(plan_id, str) or not plan_id:
         raise RelabelError("자기 일치도 재판정에는 계획 ID(plan_id)가 필요하다")
+    items = list(items)
+    silver_policy.reject_prefilled(items)
+    reject_model_fields(items)
     finished = {tuple(k) for k in completed}
     accepted, rejected = [], []
     with silver_store.lock(root):
         state = fold_requests(silver_store.load(root))
         for item in items:
-            silver_policy.reject_prefilled(item)
             key, index = key_of(item), item.get("repeat_index")
             if not isinstance(index, int) or isinstance(index, bool) or index < 1:
                 raise RelabelError("repeat_index는 1 이상의 정수")

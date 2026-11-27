@@ -143,7 +143,9 @@ def reject_prefilled(screen):
         path, node = stack.pop()
         if isinstance(node, dict):
             for key, value in node.items():
-                if str(key).lower() in PREFILL_KEYS and value not in (None, "", [], {}, False):
+                # 0·0.0은 False와 같다고 비교되지만 채워진 값이다
+                blank = value is None or value is False or (isinstance(value, (str, list, dict)) and not value)
+                if str(key).lower() in PREFILL_KEYS and not blank:
                     raise PolicyError("미리 채운 입력은 거절한다: %s.%s" % (path, key))
                 stack.append(("%s.%s" % (path, key), value))
         elif isinstance(node, (list, tuple)):

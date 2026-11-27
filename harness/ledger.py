@@ -22,7 +22,9 @@ def append(path, ts, event, data):
     with open(path, "a+", encoding="utf-8") as handle:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
         handle.seek(0)
-        lines = handle.read().splitlines()
+        text = handle.read()
+        # "\n"으로만 나눈다: splitlines()는 ensure_ascii=False로 그대로 쓰인 U+2028·U+2029·U+0085에서도 줄을 나눈다
+        lines = text.removesuffix("\n").split("\n") if text else []
         prev, seq = GENESIS, 0
         if lines:
             try:
@@ -49,9 +51,10 @@ def append(path, ts, event, data):
 def _load(path):
     try:
         with open(path, "r", encoding="utf-8") as handle:
-            return handle.read().splitlines()
+            text = handle.read()
     except FileNotFoundError:
         return []
+    return text.removesuffix("\n").split("\n") if text else []  # append와 같은 나누기
 
 
 def tail(path):

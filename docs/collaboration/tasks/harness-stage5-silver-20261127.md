@@ -35,8 +35,7 @@ contract:
   보존할 조건: stdlib만, Python 3.9+ 문법, 람다 없음. 네트워크·LLM·`claude`·학습·추론 없음. 기존 177개 시험 통과 유지.
   사람 라벨 요청 화면은 만들지 않는다(요청 이벤트와 대기열 데이터만). 감사 판정은 사람만 내린다: 이 단계는 사람 판정을 입력으로 받는 함수만 둔다.
 structure: 파일당 함수 정의 ≤7(클래스 메서드·중첩 포함), 공개 함수 호출 깊이 ≤4(1·7단계 호출을 합산해 ast로 직접 재측정, 인계 절에 표).
-  알려진 제약: `lineage.invalidate_lineage` 자체가 1단계 호출 포함 깊이 4(→ registry.load → ledger.verify → _check_line → _hash_entry)라서
-  이 함수를 직접 부르는 호출자는 깊이 5가 된다. 감사 실패 연쇄를 호출하는 함수 하나에서만 발생하며 인계 절에 따로 기록한다.
+  구현 당시에는 감사 실패 연쇄를 부르는 `audit.record_verdicts` 하나가 깊이 5였다. 통합 뒤 `6103a41`에서 호출 경로를 펼쳐 현재 최대 4다(인계 절 "호출 깊이").
 checks:
   - `PYTHONDONTWRITEBYTECODE=1 /Users/jueun/WebstormProjects/pokemon-card-condition/.venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"` 종료 코드 0
   - 같은 명령 `/usr/bin/python3`(3.9)
@@ -109,9 +108,12 @@ AI→Gold 허용(SP06), 오류율 경계(SP01·SP02·SP03), 조정용 묶음 승
 (AL06·SG06·AL12는 시험이 다른 검사에 가려 있었음). 단일 지점 SP05(`Silver→Gold` 명시 검사만 제거)는 `_ALLOWED` 목록이 같은 전이를 막는 이중 방어라 동치 변이다.
 `ST02`(잠금 제거)는 3회 반복에서도 매번 잡혔다(3개 프로세스 동시 연쇄 시험).
 
-### 파일별 함수 정의 수 (ast, 한도 ≤7. 람다 없음)
+### 파일별 함수 정의 수 (ast, 한도 ≤7)
 
-| 파일 | 수 | 파일 | 수(시험) |
+아래는 현재 코드(`7062c52`) 기준이다. harness 5단계 파일에는 람다가 없다. harness 전체의 람다는 1개(`cas.sha_file`, 1단계 기존 코드. 함수로 세어도 `cas.py`는 7개)이며,
+harness 42개 모듈 중 함수 정의가 7개를 넘는 파일은 없다(`__init__.py` 제외).
+
+| 파일 | 수 | 파일 | 수(괄호는 시험 수) |
 |---|---|---|---|
 | harness/silver_store.py | 3 | tests/test_harness_silver_support.py (시험 아님) | 7 |
 | harness/silver_policy.py | 7 | tests/test_harness_silver_active_learning.py | 7 (6) |
@@ -119,27 +121,41 @@ AI→Gold 허용(SP06), 오류율 경계(SP01·SP02·SP03), 조정용 묶음 승
 | harness/active_learning.py | 7 | tests/test_harness_silver_gate.py | 6 (5) |
 | harness/audit.py | 6 | tests/test_harness_silver_verify.py | 3 (2) |
 | harness/audit_rate.py | 4 | tests/test_harness_silver_audit_rate.py | 7 (4) |
-| harness/relabel.py | 5 | tests/test_harness_silver_audit_status.py | 7 (5) |
-| | | tests/test_harness_silver_cascade.py | 7 (4) |
-| | | tests/test_harness_silver_kill.py | 6 (4) |
+| harness/relabel.py | 6 (검증 지적 반영 전 5) | tests/test_harness_silver_audit_status.py | 7 (5) |
+| harness/ledger.py (1단계) | 5 | tests/test_harness_silver_cascade.py | 7 (4) |
+| harness/cas.py (1단계) | 6 + 람다 1 | tests/test_harness_silver_kill.py | 6 (4) |
 | | | tests/test_harness_silver_relabel.py | 7 (5) |
 | | | tests/test_harness_silver_verifiers.py (시험 아님) | 5 |
+| | | tests/test_harness_silver_inputs.py (신규) | 6 (6) |
+| | | tests/test_harness_silver_storage.py (신규) | 5 (4) |
+| | | tests/test_harness_silver_gaps.py (신규) | 4 (4) |
+
+#### 통합 후 리팩터 `6103a41`의 함수 수 전후
+
+`6103a41`(`refactor(harness): 통합 후 호출 깊이 5→4`)이 바꾼 파일 3개를 "리팩터 3건"으로 기록한다. ast로 `6103a41~1`과 `6103a41`을 각각 셌다.
+
+| 파일 | 전 | 후 | 내용 |
+|---|---|---|---|
+| harness/champion.py | 6 | 5 | `_materialize`를 없애고 CAS 꺼내기·해시 재대조를 `restore_locked` 안에 펼침 |
+| harness/ledger.py | 6 | 5 | `_hash_entry`를 없애고 해시 계산을 `append`(마지막 줄 확인·새 줄)와 `_check_line`에 펼침 |
+| harness/silver_store.py | 3 | 3 | 코드 변경 없음. docstring의 호출 경로에서 `_hash_entry` 제거 |
+
+함수 수를 맞추려는 합치기가 아니라 깊이를 줄이려는 펼치기였다. 펼친 해시 계산은 `ledger.py` 안에 세 번 반복되며, 어긋나면 append→verify 시험이 실패한다.
 
 ### 호출 깊이 (전이 수, 1·7단계 호출 합산)
 
-측정: ast로 이름 참조(호출·콜백)를 간선으로 센 보수적 상한(7단계 인계와 같은 방법, 스크립트는 scratchpad). 순환 없음. 가장 긴 경로만 적었다.
+`7062c52`에서 다시 측정했다. 방법: harness/*.py(시험 코드 제외)를 ast로 읽어 이름 참조(호출·콜백, `champion.current` 같은 모듈 별칭 포함)를 간선으로 센 보수적 상한(스크립트는 scratchpad). 순환 없음.
+harness 공개 함수 전체의 최대값은 4이고 4를 넘는 함수는 없다.
 
 | 진입 | 깊이 | 최장 경로 |
 |---|---|---|
-| 순수 함수 전부(`active_learning.*`, `audit_rate.*`, `silver_policy.ratio/fold/active_policy/grade_transition/reject_prefilled`, `silver_gate.label_id/compare_to_gold/cross_verify`, `audit._status/_outcome`, `relabel.key_of/fold_requests`) | 0~1 | 예: select → pick |
-| silver_store.append | 2 | → ledger.append → ledger._hash_entry |
-| silver_store.load | 3 | → ledger.verify → ledger._check_line → ledger._hash_entry |
-| silver_policy.approve·withdraw, silver_gate.judge_candidates·trainable_labels, audit.plan_audit·set_rate·audit_status, relabel.request_relabel·request_repeat | 4 | → silver_store.load → ledger.verify → ledger._check_line → ledger._hash_entry |
-| **audit.record_verdicts** | **5 (한도 초과)** | → lineage.invalidate_lineage → registry.load → ledger.verify → ledger._check_line → ledger._hash_entry (cas 경로도 같은 5) |
+| `active_learning.select` | 2 | → check_inputs → protected_reason |
+| 그 밖의 순수 함수(`audit_rate.*`, `silver_policy.ratio/fold/active_policy/grade_transition/reject_prefilled`, `silver_gate.label_id/compare_to_gold/cross_verify/check_candidate/fold_labels`, `relabel.key_of/fold_requests/reject_model_fields/select_targets`, `active_learning`의 나머지) | 0~1 | 예: select_targets → reject_model_fields |
+| silver_store.append | 1 | → ledger.append |
+| silver_store.load | 2 | → ledger.verify → ledger._check_line |
+| silver_policy.approve·withdraw, silver_gate.judge_candidates·trainable_labels, audit.plan_audit·set_rate·audit_status, relabel.request_relabel·request_repeat | 3 | → silver_store.load → ledger.verify → ledger._check_line |
+| **audit.record_verdicts** (최대) | **4** | → lineage.invalidate_lineage → champion.restore_locked → cas.get → cas.blob_path |
 
-초과 원인과 처리: `lineage.invalidate_lineage` 자체가 1단계 호출을 포함해 이미 깊이 4(7단계 인계 표)라서, 그 함수를 부르는 어떤 호출자도 5가 된다. 7단계·1단계 코드는 수정 금지라 이 함수 하나만 5로 남겼다.
-다른 모든 함수는 `load`를 한 번만 부르고 순수 접기 함수(깊이 0~1)와 `append`(깊이 2)만 부르도록 평평하게 짰다. 감사 실패 연쇄를 쪼개 깊이를 감추지 않았다(호출은 `record_verdicts` 안에서 직접).
-메인이 결정할 선택지: (a) 1단계 `ledger.verify`·`append` 내부를 평탄화하면 5→4(1단계 수정이라 이 작업 범위 밖), (b) 이 함수 한 개에 한해 5를 예외로 승인, (c) 연쇄 호출을 Supervisor 쪽에서 `record_verdicts(...)`의 반환(`status: failed`)을 받아 따로 부르게 분리(자동 연쇄 요구와 충돌).
 미확인 경로(정적으로 확정할 수 없음): `silver_gate.cross_verify`가 호출자가 주입한 판정 함수(`func(...)`)를 부른다. 주입 함수 내부 호출은 이 측정에 들어가지 않는다.
 
 ### 필수 시험 대응
@@ -192,7 +208,7 @@ AI→Gold 허용(SP06), 오류율 경계(SP01·SP02·SP03), 조정용 묶음 승
 
 ### 리스크·알려진 제약
 
-- **깊이 5**: `audit.record_verdicts` 하나(위 표). 메인 결정 필요.
+- 깊이: 구현 당시의 `audit.record_verdicts` 5는 `6103a41`에서 4로 줄었다(위 표).
 - **복원 경로는 승격이 먼저 일어난 경우에만 의미가 있다**: 7단계 `promote`는 감사가 끝나기 전 승격을 거절하므로 정상 흐름에서 감사 실패로 무효화되는 모델은 Challenger뿐이고 Champion 복원은 일어나지 않는다.
   복원은 호출자가 감사 상태를 직접 `complete`로 줘서 승격한 경우(시험 `cascade_setup`이 이를 모사) 등에서만 쓰인다. 실패 뒤에도 같은 묶음을 쓰는 새 모델은 `audit_failed`로 거절된다.
 - `audit_rate.rate_for`의 "누적 오류율 > 상한이면 초기 비율로 복귀" 분기는 정상 흐름에서 도달하기 어렵다(통과한 회차는 각각 ≤ 상한이고, 실패한 정책은 철회돼 새 판본으로 시작). 순수 함수 직접 호출 시험만 있다.
@@ -206,3 +222,106 @@ AI→Gold 허용(SP06), 오류율 경계(SP01·SP02·SP03), 조정용 묶음 승
 이 작업은 새 파일만 추가했다(1·2·6·7단계·route·기존 시험 수정 없음). `git revert 5c13856e1412f5fa066cd21720ebde9f60f3ac62 fb4b8d4a82522dca92f26dd6c02e9bfc5d7e4393`
 (또는 harness/{active_learning,silver_store,silver_policy,silver_gate,audit,audit_rate,relabel}.py와 tests/test_harness_silver_*.py 삭제)로 되돌린다.
 런타임 상태는 호출자가 준 root 아래 `silver/`에만 생기므로 저장소에는 남는 것이 없다.
+
+
+## 독립 검증 지적 반영 (2026-11-27, 기준 `805d9c7`)
+
+```text
+task_id: harness-stage5-silver-20261127 (수정)
+owner: Claude (하위 에이전트)
+status: ready_for_review
+base_sha: 805d9c713ed572ecb059e0b9a657d78f3b90a0d9
+branch: claude/harness-fix-s5-20261127
+allowed_files: harness/{active_learning,silver_store,silver_policy,silver_gate,audit,audit_rate,relabel,ledger,cas}.py,
+  tests/test_harness_silver_*.py, ledger·cas를 검사하는 기존 tests/test_harness_*.py(tests/test_harness_supervisor_* 제외), 5·7단계 task 문서
+forbidden_files: 그 밖의 전부(supervisor·opstate·ratelimit·claude_*·budget·unlock은 다른 에이전트가 수정 중)
+contract: ledger 공개 함수의 시그니처·반환 형식, 장부 줄 형식·해시 계산은 바꾸지 않는다. stdlib만, Python 3.9+.
+```
+
+독립 검증 결과는 "조건부 통과"였다. 아래를 고쳤고, 고친 뒤의 재검증은 아직 받지 않았다. 합성 시험이며 모델 성능·라벨 품질 근거가 아니다.
+
+### 결정 대기 (고치지 않음)
+
+- **철회된 정책의 다른 묶음으로 학습한 모델의 승격**(`harness/audit.py:127-131`, `harness/gate.py`의 `audit_reason`): 감사 실패 연쇄는 정책을 철회하지만 계보 무효화는 실패한 묶음(`batch_id`)에 대해서만 한다.
+  승격 관문 `audit_reason`은 모델 계보가 쓴 묶음의 감사 상태만 보고 정책 상태는 보지 않는다. 따라서 같은 정책의 다른 묶음(감사 `complete`/`not_required`)으로 학습한 모델은
+  그 묶음의 Silver가 파생 상태로 Pending이 된 뒤에도 감사 조건에서는 걸리지 않는다. 사용자 결정 대기이며 이번 수정에서 건드리지 않았다.
+- `judge="human"`이 호출자의 선언뿐인 신뢰 경계(가정 12)는 8단계 몫으로 남긴다.
+
+### 입력 계약 변경
+
+- 제외 목록(`sealed`·`calibration`의 `image_shas`·`group_ids`)은 `list`·`tuple`·`set`이어야 하고 원소는 공백만이 아닌 `str`이어야 한다. 아니면 `ActiveLearningError`. 빈 목록은 허용한다.
+  `frozenset`·`dict`·generator·문자열·`None`은 거절한다. 네 목록을 모두 검사한 뒤에 판정한다.
+- 비교할 때 목록과 후보 양쪽의 이미지 SHA·그룹 ID에서 앞뒤 공백을 버리고 대소문자를 무시한다(`casefold`). 제외가 넓어지는 방향이다.
+  **한계:** SHA가 64자리 hex인지는 검사하지 않는다(기존 시험 값이 `sha000`·`img000` 형식). 잘린 SHA·접두어가 붙은 SHA·오타·중간 공백은 걸러지지 않는다. 저장하는 값과 라벨 ID는 후보 원문 그대로다(대소문자만 다른 SHA는 서로 다른 라벨 ID).
+- `error_priority`는 유한한 수 > 0, `stratum_scarcity`·`learning_value`는 유한한 수 ≥ 0(bool 제외). 후보가 쓰지 않는 config 항목도 검사한다.
+- `check_inputs`는 값을 돌려주지 않는다(저장소 안의 호출자는 `select` 하나).
+- 재라벨: `MODEL_FIELDS` 검사를 `select_targets` 후보, `request_relabel` 대상, `request_repeat` 항목에 적용한다. 중첩 dict·list·tuple을 보고 키의 대소문자·앞뒤 공백을 무시한다.
+  지적은 `request_relabel`까지였으나 같은 사람 요청 경로인 `request_repeat`에도 같은 검사를 넣었다. 두 요청 함수는 미리 채움·모델 필드 검사를 아무 것도 쓰기 전에 전체 대상에 한다
+  (이전에는 뒤 항목이 미리 채움에 걸리면 앞 항목은 이미 기록됐다).
+- 교차 검증 함수가 라벨·`None`이 아닌 값을 돌려주면 장부에는 값 대신 `invalid:<타입 이름>`만 남는다(문자열 `"maybe"` 포함). 사유는 `verifier_invalid_result`, 등급은 Pending이다.
+  뒤 함수가 오류를 내면 사유는 `verifier_error:...`이고 앞의 이상 값도 같은 방식으로 남는다.
+- 미리 채움 검사의 빈 값은 `None`·`False`·빈 `str`/`list`/`dict`다. `0`·`0.0`은 거절한다.
+
+### 항목별 조치
+
+| # | 지적 | 조치 | 시험 (파일 :: 이름) |
+|---|---|---|---|
+| 1 중요 | 제외 목록이 문자열이면 `set(str)`이 글자 집합이 되어 봉인 항목이 선별됨 | 검증·정규화를 `protected_reason` 한 곳으로 모음. `check_inputs`는 빈 식별자로 이 함수를 불러 후보가 없어도 검사. `silver_gate.check_candidate`는 같은 함수를 쓰므로 함께 적용 | inputs :: test_protected_lists_that_are_not_collections_of_strings_... |
+| 2 중요 | U+2028·U+2029·U+0085가 든 장부를 `splitlines()`가 나눠 못 읽음 | `ledger.append`·`ledger._load`·`silver_store.load`를 `\n`으로만 나눔. 쓰기·해시는 불변 | storage :: LedgerLineTest 3개(왕복, 수정 전 코드가 만든 장부 검증·이어쓰기, 손상·빈 줄·잘린 줄 거절) |
+| 3 경미 | 읽을 수 없는 blob에서 `PermissionError` | `cas.get`의 `isfile`·`sha_file`을 try 안으로 | storage :: CasReadTest |
+| 4 경미 | NaN·inf·음수 설정 통과 | 위 입력 계약 | inputs :: test_nan_infinite_and_negative_selection_weights_are_refused |
+| 5 경미 | 대소문자·공백 변형으로 제외가 뚫림 | 위 입력 계약 | inputs :: test_case_and_surrounding_space_variants_are_still_excluded |
+| 6 경미 | 판정 함수가 list·dict를 돌려주면 `TypeError` | 받는 즉시 `invalid:<타입>`으로 바꿈(set·NaN·object처럼 장부에 못 쓰는 값 포함) | inputs :: test_non_label_verifier_results_become_pending_... |
+| 7 경미 | 미리 채운 `0`·`0.0` 통과 | 위 입력 계약 | inputs :: test_a_prefilled_zero_is_not_an_empty_value |
+| 8 경미 | `request_relabel` 대상 미검사, 중첩·대소문자 | `relabel.reject_model_fields` | inputs :: test_relabel_inputs_with_nested_or_recased_model_fields_... |
+| 9 시험 공백 | 살아남은 변이 | 단언 추가 | gaps 4개(반올림 예산 3·7, 선별 중복 0, 감사 표본 올림, Silver만 표본), 3번의 CasError는 storage |
+| 10 문서 | 낡은 깊이 5·`_materialize`·`_hash_entry` 설명 | 5·7단계 문서와 `audit.py` docstring 한 줄 갱신 | 해당 없음 |
+
+### 대상 SHA와 실행 명령
+
+| 항목 | 값 |
+|---|---|
+| 코드 수정 (`fix(harness)`) | `5240717ede351e6f0e5449944f9d17f5f5263d64` |
+| 시험 (`test(harness)`) | `27e69c27fb2723797497055d07d262c8564cf72b` |
+| **최종 시험 대상** (람다 제거 `test(harness)`) | `7062c52eda64dd3e6389b227a02bee3c318a27ff` |
+| 이 문서 갱신 커밋 | 시험 대상 위에 이 문서·7단계 문서·`audit.py` docstring 한 줄. SHA는 `git log`로 확인 |
+
+| 명령 (cwd = worktree, `7062c52`, 작업 트리 깨끗) | 종료 코드 |
+|---|---|
+| `PYTHONDONTWRITEBYTECODE=1 /Users/jueun/WebstormProjects/pokemon-card-condition/.venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"` (Python 3.12.14, 264개) | 0 |
+| `PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -m unittest discover -s tests -p "test_harness_*.py"` (Python 3.9.6, 264개) | 0 |
+| 3.12 + `-W error::ResourceWarning` + `-p "test_harness_silver_*.py"`(54개), 3회 (출력에 ResourceWarning 0건) | 0, 0, 0 |
+| 수정 전 재현: `805d9c7`의 harness를 임시 폴더에 풀고 새 시험 3파일(14개) 실행 | 1 (실패 7, 오류 2. 통과 5개는 옛 장부 호환 1개와 9번 공백 4개로 기준 코드에서도 통과해야 하는 시험) |
+
+변이 시험(임시 복사본에서만, 원본 수정 없음, 스크립트는 scratchpad): 28개가 모두 silver·ledger·cas 시험 실패로 잡혔다(`7062c52`에서 재실행, 살아남은 변이 0).
+9번(무작위 몫 내림·올림, 중복 제외 제거, 표본 내림·반올림, 전체 라벨 표본), CasError, 줄 나누기 3곳 되돌리기와 빈 줄 버리기, 제외 목록 검사·정규화 6개, 설정 범위 4개, 판정 반환 정리, 0 빈 값, 재라벨 5개.
+구현 당시의 74개 변이는 이번에 다시 돌리지 않았다.
+
+구조: 함수 수·호출 깊이는 위 두 절. 이번 수정으로 늘어난 함수는 `relabel.reject_model_fields` 하나(`relabel.py` 5→6)다. 새 호출 경로는 `select → check_inputs → protected_reason`(2),
+`select_targets·request_relabel·request_repeat → reject_model_fields`(1)다.
+
+### 허용 파일 밖에서 확인한 것 (고치지 않음)
+
+- **`harness/registry.py:77`의 `splitlines()`가 같은 결함을 그대로 가진다.** 임시 root에서 `config`에 U+2028을 넣어 `registry.register`한 뒤 확인했다: `ledger.verify`는 `[]`, `registry.load`는 `json.JSONDecodeError`.
+  이번 수정 전에는 `ledger.verify`가 먼저 실패해 `RegistryError`였고, 수정 후에는 `RegistryError`가 아닌 `JSONDecodeError`가 나간다. 레지스트리를 못 읽는 상태는 전후 같다.
+  `config`·평가 값, 회귀 사유(`regression`), 무효화 원인 문자열이 이 경로로 들어간다. 제안: 77행을 `ledger`와 같은 `\n` 나누기로 바꾼다. 통합 담당 결정 필요.
+- 장부를 줄 단위로 읽는 다른 곳: `harness/budget.py`의 `for raw in handle`은 파일 반복이라 이 문자들에서 나누지 않는다. `harness/supervisor.py`(runner 표준 출력)·`harness/claude_run.py`(claude 출력)의 `splitlines()`는 장부 읽기가 아니며,
+  출력 JSON에 이 문자가 그대로 들어오는 경우의 영향은 확인하지 않았다(3단계 담당 파일).
+- `cas.has`·`cas.put`은 읽을 수 없는 blob에서 여전히 `PermissionError`를 낸다(지적 범위는 `cas.get`). `champion.restore_locked`의 `cas.sha_file`도 try 밖이다.
+
+### 가정·미검증
+
+- 가정: 빈 제외 목록은 유효하다. `strip`·`casefold`는 SHA와 그룹 ID에 모두 적용한다. `False`는 "채우지 않음" 표시로 계속 빈 값이다. "리팩터 3건"은 `6103a41`이 바꾼 파일 3개로 해석했다.
+- 미검증: 실제 라벨·사진·봉인 자료·실제 장부 파일과의 호환(읽지 않았다. 옛 형식 호환은 기준 코드가 만든 합성 2줄 고정 값으로 확인), 제외 목록이 큰 경우의 선별 시간, 이번 수정에 대한 독립 재검증, 3단계 동시 수정 브랜치와 합친 상태의 시험.
+- `reject_model_fields`·`reject_prefilled`는 순환 참조가 있는 입력에서 끝나지 않는다(JSON 입력에서는 생기지 않는다. `reject_prefilled`는 기존 동작).
+
+### 리스크
+
+- 입력이 더 엄격해져 `frozenset`·generator 제외 목록, 쓰지 않는 음수 config 항목, 중첩된 `error`·`correct`·`score` 같은 흔한 이름의 메타데이터를 가진 재라벨 항목은 이제 오류다.
+- 장부 줄 판정이 한 곳 더 엄격해졌다: 줄 경계가 `\n`이 아닌 U+2028 등으로 바뀐 파일은 이전에는 통과했고 이제 `unparseable`이다. 정상 `ledger.append`가 쓴 장부에는 해당이 없다.
+- `protected_reason`이 후보마다 제외 목록을 다시 정규화한다(코드의 `shortcut:` 주석).
+
+### 롤백
+
+문서 커밋과 `git revert 7062c52eda64dd3e6389b227a02bee3c318a27ff 27e69c27fb2723797497055d07d262c8564cf72b 5240717ede351e6f0e5449944f9d17f5f5263d64`. 장부 형식은 바뀌지 않았다.
+다만 수정 후에 U+2028 등이 든 줄을 기록한 장부는 되돌린 코드로는 읽지 못한다.
