@@ -98,3 +98,26 @@ experiment: 없음. 사진 비교 HTML은 대상이 아니다(모델 평가 없�
 - 함수 수: 새 제품 파일 최대 6, 새 시험 파일 7 이하. `cross_review_auto_contract.py` 3→3.
 - 미검증: 자동 검토 관련 19개 모듈 212건 중 80건은 Git 제외 `nemotron-review.json`이 없어 `FileNotFoundError`(기준 `921d152`에서도 같은 목록). 통합 뒤 기본 checkout에서 돌려야 한다. 수정분 재리뷰, 실제 `./experiment`.
 - 남긴 작은 지적: 0건 정확 상한, zone_rows 입력 SHA·미매칭 측정 건수, 사이드카 교차 검사(AI 의심 수·구역 이름·input_hold·band 이름).
+
+## 6. T3 증거 보존 수정 (2026-11-28, §5의 rater_gate 항목과 다르면 이 절이 우선)
+
+사용자 지시(2026-11-28)로 재리뷰 3건을 수정했다. T3 tip `4a2ecc8ac946427f41ea7e42449812958a7d8cd3`, 변경 `tools/rater_gate.py`와 새 시험 `tests/test_rater_gate_evidence.py`.
+
+- AI 파일: 주석·빈 줄 말고 못 읽은 줄은 번호를 기록하고 읽힌 구역은 대조한다. 값이 충돌한 구역은 뺀다. `.log` 밖의 파일에 못 읽은 것이 있으면 `comparison_complete=false`, `incomplete`에 사유를 남기고 `no_match_found`를 내지 않는다. `ai_identical`·`ai_suspect` 우선순위는 그대로다.
+- 점 파일도 읽는다. 판정 줄이 없는 `.DS_Store`·`._*`만 `excluded_files`에 사유와 함께 제외한다. 에디터 임시·백업 파일은 읽히면 대조하고, 못 읽으면 불완전으로 본다.
+- 겹침 0도 `comparisons`에 남긴다. 파일마다 `answer_total`, `screen`(same|other|unknown), `unread_lines`를 남긴다.
+- 답·AI 파일은 BOM을 처리한다. 값 안의 둘째 구역 대입(`z숫자` 뒤 `=`·`:`, 전각 포함), 전각 구역 번호, `:`가 없거나 값이 빈 휴대폰 구역, `- `가 붙은 휴대폰 줄을 거절한다.
+- 원문 붙여넣기(예외 문법 추가 없음): 원문은 그대로 두고, `<pasted_content>` 블록 하나의 본문을 그대로 옮기고 첫 줄에 `# 원문sha256=<원문 SHA-256>`을 붙인 사본을 판정한다. 확인 문장은 `--statement` 파일로 준다. 원문에 `# 화면=` 줄이 없으면 만들어 넣지 않는다(`screen=unknown`). 블록 밖의 판정 줄(stage1 원문의 첫 화면, `미판정` 포함)은 이 절차의 대상이 아니다.
+
+검증:
+- 새 시험을 수정 전 `8da1a73`에서 실행: 실패 16, 오류 7. 수정 후 T3 시험 14건 통과.
+- 실데이터: 답 폴더 파일 20개의 수정 전후 판정·구역 수·대조 결과가 같다(판정 7, 거절 13). 추출 사본은 screen1 1블록, stage1 4블록 모두 `ai_identical` 64(각 사본 본문과 원문 블록 동일, stage1 4블록 값은 `input-2`~`5`와 같음). 원본 해시 불변.
+- 임시 통합 `0662421`(복제본): 기록 도구 시험 77건 통과(실데이터 읽기 전용). 전체 시험 main `ceed731` 1374건·통합 1419건, 둘 다 실패 1·오류 138이고 실패 ID 목록 동일. 건너뜀 5→11. 대표 원인은 Git 제외 `nemotron-review.json` 없음 101줄, `confounder_head` 없음 13줄.
+- 함수 수: `rater_gate.py` 6, 새 시험 7. 호출 깊이 `main→compare→values→line_pairs` 3.
+
+남은 틈과 결정 대기(정책·통계는 바꾸지 않음):
+- 줄을 지우거나 일부를 `#`로 막은 일부 사본은 정상 일부 파일과 구분할 수 없어 차단하지 않는다.
+- 화면 표기가 없는 무관한 전체 파일도 `no_match_found`의 "같은 화면" 조건을 채운다(`screen=unknown`으로 기록만 함).
+- 복사본이 `.log`면 차단하지 않는다. 화면별 허용 값·필수 구역 정의가 없어 `z1=a z2 b` 같은 값과 구역 누락은 검사하지 않는다.
+- 일부 구역 일치로는 판정하지 않는다. Wilson 상한은 구역 독립을 가정하고 AI 파일 여러 개와의 반복 비교를 보정하지 않는다.
+- 불완전 사유는 provenance 파일에만 있다. `zone_rows`는 `no_match_found`를 `unknown`으로 바꾸고 사유를 행에 옮기지 않는다.
