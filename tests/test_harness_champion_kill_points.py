@@ -1,12 +1,14 @@
-"""승격·복원·계보 무효화 중 지점을 정해 실제 kill -9(SIGKILL)를 맞는 시험. 어느 지점에서도 포인터는 이전 또는 새 Champion을 완전히 가리킨다.
+"""승격·복원·계보 무효화(철회) 중 지점을 정해 실제 kill -9(SIGKILL)를 맞는 시험. 어느 지점에서도 포인터는 이전 또는 새 Champion을 완전히 가리킨다.
 
 합성 시험이며 모델 성능 근거가 아니다. 하위 프로세스 스크립트(KILL)는 support에 있고 지정한 지점에서 스스로 SIGKILL을 보낸다.
 """
 import unittest
 
-from harness import champion, registry
-from harness import lineage
+import json
+
+from harness import champion, registry, withdrawal
 from tests.test_harness_champion_support import add_model, assert_consistent, kill_at, make_root, pointer_model, read_events
+from tests.test_harness_withdrawal_support import make_batch
 
 POINTS = ("before_intent", "after_intent", "before_pointer_fsync", "before_replace", "after_replace", "after_switched",
           "after_main_ledger")
@@ -77,14 +79,15 @@ class KillPointsTest(unittest.TestCase):
         for point in ("before_invalidated", "after_invalidated") + RESTORE_POINTS:
             with self.subTest(point):
                 self.setUp()
+                kw = {"policy_id": make_batch(self.root, "s1"), "reason": "contamination", "batches": ["s1"]}
                 bad = add_model(self.root, "bad", batches=["s1"])
                 champion.promote(self.root, 2.0, self.a)
-                champion.promote(self.root, 3.0, bad, {"s1": "complete"})
-                kill_at(self, self.root, point, "lineage", "s1")
+                self.assertTrue(champion.promote(self.root, 3.0, bad)["ok"])
+                kill_at(self, self.root, point, "withdraw", json.dumps(kw))
                 want = self.a if point in NEW_POINTER else bad
                 self.assertEqual(want, pointer_model(self.root))
                 champion.current(self.root, registry.load(self.root))  # 포인터가 마지막 전환과 맞다(거짓 오류·변조 오류 없음)
-                res = lineage.invalidate_lineage(self.root, 10.0, "s1")  # 이미 무효여도(ids가 비어도) 복원을 이어간다
+                res = withdrawal.withdraw(self.root, 10.0, **kw)  # 이미 무효여도(새로 무효화할 모델이 없어도) 복원을 이어간다
                 self.assertEqual(self.a, pointer_model(self.root))
                 self.assertTrue(res["restore"] is None or res["restore"]["ok"] or res["restore"]["reason"] == "champion_valid")
                 state = registry.load(self.root)

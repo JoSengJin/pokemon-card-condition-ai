@@ -13,8 +13,9 @@ from tests.test_harness_champion_support import make_root, pointer_model
 from tests.test_harness_silver_support import KILL, PROTECTED, REPO, approve, cands, cascade_setup, run_kill
 
 POINTS = ["before:audit_verdicts:1", "after:audit_verdicts:1", "before:audit_completed:1", "after:audit_completed:1",
-          "after:policy_withdrawn:1", "after:invalidated:1", "after:switch_intent:1", "after:switched:1", "after:champion_restored:1",
-          "after:cascade_done:1"]
+          "after:policy_withdrawn:1", "after:invalidated:1", "after:lineage_invalidated:1", "after:switch_intent:1", "after:switched:1",
+          "after:champion_restored:1"]  # 2026-11-27: cascade_done은 더 쓰지 않는다(철회 관문이 장부에서 다시 계산해 이어간다)
+EVENTS = ("audit_verdicts", "audit_completed", "policy_withdrawn")
 
 
 class KillTest(unittest.TestCase):
@@ -37,13 +38,13 @@ class KillTest(unittest.TestCase):
             verdicts = self.failing(s)
             run_kill(self, s["root"], "verdicts", point, {"batch_id": "b1", "verdicts": verdicts})
             events = self.consistent(s)
-            if "audit_completed" in events and "cascade_done" not in events:  # 연쇄가 끝나기 전에도 승격은 거절된다
-                refused = champion.promote(s["root"], 9.6, s["models"]["m1"], audit.audit_status(s["root"]))
+            if "audit_completed" in events:  # 연쇄가 끝나기 전(철회 기록 전 포함)에도 승격은 거절된다
+                refused = champion.promote(s["root"], 9.6, s["models"]["m1"])
                 self.assertFalse(refused["ok"], point)
             res = audit.record_verdicts(s["root"], 10.0, "b1", verdicts)  # 같은 인자 재호출 = 이어가기
             events = [e["event"] for e in silver_store.load(s["root"])]
             self.assertEqual("failed", res["status"], point)
-            for name in ("audit_verdicts", "audit_completed", "policy_withdrawn", "cascade_done"):
+            for name in EVENTS:
                 self.assertEqual(1, events.count(name), (point, name))
             models = registry.load(s["root"])["models"]
             self.assertEqual(("invalidated", "invalidated", "valid"), tuple(models[s["models"][n]]["status"] for n in ("m1", "c1", "base")), point)
@@ -82,11 +83,10 @@ class KillTest(unittest.TestCase):
                 killed += 1
             proc.communicate()
             events = self.consistent(s)
-            partial += "audit_verdicts" in events and "cascade_done" not in events  # 연쇄 도중에 죽은 횟수(단언하지 않고 관찰만)
+            partial += "audit_verdicts" in events and "policy_withdrawn" not in events  # 연쇄 도중에 죽은 횟수(단언하지 않고 관찰만)
             res = audit.record_verdicts(s["root"], 10.0, "b1", verdicts)
             events = [e["event"] for e in silver_store.load(s["root"])]
-            self.assertEqual(("failed", [1, 1, 1, 1]), (res["status"], [events.count(n) for n in (
-                "audit_verdicts", "audit_completed", "policy_withdrawn", "cascade_done")]))
+            self.assertEqual(("failed", [1, 1, 1]), (res["status"], [events.count(n) for n in EVENTS]))
             self.assertEqual(s["models"]["base"], pointer_model(s["root"]))
         self.assertGreater(killed, 0)  # 일회성 관찰(2026-11-27): 30회 중 killed=10, 연쇄 도중 partial=3
 
@@ -99,7 +99,7 @@ class KillTest(unittest.TestCase):
         outputs = [p.communicate() for p in procs]
         self.assertEqual([0, 0, 0], [p.returncode for p in procs], outputs)
         events = [e["event"] for e in silver_store.load(s["root"])]
-        self.assertEqual([1, 1, 1, 1], [events.count(n) for n in ("audit_verdicts", "audit_completed", "policy_withdrawn", "cascade_done")])
+        self.assertEqual([1, 1, 1], [events.count(n) for n in EVENTS])
         self.assertEqual(s["models"]["base"], pointer_model(s["root"]))
 
 

@@ -14,7 +14,8 @@ class ChampionError(Exception):
 
 
 def current(root, state):
-    """포인터가 가리키는 Champion {model_id, intent_hash, weights_sha, valid}. 포인터가 없고 승격 기록도 없으면 None.
+    """포인터가 가리키는 Champion {model_id, intent_hash, weights_sha, valid}. 포인터가 없고 승격 기록도 없으면 None,
+    마지막 전환이 "Champion 없음"(대상 None, 사유 clear)이면 None이다.
 
     포인터는 마지막으로 완료된 전환(history[-1]) 또는 대기 중인 의도(pending, 포인터는 바뀌었으나 switched를 쓰기 전에 죽은 경우)의
     (의도 해시, 대상 모델)과 정확히 같아야 한다. 다른 등록 모델로 바꾼 포인터, 의도가 아닌 줄의 해시를 가리키는 포인터, 오래된 포인터
@@ -33,6 +34,8 @@ def current(root, state):
     if state["pending"] is not None:
         allowed.append((state["pending"]["hash"], state["pending"]["target"]))
     ok = isinstance(found, dict) and (found.get("intent_hash"), found.get("model_id")) in allowed
+    if ok and found["model_id"] is None:
+        return None
     if not ok or found.get("weights_sha") != state["models"][found["model_id"]]["weights_sha"]:
         raise ChampionError("포인터가 레지스트리의 마지막 전환과 맞지 않음: %r" % (found,))
     return dict(found, valid=state["models"][found["model_id"]]["status"] == "valid")

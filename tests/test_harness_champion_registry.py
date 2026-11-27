@@ -23,7 +23,7 @@ class RegistryTest(unittest.TestCase):
         self.assertEqual({"layer": "sealed", "denominator": DENOM, "seal_version": "seal-v1", "metrics": {"miss": 0.2}}, rec["eval"])
         self.assertEqual(hashlib.sha1(b"c").hexdigest(), rec["code_sha"])
         self.assertEqual(hashlib.sha256(b"weights-c").hexdigest(), rec["weights_sha"])
-        self.assertEqual(hashlib.sha256(b"data-c").hexdigest(), rec["data_manifest_sha"])
+        self.assertTrue(cas.has(os.path.join(self.root, "cas"), rec["data_manifest_sha"]))  # 학습 manifest도 CAS에 있다(시험 도구가 넣음)
         self.assertEqual("Dev-leader", registry.load(self.root)["models"][parent]["grade"])
         self.assertTrue(cas.has(os.path.join(self.root, "cas"), rec["weights_sha"]))
 
@@ -33,7 +33,8 @@ class RegistryTest(unittest.TestCase):
         self.assertEqual(first, add_model(self.root, "a", now=9.0))
         self.assertEqual(events, read_events(self.root))
         src = os.path.join(self.root, "incoming", "a")
-        res = registry.register(self.root, 9.0, src, hashlib.sha1(b"a").hexdigest(), hashlib.sha256(b"data-a").hexdigest(),
+        manifest = registry.load(self.root)["models"][first]["data_manifest_sha"]
+        res = registry.register(self.root, 9.0, src, hashlib.sha1(b"a").hexdigest(), manifest,
                                 {"lr": 0.001, "name": "a"}, {"layer": "sealed", "denominator": DENOM, "seal_version": "seal-v1",
                                                             "metrics": {"miss": 0.1}}, [])
         self.assertEqual((False, "conflict", True), (res["ok"], res["reason"], res["existing"]))

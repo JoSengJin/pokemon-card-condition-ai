@@ -1,10 +1,15 @@
-"""포인터 대조 강화, 무효 현재 Champion·조상 무효 후보 거절, settle의 장부 보충과 임시 파일 정리, 승격 kill 뒤 계보 무효화. 합성 시험이다."""
+"""포인터 대조 강화, 무효 현재 Champion·조상 무효 후보 거절, settle의 장부 보충과 임시 파일 정리, 승격 kill 뒤 계보 무효화. 합성 시험이다.
+
+2026-11-27 철회 보완(사용자 결정 ①): 적격 복원 후보가 없으면 포인터가 무효 모델을 계속 가리키지 않고 "Champion 없음"으로 전환한다.
+그래서 예전의 "무효인 채 남는다" 기대를 "Champion 없음(포인터 model_id None)"으로 바꿨다.
+"""
 import json
 import os
 import unittest
 
-from harness import champion, ledger, lineage, registry
+from harness import champion, ledger, registry, withdrawal
 from tests.test_harness_champion_support import add_model, kill_at, make_root, pointer_model, read_events
+from tests.test_harness_withdrawal_support import make_batch
 
 
 class GuardsTest(unittest.TestCase):
@@ -42,9 +47,10 @@ class GuardsTest(unittest.TestCase):
 
     def test_invalid_current_champion_cannot_be_reconfirmed_by_promote(self):
         champion.promote(self.root, 2.0, self.a)
-        res = champion.restore_last_verified(self.root, 3.0, regression="r", model_id=self.a)  # 돌아갈 곳이 없어 무효인 채 남는다
-        self.assertEqual("no_verified_champion", res["reason"])
-        self.assertFalse(champion.read_current(self.root)["valid"])
+        res = champion.restore_last_verified(self.root, 3.0, regression="r", model_id=self.a)  # 돌아갈 곳이 없다
+        self.assertEqual(("no_verified_champion", True), (res["reason"], res["cleared"]))
+        self.assertIsNone(champion.read_current(self.root))  # 무효 모델을 가리키지 않고 Champion 없음
+        self.assertEqual((None, "clear"), (registry.load(self.root)["history"][-1]["model_id"], registry.load(self.root)["history"][-1]["reason"]))
         again = champion.promote(self.root, 4.0, self.a)
         self.assertEqual((False, "invalidated"), (again["ok"], again["reason"]))  # already=True로 통과하지 않는다
         self.assertTrue(champion.promote(self.root, 5.0, self.b)["ok"])  # 유효한 다른 모델로의 교체는 된다
@@ -60,7 +66,7 @@ class GuardsTest(unittest.TestCase):
         self.assertEqual("invalidated", champion.promote(self.root, 7.0, child)["reason"])
         res = champion.restore_last_verified(self.root, 8.0, regression="r", model_id=x)
         self.assertEqual((False, "no_verified_champion"), (res["ok"], res["reason"]))  # 자식도 부모도 후보가 아니다
-        self.assertEqual(x, pointer_model(self.root))
+        self.assertIsNone(pointer_model(self.root))  # 무효가 된 x를 계속 가리키지 않는다
 
     def test_settle_supplements_main_ledger_and_removes_leftover_temp_files(self):
         champion.promote(self.root, 2.0, self.a)
@@ -85,11 +91,12 @@ class GuardsTest(unittest.TestCase):
         self.assertEqual(before, len(registry.load(self.root)["history"]))
 
     def test_lineage_call_after_a_killed_promotion_settles_first(self):
+        policy = make_batch(self.root, "s1")
         bad = add_model(self.root, "bad", batches=["s1"])
         champion.promote(self.root, 2.0, self.a)
         kill_at(self, self.root, "after_replace", "promote", bad)  # 포인터는 bad, 의도는 짝 없이 남음
         self.assertIsNotNone(registry.load(self.root)["pending"])
-        res = lineage.invalidate_lineage(self.root, 10.0, "s1")
+        res = withdrawal.withdraw(self.root, 10.0, policy, "contamination", ["s1"])
         self.assertEqual(([bad], True), (res["invalidated"], res["restore"]["ok"]))
         state = registry.load(self.root)  # 짝 없는 의도 위에 새 의도가 쌓여 레지스트리가 깨지지 않았다
         self.assertIsNone(state["pending"])

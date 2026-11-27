@@ -35,8 +35,19 @@ def check_plan_inputs(schedule, signals):
     return initial, floor, rounds, sorted(k for k, v in signals.items() if v)
 
 
+def status_of(batch):
+    """fold_audit의 묶음 하나 → 감사 상태 문자열(complete|not_required|pending|failed). 감사 기록이 없으면 pending."""
+    if batch is None:
+        return "pending"
+    if batch["completed"] is not None:
+        return batch["completed"]["status"]
+    return "not_required" if batch["not_required"] else "pending"
+
+
 def fold_audit(entries):
-    """감사 상태 {batches: {id: {plan, not_required, verdicts, completed, cascade}}, policies: {id: {rate, override, clean_rounds, audited, errors}}}."""
+    """감사 상태 {batches: {id: {plan, not_required, verdicts, completed, cascade}}, policies: {id: {rate, override, clean_rounds, audited, errors}}}.
+
+    cascade는 옛 장부의 cascade_done 줄이다(2026-11-27 철회 보완 뒤로는 쓰지 않는다: 복구는 장부에서 다시 계산한다)."""
     batches, policies = {}, {}
     for entry in entries:
         event, data = entry["event"], entry["data"]
