@@ -17,12 +17,6 @@ class LedgerError(Exception):
     pass
 
 
-def _hash_entry(prev, seq, ts, event, data):
-    body = json.dumps({"seq": seq, "ts": ts, "event": event, "data": data}, sort_keys=True,
-                      separators=(",", ":"), ensure_ascii=False, allow_nan=False)
-    return hashlib.sha256((prev + body).encode("utf-8")).hexdigest()
-
-
 def append(path, ts, event, data):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "a+", encoding="utf-8") as handle:
@@ -33,15 +27,19 @@ def append(path, ts, event, data):
         if lines:
             try:
                 last = json.loads(lines[-1])
-                intact = _hash_entry(last["prev"], last["seq"], last["ts"], last["event"],
-                                     last["data"]) == last["hash"]
+                # 해시 계산을 여기에 펼쳤다(호출 깊이를 줄이려고. verify의 _check_line과 같은 식이며 어긋나면 append→verify 시험이 잡는다).
+                last_body = json.dumps({"seq": last["seq"], "ts": last["ts"], "event": last["event"], "data": last["data"]},
+                                       sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+                intact = hashlib.sha256((last["prev"] + last_body).encode("utf-8")).hexdigest() == last["hash"]
             except (ValueError, KeyError, TypeError):
                 intact = False
             if not intact:
                 raise LedgerError("장부 마지막 줄이 손상되어 이어 쓰지 않는다")
             prev, seq = last["hash"], last["seq"] + 1
+        body = json.dumps({"seq": seq, "ts": ts, "event": event, "data": data}, sort_keys=True,
+                          separators=(",", ":"), ensure_ascii=False, allow_nan=False)
         entry = {"seq": seq, "prev": prev, "ts": ts, "event": event, "data": data,
-                 "hash": _hash_entry(prev, seq, ts, event, data)}
+                 "hash": hashlib.sha256((prev + body).encode("utf-8")).hexdigest()}
         handle.write(json.dumps(entry, sort_keys=True, ensure_ascii=False, allow_nan=False) + "\n")
         handle.flush()
         os.fsync(handle.fileno())
@@ -75,8 +73,10 @@ def _check_line(line_no, raw, want_seq, prev):
         found.append("seq_mismatch")
     if entry["prev"] != prev:
         found.append("prev_mismatch")
-    try:
-        recomputed = _hash_entry(entry["prev"], entry["seq"], entry["ts"], entry["event"], entry["data"])
+    try:  # append와 같은 계산(호출 깊이를 줄이려고 펼쳤다. 어긋나면 append→verify 시험이 잡는다)
+        body = json.dumps({"seq": entry["seq"], "ts": entry["ts"], "event": entry["event"], "data": entry["data"]},
+                          sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+        recomputed = hashlib.sha256((entry["prev"] + body).encode("utf-8")).hexdigest()
     except (TypeError, ValueError):
         recomputed = None
     if recomputed != entry["hash"]:

@@ -83,19 +83,6 @@ def promote(root, now, model_id, audit_status=None):
     return {"ok": True, "already": False, "model_id": model_id, "previous": previous}
 
 
-def _materialize(root, record):
-    """CAS에서 가중치를 꺼내 복원 폴더에 쓰고, 레지스트리에 기록된 해시와 다시 대조한다. 어긋나면 ChampionError."""
-    dest = os.path.join(root, "models", "restored", record["model_id"], "weights")
-    try:
-        cas.get(os.path.join(root, "cas"), record["weights_sha"], dest)
-    except cas.CasError as err:
-        raise ChampionError("복원할 가중치를 CAS에서 꺼낼 수 없음: %s" % err)
-    if cas.sha_file(dest) != record["weights_sha"]:
-        os.unlink(dest)
-        raise ChampionError("복원 가중치 해시 불일치: %s" % record["model_id"])
-    return dest
-
-
 def restore_locked(root, now, state):
     """lock 안에서 호출한다. 현재 Champion이 무효이면 가장 최근의 다른 유효한 이전 Champion으로 되돌린다."""
     holder = current(root, state)
@@ -108,7 +95,16 @@ def restore_locked(root, now, state):
                    and all(models[m]["status"] == "valid" for m in gate.ancestors(models, h["model_id"]))), None)
     if target is None:
         return {"ok": False, "reason": "no_verified_champion"}
-    path = _materialize(root, state["models"][target])  # 포인터를 바꾸기 전에 재현을 확인한다
+    # 포인터를 바꾸기 전에 CAS에서 가중치를 꺼내 기록된 해시와 다시 대조한다(재현 확인). 호출 깊이를 줄이려고 여기에 펼쳤다.
+    record = state["models"][target]
+    path = os.path.join(root, "models", "restored", record["model_id"], "weights")
+    try:
+        cas.get(os.path.join(root, "cas"), record["weights_sha"], path)
+    except cas.CasError as err:
+        raise ChampionError("복원할 가중치를 CAS에서 꺼낼 수 없음: %s" % err)
+    if cas.sha_file(path) != record["weights_sha"]:
+        os.unlink(path)
+        raise ChampionError("복원 가중치 해시 불일치: %s" % record["model_id"])
     _switch(root, now, state, target, "restore", holder["model_id"])
     return {"ok": True, "model_id": target, "restored_from": holder["model_id"], "weights_path": path,
             "weights_sha": state["models"][target]["weights_sha"], "reproduced": True}

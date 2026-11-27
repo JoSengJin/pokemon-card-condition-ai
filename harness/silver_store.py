@@ -2,7 +2,7 @@
 
 경로는 root/silver/store.jsonl. 쓰기 호출은 모두 lock(root) 안에서 load → 판단 → append 순서다(7단계 레지스트리와 같은 규약).
 한 체인에 모으는 이유: 중간에 죽어도 항상 "앞부분 이벤트까지"인 한 가지 상태만 남고, 체인 하나만 검증하면 되기 때문이다.
-호출 깊이를 낮추려고 load는 ledger.verify만 부르고 파싱은 직접 한다(호출자 → load → verify → _check_line → _hash_entry).
+호출 깊이를 낮추려고 load는 ledger.verify만 부르고 파싱은 직접 한다(호출자 → load → verify → _check_line).
 """
 import contextlib
 import fcntl
