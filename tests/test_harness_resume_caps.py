@@ -57,6 +57,14 @@ class ResumeCapTest(unittest.TestCase):
         self.assertEqual((job["status"], job["crash_resumes"]), ("blocked", 2))
         self.assertTrue(job["hold_reason"].startswith("too_many_interrupts"), job)
         self.assertEqual(states.state_of(states.facts(os.path.join(root, "tasks", key)), False), states.PENDING)
+        root = tempfile.mkdtemp()  # 이미 1회 재개한 작업: 이번 --resume(2회째)이 복원 불가여도 새 세션(3회째)은 열지 않는다
+        claude, log, env = make_fake(self, [{"do": "raw", "line": REAL_NO_SESSION, "code": 1}, {"do": "success"}])
+        llm_task(root)
+        job = dict(claude_job.pick(root, 1.0), session_id=SID, status="rate_limited", crash_resumes=1)
+        with allow_resume(self, "misanalysis_general"):
+            outcome = claude_job.execute(root, job, claude, time.time, env=env)
+        self.assertEqual((outcome["kind"], [r["resume"] for r in runs(log)]), ("held", [SID]))
+        self.assertTrue(outcome["result"]["hold_reason"].startswith("too_many_interrupts"))
 
     def test_unrecoverable_needs_a_single_result_line_and_an_int_exit_code(self):
         exact = REAL_NO_SESSION.replace("{SID}", SID)
