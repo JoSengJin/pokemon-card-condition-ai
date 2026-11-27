@@ -115,14 +115,15 @@ def help_text(claude_bin, runner, env, argv):
 def session_unrecoverable(found, resumed):
     """--resume <resumed> 실패 출력이 '세션 복원 불가'를 확인해 주는가. 실환경에서 확보한 형식만 True다: 종료 코드가 정확히 int 1, stdout의
     비어 있지 않은 줄이 그 result 이벤트 하나뿐(ratelimit.scan의 events 1·bad_lines 0, 실환경 t4-bogus-resume.jsonl도 한 줄, 2차 결함 G8),
-    subtype=error_during_execution, is_error=true, num_turns=0(정수), errors가 정확히 [UNRECOVERABLE_ERROR % resumed] 하나.
+    subtype=error_during_execution, is_error=true, num_turns=0(정수), errors가 정확히 [UNRECOVERABLE_ERROR % resumed] 하나, 결과의 session_id가
+    resumed(3차 결함 H8, 실환경 t4도 같다).
     그 밖(다른 ID·문구·대소문자·추가 오류·앞뒤의 다른 줄·종료 코드·한도 이벤트 등)은 False(DESIGN 12절, 작업 계약 2단계 R4)."""
     result = found.get("result")
     return isinstance(resumed, str) and bool(resumed) and type(found.get("returncode")) is int and found["returncode"] == 1 \
         and found.get("events") == 1 and found.get("bad_lines") == 0 and not found.get("limited") \
         and isinstance(result, dict) and result.get("subtype") == "error_during_execution" and result.get("is_error") is True \
         and type(result.get("num_turns")) is int and result["num_turns"] == 0 \
-        and result.get("errors") == [UNRECOVERABLE_ERROR % resumed]
+        and result.get("errors") == [UNRECOVERABLE_ERROR % resumed] and result.get("session_id") == resumed
 
 
 def run_once(claude_bin, prompt, model, effort, runner=None, env=None, resume=None, session_id=None, extra=()):

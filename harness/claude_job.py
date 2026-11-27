@@ -8,7 +8,8 @@ rate_limited|done|failed|blocked|stale), session_id, crash_resumes, mode, run_to
   Supervisor는 root마다 하나만 돈다(supervisor.lock)는 것이 전제다.
 - 사람 확인 대기(status=blocked, hold_reason)는 그 작업(과 그것에 의존하는 작업)만 멈춘다. pick은 대기 작업을 건너뛰고 다른 독립 작업을
   고른다. 공통 장애 근거(현재는 한도 이벤트 → opstate 한도 조건)만 Claude 실행 전체를 멈춘다. 대기 사유: claude 실패(원인 필드 포함),
-  pid 기록 불일치, 결과 반영 claim 거절, 완료 표시 없음, 선언 자리가 폴더 등(G11), 자동 재개 한도(recovery.MAX_INTERRUPTS=2) 초과. 알림(claude_job_blocked)을
+  pid 기록 불일치, 결과 반영 claim 거절, 완료 표시 없음, 선언 자리가 폴더 등(G11), 자동 재개 한도(recovery.MAX_INTERRUPTS=2) 초과, 상태 파일
+  형식이 다름(job_state_invalid: 깨진 JSON·dict 아님·KNOWN 밖 status, 3차 결함 H6, 새 작업으로 보지 않는다). 알림(claude_job_blocked)을
   남기며 자동 재시도하지 않는다. 사람이 확인한 뒤 그 작업의 상태 파일을 지우면(새 세션으로 다시 고름) 이어간다. status를 rate_limited로
   고치는 같은 세션 --resume은 그 유형의 자동 재개가 켜져 있을 때만 된다(claude_perm.AUTO_RESUME, 3단계). 큐 작업이 PENDING이 아니게 되면 닫는다(VERIFIED면 done, 그 밖은 stale).
 - 완료 표시(contract.COMPLETION): claude가 성공 종료하고 Claude의 선언(out/ 안 contract.DECLARATION: task_key·run_token·outputs 경로 목록)이
@@ -23,6 +24,7 @@ rate_limited|done|failed|blocked|stale), session_id, crash_resumes, mode, run_to
 - 자동 재개 상한(2차 결함 G3): 한 작업의 모든 자동 재개(한도 해제 뒤 --resume, 실행 중 사망 뒤 --resume, 복원 불가 확인 뒤 새 세션)를 합쳐
   crash_resumes(필드 이름은 그대로, 뜻은 자동 재개 합계)로 세고 recovery.MAX_INTERRUPTS(2)회를 넘기면 그 작업만 대기(too_many_interrupts)한다.
   새 횟수를 만들지 않았다(승인 원문: 자동 재개로 생기는 중복 사용은 기존 재시도 상한 2회 안). 시각 미상 한도의 전체 3회 상한은 따로 센다.
+  crash_resumes가 없음·null·정수 아님·음수면 상한에 닿은 것으로 본다(3차 결함 H6·S30).
 - `--resume`이 한도가 아닌 이유로 실패하면 새 세션을 열지 않고 그 작업을 대기시킨다(R4). claude_run.session_unrecoverable이 복원 불가를
   확인한 경우(실환경에서 확보한 '없는 세션' 출력과 정확히 같은 형식)에만 장부 상태를 가리키는 프롬프트로 새 세션을 한 번 연다. 새 세션도
   같은 execute 안이라 재개 상한(crash_resumes)·실행 직전 정지 확인·선언 삭제·완료 표시 검사를 그대로 따른다.
@@ -51,6 +53,7 @@ UNKNOWN_LIMIT = os.path.join("supervisor", "claude_unknown_limit.json")  # 시�
 MAX_UNKNOWN_RETRIES = len(UNKNOWN_BACKOFF_S)
 ACTIVE = ("new", "running", "rate_limited")
 HOLD = "blocked"  # 사람 확인 대기(자동으로 다시 고르거나 실행하지 않는다)
+KNOWN = ACTIVE + (HOLD, "done", "failed", "stale")  # 작업 상태 파일 status의 전부(그 밖은 형식이 다른 파일, 3차 결함 H6)
 _RECORDING_ERRORS = (OSError, ValueError, queue.QueueError, cas.CasError, lease.LeaseError)
 _KIND_STATE = {"short": opstate.RATE_LIMITED_SHORT, "weekly": opstate.RATE_LIMITED_WEEKLY}
 _CAP = "too_many_interrupts: 자동 재개 %r회(한도 뒤 재개·실행 중 사망 뒤 재개·복원 불가 뒤 새 세션 합계, 상한 recovery.MAX_INTERRUPTS)"
@@ -76,7 +79,19 @@ def pick(root, now):
         if task is None or not task["needs_llm"]:
             continue
         path, pidfile = paths(root, key)
-        job, state = read_json(path), states.state_of(info, False)
+        state = states.state_of(info, False)
+        try:
+            job = read_json(path)
+        except ValueError:  # 깨진 JSON: 아래에서 형식이 다른 상태 파일로 다룬다
+            job = ValueError
+        if job is not None and not (isinstance(job, dict) and job.get("status") in KNOWN):
+            if state == states.PENDING:  # 새 작업으로 보지 않는다(재개 상한 근거가 사라진 파일, 3차 H6): 그 작업만 대기 + 알림 한 번
+                seen = "깨진 JSON" if job is ValueError else repr(job)[:200]
+                write_json(path, {"task_key": key, "status": HOLD, "hold_reason": "job_state_invalid: %s" % seen, "updated_at": now})
+                ledger.append(log, now, "claude_job_closed", {"task_key": key, "status": HOLD, "hold_reason": "job_state_invalid"})
+                opstate.notify(root, now, "claude_job_blocked", "Claude 작업 상태 파일의 형식이 달라 자동으로 고르지 않음(사람 확인 필요, "
+                               "이 작업만): %s" % key, {"task_key": key, "job_state": seen})
+            continue
         if isinstance(job, dict) and job.get("status") in ACTIVE + (HOLD,):
             if state != states.PENDING:  # 큐 쪽에서 이미 끝났거나(VERIFIED) 멈춘 작업
                 job.update(status="done" if state == states.VERIFIED else "stale", updated_at=now)
@@ -177,8 +192,8 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None, s
         return {"kind": "held", "mode": None, "result": {"hold_reason": "auto_resume_disabled: %s(%s 뒤 재개는 사람 확인)" % (
             contract["task_type"], job["status"])}}
     if job["status"] != "new":  # 자동 재개(한도 해제 뒤·실행 중 사망 뒤): 복원 불가 뒤 새 세션까지 합쳐 작업당 MAX_INTERRUPTS회(2차 G3)
-        used = job.get("crash_resumes", 0)
-        if type(used) is not int or used >= recovery.MAX_INTERRUPTS:  # 값이 이상하면 넘은 것으로 본다(보수적)
+        used = job.get("crash_resumes")  # 없음·null·정수 아님·음수는 넘은 것으로 본다(보수적, 3차 결함 H6·S30)
+        if type(used) is not int or used < 0 or used >= recovery.MAX_INTERRUPTS:
             return {"kind": "held", "mode": None, "result": {"hold_reason": _CAP % used}}
         job["crash_resumes"] = used + 1
     env = claude_perm.env_of(env if env is not None else os.environ)  # --help 확인에도 같은 허용 env만 넘긴다
