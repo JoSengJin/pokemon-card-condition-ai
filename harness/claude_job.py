@@ -93,7 +93,7 @@ def _prompt(root, job, mode, failed_session=None):
 
 
 def execute(root, job, claude_bin, now_fn, runner=None, env=None):
-    """claude를 실행한다(재개 가능하면 --resume, 실패하면 새 세션). {"kind": success|rate_limited|failed, "mode", "result"}."""
+    """claude를 실행한다(재개 가능하면 --resume, 실패하면 새 세션). {"kind": success|rate_limited|failed|halted, "mode", "result"}."""
     path, log = os.path.join(root, JOB), os.path.join(root, "ledger.jsonl")
     contract = read_json(os.path.join(root, "tasks", job["task_key"], "contract.json"))
     decision = route.route(contract, [], route.load_policy())
@@ -104,6 +104,9 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None):
         return {"kind": "failed", "mode": None, "result": {"error": "route_no_model: %s" % decision["reason"]}}
     failed_session = None
     for mode in (("resume", "new") if job.get("session_id") and job["status"] != "new" else ("new",)):
+        # 실행 직전마다 다시 본다: 실패한 --resume 실행 중에 건 정지 뒤에는 새 세션을 열지 않는다
+        if opstate.effective(opstate.load(root)) in opstate.HALTING:
+            return {"kind": "halted", "mode": mode, "result": {}}
         if mode == "new":
             job["session_id"] = str(uuid.uuid4())
         job.update(status="running", mode=mode, run_token=uuid.uuid4().hex, updated_at=now_fn())
@@ -145,6 +148,8 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None):
 def settle(root, job, outcome, now):
     """실행 결과를 상태에 반영한다. 한도면 opstate 조건을 켜고, 끝났으면 큐에 complete/fail. 새 job 상태 문자열을 돌려준다."""
     path, log, key = os.path.join(root, JOB), os.path.join(root, "ledger.jsonl"), job["task_key"]
+    if outcome["kind"] == "halted":  # job·큐를 그대로 둔다: 사용자가 정지를 풀면 같은 상태에서 이어간다
+        return "halted"
     if outcome["kind"] == "rate_limited":
         limit = outcome["result"]["rate_limit"]
         far = limit["resets_at"] is not None and limit["resets_at"] > now + ratelimit.MAX_RESET_AHEAD_S

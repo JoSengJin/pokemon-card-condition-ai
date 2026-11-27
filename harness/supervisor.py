@@ -40,9 +40,9 @@ def _python(root, executors, now):
                           stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False)
     if done.returncode == INTEGRITY_EXIT:
         return done.returncode, 0  # 장부가 손상됐으므로 여기서 장부에 쓰지 않는다(호출자가 INTEGRITY_HALT로 올린다)
-    lines = done.stdout.strip().splitlines()
+    lines = done.stdout.strip().split("\n")
     try:
-        summary = json.loads(lines[-1]) if lines else None
+        summary = json.loads(lines[-1])
     except ValueError:
         summary = None
     executed = summary.get("executed") if isinstance(summary, dict) else None

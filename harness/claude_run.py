@@ -62,6 +62,6 @@ def run_once(claude_bin, prompt, model, effort, runner=None, env=None, resume=No
         error = None
     except (OSError, subprocess.SubprocessError) as exc:
         code, out, error = None, "", "%s: %s" % (type(exc).__name__, exc)
-    found = ratelimit.scan((out or "").splitlines(), code)
+    found = ratelimit.scan((out or "").split("\n"), code)  # 값 안의 U+2028에서 나누지 않는다
     found.update(argv=argv, returncode=code, error=error)
     return found
