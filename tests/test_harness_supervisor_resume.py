@@ -27,7 +27,8 @@ class ResumeTest(unittest.TestCase):
     def test_known_reset_waits_then_resumes_same_session(self):
         claude, log, env = make_fake(self, [{"do": "limit", "reset": "sec", "after": 2}, {"do": "success"}])
         key = llm_task(self.root)
-        out = supervisor.run(self.root, claude, max_cycles=5, poll_s=3, env=env)
+        with allow_resume(self, "misanalysis_general"):  # 재개 절차 시험: 이 유형의 자동 재개를 켠다(3단계 활성화 목록)
+            out = supervisor.run(self.root, claude, max_cycles=5, poll_s=3, env=env)
         first, second = runs(log)
         self.assertIsNone(first["resume"])
         self.assertEqual(second["resume"], first["session_id"])  # 같은 세션을 --resume으로 이어간다
@@ -60,7 +61,8 @@ class ResumeTest(unittest.TestCase):
         claude, log, env = make_fake(self, steps)
         llm_task(self.root)
         clock = Clock(time.time())
-        supervisor.run(self.root, claude, max_cycles=40, poll_s=10 ** 6, now_fn=clock.now, sleep_fn=clock.sleep, env=env)
+        with allow_resume(self, "misanalysis_general"):
+            supervisor.run(self.root, claude, max_cycles=40, poll_s=10 ** 6, now_fn=clock.now, sleep_fn=clock.sleep, env=env)
         self.assertEqual(len(runs(log)), 4)  # 처음 1회 + 다시 시도 3회, 그 뒤로는 실행하지 않는다
         starts = [e["ts"] for e in events(self.root, "claude_run_started")]
         gaps = [b - a for a, b in zip(starts, starts[1:])]
@@ -89,7 +91,8 @@ class ResumeTest(unittest.TestCase):
         self.assertEqual((len(runs(log)), out["state"], out["claude_runs"]), (1, opstate.USER_STOPPED, 0))
         self.assertIn(opstate.RATE_LIMITED_SHORT, opstate.load(self.root)["conditions"])
         opstate.clear_by_user(self.root, opstate.USER_STOPPED, time.time(), "사용자 재개")
-        supervisor.run(self.root, claude, max_cycles=3, poll_s=0.2, env=env)
+        with allow_resume(self, "misanalysis_general"):
+            supervisor.run(self.root, claude, max_cycles=3, poll_s=0.2, env=env)
         self.assertEqual((len(runs(log)), state(self.root, key)), (2, states.VERIFIED))
         self.assertEqual(runs(log)[1]["resume"], runs(log)[0]["session_id"])
 

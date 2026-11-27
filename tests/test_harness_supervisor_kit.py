@@ -114,8 +114,8 @@ def runs(log, kind="run"):
 
 
 def llm_task(root, name="llm", now=1_000_000.0, task_type="misanalysis_general", depends_on=()):
-    """needs_llm=true 작업을 큐에 등록하고 task_key를 돌려준다."""
-    return queue.enqueue(root, make_contract(name, task_type=task_type, needs_llm=True, depends_on=depends_on), now)
+    """needs_llm=true 작업(기본: A 묶음 유형, 계약 입력 없음 → 복사할 파일 없음)을 큐에 등록하고 task_key를 돌려준다."""
+    return queue.enqueue(root, dict(make_contract(name, task_type=task_type, needs_llm=True, depends_on=depends_on), inputs={}), now)
 
 
 def events(root, name=None, path="ledger.jsonl"):

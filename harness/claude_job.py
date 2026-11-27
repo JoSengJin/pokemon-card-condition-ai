@@ -33,7 +33,7 @@ import os
 import uuid
 
 from . import contract as ct
-from . import cas, claude_run, evidence, ledger, lease, manifest, opstate, queue, ratelimit, recovery, route, states
+from . import cas, claude_perm, claude_run, evidence, ledger, lease, manifest, opstate, queue, ratelimit, recovery, route, states
 from .jsonio import read_json, write_json
 
 JOBS = os.path.join("supervisor", "claude")  # 작업별 상태 <task_key>.json·<task_key>.pid
@@ -144,29 +144,43 @@ def _record_run(root, decision, res, job, contract, mode, started, now):
     return outcome
 
 
-def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None):
+def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None, source_root=None):
     """claude를 실행한다. {"kind": success|rate_limited|failed|halted|held|adopted, "mode", "result"}.
 
-    실행 전: 완료 표시가 산출물과 맞으면 실행하지 않고 adopted. 실행 중 사망 뒤(status=running)의 재개는 작업당 recovery.MAX_INTERRUPTS회까지
-    (넘으면 held). 재개(--resume)가 한도가 아닌 이유로 실패하면 새 세션을 열지 않고 failed(R4). 성공 종료 + Claude 선언이 맞으면 완료 표시를
-    원자 저장한다. limits: {"claude_idle_s", "claude_total_s"}(없으면 claude_run 기본값)."""
+    실행 전: 완료 표시가 산출물과 맞으면 실행하지 않고 adopted. 권한 묶음이 실행 가능(claude_perm.RUNNABLE)하지 않은 유형, 자동 재개가 꺼진
+    유형의 재개(첫 실행이 아닌 실행), 실행 중 사망 뒤 재개 recovery.MAX_INTERRUPTS회 초과는 held. 계약 입력은 source_root(기본 저장소)에서
+    SHA를 확인해 작업 폴더 in/으로 복사하고(거절되면 결정적 실패), 작업 폴더를 cwd로, 허용 env만 넘겨 A 옵션으로 실행한다.
+    재개(--resume)가 한도가 아닌 이유로 실패하면 새 세션을 열지 않고 failed(R4). 성공 종료 + Claude 선언이 맞으면 완료 표시를 원자 저장한다.
+    limits: {"claude_idle_s", "claude_total_s"}(없으면 claude_run 기본값)."""
     bounds, key = limits or {}, job["task_key"]
     path, log, task_dir = paths(root, key)[0], os.path.join(root, "ledger.jsonl"), os.path.join(root, "tasks", key)
     contract = read_json(os.path.join(task_dir, "contract.json"))
     if states.facts(task_dir)["completion"] == "ok":  # 완료 표시 직후에 죽었다: 다시 실행하지 않고 반영만 한다(R3)
         ledger.append(log, now_fn(), "claude_completion_adopted", {"task_key": key, "session_id": job.get("session_id")})
         return {"kind": "adopted", "mode": None, "result": {}}
+    extra = claude_perm.options(contract["task_type"])
+    if extra is None:  # B·C·미정의 유형: 필요한 통제가 없어 제한 없이 실행하지 않는다(이 작업만 대기)
+        return {"kind": "held", "mode": None, "result": {"hold_reason": "no_runnable_permission_bundle: %s(%s)" % (
+            contract["task_type"], claude_perm.BUNDLE_OF.get(contract["task_type"], "묶음 없음"))}}
+    if job["status"] != "new" and not claude_perm.auto_resume_allowed(contract["task_type"]):
+        return {"kind": "held", "mode": None, "result": {"hold_reason": "auto_resume_disabled: %s(%s 뒤 재개는 사람 확인)" % (
+            contract["task_type"], job["status"])}}
     if job["status"] == "running":  # 실행 중 Supervisor가 죽었고 claude도 끝났다(pick이 확인): 재개 횟수 상한
         if job.get("crash_resumes", 0) >= recovery.MAX_INTERRUPTS:
             return {"kind": "held", "mode": None, "result": {"hold_reason": "too_many_interrupts: 실행 중 사망 재개 %d회" %
                                                              job.get("crash_resumes", 0)}}
         job["crash_resumes"] = job.get("crash_resumes", 0) + 1
+    env = claude_perm.env_of(env if env is not None else os.environ)  # --help 확인에도 같은 허용 env만 넘긴다
     decision = route.route(contract, [], route.load_policy())
     decision = route.with_support(decision, route.probe_cli_support(
         run=functools.partial(claude_run.help_text, claude_bin, runner, env)))
     if decision["model"] is None:  # 정책상 LLM 미사용 유형인데 needs_llm=true: 계약 문제이며 실행하지 않는다
         route.record_decision(root, decision, decision["applied"], {"task_key": key})
         return {"kind": "failed", "mode": None, "result": {"error": "route_no_model: %s" % decision["reason"]}}
+    try:
+        claude_perm.stage_inputs(task_dir, contract, source_root or claude_perm.REPO, root)
+    except (OSError, ValueError) as exc:  # 계약 입력이 허용 범위 밖이거나 SHA가 다르다: 결정적(계약·자료 문제)
+        return {"kind": "failed", "mode": None, "result": {"error": "input_refused: %s" % exc}}
     failed_session = None
     for mode in (("resume", "new") if job.get("session_id") and job["status"] != "new" else ("new",)):
         # 실행 직전마다 다시 본다: 실패한 --resume 실행 중에 건 정지 뒤에는 새 세션을 열지 않는다
@@ -178,13 +192,13 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None):
         write_json(path, job)  # 실행 전에 세션 ID를 남긴다(실행 중 Supervisor가 죽어도 이어갈 수 있게)
         run = runner or functools.partial(claude_run.default_runner, pidfile=paths(root, key)[1], stamp={
             "boot_id": lease.boot_id(), "session_id": job["session_id"], "mode": mode, "run_token": job["run_token"]},
-            idle_s=bounds.get("claude_idle_s", claude_run.IDLE_S), total_s=bounds.get("claude_total_s", claude_run.TOTAL_S))
+            cwd=task_dir, idle_s=bounds.get("claude_idle_s", claude_run.IDLE_S), total_s=bounds.get("claude_total_s", claude_run.TOTAL_S))
         ledger.append(log, now_fn(), "claude_run_started", {"task_key": key, "mode": mode,
                       "session_id": job["session_id"], "model": decision["model"], "effort": decision["effort"]})
         started = now_fn()
         res = claude_run.run_once(claude_bin, _prompt(root, job, mode, failed_session), decision["model"],
                                   decision["effort"], run, env, resume=job["session_id"] if mode == "resume" else None,
-                                  session_id=job["session_id"] if mode == "new" else None)
+                                  session_id=job["session_id"] if mode == "new" else None, extra=extra)
         kind = "rate_limited" if res["limited"] else "success" if res["success"] else "failed"
         if _record_run(root, decision, res, job, contract, mode, started, now_fn()) == "completed":
             try:  # 성공 종료를 본 직후 산출물 해시로 완료 표시를 원자 저장한다(이 뒤에 죽어도 반영만 하면 된다)

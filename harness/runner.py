@@ -2,6 +2,10 @@
 
 - executor는 호출자가 task_type -> callable(contract, out_dir) -> 출력 상대 경로 목록 으로 주입한다.
   이 파일은 외부 모델 호출·네트워크·하위 프로세스를 쓰지 않는다(시험이 소스를 검사한다).
+- main(Supervisor가 띄우는 경로)은 executor 모듈을 직접 가져오지 않고 sandbox.sandboxed로 macOS sandbox-exec 하위 프로세스에서 실행한다
+  (작업 계약 3단계 R6: executor는 하네스 root에 쓰지 못하고 자기 out/에만 쓴다). sandbox를 쓸 수 없으면 아무것도 실행하지 않고
+  SANDBOX_EXIT로 끝난다(fail-closed). 하위 프로세스 실행은 sandbox.py에 있다. drain에 dict를 직접 넘기는 경로(시험)는 sandbox가 없다.
+- sandbox 안 executor가 신호로 죽으면(메모리 부족 등) 작업권 기록을 남긴 채 놓아 다음 claim이 INTERRUPTED 규칙(2단계 R1)대로 다룬다.
 - LLM 작업(needs_llm=true)과 그것에 (간접으로) 의존하는 작업은 건드리지 않는다(claim도 하지 않으므로 장부에도 안 남는다).
 - 일시적 실패는 1단계 규칙대로 최대 2회 재시도한 뒤 정지, 결정적 실패·needs_failure_policy·blocked·
   holder_alive_without_lock은 우회하지 않고 요약에 남기고 그 작업만 멈춘다.
@@ -11,18 +15,18 @@
 - 호출 깊이: main -> drain -> queue.claim/complete/fail(각각 깊이 2 이하)이라 최대 4다. drain -> manifest.build -> safe_path는 3.
   executor는 호출자 코드(동적 호출)이며 이 깊이에 포함하지 않았다.
 """
-import importlib
 import json
 import os
 import sys
 import time
 
 from . import contract as ct
-from . import cas, ledger, lease, manifest, queue, recovery, states
+from . import cas, ledger, lease, manifest, queue, recovery, sandbox, states
 from .jsonio import read_json, write_json
 
 
 INTEGRITY_EXIT = 3  # 장부 무결성 오류로 drain이 중단된 경우의 종료 코드
+SANDBOX_EXIT = 5  # sandbox-exec를 쓸 수 없어 executor를 실행하지 않은 경우의 종료 코드
 
 
 class OutputMismatch(Exception):
@@ -73,6 +77,8 @@ def _execute(executors, task, out_dir):
         produced = executors[task["task_type"]](task, out_dir)
         if sorted(produced) != sorted(task["outputs"]):
             raise OutputMismatch("executor가 돌려준 출력 목록이 계약의 outputs와 다르다: %r" % (produced,))
+    except sandbox.ChildError as exc:  # sandbox 안 실패: 자식이 정한 종류(transient|deterministic|interrupted)와 원래 오류 문구
+        return exc.kind, str(exc)
     except (Exception, SystemExit) as exc:  # executor가 sys.exit()를 내도 runner가 죽지 않고 결정적 실패로 기록한다
         return recovery.kind_of(exc), "%s: %s" % (type(exc).__name__, exc)  # KeyboardInterrupt는 그대로 전파한다
     return None
@@ -125,6 +131,10 @@ def drain(root, executors, now_fn=time.time, max_tasks=None):
                 os.makedirs(out_dir, exist_ok=True)
                 adopt = res["plan"]["action"] == "adopt"  # 완료 표시가 이미 맞다: executor를 다시 부르지 않고 반영만 한다
                 error = None if adopt else _execute(executors, task, out_dir)
+                if error is not None and error[0] == "interrupted":  # 작업권 기록은 남기고 잠금만 놓는다 → 다음 claim이 INTERRUPTED로 본다
+                    lease.release(res["lease"])
+                    progressed |= _note(summary, parked, key, "stopped", "executor_killed: %s" % error[1])
+                    continue
                 if error is None:
                     try:
                         if not adopt:  # executor가 정상 반환한 뒤에만 쓰는 완료 표시(원자 저장)
@@ -153,10 +163,12 @@ def drain(root, executors, now_fn=time.time, max_tasks=None):
 
 
 def main(argv):
-    """python -m harness.runner <root> <module:EXECUTORS> [--max N] -> 요약을 JSON 한 줄로 출력."""
-    module, _, attr = argv[1].partition(":")
+    """python -m harness.runner <root> <module:EXECUTORS> [--max N] -> 요약을 JSON 한 줄로 출력. executor는 sandbox 안에서만 실행한다."""
     limit = int(argv[argv.index("--max") + 1]) if "--max" in argv else None
-    summary = drain(argv[0], getattr(importlib.import_module(module), attr), max_tasks=limit)
+    if not sandbox.available():
+        print(json.dumps({"sandbox_unavailable": sandbox.SANDBOX_EXEC, "executed": 0}, ensure_ascii=False), flush=True)
+        return SANDBOX_EXIT
+    summary = drain(argv[0], sandbox.sandboxed(os.path.abspath(argv[0]), argv[1]), max_tasks=limit)
     print(json.dumps(summary, sort_keys=True, ensure_ascii=False), flush=True)
     return INTEGRITY_EXIT if "integrity" in summary else 0
 

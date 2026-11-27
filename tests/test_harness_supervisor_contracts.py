@@ -21,11 +21,11 @@ class SupervisorContractTest(unittest.TestCase):
     def test_route_decision_recorded_without_claiming_t7(self):
         claude, log, env = make_fake(self, [{"do": "success"}, {"do": "success"}])
         llm_task(self.root, "a")
-        llm_task(self.root, "b", task_type="label_disagreement")
+        llm_task(self.root, "b", task_type="repeated_failure_analysis")  # A 묶음의 opus·high 유형(B 묶음 label_disagreement는 실행 안 함)
         supervisor.run(self.root, claude, max_cycles=3, poll_s=0.01, env=env)
         rows = [e["data"] for e in events(self.root, "route_decision")]
         self.assertEqual(sorted((r["task_type"], r["requested"]["model"], r["requested"]["effort"]) for r in rows),
-                         [("label_disagreement", "opus", "high"), ("misanalysis_general", "sonnet", "medium")])  # 기본 유형이 A 묶음으로 바뀜
+                         [("misanalysis_general", "sonnet", "medium"), ("repeated_failure_analysis", "opus", "high")])  # A 묶음 유형
         self.assertEqual(sorted((r["model"], r["effort"]) for r in runs(log)), [("opus", "high"), ("sonnet", "medium")])
         for row in rows:
             self.assertEqual((row["policy"], row["applied"]["verified"], row["applied"]["effort"]), ("routing-policy-v1", False, None))

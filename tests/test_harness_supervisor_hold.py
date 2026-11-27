@@ -7,6 +7,7 @@ import unittest
 
 from harness import claude_job, lease, opstate, states, supervisor
 from harness.jsonio import read_json, write_json
+from tests.test_harness_resume_kit import allow_resume
 from tests.test_harness_supervisor_kit import Clock, events, llm_task, make_fake, runs
 
 
@@ -67,7 +68,8 @@ class ClaudeHoldTest(unittest.TestCase):
         root = tempfile.mkdtemp()
         claude, log, env = make_fake(self, [{"do": "limit", "after": 1, "session": "init-told"}, {"do": "success"}])
         key = llm_task(root)
-        supervisor.run(root, claude, max_cycles=4, poll_s=2, env=env)
+        with allow_resume(self, "misanalysis_general"):  # 재개 절차 시험: 이 유형의 자동 재개를 켠다(3단계 활성화 목록)
+            supervisor.run(root, claude, max_cycles=4, poll_s=2, env=env)
         first, second = runs(log)
         self.assertNotEqual(first["session_id"], "init-told")
         self.assertEqual(second["resume"], "init-told")  # 요청한 ID가 아니라 init이 알려준 ID로 이어간다

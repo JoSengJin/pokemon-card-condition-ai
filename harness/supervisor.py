@@ -81,8 +81,8 @@ def _live(root, summary):
 
 
 def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, now_fn=time.time, sleep_fn=time.sleep,
-        runner=None, env=None, limits=None):
-    """Supervisor 루프. max_cycles가 None이면 계속 돈다. limits: {"claude_idle_s", "claude_total_s", "python_total_s"}(없으면 기본값). 요약 dict(회차 수, 마지막으로 읽은 유효 상태, Claude 실행 수·runner 실행 수)."""
+        runner=None, env=None, limits=None, source_root=None):
+    """Supervisor 루프. max_cycles가 None이면 계속 돈다. limits: {"claude_idle_s", "claude_total_s", "python_total_s"}(없으면 기본값). source_root: Claude 작업 입력 원본 폴더(기본 저장소). 요약 dict(회차 수, 마지막으로 읽은 유효 상태, Claude 실행 수·runner 실행 수)."""
     root = os.path.abspath(root)
     os.makedirs(os.path.join(root, "supervisor"), exist_ok=True)
     fd = os.open(os.path.join(root, "supervisor", "supervisor.lock"), os.O_RDWR | os.O_CREAT, 0o600)
@@ -134,7 +134,7 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
                     job = claude_job.pick(root, now_fn())
                     if job is not None and _live(root, summary) is not None:  # execute 직전
                         summary["claude_runs"] += 1
-                        outcome = claude_job.execute(root, job, claude_bin, now_fn, runner, env, limits)
+                        outcome = claude_job.execute(root, job, claude_bin, now_fn, runner, env, limits, source_root)
                         summary["outcomes"].append(claude_job.settle(root, job, outcome, now_fn()))
                         wake = now_fn()  # 결과를 반영했으면 곧바로 다음 회차
             except Exception as exc:  # noqa: BLE001 — 모르는 오류는 추정하지 않고 사람 확인으로 멈춘다
@@ -154,7 +154,7 @@ def _args(argv):
     """명령행 → run 인자. 알 수 없는 인자는 ValueError."""
     names = {"--root": "root", "--claude-bin": "claude_bin", "--executors": "executors", "--max-cycles": "max_cycles",
              "--poll": "poll_s", "--claude-idle-s": "claude_idle_s", "--claude-total-s": "claude_total_s",
-             "--python-total-s": "python_total_s"}
+             "--python-total-s": "python_total_s", "--source-root": "source_root"}
     out = {}
     for flag, value in zip(argv[::2], argv[1::2]):
         if flag not in names:
@@ -162,7 +162,7 @@ def _args(argv):
         out[names[flag]] = int(value) if flag == "--max-cycles" else float(value) if flag == "--poll" or flag.endswith("-s") else value
     if len(argv) % 2 or "root" not in out:
         raise ValueError("사용법: --root R [--claude-bin B] [--executors mod:ATTR] [--max-cycles N] [--poll S] "
-                         "[--claude-idle-s S] [--claude-total-s S] [--python-total-s S]")
+                         "[--claude-idle-s S] [--claude-total-s S] [--python-total-s S] [--source-root D]")
     limits = {k: out.pop(k) for k in ("claude_idle_s", "claude_total_s", "python_total_s") if k in out}
     return dict(out, limits=limits) if limits else out
 
