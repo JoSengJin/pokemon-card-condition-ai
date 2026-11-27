@@ -81,6 +81,14 @@ class WithdrawalChampionTest(unittest.TestCase):
         self.assertEqual(before, [pathlib.Path(p).read_bytes() for p in paths])
         self.assertEqual([[], [], []], [ledger.verify(p) for p in paths[:3]])
 
+    def test_a_second_scoped_withdrawal_with_the_same_reason_still_invalidates_the_other_batch(self):
+        s = scenario(self)
+        r, m = s["root"], s["models"]
+        first = withdrawal.withdraw(r, 6.0, s["policy"], "contamination", ["b1"])
+        second = withdrawal.withdraw(r, 7.0, s["policy"], "contamination", ["b2"])
+        self.assertEqual((False, sorted([m["m1"], m["c1"]]), sorted([m["m2"], m["c2"]])),
+                         (second["already"], first["invalidated"], second["invalidated"]))
+
 
 if __name__ == "__main__":
     unittest.main()

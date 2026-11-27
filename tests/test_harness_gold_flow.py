@@ -111,6 +111,11 @@ class GoldFlowTest(unittest.TestCase):
         self.assertIn("Gold 저장됨", done.stdout.decode("utf-8"))
         self.assertIsNone(stored(self.root)[0]["session_id"])
 
+    def test_a_unicode_line_separator_inside_an_issued_row_does_not_split_it(self):
+        ledger.append(os.path.join(self.root, gold_store.ISSUED), 1.0, "junk", {"note": "a\u2028b\x85c\u2029d"})
+        self.assertIn("Gold 저장됨", hook(self, self.root, paste(issue(self.root))))
+        self.assertEqual(["invalid_issue_record"], [p["problem"] for p in gold_store.audit(self.root)])
+
 
 if __name__ == "__main__":
     unittest.main()

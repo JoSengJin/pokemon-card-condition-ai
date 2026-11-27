@@ -1,8 +1,8 @@
 """사람 Gold 저장소(DESIGN 5-2·13절). root/gold/store.jsonl 한 개의 추가 전용 해시 체인(1단계 ledger).
 
 - 저장 한 건 = 장부 한 줄. 그 줄이 확정 지점이며, nonce 사용 여부와 완료 키는 모두 이 줄들에서 계산한다.
-- 원문은 훅이 받은 prompt의 UTF-8 바이트를 base64로 둔다. 1단계 장부는 read().splitlines()로 줄을 나누므로
-  U+2028·U+2029·U+0085가 든 문자열을 그대로 넣으면 장부가 손상된다.
+- 원문은 훅이 받은 prompt의 UTF-8 바이트를 base64로 둔다(바이트 그대로 보존). 장부 줄은 "\n"으로만 나눈다:
+  값 안의 U+2028·U+2029·U+0085에서 splitlines()로 나누면 체인 검증을 통과한 장부도 읽지 못한다.
 - 저장소는 파싱한 값을 받지 않고 훅 입력의 원문을 직접 파싱한다(저장한 답과 원문이 어긋날 수 없게).
 - 출처는 human으로 고정이고 호출자가 바꾸는 인자가 없다. AI 라벨은 이 저장소에 넣지 않는다. human은 "직접판정=확인"
   칸의 자기 신고에 근거하며, 실제로 사람이 판정했는지는 이 코드가 확인할 수 없다.
@@ -57,7 +57,7 @@ def rows(root, name):
         raise GoldError("chain_broken", "%s %d번째 줄 %s" % (name, problems[0]["line"], problems[0]["problem"]))
     try:
         with open(path, "r", encoding="utf-8") as handle:
-            return [json.loads(line) for line in handle.read().splitlines()]
+            return [json.loads(line) for line in handle.read().removesuffix("\n").split("\n") if line]  # 장부와 같은 "\n" 나누기
     except FileNotFoundError:
         return []
 
