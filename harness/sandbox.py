@@ -25,8 +25,9 @@
   위 실행 파일·네트워크·lsopen·launchservicesd 조회만 막는다(읽기·프로세스 신호·그 밖의 mach/XPC 서비스는 막지 않는다). executor 코드가
   실행 파일 없이 launchd 자체(bootstrap)나 다른 XPC 서비스에 직접 요청을 보내는 경로는 막지 못한다(시스템 상태를 바꾸는 시험이라 하지 않았다). sandbox-exec는 Apple이 폐기 예정으로 표시한 도구다. 홈 캐시(~/.cache 등)에
   써야 하는 라이브러리는 sandbox 안에서 실패한다(TMPDIR·staging만 쓸 수 있다).
-호출 깊이: sandboxed·run_one → profile·safefs.open_regular·safefs.replace_new(말단) 1.
+호출 깊이: sandboxed·run_one → profile·safefs.open_regular·safefs.replace_new·safefs.publish(말단) 1.
 """
+import errno
 import functools
 import json
 import os
@@ -37,13 +38,15 @@ import sys
 import tempfile
 
 from .dedupe import CONDITION_TYPES
-from .safefs import open_regular, replace_new
+from .safefs import open_regular, publish, replace_new
 
 SANDBOX_EXEC = "/usr/bin/sandbox-exec"
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHILD = [sys.executable, "-m", "harness.sandbox_child"]
 DEVICES = ("/dev/null",)  # 쓰기를 허용하는 장치 파일(이것뿐)
 DENY_EXEC = ("/bin/launchctl", "/usr/bin/open", "/usr/bin/osascript")  # sandbox 밖(launchd·LaunchServices·AppleScript)에서 명령을 돌리는 도구
+MAX_OUTPUT_BYTES = 1 << 30  # 산출물 파일 하나의 크기 상한(임시값 1 GiB, 3차 결함 H4: 넘으면 결정적 실패)
+MAX_STDOUT_BYTES = 1 << 24  # sandbox 자식 표준 출력 상한(임시값 16 MiB, 결과 JSON 한 줄이면 충분하다)
 DENY_MORE = ('(deny network*)', '(deny network-outbound (remote ip "localhost:*"))', '(deny lsopen)',
              '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd"))')  # 3차 결함 H9(이 macOS에서 문법·효과 확인)
 
@@ -80,16 +83,21 @@ def available():
 
 
 def run_one(root, spec, task_type, task, out_dir):
-    """executor 하나를 sandbox 안에서 실행하고 계약 outputs를 확정 out_dir(하네스 소유)에 새 파일로 복사한다. 정상이면 출력 목록, 실패는
+    """executor 하나를 sandbox 안에서 실행하고 계약 outputs를 확정 out_dir(하네스 소유)에 새 파일로 반영한다. 정상이면 출력 목록, 실패는
     ChildError(.kind). executor는 실행마다 새로 만든 실행 폴더의 out/(staging)·tmp/(TMPDIR)에만 쓸 수 있다. 실험·학습·평가면 작업 폴더
-    in/(runner가 SHA를 확인해 복사한 사본)을 HARNESS_INPUT_DIR로 넘긴다. 실행 폴더는 끝나면 지운다."""
-    if os.path.islink(out_dir):
-        raise ChildError("확정 out/이 링크다: %s" % out_dir)
-    os.makedirs(out_dir, exist_ok=True)
-    run = tempfile.mkdtemp(prefix="harness-exec-")
+    in/(runner가 SHA를 확인해 복사한 사본)을 HARNESS_INPUT_DIR로 넘긴다. 실행 폴더는 끝나면 지운다.
+    3차 결함: 확정 out/은 실행 전에 O_NOFOLLOW로 연 fd로만 반영한다(링크면 실행하지 않는다, S09). 산출물은 모두 검사해 하네스 소유 임시 폴더
+    (작업 폴더의 .out-pending-*)에 연 순간의 fstat 크기까지만 복사한 뒤 한 번에 옮긴다: 하나라도 거절되면 확정 out/은 그대로다(H5).
+    산출물 하나가 MAX_OUTPUT_BYTES, 표준 출력이 MAX_STDOUT_BYTES를 넘으면 결정적 실패다(H4)."""
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+        final = os.open(out_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)  # 확정 out/이 링크면 ELOOP: 실행하지 않는다
+    except OSError as exc:
+        raise ChildError("확정 out/이 링크이거나 폴더가 아니다: %s (%s)" % (out_dir, exc))
+    run, pending = tempfile.mkdtemp(prefix="harness-exec-"), None
     stage, env = os.path.join(run, "out"), dict(os.environ, TMPDIR=os.path.join(run, "tmp"))
     if task_type in CONDITION_TYPES:
-        env["HARNESS_INPUT_DIR"] = os.path.join(os.path.dirname(out_dir), "in")
+        env["HARNESS_INPUT_DIR"] = os.path.join(os.path.dirname(os.path.abspath(out_dir)), "in")
     try:
         for sub in ("out", "tmp"):
             os.mkdir(os.path.join(run, sub), 0o700)
@@ -103,24 +111,33 @@ def run_one(root, spec, task_type, task, out_dir):
                     os.killpg(child.pid, signal.SIGKILL)  # 같은 그룹에 남은 자손 정리(setsid 자손은 남는 한계)
                 except (ProcessLookupError, PermissionError):
                     pass
+                loud = os.fstat(said.fileno()).st_size  # 지금 크기까지만 읽는다(늦은 자손이 계속 써도 따라가지 않는다)
                 said.seek(0)
-                noise.seek(0)
-                text, err = said.read().decode("utf-8", "replace"), noise.read()[-300:].decode("utf-8", "replace")
+                text = said.read(min(loud, MAX_STDOUT_BYTES + 1)).decode("utf-8", "replace")
+                noise.seek(max(0, os.fstat(noise.fileno()).st_size - 300))
+                err = noise.read(300).decode("utf-8", "replace")
             try:
-                reply = json.loads(text.strip().split("\n")[-1])
+                reply = json.loads(text.strip().split("\n")[-1]) if loud <= MAX_STDOUT_BYTES else None
             except ValueError:
                 reply = None
-            if isinstance(reply, dict) and reply.get("ok") is True and isinstance(reply.get("produced"), list):
+            if loud > MAX_STDOUT_BYTES:
+                reason, kind = "executor 표준 출력이 상한(%d바이트)을 넘었다: %d" % (MAX_STDOUT_BYTES, loud), "deterministic"
+            elif isinstance(reply, dict) and reply.get("ok") is True and isinstance(reply.get("produced"), list):
                 if sorted(reply["produced"]) != sorted(task["outputs"]):
                     reason = "executor가 돌려준 출력 목록이 계약의 outputs와 다르다: %r" % (reply["produced"],)
                 else:
-                    try:  # 계약 outputs만, 링크·하드 링크·특수 파일·폴더를 거절하며 확정 out/에 새 파일로
+                    try:  # 계약 outputs만, 링크·하드 링크·특수 파일·폴더·상한 초과를 거절하며 임시 폴더에 모두 복사한 뒤 한 번에 옮긴다
+                        pending = tempfile.mkdtemp(prefix=".out-pending-", dir=os.path.dirname(os.path.abspath(out_dir)))
                         for rel in task["outputs"]:
                             src = open_regular(held, rel)
                             try:
-                                replace_new(os.path.join(out_dir, rel), src)
+                                size = os.fstat(src).st_size
+                                if size > MAX_OUTPUT_BYTES:
+                                    raise OSError(errno.EFBIG, "산출물이 상한(%d바이트)을 넘었다: %d" % (MAX_OUTPUT_BYTES, size), rel)
+                                replace_new(os.path.join(pending, rel), src, limit=size)
                             finally:
                                 os.close(src)
+                        publish(final, pending, task["outputs"])
                         return reply["produced"]
                     except OSError as exc:
                         reason = "산출물 거절: %s" % exc
@@ -134,6 +151,9 @@ def run_one(root, spec, task_type, task, out_dir):
             os.close(held)
     finally:
         shutil.rmtree(run, ignore_errors=True)
+        if pending:
+            shutil.rmtree(pending, ignore_errors=True)
+        os.close(final)
     failure = ChildError(reason)
     failure.kind = kind
     raise failure

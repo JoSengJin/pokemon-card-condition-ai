@@ -82,6 +82,23 @@ class CodeShaTest(unittest.TestCase):
             self.assertEqual(states.state_of(states.facts(task_dir), False), states.FAILED, change)
             self.assertIn("code_sha", states.failures(task_dir)[0]["error"], change)
 
+    def test_executor_gets_the_command_with_placeholders_replaced_by_the_verified_copy(self):
+        root, src = tempfile.mkdtemp(), self._src()
+        key = queue.enqueue(root, _experiment(src), T0, source_root=src)
+        seen = []
+
+        def executor(task, out_dir):  # 3차 결함 H7: runner가 자리표시자를 입력 사본(작업 폴더 in/) 절대 경로로 바꾼 명령을 넘긴다
+            with open(task["run_conditions"]["command"][-1], "rb") as handle:
+                seen.append((task["run_conditions"]["command"], handle.read()))
+            with open(os.path.join(out_dir, "result.txt"), "w", encoding="utf-8") as handle:
+                handle.write("ok")
+            return ["result.txt"]
+        self.assertEqual(runner.drain(root, {"experiment": executor}, max_tasks=1, source_root=src)["done"], [key])
+        copy = os.path.join(os.path.abspath(root), "tasks", key, "in", "data", "a.json")
+        self.assertEqual(seen, [(["python", "train.py", "--tag", "0", copy], b"rows")])
+        with open(os.path.join(root, "tasks", key, "contract.json"), encoding="utf-8") as handle:
+            self.assertIn("{input:data/a.json}", handle.read())  # 계약 자체는 그대로
+
 
 if __name__ == "__main__":
     unittest.main()

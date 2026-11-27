@@ -4,6 +4,8 @@ import io
 import json
 import os
 import signal
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -58,6 +60,29 @@ class SandboxTest(unittest.TestCase):
         while lease.pid_alive(child) and time.time() < deadline:
             time.sleep(0.05)
         self.assertFalse(lease.pid_alive(child))  # 혼자 남아 다음 runner와 겹쳐 실행되지 않는다
+
+    def test_runner_killed_ends_the_whole_executor_group_and_a_bad_table_is_a_clean_exit(self):
+        root, marks = tempfile.mkdtemp(), tempfile.mkdtemp()
+        queue.enqueue(root, task("G", task_type="slow"), 1.0)
+        proc = spawn_runner(root, marks, {"HARNESS_SLOW": "hang_child"})
+        self.addCleanup(proc.kill)
+        deadline = time.time() + 30
+        while not [n for n in os.listdir(marks) if n.startswith("G-start-")] and time.time() < deadline:
+            time.sleep(0.05)
+        [mark] = [n for n in os.listdir(marks) if n.startswith("G-child-")]
+        grandchild = int(mark.split("-")[2])  # executor가 남긴 같은 그룹 자식(3차 변이 S39)
+        os.kill(proc.pid, signal.SIGKILL)
+        proc.communicate()
+        deadline = time.time() + 5
+        while lease.pid_alive(grandchild) and time.time() < deadline:
+            time.sleep(0.05)
+        self.assertFalse(lease.pid_alive(grandchild))
+        done = subprocess.run([sys.executable, "-m", "harness.runner", root, "tests.test_harness_boundary_kit:ALIASED"], cwd=sandbox.REPO,
+                              capture_output=True, text=True, timeout=120, env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"))
+        summary = json.loads(done.stdout.strip().split("\n")[-1])  # 3차 결함 H10: traceback 없이 요약과 결정적 종료 코드
+        self.assertEqual((done.returncode, summary["executed"]), (runner.EXECUTOR_TABLE_EXIT, 0))
+        self.assertIn("executor_table_error", summary)
+        self.assertNotIn("Traceback", done.stderr)
 
 
 if __name__ == "__main__":

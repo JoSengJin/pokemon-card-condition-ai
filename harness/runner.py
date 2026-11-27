@@ -28,6 +28,7 @@ from .jsonio import read_json, write_json
 
 INTEGRITY_EXIT = 3  # 장부 무결성 오류로 drain이 중단된 경우의 종료 코드
 SANDBOX_EXIT = 5  # sandbox-exec를 쓸 수 없어 executor를 실행하지 않은 경우의 종료 코드
+EXECUTOR_TABLE_EXIT = 6  # executor 표를 sandbox 안에서 읽지 못해(감싼 표 거절 등) 아무것도 실행하지 않은 경우의 종료 코드(3차 결함 H10)
 
 
 class OutputMismatch(Exception):
@@ -75,11 +76,16 @@ def _scan(root, executors):
 def _execute(root, executors, task, out_dir, source_root):
     """executor를 실행한다. 정상이면 None, 오류면 (실패 종류, 설명). 종류는 1단계 규칙(recovery.kind_of).
     실험·학습·평가는 실행 직전에 입력을 source_root에서 작업 폴더 in/으로 복사하며 복사본 SHA를 계약과 대조한다(다르거나 폴더 밖·링크·봉인
-    이름이면 executor를 부르지 않고 결정적 실패, 검증 결함 F3). executor는 그 사본을 읽는다(sandbox 경로는 HARNESS_INPUT_DIR, 2차 결함 G6)."""
+    이름이면 executor를 부르지 않고 결정적 실패, 검증 결함 F3). executor는 그 사본을 읽는다(sandbox 경로는 HARNESS_INPUT_DIR, 2차 결함 G6).
+    3차 결함: code_sha를 source_root HEAD와 다시 대조하고(H1), executor에는 command의 자리표시자 {input:<경로>}를 사본 절대 경로로 바꾼
+    계약 사본을 넘긴다(H7, 계약 파일은 그대로). executor가 원본을 직접 읽는 것은 막지 않는다(한계)."""
     try:
         if task["task_type"] in dedupe.CONDITION_TYPES:  # 실행 직전 code_sha를 source_root HEAD와 다시 대조(3차 결함 H1)
             dedupe.verify_code(task, source_root)
             claude_perm.stage_inputs(os.path.dirname(out_dir), task, source_root, root)
+            copies, cond = os.path.join(os.path.dirname(os.path.abspath(out_dir)), "in"), task["run_conditions"]
+            task = dict(task, run_conditions=dict(cond, command=[dedupe.PLACEHOLDER.sub(  # 3차 H7: 자리표시자 → 대조한 사본의 절대 경로
+                lambda m: os.path.join(copies, os.path.normpath(m.group(1))), arg) for arg in cond["command"]]))
         produced = executors[task["task_type"]](task, out_dir)
         if sorted(produced) != sorted(task["outputs"]):
             raise OutputMismatch("executor가 돌려준 출력 목록이 계약의 outputs와 다르다: %r" % (produced,))
@@ -177,7 +183,12 @@ def main(argv):
     if not sandbox.available():
         print(json.dumps({"sandbox_unavailable": sandbox.SANDBOX_EXEC, "executed": 0}, ensure_ascii=False), flush=True)
         return SANDBOX_EXIT
-    summary = drain(argv[0], sandbox.sandboxed(os.path.abspath(argv[0]), argv[1]), max_tasks=limit, source_root=source)
+    try:
+        table = sandbox.sandboxed(os.path.abspath(argv[0]), argv[1])
+    except sandbox.ChildError as exc:  # 표를 못 읽음(감싼 표 거절 등): traceback 없이 요약을 남기고 결정적 종료 코드(3차 결함 H10)
+        print(json.dumps({"executor_table_error": str(exc)[:2000], "executed": 0}, ensure_ascii=False), flush=True)
+        return EXECUTOR_TABLE_EXIT
+    summary = drain(argv[0], table, max_tasks=limit, source_root=source)
     print(json.dumps(summary, sort_keys=True, ensure_ascii=False), flush=True)
     return INTEGRITY_EXIT if "integrity" in summary else 0
 

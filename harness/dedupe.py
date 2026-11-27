@@ -47,7 +47,7 @@ CONDITION_KEYS = ("command", "code_sha", "config", "seed")
 NOTE_KEYS = ("hypothesis_id", "description", "input_roles")
 _SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
-_PLACEHOLDER = re.compile(r"\{input:([^{}]+)\}")
+PLACEHOLDER = re.compile(r"\{input:([^{}]+)\}")  # runner가 실행 직전 사본 경로로 바꾼다(3차 H7)
 _NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
 _INTEGER = re.compile(r"[+-]?\d+")
 _LITERAL = re.compile(r"^[+-]?0\d|\.\d*0(?:[eE]|$)|\.(?:[eE]|$)")  # 앞자리 0(01)·소수점 끝 0(1.10)·끝 점(1.): 문자열 그대로(3차 H2)
@@ -60,7 +60,7 @@ def _command(command, inputs):
     tokens, used = [], set()
     for index, arg in enumerate(command):
         for part in arg.split("=", 1) if arg.startswith("--") and "=" in arg else [arg]:
-            pieces = _PLACEHOLDER.split(part)  # [글자, 경로, 글자, 경로, ...]
+            pieces = PLACEHOLDER.split(part)  # [글자, 경로, 글자, 경로, ...]
             if len(pieces) > 1:
                 names = [os.path.normpath(p) for p in pieces[1::2]]
                 if any(n not in inputs for n in names):

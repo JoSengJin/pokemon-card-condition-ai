@@ -43,7 +43,14 @@ def poison(task, out_dir):
 
 
 def slow(task, out_dir):
-    """HARNESS_SLOW=hang이면 시작 표식만 남기고 오래 멈춘다(kill -9 시험용), 아니면 바로 끝난다."""
+    """HARNESS_SLOW=hang이면 시작 표식만 남기고 오래 멈춘다(kill -9 시험용), 아니면 바로 끝난다. hang_child면 먼저 같은 프로세스 그룹의
+    자식을 하나 남긴다(표식 이름 <name>-child-<pid>-, 3차 변이 S39: runner가 죽으면 그 자식도 끝나야 한다)."""
+    if os.environ.get("HARNESS_SLOW") == "hang_child":
+        if os.fork() == 0:
+            _mark(task, "child")
+            time.sleep(60)
+            os._exit(0)
+        os.environ["HARNESS_SLOW"] = "hang"
     _mark(task, "start")
     deadline = time.time() + 60
     while os.environ.get("HARNESS_SLOW") == "hang" and time.time() < deadline:
