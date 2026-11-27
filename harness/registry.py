@@ -74,7 +74,8 @@ def load(root, expected_tail=None):
     state = {"models": {}, "history": [], "pending": None, "hashes": set(), "tail": ledger.GENESIS}
     try:
         with open(path, "r", encoding="utf-8") as handle:
-            lines = handle.read().splitlines()
+            # "\n"으로만 나눈다: splitlines()는 값 안의 U+2028·U+0085에서도 줄을 나눈다(ledger와 같은 규칙)
+            lines = [line for line in handle.read().split("\n") if line]
     except FileNotFoundError:
         lines = []
     for raw in lines:

@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from harness import cas, ledger, silver_store
+from harness import cas, ledger, registry, silver_store
 
 ODD = "a b c\u0085d"  # ensure_ascii=False로 그대로 기록되고 str.splitlines()는 줄로 나누는 문자
 # 수정 전(805d9c7) ledger.append가 만든 두 줄 그대로: 해시·형식이 바뀌지 않았음을 고정한다
@@ -53,6 +53,14 @@ class LedgerLineTest(unittest.TestCase):
             write(path, "")
             self.assertEqual(([], ledger.GENESIS), (ledger.verify(path), ledger.tail(path)))
             self.assertEqual(0, ledger.append(path, 1.0, "first", {})["seq"])
+
+    def test_the_registry_reads_back_a_config_with_line_separator_characters(self):
+        with tempfile.TemporaryDirectory() as root:
+            src = os.path.join(root, "weights.bin")
+            write(src, "w")
+            made = registry.register(root, 1.0, src, "a" * 40, "b" * 64, {"note": ODD},
+                                     {"layer": "sealed", "denominator": 1, "seal_version": "v1", "metrics": {}}, [])
+            self.assertEqual(ODD, registry.load(root)["models"][made["model_id"]]["config"]["note"])
 
 
 class CasReadTest(unittest.TestCase):
