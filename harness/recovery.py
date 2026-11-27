@@ -8,10 +8,12 @@ import socket
 
 from . import checkpoint, states
 from .contract import RUN_ID, new_run_id
+from .jsonio import write_json
 
 RESUME_MIN_MINUTES = 30.0
-# 설계에 없는 한도(메인이 제안한 값: 일시적 실패 재시도 한도와 같은 2, 사용자 확인 대기). 같은 작업이 비정상 종료한 뒤
-# 이어받아 다시 실행하는 횟수의 상한(체크포인트 재개 포함). 넘으면 needs_failure_policy(too_many_interrupts)로 멈춘다.
+# 설계에 없는 한도(메인이 제안한 값: 일시적 실패 재시도 한도와 같은 2, 사용자 확인 대기). 센 대상: 같은 작업이 비정상 종료한 뒤
+# 체크포인트 없이(또는 진전 없이) 처음부터 다시 실행된 연속 횟수(rerun). 유효한 체크포인트로 이어받은 재개(resume)는 진전이
+# 있으므로 세지 않고 0으로 초기화한다. 정상 종료(complete·fail)도 초기화한다. 넘으면 needs_failure_policy(too_many_interrupts)로 멈춘다.
 MAX_INTERRUPTS = 2
 RUNNABLE = ("run", "rerun", "retry", "resume")
 
@@ -81,12 +83,20 @@ def decide(task_dir, state, info, now, current=None, restored=()):
         plan = _plan("skip", "CAS에서 복구하고 해시 재검증 통과", events=[("corrupt_restored", {"files": list(restored)})])
     elif state == states.INTERRUPTED:
         prev = info["held"] or {}
-        deaths = _deaths(prev)  # 이번 중단까지 센 비정상 종료 횟수
-        if deaths > MAX_INTERRUPTS:
-            plan = _plan("needs_failure_policy", "too_many_interrupts", extra={"interrupts": deaths})
+        plan = _plan(*_interrupted(prev, now, checkpoint.check(info["checkpoint"], prev.get("run_id"), current)))  # 체크포인트 판정이 먼저
+        deaths = _deaths(prev)  # 이번 중단까지 센 진전 없는 비정상 종료 횟수
+        if plan["resumed"]:
+            plan["interrupts"] = 0  # 진전이 있는 재개: 연속 중단 횟수를 세지 않고 초기화한다
+        elif deaths <= MAX_INTERRUPTS:
+            plan["interrupts"] = deaths
         else:
-            plan = _plan(*_interrupted(prev, now, checkpoint.check(info["checkpoint"], prev.get("run_id"), current)),
-                         extra={"interrupts": deaths})
+            run_id, marker = prev.get("run_id"), os.path.join(task_dir, "stopped.json")
+            logged = isinstance(info["stopped"], dict) and info["stopped"].get("run_id") == run_id
+            if not logged:  # 정지 사유는 장부에 한 번만 남긴다(같은 중단 기록에 대한 표식)
+                write_json(marker, {"run_id": run_id, "interrupts": deaths})
+            plan = _plan("needs_failure_policy", "too_many_interrupts", extra={"interrupts": deaths}, events=(
+                [] if logged else [("stopped_too_many_interrupts",
+                                    {"task_key": os.path.basename(task_dir), "run_id": run_id, "interrupts": deaths})]))
     elif state == states.FAILED:
         plan = _plan(*_failed(info))
     elif state == states.PENDING:

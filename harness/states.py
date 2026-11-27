@@ -41,11 +41,11 @@ def facts(task_dir):
     """판정에 필요한 사실(읽기만 한다). contract_state: absent|ok|bad, done_state: absent|ok|bad.
 
     bad: 완료 기록과 어긋난 산출물 상대 경로, restorable: CAS에서 되살릴 수 있는 (sha, 대상 경로) 목록,
-    held: 작업권 기록(없음 None, 깨짐 {}), records: 실패 기록, checkpoint: 없음 None / 손상 "damaged".
+    held: 작업권 기록(없음 None, 깨짐 {}), records: 실패 기록, checkpoint: 없음 None / 손상 "damaged", stopped: 중단 한도 정지 표식(없음 None).
     """
     found = {"contract": None, "contract_state": "absent", "done_state": "absent", "bad": [], "restorable": [],
              "held": lease.read(os.path.join(task_dir, "lease.json")), "records": failures(task_dir),
-             "checkpoint": None}
+             "checkpoint": None, "stopped": None}
     path = os.path.join(task_dir, "contract.json")
     if os.path.exists(path):
         try:
@@ -58,6 +58,10 @@ def facts(task_dir):
         found["checkpoint"] = read_json(os.path.join(task_dir, "checkpoint.json"))
     except ValueError:
         found["checkpoint"] = "damaged"
+    try:
+        found["stopped"] = read_json(os.path.join(task_dir, "stopped.json"))
+    except ValueError:
+        found["stopped"] = "damaged"
     done_path = os.path.join(task_dir, "done.json")
     if found["contract_state"] != "ok" or not os.path.exists(done_path):
         return found

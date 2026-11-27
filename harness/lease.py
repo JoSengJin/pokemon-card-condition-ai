@@ -15,7 +15,7 @@ import os
 import re
 import subprocess
 
-Lease = collections.namedtuple("Lease", "fd path previous")
+Lease = collections.namedtuple("Lease", "fd path previous ident")  # ident: 잠근 파일의 (dev, ino)
 
 
 class LeaseError(Exception):
@@ -79,14 +79,15 @@ def lock(path):
         if exc.errno in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EACCES):
             return None
         raise
+    held = os.fstat(fd)
     try:
-        same = os.path.samestat(os.fstat(fd), os.stat(path))
+        same = os.path.samestat(held, os.stat(path))
     except FileNotFoundError:
         same = False
     if not same:  # 잠금을 기다리는 사이 다른 쪽이 파일을 지우고 새로 만들었다: 잡은 잠금은 무효
         os.close(fd)
         return None
-    return Lease(fd, path, read(path))
+    return Lease(fd, path, read(path), (held.st_dev, held.st_ino))
 
 
 def stamp(handle, pid, boot, now, extra=None):
@@ -100,9 +101,18 @@ def stamp(handle, pid, boot, now, extra=None):
 
 
 def release(handle, remove=False):
-    """잠금 해제. remove=True이거나 아무것도 기록하지 않은 빈 파일이면 파일도 지운다."""
+    """잠금 해제. remove=True이거나 아무것도 기록하지 않은 빈 파일이면 파일도 지운다.
+
+    두 번 불러도 안전하다: fd가 이미 닫혔거나 다른 파일에 재사용됐으면(ident 불일치) 아무것도 하지 않는다.
+    """
     try:
-        if remove or os.fstat(handle.fd).st_size == 0:
+        held = os.fstat(handle.fd)
+    except OSError:
+        return  # 이미 해제됨(fd 닫힘)
+    if (held.st_dev, held.st_ino) != handle.ident:
+        return  # 닫힌 fd 번호가 다른 파일에 재사용됐다: 남의 fd를 닫지 않는다
+    try:
+        if remove or held.st_size == 0:
             try:
                 os.unlink(handle.path)
             except FileNotFoundError:

@@ -4,7 +4,8 @@
   이 파일은 외부 모델 호출·네트워크·하위 프로세스를 쓰지 않는다(시험이 소스를 검사한다).
 - LLM 작업(needs_llm=true)과 그것에 (간접으로) 의존하는 작업은 건드리지 않는다(claim도 하지 않으므로 장부에도 안 남는다).
 - 일시적 실패는 1단계 규칙대로 최대 2회 재시도한 뒤 정지, 결정적 실패·needs_failure_policy·blocked·
-  holder_alive_without_lock은 우회하지 않고 요약에 남기고 그 작업만 멈춘다. 데몬·예산·한도 감지는 하지 않는다(3단계).
+  holder_alive_without_lock은 우회하지 않고 요약에 남기고 그 작업만 멈춘다.
+  장부 체인 손상(LedgerError)은 무결성 문제라 drain 전체를 멈추고 요약에 INTEGRITY를 남기며 종료 코드 3을 낸다. 데몬·예산·한도 감지는 하지 않는다(3단계).
 - 호출 깊이: main -> drain -> queue.claim/complete/fail(각각 깊이 2 이하)이라 최대 4다.
   executor는 호출자 코드(동적 호출)이며 이 깊이에 포함하지 않았다.
 """
@@ -19,12 +20,16 @@ from . import cas, ledger, lease, queue, recovery, states
 from .jsonio import read_json
 
 
+INTEGRITY_EXIT = 3  # 장부 무결성 오류로 drain이 중단된 경우의 종료 코드
+
+
 class OutputMismatch(Exception):
     pass
 
 
-# 한 작업의 기록(장부·파일·CAS·계약·부팅 식별자) 오류. 그 작업만 멈추고 drain은 계속한다.
-_RECORDING_ERRORS = (OSError, ValueError, queue.QueueError, ledger.LedgerError, cas.CasError, lease.LeaseError)
+# 한 작업의 기록(파일·CAS·계약·부팅 식별자·장부 쓰기) 오류. 그 작업만 멈추고 drain은 계속한다.
+# 장부 체인이 손상된 경우(LedgerError)는 무결성 문제라 여기에 넣지 않고 drain 전체를 멈춘다.
+_RECORDING_ERRORS = (OSError, ValueError, queue.QueueError, cas.CasError, lease.LeaseError)
 
 
 def _scan(root, executors):
@@ -95,46 +100,50 @@ def drain(root, executors, now_fn=time.time, max_tasks=None):
     """
     summary = {"done": [], "failed": [], "stopped": {}, "stop_reasons": {}, "locked": [], "warnings": [], "executed": 0}
     parked = set()
-    while True:
-        todo, summary["untouched"] = _scan(root, executors)
-        progressed = False
-        for key in [k for k in todo if k not in parked]:
-            if max_tasks is not None and summary["executed"] >= max_tasks:
-                break
-            try:
-                res = queue.claim(root, key, os.getpid(), lease.boot_id(), now_fn())
-            except _RECORDING_ERRORS as exc:  # 이 작업만 못 잡는다(장부·부팅 식별자 조회 오류 등). drain은 계속한다
-                progressed |= _note(summary, parked, key, "stopped", "claim_error: %s: %s" % (type(exc).__name__, exc))
-                continue
-            if not res["ok"]:
-                kinds = {"locked": "locked", "skip": "skipped", "wait": "skipped", "unregistered": "skipped"}
-                if "plan" in res:
-                    summary["stop_reasons"][key] = res["plan"]["reason"]
-                progressed |= _note(summary, parked, key, kinds.get(res["reason"], "stopped"), res["reason"])
-                continue
-            task_dir = os.path.join(root, "tasks", key)
-            task, out_dir = read_json(os.path.join(task_dir, "contract.json")), os.path.join(task_dir, "out")
-            os.makedirs(out_dir, exist_ok=True)
-            error = _execute(executors, task, out_dir)
-            if error is None:
+    try:
+        while True:
+            todo, summary["untouched"] = _scan(root, executors)
+            progressed = False
+            for key in [k for k in todo if k not in parked]:
+                if max_tasks is not None and summary["executed"] >= max_tasks:
+                    break
                 try:
-                    queue.complete(root, key, res["run_id"], res["lease"], now_fn())
-                except _RECORDING_ERRORS as exc:
-                    if os.path.exists(os.path.join(task_dir, "done.json")):  # 완료 기록은 남았고 장부만 빠졌다: VERIFIED다
-                        summary["warnings"].append([key, "complete_error_after_commit: %s: %s" % (type(exc).__name__, exc)])
-                    else:  # 산출물 경로·파일 문제 등: 완료할 수 없다 = 결정적 실패
-                        error = ("deterministic", "%s: %s" % (type(exc).__name__, exc))
-            if error is not None:
-                try:
-                    queue.fail(root, key, res["run_id"], res["lease"], error[0], error[1], now_fn())
-                except _RECORDING_ERRORS as exc:  # 실패 기록도 못 남김: 작업권만 놓고 이 작업만 멈춘다
-                    lease.release(res["lease"])
-                    progressed |= _note(summary, parked, key, "stopped", "fail_record_error: %s: %s" % (type(exc).__name__, exc))
+                    res = queue.claim(root, key, os.getpid(), lease.boot_id(), now_fn())
+                except _RECORDING_ERRORS as exc:  # 이 작업만 못 잡는다(장부·부팅 식별자 조회 오류 등). drain은 계속한다
+                    progressed |= _note(summary, parked, key, "stopped", "claim_error: %s: %s" % (type(exc).__name__, exc))
                     continue
-            progressed |= _note(summary, parked, key, "done" if error is None else "failed",
-                                res["run_id"] if error is None else error[0])
-        if not progressed:
-            return summary
+                if not res["ok"]:
+                    kinds = {"locked": "locked", "skip": "skipped", "wait": "skipped", "unregistered": "skipped"}
+                    if "plan" in res:
+                        summary["stop_reasons"][key] = res["plan"]["reason"]
+                    progressed |= _note(summary, parked, key, kinds.get(res["reason"], "stopped"), res["reason"])
+                    continue
+                task_dir = os.path.join(root, "tasks", key)
+                task, out_dir = read_json(os.path.join(task_dir, "contract.json")), os.path.join(task_dir, "out")
+                os.makedirs(out_dir, exist_ok=True)
+                error = _execute(executors, task, out_dir)
+                if error is None:
+                    try:
+                        queue.complete(root, key, res["run_id"], res["lease"], now_fn())
+                    except _RECORDING_ERRORS as exc:
+                        if os.path.exists(os.path.join(task_dir, "done.json")):  # 완료 기록은 남았고 장부만 빠졌다: VERIFIED다
+                            summary["warnings"].append([key, "complete_error_after_commit: %s: %s" % (type(exc).__name__, exc)])
+                        else:  # 산출물 경로·파일 문제 등: 완료할 수 없다 = 결정적 실패
+                            error = ("deterministic", "%s: %s" % (type(exc).__name__, exc))
+                if error is not None:
+                    try:
+                        queue.fail(root, key, res["run_id"], res["lease"], error[0], error[1], now_fn())
+                    except _RECORDING_ERRORS as exc:  # 실패 기록도 못 남김: 작업권만 놓고 이 작업만 멈춘다
+                        lease.release(res["lease"])
+                        progressed |= _note(summary, parked, key, "stopped", "fail_record_error: %s: %s" % (type(exc).__name__, exc))
+                        continue
+                progressed |= _note(summary, parked, key, "done" if error is None else "failed",
+                                    res["run_id"] if error is None else error[0])
+            if not progressed:
+                return summary
+    except ledger.LedgerError as exc:  # 장부 체인 손상은 무결성 문제: 이 작업만이 아니라 drain 전체를 멈추고 알린다
+        summary["integrity"] = "INTEGRITY: %s" % exc
+        return summary
 
 
 def main(argv):
@@ -143,7 +152,7 @@ def main(argv):
     limit = int(argv[argv.index("--max") + 1]) if "--max" in argv else None
     summary = drain(argv[0], getattr(importlib.import_module(module), attr), max_tasks=limit)
     print(json.dumps(summary, sort_keys=True, ensure_ascii=False), flush=True)
-    return 0
+    return INTEGRITY_EXIT if "integrity" in summary else 0
 
 
 if __name__ == "__main__":
