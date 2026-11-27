@@ -60,7 +60,7 @@ class LineageTest(unittest.TestCase):
     def test_descendants_of_an_already_invalid_model_are_still_reached(self):
         champion.promote(self.root, 2.0, self.base)
         champion.promote(self.root, 3.0, self.c, {"s1": "complete"})
-        champion.restore_last_verified(self.root, 4.0, regression="c regressed")  # c만 회귀 무효, r·g는 유효
+        champion.restore_last_verified(self.root, 4.0, regression="c regressed", model_id=self.c)  # c만 회귀 무효, r·g는 유효
         self.assertEqual(("invalidated", "valid", "valid"), (self.status(self.c), self.status(self.r), self.status(self.g)))
         res = lineage.invalidate_lineage(self.root, 5.0, "s1")
         self.assertEqual(sorted([self.r, self.g]), res["invalidated"])  # c는 이미 무효, 그 후속 g는 따라간다

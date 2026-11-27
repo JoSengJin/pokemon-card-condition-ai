@@ -96,6 +96,23 @@ class RandomKillTest(unittest.TestCase):
             proc.communicate()
         self.assertEqual({a, b}, seen)  # 읽는 동안 실제로 Champion이 바뀌었다
 
+    def test_unlocked_readers_get_no_false_error_while_promotions_keep_happening(self):
+        a, b, _ = self.ids
+        champion.promote(self.root, 1.0, a)
+        proc = spawn(LOOP, self.root, a, b)
+        self.assertEqual("READY", proc.stdout.readline().strip())
+        seen, reads, deadline = set(), 0, time.time() + 2.0
+        try:
+            while time.time() < deadline:
+                holder = champion.read_current(self.root)  # 잠금을 쥐지 않은 읽는 쪽의 규약(pointer.py 참조)
+                seen.add(holder["model_id"])
+                reads += 1
+        finally:
+            proc.send_signal(signal.SIGKILL)
+            proc.communicate()
+        self.assertEqual({a, b}, seen)  # ChampionError가 한 번도 나지 않았고, 읽는 동안 실제로 Champion이 바뀌었다
+        self.assertGreater(reads, 20)
+
 
 if __name__ == "__main__":
     unittest.main()

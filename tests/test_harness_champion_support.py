@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,49 @@ from harness import registry
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DENOM = "defect-zones:n=120"
+# 하위 프로세스가 ledger.append·os.replace·os.fsync를 감싸 지정 지점에서 스스로 SIGKILL을 보낸다
+KILL = r'''
+import os, signal, sys
+from harness import champion, ledger, lineage
+root, arg, point, mode = sys.argv[1:5]
+real_append, real_replace, real_fsync = ledger.append, os.replace, os.fsync
+armed = {"on": False}
+def die():
+    os.kill(os.getpid(), signal.SIGKILL)
+def append(path, ts, event, data):
+    if point == "before_intent" and event == "switch_intent":
+        die()
+    if point == "before_invalidated" and event == "invalidated":
+        die()
+    entry = real_append(path, ts, event, data)
+    armed["on"] = armed["on"] or event == "switch_intent"
+    if (point, event) in (("after_intent", "switch_intent"), ("after_switched", "switched"), ("after_invalidated", "invalidated"),
+                          ("after_main_ledger", "champion_promoted"), ("after_main_ledger", "champion_restored")):
+        die()
+    return entry
+def replace(src, dst):
+    if point == "before_materialize_replace" and dst.endswith("weights"):  # 복원 중 CAS 꺼내기
+        die()
+    if not dst.endswith("champion.json"):
+        return real_replace(src, dst)
+    if point == "before_replace":
+        die()
+    real_replace(src, dst)
+    if point == "after_replace":
+        die()
+def fsync(fd):
+    if point == "before_pointer_fsync" and armed["on"]:
+        die()
+    real_fsync(fd)
+ledger.append, os.replace, os.fsync = append, replace, fsync
+if mode == "promote":
+    champion.promote(root, 9.0, arg, {"s1": "complete"})
+elif mode == "restore":
+    champion.restore_last_verified(root, 9.0, regression="killed regression", model_id=arg)
+else:
+    lineage.invalidate_lineage(root, 9.0, arg)
+print("SURVIVED")
+'''
 
 
 def make_root(case):
@@ -52,12 +96,13 @@ def pointer_model(root):
         return None
 
 
-def run_py(code, *args):
-    """실제 하위 프로세스(경로는 저장소 루트 기준). 종료 코드와 표준 출력을 함께 돌려준다."""
+def kill_at(case, root, point, mode, arg):
+    """실제 하위 프로세스가 지정한 지점에서 스스로 SIGKILL을 맞게 한다(mode: promote|restore|lineage, arg: 모델 ID 또는 Silver 묶음 ID)."""
     env = dict(os.environ, PYTHONPATH=REPO, PYTHONDONTWRITEBYTECODE="1")
-    proc = subprocess.run([sys.executable, "-c", code] + [str(a) for a in args], cwd=REPO, env=env,
+    proc = subprocess.run([sys.executable, "-c", KILL, root, arg, point, mode], cwd=REPO, env=env,
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-    return proc
+    case.assertEqual(-signal.SIGKILL, proc.returncode, (point, proc.stdout, proc.stderr))
+    case.assertNotIn("SURVIVED", proc.stdout)
 
 
 def assert_consistent(case, root, allowed):

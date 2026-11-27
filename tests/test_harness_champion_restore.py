@@ -21,13 +21,18 @@ class RestoreTest(unittest.TestCase):
     def test_regression_restores_previous_champion_and_reproduces_weights_hash(self):
         a, b = self.ids[:2]
         self.promote_all(2)
-        res = champion.restore_last_verified(self.root, 5.0, regression="seal recheck failed")
+        res = champion.restore_last_verified(self.root, 5.0, regression="seal recheck failed", model_id=b)
         self.assertTrue(res["ok"])
         self.assertEqual((a, b, True), (res["model_id"], res["restored_from"], res["reproduced"]))
         self.assertEqual(a, pointer_model(self.root))
         with open(res["weights_path"], "rb") as handle:
             self.assertEqual(hashlib.sha256(b"weights-a").hexdigest(), hashlib.sha256(handle.read()).hexdigest())
         self.assertEqual(res["weights_sha"], registry.load(self.root)["models"][a]["weights_sha"])
+        again = champion.restore_last_verified(self.root, 5.5, regression="seal recheck failed", model_id=b)  # 같은 인자 재호출
+        self.assertEqual((False, "champion_valid"), (again["ok"], again["reason"]))
+        self.assertEqual("valid", registry.load(self.root)["models"][a]["status"])  # 복원한 정상 Champion을 무효화하지 않는다
+        with self.assertRaises(champion.ChampionError):  # 무효화 대상 모델 ID 없이 regression만 주면 거절
+            champion.restore_last_verified(self.root, 6.0, regression="x")
         state = registry.load(self.root)
         self.assertEqual("invalidated", state["models"][b]["status"])
         self.assertIn("regression: seal recheck failed", state["models"][b]["causes"])
@@ -37,9 +42,9 @@ class RestoreTest(unittest.TestCase):
     def test_restore_walks_back_one_valid_champion_at_a_time(self):
         a, b, c = self.ids
         self.promote_all(3)
-        self.assertEqual(b, champion.restore_last_verified(self.root, 5.0, regression="r1")["model_id"])
-        self.assertEqual(a, champion.restore_last_verified(self.root, 6.0, regression="r2")["model_id"])
-        last = champion.restore_last_verified(self.root, 7.0, regression="r3")  # 더 돌아갈 곳이 없다
+        self.assertEqual(b, champion.restore_last_verified(self.root, 5.0, regression="r1", model_id=c)["model_id"])
+        self.assertEqual(a, champion.restore_last_verified(self.root, 6.0, regression="r2", model_id=b)["model_id"])
+        last = champion.restore_last_verified(self.root, 7.0, regression="r3", model_id=a)  # 더 돌아갈 곳이 없다
         self.assertEqual((False, "no_verified_champion"), (last["ok"], last["reason"]))
         state = registry.load(self.root)
         self.assertEqual(a, pointer_model(self.root))
@@ -52,7 +57,7 @@ class RestoreTest(unittest.TestCase):
         with open(blob, "ab") as handle:
             handle.write(b"x")
         with self.assertRaises(champion.ChampionError):
-            champion.restore_last_verified(self.root, 5.0, regression="r")
+            champion.restore_last_verified(self.root, 5.0, regression="r", model_id=b)
         self.assertEqual(b, pointer_model(self.root))
         self.assertIsNone(registry.load(self.root)["pending"])
         self.assertEqual("invalidated", read_events(self.root)[-1]["event"])  # 전환 의도조차 쓰지 않았다
@@ -63,7 +68,7 @@ class RestoreTest(unittest.TestCase):
 
         with mock.patch.object(cas, "get", lambda cas_root, sha, dest: bad_copy(dest)):  # 복사본이 기록된 해시와 다름
             with self.assertRaises(champion.ChampionError):
-                champion.restore_last_verified(self.root, 5.0, regression="r")
+                champion.restore_last_verified(self.root, 5.0, regression="r", model_id=b)
         self.assertEqual(b, pointer_model(self.root))
         self.assertFalse(os.path.exists(os.path.join(self.root, "models", "restored", a, "weights")))
 
@@ -71,7 +76,7 @@ class RestoreTest(unittest.TestCase):
         a, b, c = self.ids
         self.assertEqual("no_champion", champion.restore_last_verified(self.root, 2.0)["reason"])
         self.promote_all(2)
-        champion.restore_last_verified(self.root, 5.0, regression="r")
+        champion.restore_last_verified(self.root, 5.0, regression="r", model_id=b)
         events = read_events(self.root)
         again = champion.restore_last_verified(self.root, 6.0)
         self.assertEqual("champion_valid", again["reason"])
