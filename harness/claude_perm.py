@@ -11,8 +11,8 @@
   고치는 모든 내장 도구에 적용, ./는 cwd 기준 gitignore 형식), --disable-slash-commands(skill·명령 비활성).
 - cwd는 작업 폴더(root/tasks/<task_key>). 하네스 상태 폴더(root/supervisor·장부·예산)는 cwd 밖이라 읽기·쓰기 모두 자동 거절 대상이고,
   작업 폴더 안의 하네스 파일(lease.json·done.json·complete.json)은 쓰기 허용 규칙(out/ 아래만)에 없어 거절 대상이다(문서 기준).
-- 계약 입력은 stage_inputs가 source_root(기본 저장소) 아래에서 SHA를 확인해 작업 폴더 in/으로 복사한다. 링크·폴더 밖·하네스 root 안·
-  이름에 gold/seal이 든 경로(봉인·Gold 임시 규칙)는 거절한다.
+- 계약 입력은 stage_inputs가 source_root(기본 저장소) 아래에서 SHA를 확인해 작업 폴더 in/으로 복사한다. 링크(심볼릭·하드 링크 수 2 이상)·
+  폴더 밖·하네스 root 안·이름에 gold/seal이 든 경로(봉인·Gold 임시 규칙)는 거절한다.
 - 환경변수는 ENV_ALLOW만 넘긴다(구독 인증 최소 추정값. API 키·토큰류는 넘기지 않는다). 인증이 이것으로 되는지는 실환경 미확인.
 - 자동 재개 활성화 목록 AUTO_RESUME(작업 유형 → 실환경 증거 {"evidence": 경로, "sha256": 그 파일 sha256})은 빈 dict로 시작한다. 증거 파일이
   있고 해시가 맞는 유형만 켜진 것으로 본다(auto_resume_allowed). 목록에 없으면 한도 해제·실행 중 사망 뒤에도 자동 재개하지 않는다(첫 실행은 허용).
@@ -75,6 +75,8 @@ def stage_inputs(task_dir, contract, source_root, harness_root):
         real = os.path.realpath(cur)
         if os.path.commonpath([base, real]) != base or os.path.commonpath([guard, real]) == guard or not os.path.isfile(real):
             raise ValueError("입력이 원본 폴더 밖·하네스 root 안이거나 일반 파일이 아니다: %r" % rel)
+        if os.stat(real).st_nlink > 1:  # 하드 링크는 이름 검사를 피해 봉인·하네스 파일을 가리킬 수 있다(검증 결함 F11)
+            raise ValueError("하드 링크 입력은 복사하지 않는다: %r" % rel)
         dest = os.path.join(task_dir, "in", *parts)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         tmp = "%s.tmp.%d" % (dest, os.getpid())

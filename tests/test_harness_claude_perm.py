@@ -9,8 +9,13 @@ from unittest import mock
 
 from harness import claude_job, claude_perm, queue, states, supervisor
 from harness.jsonio import read_json
+from tests.test_harness_resume_kit import allow_resume
 from tests.test_harness_support import make_contract
 from tests.test_harness_supervisor_kit import llm_task, make_fake, runs
+
+# A 묶음 옵션을 시험에 문자 그대로 고정한다(검증 결함 F8: claude_perm.A_OPTIONS와 비교하면 그 값이 바뀌어도 시험이 못 잡는다)
+A_PINNED = ["--restricted", "--tools", "Read,Write,Edit,Glob,Grep", "--strict-mcp-config", "--disallowedTools", "mcp__*",
+            "--permission-mode", "dontAsk", "--allowedTools", "Edit(./out/**)", "--disable-slash-commands"]
 
 
 def queue_state(root, key):
@@ -29,7 +34,7 @@ class ClaudePermissionTest(unittest.TestCase):
         for name, key in held.items():
             self.assertIn("no_runnable_permission_bundle", read_json(claude_job.paths(root, key)[0])["hold_reason"], name)
         argv = run["argv"]
-        self.assertEqual(argv[argv.index("--effort") + 2:-2], list(claude_perm.A_OPTIONS))  # 모델·effort 뒤, 세션 인자 앞
+        self.assertEqual(argv[argv.index("--effort") + 2:-2], A_PINNED)  # 모델·effort 뒤, 세션 인자 앞
         self.assertNotIn("Bash", " ".join(argv[3:]))
         self.assertEqual(os.path.realpath(run["cwd"]), os.path.realpath(os.path.join(root, "tasks", ok)))
         self.assertLessEqual(set(run["env"]), set(claude_perm.ENV_ALLOW) | {"__CF_USER_TEXT_ENCODING"})  # macOS가 붙이는 값 제외
@@ -74,6 +79,37 @@ class ClaudePermissionTest(unittest.TestCase):
                 claude_perm.stage_inputs(task_dir, {"inputs": inputs}, source, harness_root)
         with self.assertRaises(ValueError):  # 하네스 root 안의 파일(운영 상태 등)은 원본 폴더 안이어도 복사하지 않는다
             claude_perm.stage_inputs(task_dir, {"inputs": {"in/logs/a.txt": sha}}, harness_root + "/tasks/k", harness_root)
+
+    def test_a_options_are_pinned_and_passed_again_on_resume(self):
+        root = tempfile.mkdtemp()
+        claude, log, env = make_fake(self, [{"do": "limit", "after": 1}, {"do": "success"}])
+        key = llm_task(root)
+        with allow_resume(self, "misanalysis_general"):
+            supervisor.run(root, claude, max_cycles=5, poll_s=3, env=env)
+        first, resumed = runs(log)
+        self.assertEqual(resumed["resume"], first["session_id"])
+        for run in (first, resumed):  # 재개(--resume) 실행에도 같은 권한 옵션을 다시 준다
+            argv = run["argv"]
+            self.assertEqual(argv[argv.index("--effort") + 2:-2], A_PINNED)
+        self.assertEqual(queue_state(root, key), states.VERIFIED)
+
+    def test_existing_gold_named_or_hard_linked_inputs_are_refused(self):
+        source, harness_root = tempfile.mkdtemp(), tempfile.mkdtemp()
+        for rel in ("gold/a.txt", "sealed_answers/g.json", "logs/plain.txt"):
+            os.makedirs(os.path.dirname(os.path.join(source, rel)), exist_ok=True)
+            with open(os.path.join(source, rel), "wb") as handle:
+                handle.write(b"secret")
+        os.makedirs(os.path.join(harness_root, "supervisor"))
+        with open(os.path.join(harness_root, "supervisor", "opstate.json"), "wb") as handle:
+            handle.write(b"secret")
+        os.link(os.path.join(source, "sealed_answers", "g.json"), os.path.join(source, "notes.txt"))  # 봉인 파일의 하드 링크
+        os.link(os.path.join(harness_root, "supervisor", "opstate.json"), os.path.join(source, "state.txt"))  # 하네스 root 파일
+        sha, task_dir = hashlib.sha256(b"secret").hexdigest(), os.path.join(harness_root, "tasks", "k")
+        for rel in ("gold/a.txt", "sealed_answers/g.json", "notes.txt", "state.txt"):  # 파일이 실제로 있고 SHA도 맞는다
+            with self.assertRaises(ValueError, msg=rel):
+                claude_perm.stage_inputs(task_dir, {"inputs": {rel: sha}}, source, harness_root)
+        self.assertEqual(claude_perm.stage_inputs(task_dir, {"inputs": {"logs/plain.txt": sha}}, source, harness_root),
+                         ["logs/plain.txt"])
 
     def test_refused_input_fails_the_task_without_running_claude(self):
         root, source = tempfile.mkdtemp(), tempfile.mkdtemp()

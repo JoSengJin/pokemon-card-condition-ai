@@ -67,7 +67,7 @@ def usage(root, kind, period):
 def charge(root, kind, amount, now, seal_cycle=None, actor="harness", key=None):
     """사용량 amount를 기록한다. {"ok", "kind", "period", "used", "limit"}. 넘으면 기록하지 않고 BUDGET_EXCEEDED(ok=False).
 
-    key(멱등 키, 작업 계약 2단계): 같은 key의 charge가 이미 장부에 있으면 다시 차감하지 않고 ok=True·already=True를 돌려준다(같은 단계의
+    key(멱등 키, 작업 계약 2단계): 같은 종류(kind)·같은 key의 charge가 이미 장부에 있으면 다시 차감하지 않고 ok=True·already=True를 돌려준다(같은 단계의
     반영·복구에서 두 번 차감 방지). 언어 모델 재개처럼 실제 사용이 더 생기는 경우는 호출 시도마다 다른 key(예: task_key:run_token)를
     써서 승인 예산 안에서 차감한다. 호출부 연결은 5단계다."""
     if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
@@ -85,7 +85,7 @@ def charge(root, kind, amount, now, seal_cycle=None, actor="harness", key=None):
         used = usage(root, kind, period)  # 장부 검증도 여기서 한다(손상이면 BudgetError)
         if key is not None and os.path.exists(os.path.join(root, BUDGET)):
             with open(os.path.join(root, BUDGET), "r", encoding="utf-8") as handle:
-                if any(json.loads(raw)["data"].get("key") == key for raw in handle):
+                if any((row["data"].get("kind"), row["data"].get("key")) == (kind, key) for row in map(json.loads, handle)):
                     return dict(result, ok=True, already=True, used=used)
         if used + amount > limit:
             info = dict(result, used=used)

@@ -10,6 +10,8 @@
 - 실행기는 주입한다: runner(argv, env) -> (종료 코드, 표준 출력) 또는 (종료 코드, 표준 출력, 추가 dict). 기본은 default_runner.
   default_runner는 stdout·stderr를 두 스레드로 함께 읽어 교착을 막고, 무출력 시간(idle_s)·총 시간(total_s)을 넘기면 프로세스
   그룹(start_new_session)을 TERM → KILL_GRACE_S 뒤 KILL로 끝낸다. 추가 dict: stderr, cause(timeout_idle|timeout_total|None), signal.
+  claude가 끝난 뒤에도 그룹 밖(setsid) 자손이 파이프를 쥐고 있으면 총 시간 안에서 최대 KILL_GRACE_S만 더 읽고 돌아오며 원인을
+  timeout_total로 남긴다(검증 결함 F6). 시간 제한 원인이 있는 실행은 run_once가 성공으로 보지 않는다.
 - 기본 제한(임시값, 인계 참조): 무출력 IDLE_S 30분, 총 TOTAL_S 3시간. 실환경 출력 간격은 미확인이다.
 - 세션 복원 불가 판정(session_unrecoverable)은 실환경(Claude Code 2.1.310, artifacts/harness-resume-20261127/c-realenv/t4-bogus-resume.jsonl)에서
   확보한 '없는 세션 --resume' 출력과 정확히 같은 형식만 인정한다(UNRECOVERABLE_ERROR). 조금이라도 다르면 복원 불가로 보지 않는다.
@@ -87,8 +89,10 @@ def default_runner(argv, env, pidfile=None, stamp=None, cwd=None, idle_s=IDLE_S,
         os.killpg(proc.pid, signal.SIGKILL)  # 정상 종료 뒤 남은 하위 프로세스(같은 그룹)도 정리한다: 파이프를 쥔 채 남지 않게
     except (ProcessLookupError, PermissionError):
         pass
-    for pump in pumps:
-        pump.join()
+    for pump in pumps:  # 그룹 밖(새 세션) 자손이 파이프를 쥐면 EOF가 오지 않는다: 총 시간 안(최대 KILL_GRACE_S)까지만 기다린다
+        pump.join(max(0.0, min(KILL_GRACE_S, start + total_s - time.monotonic())))
+    if any(pump.is_alive() for pump in pumps):  # shortcut: 남은 읽기 스레드(daemon)는 그 자손이 끝날 때까지 남는다(죽일 pid를 모른다)
+        cause = cause or "timeout_total"
     code = proc.returncode
     return code, "".join(out), {"stderr": "".join(err), "cause": cause,
                                 "signal": -code if isinstance(code, int) and code < 0 else None}
@@ -129,6 +133,8 @@ def run_once(claude_bin, prompt, model, effort, runner=None, env=None, resume=No
     found = ratelimit.scan((out or "").split("\n"), code)  # 값 안의 U+2028에서 나누지 않는다
     cause = "spawn_error" if error else more.get("cause") or ("rate_limit" if found["limited"] else
                                                               "signal" if more.get("signal") else None)
+    if cause in ("timeout_idle", "timeout_total"):  # 시간 제한에 걸린 실행은 성공이 아니다(파이프를 쥔 자손이 남은 경우 포함)
+        found["success"] = False
     if cause is None and not found["success"]:
         cause = "unknown"
     found.update(argv=argv, returncode=code, error=error, stderr=more.get("stderr") or "", signal=more.get("signal"),
