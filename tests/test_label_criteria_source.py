@@ -1,4 +1,5 @@
 """Human label screens must say what LABELING_PROTOCOL.md (the canonical criteria) says (docs/agent/QUALITY_RULES.md single-source-criteria)."""
+import hashlib
 import re
 import unittest
 from pathlib import Path
@@ -34,7 +35,8 @@ def plain(text):
 
 
 # v2 is held to the user's 2026-11-28 decision-A paragraph verbatim (the v1 '확대해서보이면' regex no longer fits it) plus D-2.
-CLAUSES['모서리 v2'] = (re.escape(plain(V2_PARAGRAPH)), '둥근끝과직선엣지에걸쳐있으면걸친두위치모두결함')
+BOUNDARY = '둥근 끝 = 둥글게 굽은 모서리 선이 직선 테두리와 만나는 두 지점(호 접점) 사이의 구간'  # 2026-11-28 user decision (판정 판본 V), verbatim; no mm number
+CLAUSES['모서리 v2'] = (re.escape(plain(V2_PARAGRAPH)), '둥근끝과직선엣지에걸쳐있으면걸친두위치모두결함', re.escape(plain(BOUNDARY)), '이구간에닿은자국은모서리결함이다', '직선테두리에만있는자국은제외한다')
 
 
 def canonical(cell):
@@ -77,9 +79,16 @@ class LabelCriteriaSourceTest(unittest.TestCase):
     def test_canonical_corner_v2_states_d1_d2_and_what_stays_open(self):
         # The canonical side of the v2 sentences; the v2 screen is held to them in the other tests (cell '모서리 v2').
         text = canonical('모서리')
-        for clause in (re.escape(plain(V2_PARAGRAPH)), '걸친두위치모두결함', '표면·엣지(?:에대한)?적용범위는미정', '옛기준\\(v1\\)라벨', '소급하지않'):
+        for clause in (re.escape(plain(V2_PARAGRAPH)), '걸친두위치모두결함', '표면·엣지(?:에대한)?적용범위는미정', re.escape(plain(BOUNDARY)), '옛기준\\(v1\\)라벨', '소급하지않'):
             with self.subTest(clause=clause):
                 self.assertRegex(text, clause)
+
+    def test_recorded_hashes_match_the_sentences(self):
+        text = (ROOT / 'LABELING_PROTOCOL.md').read_text(encoding='utf-8')
+        for sentence in (V2_PARAGRAPH, BOUNDARY):
+            with self.subTest(sentence=sentence[:12]):
+                self.assertIn(hashlib.sha256(sentence.encode()).hexdigest(), text)
+                self.assertIn(sentence, text)
 
     def test_v2_screen_does_not_write_what_the_canonical_leaves_undecided(self):
         from tools import mobile_corner_label_pages_v2 as v2
