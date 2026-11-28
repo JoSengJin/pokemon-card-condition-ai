@@ -42,7 +42,7 @@ def enqueue(root, task, now, source_root=None):
     with open(os.path.join(root, ct.ENQUEUE_LOCK), "a") as guard:  # 검사와 저장 사이에 다른 등록이 끼지 않게(2차 결함 G4)
         fcntl.flock(guard.fileno(), fcntl.LOCK_EX)
         if not os.path.exists(path):
-            dup = dedupe.find_duplicate(root, task, key)  # 유형·실행 조건 형식 검사도 여기서 한다
+            dup = dedupe.find_duplicate(root, task, key, source_root or claude_perm.REPO)  # 유형·실행 조건 형식 검사도 여기서 한다
             if dup is not None:
                 err = DuplicateTask("실행 조건이 같은 작업이 이미 있다: %s" % dup)
                 err.existing = dup

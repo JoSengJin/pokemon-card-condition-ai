@@ -12,7 +12,10 @@
   그래서 경로 철자·역할 이름·세 유형 이름이 달라도 같은 키이고, 학습·검증 맞바꿈(같은 역할 두 입력의 내용 맞바꿈 포함)은 명령의 자리가
   달라 다른 키다. command가 참조하지 않는 입력과 없는 입력을 가리키는 자리표시자는 거절한다(참조하지 않은 입력이 실행에 어떻게 쓰이는지
   판별할 수 없어 키를 정할 수 없다). executor·실행기는 자리표시자를 HARNESS_INPUT_DIR 아래 같은 상대 경로(SHA를 확인한 사본)로 바꿔 쓴다.
-- 키 = sha256("condition"(세 유형 한 부류), 정규화한 command·code_sha(= 대조한 HEAD)·config·seed, needs_llm, needs_llm=true일 때만 needs_vision).
+- 키 = sha256("condition"(세 유형 한 부류), 정규화한 command·코드(code_sha 커밋의 tree SHA)·config·seed, needs_llm, needs_llm=true일 때만 needs_vision).
+  4차 결함 I4: 대조는 커밋 SHA = HEAD로 하지만 키에는 그 커밋의 tree(HEAD^{tree})를 넣는다: 빈 커밋·amend·rebase처럼 코드가 같은 새 커밋으로는
+  같은 실험이 새 키로 다시 등록되지 않는다. 다른 등록 계약의 커밋은 source_root 저장소에서 tree로 바꿔 비교하고(git cat-file 한 번), 그 저장소에서
+  찾지 못하는 커밋(다른 저장소·gc로 사라짐)의 계약은 비교하지 않는다(한계: 그런 계약과 같은 실험은 다시 등록될 수 있다).
   needs_llm=false면 needs_vision은 실행에 쓰이지 않으므로 키에서 빼고 true는 거절한다(3차 결함 H1: 그 값만 뒤집어 다시 등록하는 우회). 정규화는 중복 쪽(같다고 보는 쪽)이
   안전한 방향만 한다: --opt=value → 두 토큰, 경로 모양 토큰(/ 포함) normpath, 저장소(claude_perm.REPO) 아래 절대 경로 → 상대 경로, 첫 토큰의
   python 실행 파일 별칭(python·python3·python3.12·절대 경로) → python, config 안 seed → seed 키(둘 다 있고 다르면 거절).
@@ -31,7 +34,11 @@
 - verify_inputs: 대상 유형의 입력을 source_root 아래 실제 파일과 대조한다(queue.enqueue·graph.register_missing 등록 때). 실행 직전에는 runner가
   claude_perm.stage_inputs로 사본을 만들며 다시 대조한다. 그 밖의 유형은 대조하지 않는다(Python 작업 입력의 원본 위치가 계약에 없다).
 - 등록(검사 + 저장)은 root의 contract.ENQUEUE_LOCK 파일 잠금 안에서 한다(queue.enqueue·graph.register_missing): 동시 등록이 둘 다 통과하지 않게.
-호출 깊이: find_duplicate → logical_key → _command(말단) 2, verify_inputs → verify_code(말단)·cas.sha_file(말단) 1.
+- verify_code(4차 결함 I5): skip-worktree·assume-unchanged 표시가 있는 추적 파일(git ls-files -v의 H가 아닌 표시)이 있으면 status가 깨끗해도
+  판별할 수 없어 거절. command 토큰(--opt=value의 값 포함, 자리표시자 제외) 중 source_root 안에 실제로 있는 파일인데 추적하지 않는 것(글자 경로·
+  실제 경로 어느 쪽이든)이 있으면 거절(커밋하지 않은 스크립트를 같은 code_sha로 실행하는 경로). 상대 토큰은 source_root 기준으로 본다.
+  한계: 폴더 토큰 안의 추적하지 않는 파일, command에 이름이 없는 파일(스크립트가 import하는 추적하지 않는 모듈), 하위 모듈 설정은 보지 않는다.
+호출 깊이: find_duplicate → verify_code(말단)·logical_key → _command(말단) 2, verify_inputs → cas.sha_file(말단) 1.
 """
 import hashlib
 import json
@@ -89,9 +96,10 @@ def json_number(text):
     return int(text) if len(text.lstrip("-")) <= MAX_INT_DIGITS else float("nan")
 
 
-def logical_key(task):
+def logical_key(task, trees=None):
     """실험·학습·평가면 논리 키(16진 64자), 고정 목록의 그 밖 유형이면 None. 모르는 유형·판별할 수 없는 실행 조건은 ContractError
-    (형식·자료형·크기 문제의 다른 예외도 ContractError로 바꾼다, 4차 I2)."""
+    (형식·자료형·크기 문제의 다른 예외도 ContractError로 바꾼다, 4차 I2). trees: {커밋 SHA: tree SHA}(verify_code 결과). 주면 키의 코드 자리에
+    tree를 넣고(4차 I4) 그 커밋이 없으면 ContractError(비교할 수 없다), 없으면(형식 검사용) 커밋 SHA 그대로."""
     try:
         kind, cond = task.get("task_type"), task.get("run_conditions")
         if kind in PLAIN_TYPES and cond is None:
@@ -119,7 +127,10 @@ def logical_key(task):
             raise ContractError("needs_llm=false인 실험·학습·평가는 needs_vision=true일 수 없다")
         typed = json.loads(json.dumps({"config": config, "seed": seed}, allow_nan=False),  # 자료형 유지, 같은 자료형 안에서 값(4차 I3)
                            parse_int=json_number, parse_float=json_number)
-        body = {"class": "condition", "command": _command(command, paths), "code_sha": code_sha.lower(),
+        if trees is not None and code_sha.lower() not in trees:
+            raise ContractError("code_sha 커밋을 source_root 저장소에서 찾지 못해 코드를 비교할 수 없다: %s" % code_sha)
+        body = {"class": "condition", "command": _command(command, paths),
+                "code": code_sha.lower() if trees is None else trees[code_sha.lower()],
                 "config": typed["config"], "seed": typed["seed"], "needs_llm": task.get("needs_llm")}
         if task.get("needs_llm"):  # LLM을 쓰는 경우에만 needs_vision이 실행 조건이다
             body["needs_vision"] = task.get("needs_vision")
@@ -132,59 +143,88 @@ def logical_key(task):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def find_duplicate(root, task, key):
-    """task_key가 다른데 논리 키가 같은 등록 작업의 task_key(없으면 None). 상태와 무관하다(실패한 실험의 재등록 우회도 막는다)."""
-    mine = logical_key(task)
-    tasks_dir = os.path.join(root, "tasks")
-    if mine is None or not os.path.isdir(tasks_dir):
+def find_duplicate(root, task, key, source_root=None):
+    """task_key가 다른데 논리 키가 같은 등록 작업의 task_key(없으면 None). 상태와 무관하다(실패한 실험의 재등록 우회도 막는다).
+    실험·학습·평가는 먼저 verify_code로 code_sha가 source_root(기본 저장소)의 깨끗한 HEAD인지 확인하고(아니면 ContractError), 코드 자리를
+    tree SHA로 바꾼 키로 비교한다(4차 결함 I4)."""
+    if logical_key(task) is None:
         return None
-    for other in sorted(os.listdir(tasks_dir)):
+    tasks_dir, known = os.path.join(root, "tasks"), {}
+    for other in sorted(os.listdir(tasks_dir)) if os.path.isdir(tasks_dir) else []:
         if other == key:
             continue
         try:
-            known = read_json(os.path.join(tasks_dir, other, "contract.json"))
-            if isinstance(known, dict) and logical_key(known) == mine:
-                return other
+            contract = read_json(os.path.join(tasks_dir, other, "contract.json"))
+            if isinstance(contract, dict) and logical_key(contract) is not None:
+                known[other] = contract
         except (OSError, ValueError, ContractError, AttributeError, TypeError):
             continue  # 깨진·옛 계약은 비교 대상이 아니다(상태 판정은 states가 한다)
+    trees = verify_code(task, source_root or claude_perm.REPO, sorted({c["run_conditions"]["code_sha"].lower() for c in known.values()}))
+    mine = logical_key(task, trees)
+    for other, contract in known.items():
+        try:
+            if logical_key(contract, trees) == mine:
+                return other
+        except ContractError:
+            continue  # 이 저장소에서 찾지 못하는 커밋: 비교할 수 없다(한계)
     return None
 
 
-def verify_code(task, source_root):
+def verify_code(task, source_root, others=()):
     """실험·학습·평가 계약의 run_conditions.code_sha가 source_root의 실제 코드인지 본다(3차 결함 H1): source_root가 git 저장소의 최상위이고,
-    `git rev-parse HEAD`(소문자)와 같고, 작업 트리에 추적 파일 변경(스테이징 포함)이 없어야 한다. 추적하지 않는 파일(입력 자료)은 보지 않는다
-    (입력은 SHA로 따로 대조한다). 다르거나 git 저장소가 아니거나 git을 실행할 수 없으면 ContractError(fail-closed). 정규화한 HEAD를 돌려준다.
-    git은 사용자 환경의 GIT_* 변수를 빼고, 선택적 잠금(index 갱신)·fsmonitor 없이 읽기만 한다. 그 밖의 유형은 None(대조하지 않는다)."""
+    `git rev-parse HEAD`(소문자)와 같고, 작업 트리에 추적 파일 변경(스테이징 포함)이 없어야 한다. 추적하지 않는 파일(입력 자료)은 보지 않되
+    command가 이름으로 가리키는 source_root 안 파일은 추적 파일이어야 하고, skip-worktree·assume-unchanged 표시가 있는 추적 파일은 없어야 한다
+    (4차 결함 I5). 다르거나 git 저장소가 아니거나 git을 실행할 수 없으면 ContractError(fail-closed). {커밋 SHA: tree SHA}를 돌려준다(HEAD와
+    others 중 이 저장소에 있는 커밋, 4차 I4). git은 사용자 환경의 GIT_* 변수를 빼고(4차 V01 시험), 선택적 잠금(index 갱신)·fsmonitor 없이
+    읽기만 한다. 그 밖의 유형은 None(대조하지 않는다)."""
     if task.get("task_type") not in CONDITION_TYPES:
         return None
-    want = (task.get("run_conditions") or {}).get("code_sha")
+    cond = task.get("run_conditions") or {}
+    want, top_real = cond.get("code_sha"), os.path.realpath(source_root)
     env = dict({k: v for k, v in os.environ.items() if not k.startswith("GIT_")}, GIT_OPTIONAL_LOCKS="0")
-    base = ["git", "-c", "core.fsmonitor=false", "-C", os.path.realpath(source_root)]
+    base = ["git", "-c", "core.fsmonitor=false", "-C", top_real]
+    calls = [(["rev-parse", "--show-toplevel", "HEAD", "HEAD^{tree}"], ""), (["status", "--porcelain", "--untracked-files=no"], ""),
+             (["ls-files", "-v", "-z"], ""), (["cat-file", "--batch-check=%(objectname)"], "".join("%s^{tree}\n" % c for c in others))]
     try:
-        top = subprocess.run(base + ["rev-parse", "--show-toplevel", "--verify", "HEAD"], env=env, stdin=subprocess.DEVNULL,
-                             capture_output=True, text=True, timeout=120, check=False)
-        dirty = subprocess.run(base + ["status", "--porcelain", "--untracked-files=no"], env=env, stdin=subprocess.DEVNULL,
-                               capture_output=True, text=True, timeout=120, check=False)
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ContractError("code_sha를 판별할 수 없다(git 실행 실패): %s" % exc)
-    lines = top.stdout.split("\n")
-    if top.returncode != 0 or dirty.returncode != 0 or len(lines) < 2 \
-            or os.path.realpath(lines[0]) != os.path.realpath(source_root):
-        raise ContractError("code_sha를 판별할 수 없다(source_root가 git 저장소 최상위가 아니거나 HEAD를 읽지 못함): %s" % source_root)
-    head = lines[1].strip().lower()
-    if not _SHA.fullmatch(head) or not isinstance(want, str) or want.lower() != head:
-        raise ContractError("code_sha가 source_root의 HEAD(%s)와 다르다: %r" % (head, want))
-    if dirty.stdout.strip():
-        raise ContractError("code_sha를 판별할 수 없다(source_root 작업 트리에 추적 파일 변경이 있다)")
-    return head
+        top, dirty, listed, peeled = [subprocess.run(base + args, input=feed, env=env, capture_output=True, text=True, timeout=120,
+                                                     check=False) for args, feed in calls]
+        lines = top.stdout.split("\n")
+        if any(d.returncode != 0 for d in (top, dirty, listed, peeled)) or len(lines) < 3 \
+                or os.path.realpath(lines[0]) != top_real:
+            raise ContractError("code_sha를 판별할 수 없다(source_root가 git 저장소 최상위가 아니거나 HEAD를 읽지 못함): %s" % source_root)
+        head, tree = lines[1].strip().lower(), lines[2].strip().lower()
+        if not _SHA.fullmatch(head) or not _SHA.fullmatch(tree) or not isinstance(want, str) or want.lower() != head:
+            raise ContractError("code_sha가 source_root의 HEAD(%s)와 다르다: %r" % (head, want))
+        if dirty.stdout.strip():
+            raise ContractError("code_sha를 판별할 수 없다(source_root 작업 트리에 추적 파일 변경이 있다)")
+        entries = [e for e in listed.stdout.split("\0") if e]
+        hidden = [e[2:] for e in entries if not e.startswith("H ")]
+        if hidden:
+            raise ContractError("code_sha를 판별할 수 없다(skip-worktree·assume-unchanged 등 표시가 있는 추적 파일): %s" % hidden[:5])
+        tracked = {e[2:] for e in entries}
+        for arg in cond.get("command") or []:
+            for part in arg.split("=", 1) if arg.startswith("--") and "=" in arg else [arg]:
+                spot = os.path.join(top_real, part)
+                for path in () if PLACEHOLDER.search(part) else {os.path.normpath(spot), os.path.realpath(spot)}:
+                    if os.path.commonpath([top_real, path]) == top_real and os.path.isfile(path) \
+                            and os.path.relpath(path, top_real) not in tracked:
+                        raise ContractError("command가 가리키는 파일을 git이 추적하지 않는다(커밋하지 않은 코드): %r" % part)
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        if isinstance(exc, ContractError):
+            raise
+        raise ContractError("code_sha를 판별할 수 없다(git 실행·경로 확인 실패): %s: %s" % (type(exc).__name__, exc))
+    trees = {head: tree}
+    for commit, line in zip(others, peeled.stdout.split("\n")):
+        if _SHA.fullmatch(line.strip()):
+            trees.setdefault(commit, line.strip())
+    return trees
 
 
 def verify_inputs(task, source_root):
-    """실험·학습·평가 계약의 code_sha(verify_code)와 입력 {경로: sha256}이 source_root 아래 실제 코드·파일(폴더 밖·없음·SHA 불일치 거절)과
-    같은지 본다. 다르면 ContractError."""
+    """실험·학습·평가 계약의 입력 {경로: sha256}이 source_root 아래 실제 파일(폴더 밖·없음·SHA 불일치 거절)과 같은지 본다. 다르면 ContractError.
+    code_sha 대조(verify_code)는 등록 때 find_duplicate가, 실행 직전에는 runner가 한다(4차: git을 두 번 부르지 않게 여기서 뺐다)."""
     if task.get("task_type") not in CONDITION_TYPES:
         return
-    verify_code(task, source_root)
     base = os.path.realpath(source_root)
     try:
         for rel, want in sorted(task["inputs"].items()):

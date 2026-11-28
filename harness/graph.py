@@ -1,7 +1,7 @@
 """의존 그래프 대조(누락 방지): 의존 작업이 모두 VERIFIED인데 자신은 완료·실행·대기 중이 아닌 작업을 찾아 등록한다.
 
 선언 하나의 문제는 그 선언만 거절하고 알린다(2차 결함 G5: 한 작업의 문제로 Supervisor 전체를 INTEGRITY_HALT로 멈추지 않는다).
-호출 깊이: register_missing → dedupe.find_duplicate → logical_key → _command 3, register_missing → note_rejected → ledger.append 2.
+호출 깊이: register_missing → dedupe.find_duplicate → logical_key → _command 3(→ verify_code 2), register_missing → note_rejected → ledger.append 2.
 """
 import fcntl
 import os
@@ -103,7 +103,7 @@ def register_missing(root, declared_tasks, now, is_alive=lease.is_alive, source_
             if os.path.exists(os.path.join(root, "tasks", key, "contract.json")):
                 continue  # 잠금을 기다리는 사이 다른 등록이 먼저 했다
             try:
-                dup = dedupe.find_duplicate(root, task, key)  # queue.enqueue와 같은 중복 거절(실행 조건이 같은 실험)
+                dup = dedupe.find_duplicate(root, task, key, source_root or claude_perm.REPO)  # queue.enqueue와 같은 중복 거절(실행 조건이 같은 실험)
                 if dup is None:
                     dedupe.verify_inputs(task, source_root or claude_perm.REPO)
             except ct.ContractError as exc:
