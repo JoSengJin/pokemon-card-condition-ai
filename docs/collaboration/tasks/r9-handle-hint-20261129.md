@@ -15,7 +15,7 @@ branch: claude/r9-handle-hint-20261129 (기준 caeea93)
 ## 변경 (`tools/mobile_corner_label_pages_v2.py`만, v1 화면 무변경)
 - 끌기 점 4개를 상자 꼭짓점(lt·rt·rb·lb)에서 변 가운데(t·r·b·l)로 옮겼다. 점 하나는 변 하나만 움직인다. v1 스크립트 문자열을 정확히 1회씩 치환하고, 못 찾으면 import에서 멈춘다.
 - `미확인` 칸에 "탭" 글자를 CSS로만 표시했다(답 문장·상태값 무변경). 사진마다 "점선 모서리 칸을 탭해 입력" 한 줄을 추가했다(`<p>`, INSTRUCTIONS 무변경 → criteria_sha256 불변).
-- 함수 수: v2 7 → 7. 새 시험 파일 `tests/test_corner_label_side_dots.py` 함수 3개.
+- 함수 수: v2 4 → 4. 새 시험 파일 `tests/test_corner_label_side_dots.py` 함수 3개.
 
 ## 검증
 - `PYTHONPATH=.:tests .venv/bin/python -m unittest test_corner_label_side_dots test_corner_label_four_state test_corner_label_round_trip test_label_criteria_source test_corner_import_states` → 각각 OK.
