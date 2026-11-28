@@ -14,8 +14,12 @@
   판별할 수 없어 키를 정할 수 없다). executor·실행기는 자리표시자를 HARNESS_INPUT_DIR 아래 같은 상대 경로(SHA를 확인한 사본)로 바꿔 쓴다.
 - 키 = sha256("condition"(세 유형 한 부류), 정규화한 command·코드(code_sha 커밋의 tree SHA)·config·seed, needs_llm, needs_llm=true일 때만 needs_vision).
   4차 결함 I4: 대조는 커밋 SHA = HEAD로 하지만 키에는 그 커밋의 tree(HEAD^{tree})를 넣는다: 빈 커밋·amend·rebase처럼 코드가 같은 새 커밋으로는
-  같은 실험이 새 키로 다시 등록되지 않는다. 다른 등록 계약의 커밋은 source_root 저장소에서 tree로 바꿔 비교하고(git cat-file 한 번), 그 저장소에서
+  같은 실험이 새 키로 다시 등록되지 않는다. 다른 등록 계약의 커밋은 source_root 저장소에서 같은 지문으로 바꿔 비교하고(커밋마다 git ls-tree 한 번), 그 저장소에서
   찾지 못하는 커밋(다른 저장소·gc로 사라짐)의 계약은 비교하지 않는다(한계: 그런 계약과 같은 실험은 다시 등록될 수 있다).
+  VS3(5차 P1, 사용자 원문 "문서 커밋만 변경된 동일 실험의 중복 실행 차단"): 그 "tree"는 tree 전체가 아니라 `docs/` 아래 `.md` 일반 파일을 뺀
+  추적 파일 목록(ls-tree -r)의 sha256이다. 문서만 바꾼 커밋 뒤 같은 실험은 중복이다. 좁게 고정: 루트·다른 폴더의 .md(AGENTS.md는 코드가 읽는다),
+  docs 아래 .md가 아닌 파일, 링크(모드 120000)는 코드로 본다. command·config 글자에 ".md"가 있으면 아무것도 빼지 않는다(실험이 문서를 읽을 수 있다).
+  한계: 코드가 이름 없이 docs/*.md를 읽으면 알 수 없다(card_condition·harness 코드에서 docs/ 경로를 읽는 곳 없음, 2026-11-28 grep).
   needs_llm=false면 needs_vision은 실행에 쓰이지 않으므로 키에서 빼고 true는 거절한다(3차 결함 H1: 그 값만 뒤집어 다시 등록하는 우회). 정규화는 중복 쪽(같다고 보는 쪽)이
   안전한 방향만 한다: --opt=value → 두 토큰, 경로 모양 토큰(/ 포함) normpath, 저장소(claude_perm.REPO) 아래 절대 경로 → 상대 경로, 첫 토큰의
   python 실행 파일 별칭(python·python3·python3.12·절대 경로) → python, config 안 seed → seed 키(둘 다 있고 다르면 거절).
@@ -174,7 +178,7 @@ def verify_code(task, source_root, others=()):
     """실험·학습·평가 계약의 run_conditions.code_sha가 source_root의 실제 코드인지 본다(3차 결함 H1): source_root가 git 저장소의 최상위이고,
     `git rev-parse HEAD`(소문자)와 같고, 작업 트리에 추적 파일 변경(스테이징 포함)이 없어야 한다. 추적하지 않는 파일(입력 자료)은 보지 않되
     command가 이름으로 가리키는 source_root 안 파일은 추적 파일이어야 하고, skip-worktree·assume-unchanged 표시가 있는 추적 파일은 없어야 한다
-    (4차 결함 I5). 다르거나 git 저장소가 아니거나 git을 실행할 수 없으면 ContractError(fail-closed). {커밋 SHA: tree SHA}를 돌려준다(HEAD와
+    (4차 결함 I5). 다르거나 git 저장소가 아니거나 git을 실행할 수 없으면 ContractError(fail-closed). {커밋 SHA: 코드 지문(위 VS3 규칙)}을 돌려준다(HEAD와
     others 중 이 저장소에 있는 커밋, 4차 I4). git은 사용자 환경의 GIT_* 변수를 빼고(4차 V01 시험), 선택적 잠금(index 갱신)·fsmonitor 없이
     읽기만 한다. 그 밖의 유형은 None(대조하지 않는다)."""
     if task.get("task_type") not in CONDITION_TYPES:
@@ -184,12 +188,12 @@ def verify_code(task, source_root, others=()):
     env = dict({k: v for k, v in os.environ.items() if not k.startswith("GIT_")}, GIT_OPTIONAL_LOCKS="0")
     base = ["git", "-c", "core.fsmonitor=false", "-C", top_real]
     calls = [(["rev-parse", "--show-toplevel", "HEAD", "HEAD^{tree}"], ""), (["status", "--porcelain", "--untracked-files=no"], ""),
-             (["ls-files", "-v", "-z"], ""), (["cat-file", "--batch-check=%(objectname)"], "".join("%s^{tree}\n" % c for c in others))]
+             (["ls-files", "-v", "-z"], "")]
     try:
-        top, dirty, listed, peeled = [subprocess.run(base + args, input=feed, env=env, capture_output=True, text=True, timeout=120,
-                                                     check=False) for args, feed in calls]
+        top, dirty, listed = [subprocess.run(base + args, input=feed, env=env, capture_output=True, text=True, timeout=120,
+                                             check=False) for args, feed in calls]
         lines = top.stdout.split("\n")
-        if any(d.returncode != 0 for d in (top, dirty, listed, peeled)) or len(lines) < 3 \
+        if any(d.returncode != 0 for d in (top, dirty, listed)) or len(lines) < 3 \
                 or os.path.realpath(lines[0]) != top_real:
             raise ContractError("code_sha를 판별할 수 없다(source_root가 git 저장소 최상위가 아니거나 HEAD를 읽지 못함): %s" % source_root)
         head, tree = lines[1].strip().lower(), lines[2].strip().lower()
@@ -209,14 +213,23 @@ def verify_code(task, source_root, others=()):
                     if os.path.commonpath([top_real, path]) == top_real and os.path.isfile(path) \
                             and os.path.relpath(path, top_real) not in tracked:
                         raise ContractError("command가 가리키는 파일을 git이 추적하지 않는다(커밋하지 않은 코드): %r" % part)
+        # 코드 지문(VS3, 5차 P1): docs/ 아래 .md 일반 파일(모드 100644·100755)을 뺀 추적 파일 목록의 sha256. 명령·config 글자에 .md가 있으면 빼지 않는다
+        keep_docs = ".md" in json.dumps([cond.get("command"), cond.get("config")], ensure_ascii=False, default=str)
+        trees = {}
+        for commit in [head] + [c for c in others if c != head]:
+            shown = subprocess.run(base + ["ls-tree", "-r", "-z", "--full-tree", commit + "^{tree}"], env=env, capture_output=True,
+                                   timeout=120, check=False)  # 이 저장소에 없는 커밋·tree가 아닌 객체는 실패: 비교하지 않는다(한계)
+            kept = [e for e in shown.stdout.split(b"\0") if e and (keep_docs or not (  # e = b"<모드> <종류> <객체>\t<경로>"
+                e.split(b" ", 1)[0] in (b"100644", b"100755") and e.split(b"\t", 1)[-1].startswith(b"docs/")
+                and e.split(b"\t", 1)[-1].endswith(b".md")))]
+            if shown.returncode == 0:
+                trees[commit] = hashlib.sha256(b"\0".join(kept)).hexdigest()
+        if head not in trees:
+            raise ContractError("code_sha를 판별할 수 없다(HEAD 파일 목록을 읽지 못함): %s" % source_root)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         if isinstance(exc, ContractError):
             raise
         raise ContractError("code_sha를 판별할 수 없다(git 실행·경로 확인 실패): %s: %s" % (type(exc).__name__, exc))
-    trees = {head: tree}
-    for commit, line in zip(others, peeled.stdout.split("\n")):
-        if _SHA.fullmatch(line.strip()):
-            trees.setdefault(commit, line.strip())
     return trees
 
 
