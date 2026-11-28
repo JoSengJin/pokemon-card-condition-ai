@@ -12,16 +12,20 @@
 - cwd는 작업 폴더(root/tasks/<task_key>). 하네스 상태 폴더(root/supervisor·장부·예산)는 cwd 밖이라 읽기·쓰기 모두 자동 거절 대상이고,
   작업 폴더 안의 하네스 파일(lease.json·done.json·complete.json)은 쓰기 허용 규칙(out/ 아래만)에 없어 거절 대상이다(문서 기준).
 - 계약 입력은 stage_inputs가 source_root(기본 저장소) 아래에서 SHA를 확인해 작업 폴더 in/으로 복사한다. 링크(심볼릭·하드 링크 수 2 이상)·
-  폴더 밖·하네스 root 안·이름에 gold/seal이 든 경로(봉인·Gold 임시 규칙)는 거절한다. 복사는 safefs.replace_new(새 임시 파일, 쓴 내용의
+  폴더 밖·하네스 root 안·이름에 gold/seal이 든 경로(봉인·Gold 임시 규칙)는 거절한다. 봉인 경로 목록(SEALED_LIST, sealed_paths) 아래
+  실제 경로(realpath, 저장소·source_root 기준)도 거절한다(이중 차단, 목록이 없거나 링크·형식 오류면 복사하지 않는다). 복사는 safefs.replace_new(새 임시 파일, 쓴 내용의
   sha256이 계약과 같을 때만 교체: 대조와 사용 사이 틈이 없다)로 한다. Python 실험·학습·평가 executor도 같은 함수로 실행 직전에 복사한
   사본(작업 폴더 in/, sandbox가 쓰기를 허용하지 않는 곳)을 읽는다(2차 결함 G6, runner._execute).
 - 환경변수는 ENV_ALLOW만 넘긴다(구독 인증 최소 추정값. API 키·토큰류는 넘기지 않는다). 인증이 이것으로 되는지는 실환경 미확인.
 - 자동 재개 활성화 목록 AUTO_RESUME(작업 유형 → 실환경 증거 {"evidence": 경로, "sha256": 그 파일 sha256})은 빈 dict로 시작한다. 증거 파일이
   있고 해시가 맞는 유형만 켜진 것으로 본다(auto_resume_allowed). 목록에 없으면 한도 해제·실행 중 사망 뒤에도 자동 재개하지 않는다(첫 실행은 허용).
-호출 깊이: stage_inputs만 safefs.replace_new(말단)를 부른다(1). 나머지는 말단이다.
+- 봉인 경로 목록(harness/sealed_paths.json, 2026-11-28 자동 추정 초안·사용자 확인 전·완전성 미확인)은 sandbox 프로필의 읽기 거절에도 쓴다.
+호출 깊이: stage_inputs만 safefs.replace_new·sealed_paths(말단)를 부른다(1). sandbox.profile도 sealed_paths를 부른다. 나머지는 말단이다.
 """
 import hashlib
+import json
 import os
+import stat
 
 from .safefs import replace_new
 
@@ -36,6 +40,7 @@ A_OPTIONS = ("--restricted", "--tools", "Read,Write,Edit,Glob,Grep", "--strict-m
 ENV_ALLOW = ("HOME", "PATH", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR")
 AUTO_RESUME = {}  # 실환경 시험으로 권한·부작용 제한과 중복 반영 방지를 확인한 유형만 증거와 함께 추가한다(A → B → C 순)
 FORBIDDEN_PARTS = ("gold", "seal")  # 임시 규칙: 경로 조각에 이 글자가 들어 있으면 봉인·Gold 자료로 보고 복사하지 않는다
+SEALED_LIST = os.path.join(REPO, "harness", "sealed_paths.json")  # 봉인 경로 목록(저장소 기준 상대 경로, 추적 파일)
 
 
 def options(task_type):
@@ -60,11 +65,28 @@ def auto_resume_allowed(task_type):
         return hashlib.sha256(handle.read()).hexdigest() == entry["sha256"]
 
 
+def sealed_paths(bases):
+    """봉인 경로 목록(SEALED_LIST의 paths)을 bases(None은 건너뜀) 각각 아래 실제 경로(realpath)로 바꾼 정렬 목록. 목록 파일이 없거나
+    링크·일반 파일이 아니거나 형식(비어 있지 않은 상대 경로 문자열 목록, ''·.·.. 조각·따옴표·역슬래시 없음)이 틀리면 ValueError(fail-closed)."""
+    try:
+        fd = os.open(SEALED_LIST, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError as exc:
+        raise ValueError("봉인 경로 목록을 열 수 없다(없음·링크): %s" % exc)
+    with os.fdopen(fd, "rb") as handle:
+        data = json.loads(handle.read().decode("utf-8")) if stat.S_ISREG(os.fstat(fd).st_mode) else None
+    rels = data.get("paths") if isinstance(data, dict) else None
+    if not isinstance(rels, list) or not rels or not all(
+            isinstance(r, str) and not r.startswith("/") and '"' not in r and "\\" not in r
+            and not any(p in ("", ".", "..") for p in r.split("/")) for r in rels):
+        raise ValueError("봉인 경로 목록 형식이 틀렸다: %s" % SEALED_LIST)
+    return sorted({os.path.realpath(os.path.join(b, r)) for b in bases if b for r in rels})
+
+
 def stage_inputs(task_dir, contract, source_root, harness_root):
     """계약 inputs({상대 경로: sha256})를 source_root에서 task_dir/in/으로 복사하고 복사본 SHA를 확인한다. 복사한 경로 목록.
     안전하지 않은 경로·링크·없는 파일·SHA 불일치는 ValueError(그 작업은 실행하지 않는다)."""
     base, guard = os.path.realpath(source_root), os.path.realpath(harness_root)
-    copied = []
+    sealed, copied = sealed_paths([REPO, base]), []  # 목록이 없거나 틀리면 여기서 ValueError(아무것도 복사하지 않는다)
     for rel, want in sorted(contract["inputs"].items()):
         parts = rel.split("/")
         if rel.startswith("/") or any(p in ("", ".", "..") for p in parts) \
@@ -78,6 +100,8 @@ def stage_inputs(task_dir, contract, source_root, harness_root):
         real = os.path.realpath(cur)
         if os.path.commonpath([base, real]) != base or os.path.commonpath([guard, real]) == guard or not os.path.isfile(real):
             raise ValueError("입력이 원본 폴더 밖·하네스 root 안이거나 일반 파일이 아니다: %r" % rel)
+        if any(os.path.commonpath([s, real]) == s for s in sealed):
+            raise ValueError("봉인 경로 목록 아래 입력은 복사하지 않는다: %r" % rel)
         if os.stat(real).st_nlink > 1:  # 하드 링크는 이름 검사를 피해 봉인·하네스 파일을 가리킬 수 있다(검증 결함 F11)
             raise ValueError("하드 링크 입력은 복사하지 않는다: %r" % rel)
         fd = os.open(real, os.O_RDONLY | os.O_NOFOLLOW)

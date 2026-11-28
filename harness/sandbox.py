@@ -9,7 +9,9 @@
   바꾸거나 out 자리를 링크로 바꿔도 확정 산출물과 다음 실행의 허용 범위는 바뀌지 않는다. 실행 폴더는 끝나면 지운다(지운 뒤에는 그 안을
   다시 만들 권한도 없다: 실행 폴더 자체는 허용 목록에 없다).
 - 실험·학습·평가 executor는 runner가 실행 직전에 SHA를 확인해 복사한 사본(작업 폴더 in/, sandbox가 쓰기를 허용하지 않는다)을 읽는다:
-  환경변수 HARNESS_INPUT_DIR(G6). 원본 폴더 읽기 자체는 막지 않는다(읽기 비거절, 한계).
+  환경변수 HARNESS_INPUT_DIR(G6). 원본 폴더 읽기는 봉인 경로 목록(claude_perm.sealed_paths: 저장소와 runner가 넣은 HARNESS_SOURCE_ROOT
+  기준 실제 경로) 아래만 거절한다(deny file-read* subpath, 2026-11-28 이 macOS에서 읽기·stat·목록·링크 경유·하드 링크 만들기 거절 실측).
+  목록이 없거나 링크·형식 오류면 프로필을 만들지 않는다(ValueError: available()은 False, executor를 실행하지 않는다).
 - 프로세스 그룹: executor 자식은 새 세션(start_new_session)으로 띄우고, 끝나면 그 그룹을 KILL한다(G7). 자식은 runner가 죽으면 0.1초 안에
   자기 그룹째 끝낸다(sandbox_child._watch). 한계: setsid로 새 세션을 만든 자손은 그룹 밖이라 남는다(pid를 모른다). 그런 자손도 sandbox를
   물려받아 그 실행 폴더 밖에는 쓰지 못하고, 확정 out/은 바꾸지 못한다. 표준 출력은 이름 없는 임시 파일로 받아(파이프 아님) 그런 자손이
@@ -25,12 +27,13 @@
 - 결과: 자식이 마지막 줄에 JSON({"ok": true, "produced"} | {"ok": false, "kind", "error"})을 낸다. 자식이 신호로 죽으면 kind=interrupted
   (runner가 작업권을 남겨 다음 claim이 INTERRUPTED 규칙대로 다룬다), JSON이 없거나 산출물을 거절하면 deterministic.
 - 한계(인계): 같은 macOS 사용자의 다른 프로세스(Codex·대화형 Claude·사용자 셸)는 막지 못한다(OS 사용자 분리 D-7 보류). sandbox는 쓰기·
-  위 실행 파일·네트워크·lsopen·mach 이름 조회(MACH_ALLOW 밖)만 막는다(읽기·프로세스 신호는 막지 않는다). 이미 가진 포트(bootstrap 포트 자체,
+  위 실행 파일·네트워크·lsopen·mach 이름 조회(MACH_ALLOW 밖)·봉인 경로 목록 읽기만 막는다(그 밖 읽기·프로세스 신호는 막지 않는다. sandbox
+  밖에서 미리 만든 하드 링크는 목록 밖 이름으로 읽힌다. 목록 완전성은 사용자 확인 전). 이미 가진 포트(bootstrap 포트 자체,
   상속받은 포트)로 보내는 요청과 MACH_ALLOW 서비스 요청은 막지 않는다(메시지를 보내는 시험은 하지 않았다). sandbox-exec는 Apple이 폐기 예정으로 표시한 도구다. 홈 캐시(~/.cache 등)에
   써야 하는 라이브러리는 sandbox 안에서 실패한다(TMPDIR·staging만 쓸 수 있다).
 - 잔여물(4차 결함 I9): runner가 반영 중 kill되면 작업 폴더의 .out-pending-*와 실행 폴더 harness-exec-<task_key>-*가 남는다. 다음 runner가 그 작업의
   작업권을 잡은 뒤 sweep이 지운다(queue.claim). 산출물 합계 크기 상한은 MAX_TOTAL_OUTPUT_BYTES.
-호출 깊이: sandboxed·run_one → profile·safefs.open_regular·safefs.replace_new·safefs.publish(말단) 1, sweep 0(queue.claim에서 부른다).
+호출 깊이: available·sandboxed·run_one → profile → claude_perm.sealed_paths(말단) 2, run_one → safefs.open_regular·safefs.replace_new·safefs.publish(말단) 1, sweep 0(queue.claim에서 부른다).
 """
 import errno
 import functools
@@ -42,7 +45,9 @@ import subprocess
 import sys
 import tempfile
 
+from .claude_perm import sealed_paths
 from .dedupe import CONDITION_TYPES
+from .experiment_exec import SOURCE_ENV
 from .safefs import open_regular, publish, replace_new
 
 SANDBOX_EXEC = "/usr/bin/sandbox-exec"
@@ -69,14 +74,17 @@ class ChildError(Exception):
 
 def profile(root, run_dir=None):
     """SBPL 문자열: 쓰기 기본 거절 + run_dir/out·run_dir/tmp·DEVICES만 허용(run_dir 자체와 그 밖 자리는 거절). run_dir은 하네스 root·저장소
-    (REPO) 밖이어야 한다. 경로에 따옴표·역슬래시가 있거나 위치가 맞지 않으면 ValueError(프로필을 안전하게 적을 수 없다)."""
+    (REPO) 밖이어야 한다. 경로에 따옴표·역슬래시가 있거나 위치가 맞지 않으면 ValueError(프로필을 안전하게 적을 수 없다).
+    봉인 경로 목록(저장소·HARNESS_SOURCE_ROOT 기준) 읽기는 거절한다. 목록이 없거나 틀리면 sealed_paths가 ValueError(fail-closed)."""
     base, run = os.path.realpath(root), os.path.realpath(run_dir) if run_dir else None
-    if any('"' in p or "\\" in p for p in [base] + ([run] if run else []) + list(DENY_EXEC)):
+    sealed = sealed_paths([REPO, os.environ.get(SOURCE_ENV)])
+    if any('"' in p or "\\" in p for p in [base] + ([run] if run else []) + list(DENY_EXEC) + sealed):
         raise ValueError("sandbox 프로필에 쓸 수 없는 경로")
     if run and any(os.path.commonpath([inner, run]) == inner for inner in (base, os.path.realpath(REPO))):
         raise ValueError("실행 폴더는 하네스 root·저장소 밖이어야 한다")
     grant = ['(subpath "%s")' % os.path.join(run, sub) for sub in ("out", "tmp") if run] + ['(literal "%s")' % d for d in DEVICES]
-    return "\n".join(['(version 1)', '(allow default)', '(deny file-write*)', '(allow file-write* %s)' % " ".join(grant),
+    return "\n".join(['(version 1)', '(allow default)', '(deny file-read* %s)' % " ".join('(subpath "%s")' % p for p in sealed),
+                      '(deny file-write*)', '(allow file-write* %s)' % " ".join(grant),
                       '(deny process-exec %s)' % " ".join('(literal "%s")' % p for p in DENY_EXEC), '(deny appleevent-send)']
                      + list(DENY_MORE))
 
@@ -88,7 +96,7 @@ def available():
     try:
         done = subprocess.run([SANDBOX_EXEC, "-p", profile(REPO), "/usr/bin/true"], stdin=subprocess.DEVNULL,
                               capture_output=True, timeout=30, check=False)
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError, ValueError):  # ValueError: 봉인 경로 목록 없음·링크·형식 오류(fail-closed)
         return False
     return done.returncode == 0
 
