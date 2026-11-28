@@ -63,6 +63,20 @@ def tail(path):
     return json.loads(lines[-1])["hash"] if lines else GENESIS
 
 
+def events(path, event):
+    """이름이 event인 줄의 data 목록(읽기만). 해시 체인은 대조하지 않고 읽을 수 없는 줄은 건너뛴다(찾는 쪽이 없음으로 보면 안전한 용도만:
+    VS3 D3 관문 통과 줄). 한계: 같은 사용자 권한으로 장부를 직접 고쳐 쓰는 위조는 막지 못한다(위 전체 재계산 위조와 같은 한계)."""
+    found = []
+    for raw in _load(path):
+        try:
+            entry = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and entry.get("event") == event:
+            found.append(entry.get("data"))
+    return found
+
+
 def _check_line(line_no, raw, want_seq, prev):
     """한 줄 검사 -> (문제 목록, 파싱한 항목 또는 None)."""
     try:

@@ -15,7 +15,7 @@
   작업의 선언 자리 모양, 깨진 시각 미상 한도 횟수 기록)는 그 작업만 대기·거절하고 알린다(2차 결함 G5·G9·G11). INTEGRITY_HALT는 장부·상태
   무결성 오류에 남긴다.
 - 실행: python -m harness.supervisor --root R [--claude-bin B] [--executors mod:ATTR] [--max-cycles N] [--poll S]
-호출 깊이: run → runner.drain은 별도 프로세스라 세지 않는다. run → _live(2)·withdrawal.withdraw(4, 래퍼 없이 직접)·opstate.clear_auto(3)·graph.register_missing(3)·graph.note_rejected(1)·
+호출 깊이: run → runner.drain은 별도 프로세스라 세지 않는다. run → _live(2)·withdrawal.withdraw(4, 래퍼 없이 직접)·opstate.clear_auto(3)·graph.register_missing(3)·graph.note_rejected(1)·plan_gate.gate(3, VS3: 선언을 읽은 뒤 register_missing 전)·
 claude_job.pick(2)·execute(3)·settle(3)이라 최대 4다. 모듈 맨 아래 __main__ 블록은 _args와 run만 부른다.
 - root는 절대 경로로 바꿔 쓴다(runner는 cwd=REPO에서 돌기 때문에 상대 경로면 다른 폴더를 본다).
 """
@@ -28,7 +28,7 @@ import subprocess
 import sys
 import time
 
-from . import claude_job, dedupe, evidence, graph, ledger, opstate, silver_store, withdrawal
+from . import claude_job, dedupe, evidence, graph, ledger, opstate, plan_gate, silver_store, withdrawal
 from .jsonio import read_json
 
 POLL_S = 60.0
@@ -117,6 +117,7 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
                 try:  # 선언 파일 자체의 문제(깨진 JSON·dict 아님·순환·너무 깊은 중첩)는 그 회차의 그래프 등록만 건너뛰고 한 번 알린다(2차 결함 G5)
                     # 정수 글자는 dedupe.json_number로 읽는다: 자릿수가 너무 큰 정수 하나가 파일 전체를 깨지 않고 그 선언만 거절된다(4차 결함 I2)
                     declared = read_json(os.path.join(root, DECLARED), {}, parse_int=dedupe.json_number)
+                    declared = plan_gate.gate(root, declared, now, source_root)  # VS3: 실험 VERIFIED → ANALYZE, 분석 → PLAN_GATE → 다음 실험 선언
                     if declared:
                         graph.register_missing(root, declared, now, source_root=source_root)
                 except (graph.GraphError, ValueError, RecursionError) as exc:  # ValueError: 깨진 JSON(장부 오류 LedgerError는 여기서 잡지 않는다)
