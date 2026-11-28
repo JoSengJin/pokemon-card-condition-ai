@@ -45,3 +45,11 @@ branch: claude/corner-screen-r9-20261128 (분기 275feac = R8 정본 v2 커밋)
 
 ## 적용 규칙
 `single-source-criteria`(정본 → 화면, 별칭 근거 위), `label-provenance`(`screen` 칸), `label-screen-round-trip`(4상태), `regression-for-every-fix`. 못 지킨 것: 실제 휴대폰·실제 사진 확인.
+
+## 추가 결정 반영: 모서리 확대 조건 (2026-11-28 사용자 결정 A)
+- R8 `df324a6`을 merge(rebase·force 없음). 화면 `INSTRUCTIONS`의 모서리 결함 수준 문단은 정본(`LABELING_PROTOCOL.md` v2 절) 사용자 문단 원문 + D-2 걸침 문장으로 교체했다. 이전 11-24+D-1 중복 문장은 없앴다. mm 문턱·고정 배율·위치 경계 수치·판본 V·표면·엣지 범위는 화면에 없다(합성 확인).
+- 화면 기준 버전: `.criteria.json`의 `criteria_sha256`은 INSTRUCTIONS 해시다. 앞 12자리 `63aab2734a6c`(옛) → `c06812c64564`(새)로 바뀐다. 새 문구로 받은 라벨만 새 해시를 갖고 과거 라벨은 그대로 옛 판본이다.
+- 시험: `CLAUSES['모서리 v2']`는 정본 사용자 문단 전문(공백·기호 제거 후)과 D-2 문장을 정본·화면 양쪽에서 찾는다. 결함 주입: 정본에서 문단 끝 문장을 지우면 3건, 화면에서 지우면 2건 실패(복원 확인). 관련 6개 모듈 27건 OK(.venv 3.12, 로그 `logs/zoom-a-r9.log`).
+- 휴대폰 확대(코드 확인): viewport는 `width=device-width,initial-scale=1`뿐이며 `user-scalable`·`maximum-scale`·CSS `zoom`이 없다. `touch-action:none`은 지름 44px 빨간 점(`.h`)에만 있고 그 점의 pointerdown에서만 `preventDefault`한다. 사진(`.ph img`)·본문에는 제한이 없다. 점 위에서 시작한 두 손가락 확대는 점 끌기로 먹힐 수 있다(코드 추정).
+- **미검증: 실제 휴대폰 두 손가락 확대 동작은 사용자 휴대폰 확인 필요.** 원본 해상도 제공만으로 확대가 검증됐다고 보지 않는다. 합성 HTML 렌더는 하지 않았고 코드·문자열 확인만 했다.
+- 롤백: 이 커밋과 merge 커밋 revert(라벨·기록·봉인 자료 변경 없음).

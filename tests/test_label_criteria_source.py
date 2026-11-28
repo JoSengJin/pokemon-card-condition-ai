@@ -22,7 +22,6 @@ CLAUSES = {
 }
 CLAUSES['모서리 재판정'] = CLAUSES['모서리']
 # 2026-11-28 모서리 v2 (D-1·D-2): only the new screen is held to the v2 sentences. The re-judgment pages keep the v1 clause set (alias split instead of editing them; they are older screens' siblings).
-CLAUSES['모서리 v2'] = CLAUSES['모서리'] + ('구분되는흰흔적은크기와관계없이결함', '반사인지실제마모인지구분이안될때만판단불가', '둥근끝과직선엣지에걸쳐있으면걸친두위치모두결함')
 ALIAS = {'관찰 제한(휴대폰)': '관찰 제한', '모서리 재판정': '모서리', '모서리 v2': '모서리'}  # which canonical text a screen is held to
 
 
@@ -32,6 +31,10 @@ V2_PARAGRAPH = ('모서리의 둥근 끝에서 뭉개짐·찍힘·백화·접힘
 
 def plain(text):
     return re.sub(r'<[^>]+>|[\s*`\'"‘’“”]', '', text)
+
+
+# v2 is held to the user's 2026-11-28 decision-A paragraph verbatim (the v1 '확대해서보이면' regex no longer fits it) plus D-2.
+CLAUSES['모서리 v2'] = (re.escape(plain(V2_PARAGRAPH)), '둥근끝과직선엣지에걸쳐있으면걸친두위치모두결함')
 
 
 def canonical(cell):
