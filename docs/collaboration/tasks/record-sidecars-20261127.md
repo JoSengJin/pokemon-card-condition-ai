@@ -192,3 +192,9 @@ experiment: 없음. 사진 비교 HTML은 대상이 아니다(모델 평가 없�
 - 한계 2의 행 제외 여부는 미결정.
 
 롤백: T3 `git revert 776c217`, T1 `git revert d8f8dcd`. status = ready_for_review, 미통합·미push.
+
+## 11. 사용자 결정 D3 반영 (2026-11-28)
+- 결정: 결과 파일에 "AI 판정과 일치하는 기록을 찾지 못했다는 사실은 사람이 직접 판정했다는 증거가 아니다."를 원문 그대로 명시한다. 탐지 실패를 사람 판정으로 승격하지 않고, 불완전 대조 행을 분모에서 임의 제외하지 않으며, 새 탐지 체계는 만들지 않는다.
+- 변경: `tools/rater_gate.py` 결과 JSON에 고정 필드 `notice`·`limitation`(AI 사본 변형 미탐지), `tools/zone_rows.py`의 `exclusions.json`에 같은 두 필드. 판정 로직·제외 규칙·기존 필드 불변. 새 시험 `tests/test_rater_gate_notice.py` 2건.
+- 시험: 관련 시험 54건 rc=0(건너뜀 5). 문구를 바꾸는 결함 주입 시 2건 실패(rc=1). 로그 `scratchpad/logs/d3-rec-312.log`.
+- 롤백: 이 절의 커밋 `git revert`. 미통합·미push.

@@ -25,6 +25,9 @@ from tools.rater_gate_lines import unmatched, values
 from tools.self_agreement.import_round import confirmed
 from tools.self_agreement.stats import WILSON
 
+NOTICE = "AI 판정과 일치하는 기록을 찾지 못했다는 사실은 사람이 직접 판정했다는 증거가 아니다."  # D3 2026-11-28, fixed wording
+LIMIT = "AI 사본 변형(일부 값을 바꾼 사본, 카드 ID를 지운 사본 등)은 탐지하지 못한다. 탐지 실패는 사람 판정 확인이 아니다."
+
 
 def walk(folders):
     """(every entry, [(path, reason)] for what the traversal cannot enter). Directory links are not followed."""
@@ -127,7 +130,7 @@ def main(argv=None):
         answered_at = args.answer.stat().st_mtime
         records, unreadable, incomplete, excluded = compare(answer, [f for f in folders if f.is_dir() or f.is_symlink()], answered_at, header and header[1])
         baseline = chance(answer)
-        result = dict(verdict=verdict(records, baseline, statement_ok, incomplete), answer_sha256=hashlib.sha256(data).hexdigest(),
+        result = dict(verdict=verdict(records, baseline, statement_ok, incomplete), notice=NOTICE, limitation=LIMIT, answer_sha256=hashlib.sha256(data).hexdigest(),
                       answer_mtime=datetime.fromtimestamp(answered_at, timezone.utc).isoformat(), zones=len(answer),
                       statement_confirmed=statement_ok, chance=baseline, ai_folders=[str(f) for f in folders if f.is_dir()],
                       comparisons=records, unreadable_ai_files=unreadable, comparison_complete=not incomplete,

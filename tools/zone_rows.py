@@ -11,6 +11,7 @@ from pathlib import Path
 
 from card_condition.regions import REGION_TARGET_AREAS, region_box
 from tools.d2_rows import INTAKES, TARGET, backs
+from tools.rater_gate import LIMIT, NOTICE
 
 # T0 contract constants; card_condition/experiment_sidecars.py checks the same strings.
 STATES = ('정상', '결함', '미확인', '판단 불가')
@@ -127,7 +128,7 @@ def main(argv=None):
                 print('주의: AI 대조가 완전하다고 기록되지 않음. 행은 빼지 않음. provenance의 incomplete를 확인할 것', file=sys.stderr)
         rows, exclusions = build(parse(data.decode('utf-8-sig')), backs(args.intakes), args.kind, args.box == 'confirmed-only', provenance)
         measures = json.loads(args.measures.read_text(encoding='utf-8')) if args.measures else {}
-        write_new(args.out, {'rows.json': rows, 'exclusions.json': exclusions, 'row_facts.json': facts(rows, measures, provenance)})
+        write_new(args.out, {'rows.json': rows, 'exclusions.json': {**exclusions, 'notice': NOTICE, 'limitation': LIMIT}, 'row_facts.json': facts(rows, measures, provenance)})
     except (OSError, ValueError, KeyError) as error:
         print('거절:', error, file=sys.stderr)
         return 2
