@@ -14,7 +14,8 @@ Supervisor가 회차마다 declared.json을 읽은 뒤 gate를 부르고, gate�
      코드도 변수다: source_root HEAD의 코드 지문(dedupe.verify_code)이 대조 커밋과 다르면 대기.
    - 사전 등록: 가설 문구는 Claude, 성공·실패 기준 문구·acceptance·reference_result·code_changes·입력(평가 자료)·command·seed는 대조에서 그대로
      물려받는다(Claude가 바꿀 자리가 없다). experiment_exec.build_plan(실행 때와 같은 검사)을 통과해야 한다.
-   - 기각 가설: dedupe.find_duplicate(상태 무관, 가설 ID·설명은 키에서 빠짐)로 같은 실행 조건의 실험이 있으면 거절.
+   - 기각 가설: dedupe.find_duplicate(상태 무관, 가설 ID·설명은 키에서 빠짐)로 같은 실행 조건의 실험이 있으면 거절. 원본 artifacts/experiments의
+     ./experiment 기록(하네스 밖 실행 포함)도 _external로 대조한다. 비교할 수 없는 기록이 있으면 통과가 아니라 그 계획만 대기(D4, strict).
      승인 변수 value는 기존 파라미터 정의(cross_review_auto_contract.PARAMETER의 JSON number, check_experiment_parameter)대로 수로 본다(D2):
      baseline·대조 값과 같은 수면 거절하고, 기각 대조는 제안 표기와 같은 수의 int·float 표기로 각각 한다. 전역 dedupe의 config 자료형 규칙
      (사람 등록 config의 1 ≠ 1.0, 4차 I3·사용자 숫자 표기 결정 "자료형을 확인할 수 없으면 변환하지 않는다")은 바꾸지 않는다: 이 변수만 정의상 자료형이 수다.
@@ -40,7 +41,7 @@ import subprocess
 import sys
 
 from . import contract as ct
-from . import budget, claude_perm, dedupe, experiment_exec, graph, ledger, states
+from . import budget, cas, claude_perm, dedupe, experiment_exec, graph, ledger, states
 from .jsonio import read_json, write_json
 
 ANALYZE_TYPE = "misanalysis_general"  # A 묶음(claude_perm.BUNDLE_OF), 라우팅 sonnet·medium
@@ -50,6 +51,9 @@ VARIABLE = ("experiment_parameter", "value")  # 승인 변수(점이 든 키로 
 PARAM_KEYS = ("name", "baseline", "value", "scope")
 _EID = re.compile(r"\d{8}T\d{6}-[0-9a-f]{8}")  # experiment_record.prepare의 실험 폴더 이름
 _MISSING = object()
+_RECORD_STATUS = ("running", "completed", "failed", "interrupted")  # experiment_record.records()가 받는 상태
+_FROZEN = {"schema_version": 1, "threshold": .5, "independent": False, "production_adopted": False}  # experiment_record.prepare가 plan.json에 덧붙이는 값
+_NOTES = ("hypothesis_id",) + experiment_exec.TEXT_KEYS  # 기각 대조에서 빼는 설명 키(dedupe NOTE_KEYS와 같은 뜻)
 # 한 계획의 검사에서 나는 예외(그 계획만 대기). Claude 파일 내용으로 생길 수 있는 부류를 모두 넣는다(D1: 산술 OverflowError 등은 ArithmeticError,
 # KeyError·IndexError는 LookupError, 인코딩 오류는 ValueError). 장부·운영 상태 오류(LedgerError·OpStateError)는 넣지 않는다(전체 정지 유지).
 _PLAN_ERRORS = (ValueError, TypeError, LookupError, ArithmeticError, AttributeError, RecursionError, OSError, subprocess.SubprocessError,
@@ -142,6 +146,37 @@ def _derive(root, parent, analyze_key, source_root):
     return [new] + twins
 
 
+def _external(src, new):
+    """원본 artifacts/experiments/*/의 ./experiment 기록(Codex ./review --auto·수동 실행 포함, 상태 무관) 중 new와 실행 조건이 같은 기록의 경로(없으면
+    None, D4). 같음 = 설명 키를 뺀 동결 plan.json이 prepare와 같은 방식으로 만든 new의 계획과 ==(수는 값으로: 승인 변수 2 = 2.0), record.command가
+    new의 command와 같고(자리표시자 {input:…} 자리는 실행 때 사본 경로로 바뀌므로 아무 값), record.source_hashes가 지금 원본 파일과 같음.
+    판별할 수 없는 기록(record.json이 없는 실험 폴더, 읽을 수 없음, 형식·상태, plan.json이 record의 SHA와 다름, 같은 조건인데 코드 해시를 못 냄)이
+    하나라도 있으면 Hold(waiting). 기록 형식의 근거는 card_condition/experiment_record.py(prepare·records) 코드뿐이다(실제 기록은 열어 보지 않았다).
+    한계: ./experiment는 code_changes 파일 해시만 남기므로 그 밖 코드가 달라도 같다고 본다(거절 쪽). 회차마다 모든 기록을 읽는다(기록 수에 비례)."""
+    base = os.path.join(src, "artifacts", "experiments")
+    mine = {k: v for k, v in dict(experiment_exec.build_plan(new), **_FROZEN).items() if k not in _NOTES}
+    command = new["run_conditions"]["command"]
+    for name in sorted(os.listdir(base)) if os.path.isdir(base) else []:
+        folder = os.path.join(base, name)
+        if not _EID.fullmatch(name) and not os.path.isfile(os.path.join(folder, "record.json")):
+            continue  # experiment_record.records()처럼 */record.json이 기록이다(prepare 이름 형식 폴더는 record.json이 없어도 미완성 기록으로 본다)
+        try:
+            record, plan = read_json(os.path.join(folder, "record.json")), read_json(os.path.join(folder, "plan.json"))
+            ok = isinstance(record, dict) and isinstance(plan, dict) and record.get("schema_version") == 1 and record.get("status") in _RECORD_STATUS \
+                and isinstance(record.get("command"), list) and isinstance(record.get("source_hashes"), dict) \
+                and record["files"]["plan.json"] == cas.sha_file(os.path.join(folder, "plan.json"))
+            same = ok and {k: v for k, v in plan.items() if k not in _NOTES} == mine and len(record["command"]) == len(command) \
+                and all(a == b or dedupe.PLACEHOLDER.search(b) for a, b in zip(record["command"], command)) \
+                and all(cas.sha_file(os.path.join(src, p)) == h for p, h in record["source_hashes"].items())
+        except (OSError, ValueError, LookupError, TypeError, AttributeError, RecursionError) as exc:
+            raise Hold("waiting", "판별할 수 없는 ./experiment 기록 %s: %s" % (name, type(exc).__name__))
+        if not ok:
+            raise Hold("waiting", "판별할 수 없는 ./experiment 기록 %s: 형식(schema_version·status·command·source_hashes·plan.json SHA)" % name)
+        if same:
+            return "artifacts/experiments/" + name
+    return None
+
+
 def _screen(declared, infos, derived):
     """(register_missing에 넘길 선언, 거절 사유). LLM 작업에 직·간접 의존하는 미등록 실험·학습·평가 선언은 derived와 같을 때만 남긴다."""
     contracts = {k: c for k, (s, c) in infos.items() if c is not None}
@@ -195,7 +230,8 @@ def gate(root, declared, now, source_root=None):
                 new = forms[0]
                 if budget.usage(root, "experiment", budget.period_of("experiment", now)) + 1 > budget.LIMITS["experiment"][1]:
                     raise Hold("waiting", "이번 주 실험 예산이 남지 않았다(실행 직전 차감은 runner, 여기서는 읽기만)")
-                dup = next(filter(None, (dedupe.find_duplicate(root, form, ct.task_key(new), src) for form in forms)), None)
+                dup = next(filter(None, (dedupe.find_duplicate(root, form, ct.task_key(new), src, strict=True) for form in forms)), None) \
+                    or _external(src, new)  # D4: 비교할 수 없는 하네스 기록은 대기(strict), 하네스 밖 ./experiment 기록도 대조
                 if dup is not None:
                     raise Hold("refused", "기각·중복 가설: 같은 실행 조건의 실험이 이미 있다(가설 ID·설명 무관) %s" % dup)
                 derived[key] = new

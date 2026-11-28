@@ -87,7 +87,7 @@ class EntryPointTest(unittest.TestCase):
             self.assertLessEqual(depth.longest(name, graph)[0], limit, depth.longest(name, graph))
         for rel in ("harness/plan_gate.py", "harness/supervisor.py", "harness/runner.py", "harness/dedupe.py", "tests/harness_plan_gate_kit.py",
                     "tests/test_harness_vs3_gate.py", "tests/test_harness_vs3_gate_flow.py", "tests/test_harness_vs3_entry.py",
-                    "tests/test_harness_vs3_doc_commit.py"):
+                    "tests/test_harness_vs3_doc_commit.py", "harness/ledger.py", "tests/test_harness_vs3_fixes.py"):
             with open(os.path.join(REPO, rel), encoding="utf-8") as handle:
                 tree = ast.parse(handle.read())
             count = sum(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)) for n in ast.walk(tree))

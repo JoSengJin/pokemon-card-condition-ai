@@ -57,7 +57,8 @@ def seed(src, hid):
     sha = {n: cas.sha_file(os.path.join(folder, n)) for n in ("plan.json", "result.json")}
     with open(os.path.join(folder, "record.json"), "w", encoding="utf-8") as handle:
         json.dump({"schema_version": 1, "experiment_id": os.path.basename(folder), "hypothesis_id": hid, "status": "completed",
-                   "files": sha}, handle)
+                   "started_at": "2030-01-01T00:00:00+00:00", "command": ["python", "-m", "card_condition.worker"], "files": sha,
+                   "source_hashes": {}}, handle)  # experiment_record.prepare가 남기는 필드(PLAN_GATE D4가 기록 형식을 확인한다)
     return folder
 
 

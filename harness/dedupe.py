@@ -147,21 +147,28 @@ def logical_key(task, trees=None):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def find_duplicate(root, task, key, source_root=None):
+def find_duplicate(root, task, key, source_root=None, strict=False):
     """task_key가 다른데 논리 키가 같은 등록 작업의 task_key(없으면 None). 상태와 무관하다(실패한 실험의 재등록 우회도 막는다).
     실험·학습·평가는 먼저 verify_code로 code_sha가 source_root(기본 저장소)의 깨끗한 HEAD인지 확인하고(아니면 ContractError), 코드 자리를
-    tree SHA로 바꾼 키로 비교한다(4차 결함 I4)."""
+    tree SHA로 바꾼 키로 비교한다(4차 결함 I4).
+    strict(PLAN_GATE 기각 대조만, VS3 D4 "검증할 수 없으면 대기"): 비교할 수 없는 등록 기록(task_key 이름 폴더의 읽을 수 없는·판별할 수 없는
+    contract.json, source_root에서 찾지 못하는 code_sha 커밋)을 건너뛰지 않고 ContractError. contract.json이 없는 폴더는 등록되지 않은 것으로 본다
+    (states UNREGISTERED와 같은 기준). 등록 경로(queue.enqueue·graph.register_missing, strict=False)의 동작은 그대로다."""
     if logical_key(task) is None:
         return None
     tasks_dir, known = os.path.join(root, "tasks"), {}
     for other in sorted(os.listdir(tasks_dir)) if os.path.isdir(tasks_dir) else []:
-        if other == key:
+        if other == key or (strict and not _SHA256.fullmatch(other)):  # task_key 이름이 아닌 항목은 runner도 작업으로 보지 않는다
             continue
         try:
             contract = read_json(os.path.join(tasks_dir, other, "contract.json"))
             if isinstance(contract, dict) and logical_key(contract) is not None:
                 known[other] = contract
-        except (OSError, ValueError, ContractError, AttributeError, TypeError):
+            elif strict and contract is not None and not isinstance(contract, dict):
+                raise ContractError("contract.json이 dict가 아니다")
+        except (OSError, ValueError, ContractError, AttributeError, TypeError) as exc:
+            if strict:
+                raise ContractError("비교할 수 없는 등록 기록이 있다(%s의 contract.json): %s: %s" % (other, type(exc).__name__, str(exc)[:120]))
             continue  # 깨진·옛 계약은 비교 대상이 아니다(상태 판정은 states가 한다)
     trees = verify_code(task, source_root or claude_perm.REPO, sorted({c["run_conditions"]["code_sha"].lower() for c in known.values()}))
     mine = logical_key(task, trees)
@@ -169,7 +176,9 @@ def find_duplicate(root, task, key, source_root=None):
         try:
             if logical_key(contract, trees) == mine:
                 return other
-        except ContractError:
+        except ContractError as exc:
+            if strict:
+                raise ContractError("비교할 수 없는 등록 기록이 있다(%s): %s" % (other, str(exc)[:160]))
             continue  # 이 저장소에서 찾지 못하는 커밋: 비교할 수 없다(한계)
     return None
 

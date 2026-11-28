@@ -5,6 +5,8 @@
   전역 dedupe의 config 자료형 규칙(사람 등록 config의 1 ≠ 1.0)은 바꾸지 않는다.
 - D3: LLM 작업에 직·간접 의존하는 실험·학습·평가는 장부에 관문 통과 줄(plan_gate_declared)이 있을 때만 runner가 실행한다(공개 등록 함수
   queue.enqueue·graph.register_missing 직접 호출·업그레이드 전 PENDING 우회 차단). 선언 저장·장부 줄·등록 사이 SIGKILL 뒤에도 통과한 실험은 정확히 한 번.
+- D4: 기각 대조에서 비교할 수 없는 하네스 기록(손상 계약·사라진 커밋)과 원본 artifacts/experiments의 판별할 수 없는 ./experiment 기록은 그 계획을
+  대기시키고, 하네스 밖 ./experiment 기록과 실행 조건(동결 plan·command·source_hashes)이 같으면 거절한다.
 가짜 실험 executor·합성 git 원본만 쓴다(실제 ./experiment·claude·모델 호출 없음). 합성 통과는 모델 성능 근거가 아니다.
 """
 import functools
@@ -16,12 +18,13 @@ import unittest
 from unittest import mock
 
 from harness import contract as ct
-from harness import graph, opstate, plan_gate, queue, runner, states, supervisor
+from harness import cas, graph, opstate, plan_gate, queue, runner, states, supervisor
 from harness.jsonio import read_json
 from tests import harness_plan_gate_kit as kit
 from tests import test_harness_vs3_gate as vs3_gate  # 모듈로 가져온다(시험 클래스를 이 모듈에 다시 노출하지 않게)
 from tests import test_harness_vs3_gate_flow as vs3_flow
 from tests.test_harness_support import REPO, make_contract
+from tests.test_harness_git_kit import git
 from tests.test_harness_supervisor_kit import events
 
 # SIGKILL 지점(D3): k0 declared.json 저장 직전, k1 다음 실험의 plan_gate_declared 장부 줄 직전, k2 그 줄 직후(등록 전), k3 등록 직후
@@ -109,6 +112,68 @@ class PlanGateFixTest(unittest.TestCase):
             self.assertEqual(states.state_of(states.facts(os.path.join(root, "tasks", forged)), False), states.PENDING, mode)
             self.assertEqual([e["data"]["task_key"] for e in events(root, "claimed")].count(forged), 0, mode)
 
+    def _record(self, src, name, value=0.8, code=None, record=None):
+        """원본 artifacts/experiments/<name>/에 ./experiment(experiment_record.prepare) 형식 기록을 쓴다: 동결 plan.json = 계획 + 설명 키 +
+        schema_version·threshold·independent·production_adopted, record.json = command·files(plan.json SHA)·source_hashes. record로 덮어쓴다."""
+        folder = os.path.join(src, "artifacts", "experiments", name)
+        os.makedirs(folder, exist_ok=True)
+        body = dict(kit.control("0" * 40, value=value)["run_conditions"]["config"]["plan"], hypothesis_id="CODEX-H9", hypothesis="다른 설명",
+                    change="c", success_criterion="s", failure_criterion="f", schema_version=1, threshold=0.5, independent=False,
+                    production_adopted=False)
+        with open(os.path.join(folder, "plan.json"), "w", encoding="utf-8") as handle:
+            json.dump(body, handle)
+        sha = cas.sha_file(os.path.join(folder, "plan.json"))
+        with open(os.path.join(folder, "record.json"), "w", encoding="utf-8") as handle:
+            json.dump(dict({"schema_version": 1, "experiment_id": name, "hypothesis_id": "CODEX-H9", "status": "failed",
+                            "started_at": "2030-01-01T00:00:00+00:00", "command": ["python", "-m", "card_condition.worker"],
+                            "files": {"plan.json": sha}, "source_hashes": {"code.py": code or cas.sha_file(os.path.join(src, "code.py"))}},
+                           **(record or {})), handle)
+        return folder
+
+    def test_d4_unverifiable_records_wait_and_records_outside_the_harness_are_compared(self):
+        root, src, head = kit.world(self)
+        fail = queue.enqueue(root, kit.control(head, value=0.8, hid="F"), kit.NOW, source_root=src)
+        runner.drain(root, kit.EXECUTORS, source_root=src)
+        with open(os.path.join(root, "tasks", fail, "contract.json"), "w", encoding="utf-8") as handle:
+            handle.write("{깨짐")  # 1: 실패 실험의 계약 손상(CORRUPT)
+        got = self._chain({"over": {"value": 0.8}}, world=(root, src, head))
+        self.assertTrue((got["reason"] or "").startswith("waiting") and "비교할 수 없는 등록 기록" in got["reason"], got["reason"])
+        root, src, h0 = kit.world(self)  # 2: 실패 실험의 커밋 소실(문서만 다른 커밋 X에서 실패 → reset·gc)
+        os.makedirs(os.path.join(src, "docs"))
+        with open(os.path.join(src, "docs", "note.md"), "w", encoding="utf-8") as handle:
+            handle.write("메모\n")
+        git(src, "add", "docs")
+        git(src, "commit", "-q", "-m", "docs")
+        queue.enqueue(root, kit.control(git(src, "rev-parse", "HEAD"), value=0.8, hid="F"), kit.NOW, source_root=src)
+        runner.drain(root, kit.EXECUTORS, source_root=src)
+        for args in (("reset", "-q", "--hard", h0), ("reflog", "expire", "--expire=now", "--all"), ("gc", "-q", "--prune=now")):
+            git(src, *args)
+        got = self._chain({"over": {"value": 0.8}}, world=(root, src, h0))
+        self.assertTrue((got["reason"] or "").startswith("waiting") and "비교할 수 없는 등록 기록" in got["reason"], got["reason"])
+        root, src, head = kit.world(self)  # 3: 하네스 밖 ./experiment 실패 기록만 있는 같은 실행 조건(가설 ID·문구 무관)
+        self._record(src, "20300102T000000-0badc0de")
+        got = self._refused("artifacts/experiments/20300102T000000-0badc0de", spec={"over": {"value": 0.8}}, world=(root, src, head))
+        self.assertTrue(got["reason"].startswith("refused: 기각·중복 가설"), got["reason"])
+        unknown = "판별할 수 없는 ./experiment 기록"
+        for name, kw, after, words in (("20300103T000000-00000001", {"code": "0" * 64}, None, None),  # 코드(source_hashes)가 다르면 다른 실험
+                                       ("20300103T000000-00000002", {"value": 0.85}, None, None),  # 값이 다르면 다른 실험
+                                       ("20300104T000000-00000003", {"record": {"command": ["python", "-m", "card_condition.other"]}}, None, None),
+                                       ("notes", {}, "record.json", None),  # 실험 폴더 이름이 아니고 record.json도 없으면 기록이 아니다
+                                       ("20300105T000000-00000004", {}, "record.json", unknown),  # 실험 폴더인데 record.json 없음(prepare 중단 등)
+                                       ("20300106T000000-00000005", {}, "plan.json", unknown),  # 기록 뒤에 plan.json이 바뀜(SHA 불일치)
+                                       ("20300107T000000-00000006", {"record": {"source_hashes": None}}, None, unknown)):
+            root, src, head = kit.world(self)
+            folder = self._record(src, name, **kw)
+            if after == "record.json":
+                os.remove(os.path.join(folder, after))
+            elif after:
+                with open(os.path.join(folder, after), "w", encoding="utf-8") as handle:
+                    json.dump({"tampered": True}, handle)
+            got = self._chain({"over": {"value": 0.8}}, world=(root, src, head))
+            if words is None:
+                self.assertIsNone(got["reason"], name)
+            else:
+                self.assertTrue((got["reason"] or "").startswith("waiting") and words in got["reason"], (name, got["reason"]))
 
 if __name__ == "__main__":
     unittest.main()
