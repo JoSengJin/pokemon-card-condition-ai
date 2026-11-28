@@ -69,7 +69,8 @@ def add_model(root, name, layer="sealed", denominator=DENOM, seal="seal-v1", bat
     """합성 모델 하나를 등록하고 모델 ID를 돌려준다. 가중치는 이름에서 만든 고정 바이트다.
 
     학습 manifest(eligibility.MANIFEST_FORMAT)를 CAS에 넣고 그 SHA를 data_manifest_sha로 쓴다. manifest를 안 주면 선언한 묶음의 Silver 라벨
-    (저장 당시 등급 Silver) 전부로 학습했다고 적는다(등록 시점의 Silver 장부 기준). dict는 JSON으로, bytes는 그대로 쓴다(불일치 시험용).
+    (저장 당시 등급 Silver) 전부로, 선언한 부모의 가중치에서(부모가 없으면 처음부터) 학습했다고 적는다(manifest v2의 start_weights_sha,
+    B5-2 형식 이전). dict는 JSON으로, bytes는 그대로 쓴다(불일치 시험용).
     """
     src = os.path.join(root, "incoming", name)
     os.makedirs(os.path.dirname(src), exist_ok=True)
@@ -77,7 +78,9 @@ def add_model(root, name, layer="sealed", denominator=DENOM, seal="seal-v1", bat
         handle.write(("weights-" + name).encode())
     if manifest is None:
         ids = sorted(e["data"]["label_id"] for e in silver_store.load(root) if e["event"] == "silver_label" and e["data"]["batch_id"] in batches)
-        manifest = {"format": eligibility.MANIFEST_FORMAT, "silver_batches": sorted(set(batches)), "silver_label_ids": ids}
+        start = None if parent is None else registry.load(root)["models"].get(parent, {}).get("weights_sha")
+        manifest = {"format": eligibility.MANIFEST_FORMAT, "silver_batches": sorted(set(batches)), "silver_label_ids": ids,
+                    "start_weights_sha": start}
     with open(src + ".manifest", "wb") as handle:
         handle.write(manifest if isinstance(manifest, bytes) else json.dumps(manifest, sort_keys=True).encode())
     result = registry.register(

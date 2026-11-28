@@ -24,7 +24,7 @@ class EligibilityManifestTest(unittest.TestCase):
         entries = silver_store.load(self.root)
         self.ids = {b: sorted(e["data"]["label_id"] for e in entries if e["event"] == "silver_label" and e["data"]["batch_id"] == b)
                     for b in ("b1", "o1")}
-        self.good = {"format": FMT, "silver_batches": ["b1"], "silver_label_ids": self.ids["b1"]}
+        self.good = {"format": FMT, "silver_batches": ["b1"], "silver_label_ids": self.ids["b1"], "start_weights_sha": None}  # v2(B5-2)
 
     def test_missing_corrupt_or_mismatched_manifest_is_refused_for_the_model_and_its_descendants(self):
         cases = {"not_json": b"{not json", "wrong_format": dict(self.good, format="v0"), "extra_key": dict(self.good, gold=[]),
@@ -51,7 +51,8 @@ class EligibilityManifestTest(unittest.TestCase):
     def test_pending_labels_or_a_job_trained_before_the_withdrawal_but_registered_after_is_held(self):
         rows = cands(3, prefix="p1") + [dict(c, label_value=None) for c in cands(2, prefix="p1n")]
         made = judge(self.root, "p1", self.policy, rows)
-        manifest = {"format": FMT, "silver_batches": ["p1"], "silver_label_ids": sorted(made["silver"] + made["pending"])}
+        manifest = {"format": FMT, "silver_batches": ["p1"], "silver_label_ids": sorted(made["silver"] + made["pending"]),
+                    "start_weights_sha": None}
         self.assertEqual("manifest_pending_labels", champion.promote(self.root, 2.0, add_model(self.root, "pend", batches=["p1"],
                                                                                                 manifest=manifest))["reason"])
         withdrawal.withdraw(self.root, 3.0, self.policy, "criteria_change")  # 학습은 철회 전 Silver로 시작했고, 결과 등록은 철회 뒤
