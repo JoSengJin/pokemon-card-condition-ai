@@ -19,7 +19,7 @@
 | 자동 검토·실험 연결·오류 재개 | 공통 실험 계약 + [AUTO_REVIEW_CONTRACT.md](agent/AUTO_REVIEW_CONTRACT.md) 전체 + [자동 개발 안내](../AUTO_DEVELOPMENT_20261020.md) + 실제 journal | 기존 승인·무료 가드·입력 예산, 결과 불명 재요청 금지, 저장 응답 재사용 조건 |
 | 성과·진척 보고 | [PROGRESS_CRITERIA.md](../PROGRESS_CRITERIA.md) 전체 + [development-progress.json](../development-progress.json) + [HTML_REPORTING.md](collaboration/HTML_REPORTING.md) | 현재 버전·점수 정본, 고정 배점, 이번 검사와 과거 성능 구분 |
 | 통합·원격 반영·역할 교대·worktree 정리 | PAIR_CODING.md 전체 + 배정 계약·승인 장부·전달 SHA | 통합·push는 각각 SHA별 사용자 승인, force 금지, 승인 승계 조건, 실행 중·고유 증거 보호 |
-| 자율 개발 하네스 설계·구현 | [하네스 설계 묶음](collaboration/plans/autonomous-harness-20261127/README.md)의 읽는 순서 전체 | 설계 확정·구현 미승인, D-1~D-4 확정 전 구현 금지, 이 묶음은 새 권한이 아님 |
+| 자율 개발 하네스 설계·구현 | [하네스 설계 묶음](collaboration/plans/autonomous-harness-20261127/README.md)의 읽는 순서 전체 | 설계 확정, 구현은 D-1~D-4 확정(2026-11-27)으로 승인됨, 실제 연결·활성화·설치·실험은 각각 별도 승인, 이 묶음은 새 권한이 아님 |
 
 ## 현재 상태의 정본
 

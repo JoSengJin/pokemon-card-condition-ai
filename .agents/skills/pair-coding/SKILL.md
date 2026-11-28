@@ -112,7 +112,7 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
    - 그 기록에 다음이 **없다**: `CODEX_THREAD_ID=`·`CLAUDE_CODE_SESSION_ID=` 대입, 스킬 형식 밖의 `update-ref refs/claims`, `--no-verify`, `reset --hard`, `push`, 다른 브랜치·worktree 정리.
    - 기록을 찾을 수 없거나 비어 있으면 **"신원 검증 불가"로 통합하지 않는다**(`--ephemeral` 실행 포함).
    - `git config --get core.logAllRefUpdates`가 `always`면 `git reflog show refs/claims/<id>`의 변경 수가 기록 속 claim 명령 수와 같아야 한다. 아니면 "reflog 미사용"으로 적는다.
-4. **승인 먼저:** main을 바꾸기 전에 통합 승인을 받는다. 알릴 것은 전달 전체 SHA 범위, 기준 main의 전체 SHA, 변경 파일, 직접 재실행할 검사, 되돌리는 법이며, 승인 범위는 "고지한 main 위의 cherry-pick과 `status: integrated` 커밋"까지다. main이 바뀌었으면 다시 받는다. 승인 뒤 PAIR_CODING.md §6 "현재 메인의 통합·실험" 1~4번 절차로 통합한다. cherry-pick은 범위로 한 번: `./develop -- git cherry-pick -x "$BASE"..<tip>`. squash 금지("통합 후 worktree 정리" 1번의 대응 확인 보존). 충돌은 §6 3번대로. 검사는 메인이 통합한 코드에서 **직접 다시 실행**한다(구현 담당의 "통과" 보고를 근거로 쓰지 않는다, §6 4번).
+4. **승인 먼저:** main을 바꾸기 전에 통합 승인을 받는다. 알릴 것은 전달 전체 SHA 범위, 기준 main의 전체 SHA, 변경 파일, 직접 재실행할 검사, 되돌리는 법이며, 승인 범위는 "고지한 main 위의 cherry-pick과 `status: integrated` 커밋"까지다. 그 커밋은 `docs/collaboration/tasks/<task-id>.md`의 `status: ready_for_review`를 `status: integrated`로 바꾸는 한 줄뿐이며(구현 담당의 마지막 계약이 cherry-pick으로 main에 들어온다), 고지에 이 파일 경로와 변경을 적는다. 다른 변경이 필요하면 다시 승인받는다. main이 바뀌었으면 다시 받는다. 승인 뒤 PAIR_CODING.md §6 "현재 메인의 통합·실험" 1~4번 절차로 통합한다. cherry-pick은 범위로 한 번: `./develop -- git cherry-pick -x "$BASE"..<tip>`. squash 금지("통합 후 worktree 정리" 1번의 대응 확인 보존). 충돌은 §6 3번대로. 검사는 메인이 통합한 코드에서 **직접 다시 실행**한다(구현 담당의 "통과" 보고를 근거로 쓰지 않는다, §6 4번).
 5. main 계약 `status: integrated` 커밋(위 승인 범위) → claim 삭제(2에서 적은 값과 일치할 때만). 삭제 직전에 다시 읽은 값을 기대값으로 쓰지 않는다(항상 일치해 보호가 사라진다). 실패하면 검사 뒤 claim이 바뀐 것이므로 지우지 말고 멈추고 보고한다.
 
    ```sh
