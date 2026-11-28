@@ -1,6 +1,6 @@
 """B5 시험 공용 도구(시험 없음): harness/ 정적 호출 그래프로 함수의 최장 호출 경로(전이 수)를 잰다(PAIR_CODING 2.1 호출 깊이 ≤4).
 
-규칙(검증 스크립트 struct.py와 같고 `from .x import f`도 따라간다): 모듈 최상위 함수만 노드다. `mod.f(...)`(가져온 harness 모듈)·`f(...)`(같은
+규칙(검증 스크립트 struct.py와 같고 `from .x import f`·`from harness import x`도 따라간다): 모듈 최상위 함수만 노드다. `mod.f(...)`(가져온 harness 모듈)·`f(...)`(같은
 파일 함수 또는 `from .mod import f`)·모듈 수준 별칭(`current = pointer.current`)을 호출로 본다. 객체 메서드·동적 호출(executor 표 등)은
 잡지 못한다(정적으로 확정할 수 없는 경로는 각 시험·문서에 따로 적는다). 순환은 한 번만 따라간다.
 """
@@ -21,9 +21,10 @@ def call_graph(repo=REPO):
             tree = ast.parse(handle.read())
         mods, names = {}, {}
         for node in tree.body:
-            if isinstance(node, ast.ImportFrom) and node.level == 1:
+            if isinstance(node, ast.ImportFrom) and (node.level == 1 or (node.module or "").split(".")[0] == "harness"):
+                sub = None if node.module in (None, "harness") else node.module.split(".")[-1]  # from . / from harness import 모듈
                 for a in node.names:
-                    (mods if node.module is None else names)[a.asname or a.name] = a.name if node.module is None else (node.module, a.name)
+                    (mods if sub is None else names)[a.asname or a.name] = a.name if sub is None else (sub, a.name)
             elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Attribute) and isinstance(node.value.value, ast.Name):
                 for target in node.targets:
                     if isinstance(target, ast.Name) and node.value.value.id in mods:
