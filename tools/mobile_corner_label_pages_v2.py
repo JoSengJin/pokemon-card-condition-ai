@@ -75,27 +75,44 @@ def article(number, face, data):
             '<div class="row"><button class="alln">4모서리 전부 정상</button><button class="reset">구역 초기화</button></div></article>')
 
 
-def main(review_jsonl, ids_text, out_path, side='back', per_page=None):
-    """ids_text: whitespace-separated row ids. per_page: pieces of that many cards, written as <stem>-N<suffix> (phone viewers can fail on big files)."""
+def split(sizes, per_page=None, max_bytes=None):
+    """Card index lists, in order: a piece ends at per_page cards or before its photos would pass max_bytes. A photo bigger than max_bytes gets a piece of its own."""
+    pieces = [[]]
+    total = 0
+    for n, size in enumerate(sizes):
+        if pieces[-1] and ((per_page and len(pieces[-1]) >= per_page) or (max_bytes and total + size > max_bytes)):
+            pieces.append([])
+            total = 0
+        pieces[-1].append(n)
+        total += size
+    return pieces if sizes else []
+
+
+def main(review_jsonl, ids_text, out_path, side='back', per_page=None, max_mb=None):
+    """ids_text: whitespace-separated row ids. per_page / max_mb: pieces of at most that many cards / that many MB of photos, written as <stem>-N<suffix>
+    (phone viewers can fail on big files; photo size differs with resolution, so max_mb fits more small photos on a page)."""
     rows = {r['id']: r for r in map(json.loads, Path(review_jsonl).read_text(encoding='utf-8').splitlines()) if r.get('id')}
     ids, out = ids_text.split(), Path(out_path)
-    size = per_page or len(ids)
-    pieces = [(out if not per_page else out.with_name(f'{out.stem}-{n + 1}{out.suffix}'), ids[n * size:(n + 1) * size]) for n in range(-(-len(ids) // size))]
+    faces = [dict(id=f'{i}/{side}', box=rows[i]['side_annotations'][side]['box'], title=rows[i].get('title') or i, image=rows[i]['side_annotations'][side]['image']) for i in ids]
+    shots = [photo(f['image'], f['box']) for f in faces]  # every photo passes the resolution rule before anything is written
+    groups = split([len(s[0]) for s in shots], per_page, max_mb and max_mb * 1e6)
+    named = per_page or max_mb
+    pieces = [(out if not named else out.with_name(f'{out.stem}-{n + 1}{out.suffix}'), group) for n, group in enumerate(groups)]
     for path, piece in pieces:
-        faces = [dict(id=f'{i}/{side}', box=rows[i]['side_annotations'][side]['box'], title=rows[i].get('title') or i, image=rows[i]['side_annotations'][side]['image']) for i in piece]
-        shots = [photo(f['image'], f['box']) for f in faces]  # every photo passes the resolution rule before anything is written
-        body = ''.join(article(n, f, s[0]) for n, (f, s) in enumerate(zip(faces, shots), 1))
+        part, taken = [faces[k] for k in piece], [shots[k] for k in piece]
+        body = ''.join(article(n, f, s[0]) for n, (f, s) in enumerate(zip(part, taken), 1))
         text = ('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
                 f'<title>구역 라벨 입력</title><style>{STYLE}</style><h1>모서리 구역 라벨 (기준 v2)</h1>' + INSTRUCTIONS + body +
                 '<h2>결과</h2><button id="copy">결과 복사</button><p id="msg"></p><textarea id="out" readonly></textarea>'
                 f'<script>{SCRIPT}</script></html>')
         screen = dict(screen='corner-v2', states=STATES, image=dict(format='JPEG', quality=QUALITY, scale=SCALE, crop='whole photo, no zone crop', min_px_per_mm_rule=f'display >= min(original, {MODEL_PX_MM})'),
                       px_per_mm_basis='initial card box, 63x88 mm card, smaller side', prefill='none',
-                      original_px_per_mm={f['id']: round(s[1], 4) for f, s in zip(faces, shots)}, display_px_per_mm={f['id']: round(s[2], 4) for f, s in zip(faces, shots)})
+                      original_px_per_mm={f['id']: round(s[1], 4) for f, s in zip(part, taken)}, display_px_per_mm={f['id']: round(s[2], 4) for f, s in zip(part, taken)})
         label_criteria.write_page(path, text, INSTRUCTIONS, body, screen)
     return [p for p, _ in pieces]
 
 
 if __name__ == '__main__':
-    for written in main(*sys.argv[1:4], 'back', *([int(sys.argv[4])] if len(sys.argv) > 4 else [])):
+    # argv: review ids out [per_page or 0] [max_mb]
+    for written in main(*sys.argv[1:4], 'back', int(sys.argv[4]) if len(sys.argv) > 4 and int(sys.argv[4]) else None, float(sys.argv[5]) if len(sys.argv) > 5 else None):
         print(written, written.stat().st_size)
