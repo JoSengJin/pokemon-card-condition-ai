@@ -5,7 +5,8 @@
   승격은 호출자가 준 봉인 교체 주기 ID(seal_cycle)로 센다.
 - 한도를 넘는 charge는 기록하지 않고 BUDGET_EXCEEDED를 켜고 알림을 남긴다(중단·보고). 자동 재개 경로는 없다:
   BUDGET_EXCEEDED(및 다른 정지 상태)가 켜져 있는 동안 charge는 모두 거절되고, 해제는 opstate.clear_by_user(사람)뿐이다(예산 재승인 필요).
-- 호출자: 실험을 시작하는 쪽(runner.drain: 실험·학습·평가 executor 직전, key = 논리 실험 키)과 비전 작업(5단계)이 charge를 부른다. Supervisor 루프는 부르지 않는다.
+- 호출자: 실험을 시작하는 쪽(runner.drain: 실험·학습·평가 executor 직전, key = 논리 실험 키)과 비전 작업(claude_job.execute: needs_vision 작업의
+  claude 실행 시작 직전, key = task_key, 취소 없음)이 charge를 부른다. Supervisor 루프는 직접 부르지 않는다.
 - 취소(B5-4, 사용자 결정 3 "실행되지 않았음이 객관적으로 확인된 경우에만 취소"): cancel 이벤트 하나만 더했다. cancel은 charge가 돌려준 차감 번호(seq)
   하나를 한 번만 되돌리며 그 차감의 기간(주)에서 뺀다(다음 주 예산을 비우지 않는다). 취소된 차감은 key 멱등의 근거가 아니다(다시 시작하면 새로 차감).
   앞선 같은 (kind, key, period, amount) 차감을 가리키지 않거나 같은 차감을 두 번 되돌리는 cancel 줄·모르는 이벤트는 위조·손상으로 BudgetError

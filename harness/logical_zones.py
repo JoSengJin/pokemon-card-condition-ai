@@ -8,7 +8,7 @@
   select의 반환 전체는 받지 않는다: 이 파일은 Claude가 읽는 입력인데 trace에는 선별 점수가, silver_queue·human_queue 소속에는 기대 라벨이
   드러나고(앵커링), 세지 않는 목록에 구역을 더 넣을 수 있다. 모르는 키·중복 JSON 키(뒤 값만 세어지지만 파일에는 앞 목록도 남는다)도 거절한다.
 - 중복: region_id가 같거나 (image_sha, zone)이 같으면(앞뒤 공백·대소문자 무시, 라벨 단위는 relabel·silver_gate와 같다) 거절한다. 빈 목록도 거절.
-- 한도 비교·차감·멱등은 budget.charge가 한다(여기서 다시 하지 않는다). 연결(claude_job, 통합 뒤):
+- 한도 비교·차감·멱등은 budget.charge가 한다(여기서 다시 하지 않는다). 호출자 claude_job.execute(VS4):
   budget.charge(root, "vision_zone", count_logical_zones(task_dir, contract), now, key=task_key) — Claude 실행 시작 직전, key는 run_token이 아니다.
   LogicalZoneError면 그 작업만 거절한다(fail-closed).
 호출 깊이: count_logical_zones → _unique_keys(json 콜백) 1. 나머지는 표준 라이브러리다.

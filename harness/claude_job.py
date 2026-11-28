@@ -39,6 +39,10 @@ rate_limited|done|failed|blocked|stale), session_id, crash_resumes, mode, run_to
   그 뒤는 사람 확인이다. 자동 재개가 꺼진 유형은 한도에 부딪힌 작업이 대기로 바뀌고 다음 시도는 다른 독립 작업이 쓴다(최대 4개 작업).
   횟수 기록이 깨졌거나(JSON 오류) 값이 이상하면 소진으로 본다(2차 결함 G9). 횟수는 claude 실행이 성공해야만 0이 된다: 사람이 소진 조건을
   풀어도 기록은 3으로 남아 다음 시각 미상 한도는 다시 시도 없이 바로 소진된다(의도된 보수적 동작. 다시 세려면 사람이 기록 파일을 지운다).
+- 비전 구역 예산(VS4, B5-5): needs_vision 작업은 입력 사본에서 logical_zones로 구역 수를 세고(셀 수 없으면 그 작업만 대기), claude 실행 시작
+  직전에 budget.charge(vision_zone, key=task_key)를 부른다. 실행 전에 멈추는 경로는 차감하지 않는다. 한도 거절은 그 작업만 대기(BUDGET_EXCEEDED는
+  기존 정책대로 전체 정지), 그 사이 걸린 정지는 halted(작업 상태 그대로). 차감은 취소하지 않는다: 차감 뒤 claude가 시작하지 못해도 남고, 같은
+  task_key의 다음 실행은 다시 빼지 않는다. 같은 묶음의 이미지 유형(B)은 아직 실행 불가다(claude_perm.RUNNABLE).
 - 모델·effort는 route.route(정책 v1)에 이전 실패 이력(route_history.history, VS4)을 넣어 정하고, 이력 오류(RouteHistoryError)·pending 결정은
   그 작업만 대기시킨다(route_history_invalid·route_pending). 실행마다 route_record와 실행 증거(claude_run_evidence)를 남긴다. 실제 적용 확인(T7)은 주장하지 않는다.
 호출 깊이(시작 함수 기준): pick 2, execute 3(run_once → scan → 말단, _record_run → record_decision → append, history → facts → 말단),
@@ -49,8 +53,8 @@ import os
 import uuid
 
 from . import contract as ct
-from . import cas, claude_perm, claude_run, evidence, ledger, lease, manifest, opstate, queue, ratelimit, recovery, route, route_history
-from . import states
+from . import budget, cas, claude_perm, claude_run, evidence, ledger, lease, logical_zones, manifest, opstate, queue, ratelimit, recovery
+from . import route, route_history, states
 from .jsonio import read_json, write_json
 
 JOBS = os.path.join("supervisor", "claude")  # 작업별 상태 <task_key>.json·<task_key>.pid
@@ -224,6 +228,12 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None, s
         claude_perm.stage_inputs(task_dir, contract, source_root or claude_perm.REPO, root)
     except (OSError, ValueError) as exc:  # 계약 입력이 허용 범위 밖이거나 SHA가 다르다: 결정적(계약·자료 문제)
         return {"kind": "failed", "mode": None, "result": {"error": "input_refused: %s" % exc}}
+    zones = None  # 비전 구역 예산(B5-5): SHA를 확인한 in/ 사본의 논리 구역 수(실제 AI 사용량이 아니다)
+    if contract["needs_vision"]:
+        try:
+            zones = logical_zones.count_logical_zones(task_dir, contract)
+        except logical_zones.LogicalZoneError as exc:
+            return {"kind": "held", "mode": None, "result": {"hold_reason": "logical_zone_uncountable: %s" % exc}}
     failed_session = None
     for mode in (("resume", "new") if job.get("session_id") and job["status"] != "new" else ("new",)):
         # 실행 직전마다 다시 본다: 실패한 --resume 실행 중에 건 정지 뒤에는 새 세션을 열지 않는다
@@ -235,6 +245,13 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None, s
             pass
         except OSError as exc:  # 선언 자리가 폴더 등(Claude가 그 아래에 썼다): 이 작업만 대기(2차 결함 G11, 전체 정지 아님)
             return {"kind": "held", "mode": mode, "result": {"hold_reason": "declaration_path_invalid: %s" % exc}}
+        if zones is not None:  # 실행 시작 직전·작업 상태 저장 전. key=task_key라 재개·새 세션·재실행은 already. 장부 손상은 예외 → INTEGRITY_HALT
+            spent = budget.charge(root, "vision_zone", zones, now_fn(), key=key)
+            if spent.get("reason") == "limit":  # 이 작업만 대기: charge가 켠 BUDGET_EXCEEDED를 사람이 풀어도 이 작업을 다시 골라 또 멈추지 않게
+                return {"kind": "held", "mode": mode, "result": {"hold_reason": "vision_budget_refused: limit(%s, 요청 %d, 사용 %d/%d)"
+                                                                 % (spent["period"], zones, spent["used"], spent["limit"])}}
+            if not spent["ok"]:  # 위의 정지 확인과 차감 사이에 걸린 정지: 작업 상태를 바꾸지 않는다(해제하면 이어간다)
+                return {"kind": "halted", "mode": mode, "result": {}}
         if mode == "new":
             job["session_id"] = str(uuid.uuid4())
         job.update(status="running", mode=mode, run_token=uuid.uuid4().hex, updated_at=now_fn())
