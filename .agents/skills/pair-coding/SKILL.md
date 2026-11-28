@@ -18,6 +18,7 @@ description: Codex·Claude 병렬 페어코딩 절차. 사용자가 "pair-coding
    이 줄은 아래 모든 선점 명령 앞에 같은 명령으로 붙여 실행한다(셸 상태가 명령 사이에 이어지지 않을 수 있다). `;`로 이어 붙이면 이 줄이 실패해도 다음 명령이 실행되므로, 선점 명령 자체가 `[ -n "$SID" ] &&`로 다시 확인한다(2026-11-23 시험에서 확인). `AG`는 자기 신고지만, 메인이 대화 기록 위치(`~/.codex/sessions` / `~/.claude/projects`)로 대조한다(§4).
 4. 지금 메인이 누구인지는 PAIR_CODING.md §7과 최신 인계 기록으로 확인한다. 모르면 추정하지 말고 묻는다.
 5. 사용자가 부른 모드만 수행한다. 모드가 없으면 "열기/시작/이어하기/통합/인수 중 무엇인지"를 묻는다.
+6. main 커밋·cherry-pick·push(열기·통합·롤백 포함)는 AGENTS.md "통합·push 승인"대로 사용자가 직접 연 세션의 직접 메시지 턴에서만, 각각 사용자 직접 승인을 받은 뒤에 한다. 하위·무인·예약·출처 불명 세션은 하지 않고 승인도 요청하지 않는다. 이 스킬의 "기존 push·정리 절차"는 승인이 아니다.
 
 claim 내용 형식(모든 모드 공통, 스킬 명령만 만든다):
 
@@ -35,7 +36,7 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
 
 ## 1. 열기 — 메인만 (`pair-coding 열기 <목표>`)
 
-1. `git fetch origin main` 후 검증된 최신 main 위에서 작업을 연다(PAIR_CODING.md 137행). 계약의 `base_sha`는 비워 둔다 — 계약 커밋보다 앞선 SHA로 시작하면 worktree에 계약 문서가 없기 때문이다(2026-11-23 대조군에서 확인). 시작하는 에이전트가 계약이 들어 있는 main tip을 기록한다.
+1. `git fetch origin main` 후 검증된 최신 main 위에서 작업을 연다(PAIR_CODING.md "검증한 main의 push와 세션 간 기준 동기화" 4번). 계약의 `base_sha`는 비워 둔다 — 계약 커밋보다 앞선 SHA로 시작하면 worktree에 계약 문서가 없기 때문이다(2026-11-23 대조군에서 확인). 시작하는 에이전트가 계약이 들어 있는 main tip을 기록한다.
 2. 목표를 독립 작업으로 나눈다. **동시에 open인 모든 작업끼리 allowed_files가 한 줄도 겹치지 않아야 한다.** 이미 open이거나 선점된 작업의 파일과도 겹치면 안 된다. 겹치면 `depends_on`으로 직렬화하거나 한 작업으로 합친다.
 3. 작업마다 `docs/collaboration/tasks/<task-id>.md`를 아래 형식으로 쓴다(PAIR_CODING.md §3 + 추가 필드).
 
@@ -60,14 +61,14 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
    handoff:
    ```
 
-4. 계약 문서만 커밋한다(`docs(pair): open <task-id>...`). 기존 push 승인 범위에 따라 origin/main에 반영한다. 계약을 확정할 수 없으면 open으로 올리지 않는다.
+4. 계약 문서만 현재 main에서 분기한 별도 브랜치에 커밋해(`docs(pair): open <task-id>...`) 전체 SHA를 만든다. main 반영은 fast-forward로만 해 고지한 SHA가 그대로 main이 되게 한다(ff가 안 되면 새 SHA로 다시 승인). main 반영과 origin/main push는 각각 그 SHA를 알리고 사용자 직접 승인을 받은 뒤에만 한다. 승인·반영 전에는 열린 작업이 아니다. 계약을 확정할 수 없으면 open으로 올리지 않는다.
 5. 보고: 연 작업 목록, 병렬 가능한 묶음, 사용자가 각 창에 넣을 한 줄(`pair-coding 시작`).
 
 ## 2. 시작 — 구현 담당 (`pair-coding 시작`)
 
 같은 세션이 하던 작업이 있으면 이어서 하고, 없으면 새 작업 하나를 맡아 시작한다. **다른 세션의 작업은 같은 종류라도 건드리지 않는다**(그건 §3 이어하기).
 
-1. **같은 세션 재개:** claim 목록에서 `agent=$AG`이고 `session=$SID`(내 환경 변수 값과 정확히 같음)인 claim을 찾는다. 그 브랜치 tip의 계약이 `ready_for_review`가 아니면 그 worktree에서 `next`부터 이어간다. `next`가 "실행 중이었음/결과 불명"이면 다시 실행하지 말고 확인부터 한다(PAIR_CODING.md 118행).
+1. **같은 세션 재개:** claim 목록에서 `agent=$AG`이고 `session=$SID`(내 환경 변수 값과 정확히 같음)인 claim을 찾는다. 그 브랜치 tip의 계약이 `ready_for_review`가 아니면 그 worktree에서 `next`부터 이어간다. `next`가 "실행 중이었음/결과 불명"이면 다시 실행하지 말고 확인부터 한다(PAIR_CODING.md §7 "갑작스러운 한도 소진").
 2. **새 작업 맡기:** main의 `docs/collaboration/tasks/`에서 `status: open`이고, claim이 없고, `depends_on`이 전부 main에서 `status: integrated`인 작업 중 task_id가 가장 앞선 것을 고른다. 파일 겹침은 계산하지 않는다(메인이 열 때 보장).
 3. **선점 + worktree (한 명령, 승인 1회):** 선점 전에 PAIR_CODING.md §4의 시작 조건을 기본 checkout에서 확인한다. `git status`에 진행 중인 Git 작업(merge·cherry-pick·rebase 등)이 없고, `git status --porcelain --untracked-files=no`와 `git ls-files --others --exclude-standard -- <계약의 allowed_files>`의 출력이 모두 비어 있으며, 진행 중인 실험·검토가 없어야 한다. allowed_files 밖의 미추적 항목은 그대로 두고 진행한다. 하나라도 어긋나거나 확인할 수 없으면 선점하지 말고 보고한다. 통과하면 §0의 신원 줄 뒤에 이어서 한 번에 실행한다.
 
@@ -79,9 +80,9 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
 
    - `reference already exists`로 실패 → 다른 쪽이 먼저 잡았다. 2로 돌아가 다음 후보.
    - 선점은 됐는데 worktree 생성이 실패 → claim을 지우지 말고 멈추고 보고한다.
-   - Codex: 선점·worktree 생성 명령과, 이후 worktree의 각 체크포인트·완료 커밋은 Git 메타데이터(`.git`) 쓰기라 샌드박스에서 막힌다(`index.lock: Operation not permitted`, 2026-11-22·11-28 실측). 해당 명령마다 권한 상승을 요청한다. 이는 규칙 회피가 아니다(150행의 금지는 검사·규칙을 건너뛰는 상승).
+   - Codex: 선점·worktree 생성 명령과, 이후 worktree의 각 체크포인트·완료 커밋은 Git 메타데이터(`.git`) 쓰기라 샌드박스에서 막힌다(`index.lock: Operation not permitted`, 2026-11-22·11-28 실측). 해당 명령마다 권한 상승을 요청한다. 이는 규칙 회피가 아니다(§6 "막히면 우회하지 않는다"가 금지하는 것은 검사·규칙을 건너뛰는 상승).
    - 첫 체크포인트에서 계약의 `owner`, `branch`, `base_sha`(= 위 `BASE`), `status: implementing`을 채운다.
-4. 새 worktree에서 PAIR_CODING.md §4(66–74행)대로 자체 `.venv`를 준비하고, 모델·worker 수정은 `./develop -- <명령>` 안에서 한다.
+4. 새 worktree에서 PAIR_CODING.md §4 "각 worktree는 자체 `.venv`를 만든다" 단락대로 자체 `.venv`를 준비하고, 모델·worker 수정은 `./develop -- <명령>` 안에서 한다.
 5. **체크포인트:** 의미 단위가 끝날 때마다 **한 커밋에** 코드 + 계약의 `done`(이번 단위 추가)·`next`(다음 할 일 하나)를 함께 넣는다. 제목 `checkpoint(<task-id>): <끝낸 단위>`. 커밋 전 `git diff --check`, `git diff --name-only <base_sha>`가 allowed_files + 계약 문서 안인지 확인한다.
 6. **완료:** 마지막 커밋은 `feat|fix|test(scope): …` 형식으로 `status: ready_for_review`와 handoff(SHA, 변경 파일, 구조 기준, 검사 결과, 미검증, 리스크, 롤백)를 함께 기록한다. 이후 이 브랜치에 커밋하지 않는다.
 7. 보고는 한 줄. 상대 에이전트에게 SHA나 내용을 전달해 달라고 요청하지 않는다.
@@ -111,14 +112,14 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
    - 그 기록에 다음이 **없다**: `CODEX_THREAD_ID=`·`CLAUDE_CODE_SESSION_ID=` 대입, 스킬 형식 밖의 `update-ref refs/claims`, `--no-verify`, `reset --hard`, `push`, 다른 브랜치·worktree 정리.
    - 기록을 찾을 수 없거나 비어 있으면 **"신원 검증 불가"로 통합하지 않는다**(`--ephemeral` 실행 포함).
    - `git config --get core.logAllRefUpdates`가 `always`면 `git reflog show refs/claims/<id>`의 변경 수가 기록 속 claim 명령 수와 같아야 한다. 아니면 "reflog 미사용"으로 적는다.
-4. 기존 PAIR_CODING.md §6(92–101행) 절차로 통합한다. cherry-pick은 범위로 한 번: `./develop -- git cherry-pick -x "$BASE"..<tip>`. squash 금지(145행 대응 확인 보존). 충돌은 93행대로. 검사는 메인이 통합한 코드에서 **직접 다시 실행**한다(구현 담당의 "통과" 보고를 근거로 쓰지 않는다, 94행).
-5. main 계약 `status: integrated` 커밋 → claim 삭제(2에서 적은 값과 일치할 때만). 삭제 직전에 다시 읽은 값을 기대값으로 쓰지 않는다(항상 일치해 보호가 사라진다). 실패하면 검사 뒤 claim이 바뀐 것이므로 지우지 말고 멈추고 보고한다.
+4. **승인 먼저:** main을 바꾸기 전에 통합 승인을 받는다. 알릴 것은 전달 전체 SHA 범위, 기준 main의 전체 SHA, 변경 파일, 직접 재실행할 검사, 되돌리는 법이며, 승인 범위는 "고지한 main 위의 cherry-pick과 `status: integrated` 커밋"까지다. main이 바뀌었으면 다시 받는다. 승인 뒤 PAIR_CODING.md §6 "현재 메인의 통합·실험" 1~4번 절차로 통합한다. cherry-pick은 범위로 한 번: `./develop -- git cherry-pick -x "$BASE"..<tip>`. squash 금지("통합 후 worktree 정리" 1번의 대응 확인 보존). 충돌은 §6 3번대로. 검사는 메인이 통합한 코드에서 **직접 다시 실행**한다(구현 담당의 "통과" 보고를 근거로 쓰지 않는다, §6 4번).
+5. main 계약 `status: integrated` 커밋(위 승인 범위) → claim 삭제(2에서 적은 값과 일치할 때만). 삭제 직전에 다시 읽은 값을 기대값으로 쓰지 않는다(항상 일치해 보호가 사라진다). 실패하면 검사 뒤 claim이 바뀐 것이므로 지우지 말고 멈추고 보고한다.
 
    ```sh
    ID=<task-id>; CHECKED="<2에서 적은 OID>"; [ -n "$CHECKED" ] && git update-ref -d "refs/claims/$ID" "$CHECKED"
    ```
 
-6. 기존 push·worktree 정리 절차(130–152행)를 따른다.
+6. push는 반영 결과의 새 전체 SHA를 알리고 별도 사용자 직접 승인을 받은 뒤 PAIR_CODING.md "검증한 main의 push와 세션 간 기준 동기화"대로 한다. 이어서 "통합 후 worktree 정리" 절차를 따른다.
 
 ## 5. 인수 — 사용자가 지시할 때만 (`pair-coding 인수 <task-id>`)
 
@@ -146,9 +147,9 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
 - allowed_files 밖 파일을 고치지 않는다. 이 스킬·AGENTS.md·PAIR_CODING.md도 고치지 않는다. 범위가 부족하면 멈추고 메인에게 계약 갱신을 요청하는 내용을 `next`에 적는다.
 - 대화 기록 파일(`~/.codex/sessions`, `~/.claude/projects`)과 Git 설정·reflog를 고치거나 지우지 않는다.
 - 막히면 우회하지 않는다(검사 건너뛰기, 강제 옵션, 권한 상승으로 규칙 회피, 다른 브랜치·worktree 정리 금지). 멈추고 보고한다.
-- 실제 학습·모델 비교·사진 추론·라벨 수정·자동 검토는 구현 worktree에서 실행하지 않는다(PAIR_CODING.md 12–14행).
-- 상대 에이전트를 자동으로 실행하거나 깨우지 않는다(86행). 세션 시작은 사용자 몫이다.
-- 완료 불명인 실행·push는 확인 전 재실행하지 않는다(119행).
+- 실제 학습·모델 비교·사진 추론·라벨 수정·자동 검토는 구현 worktree에서 실행하지 않는다(PAIR_CODING.md §1 표의 실제 학습·사람 라벨·자동 검토 행).
+- 상대 에이전트를 자동으로 실행하거나 깨우지 않는다(PAIR_CODING.md §5 "전달은 사용자가 공유하는 결과나…" 단락). 세션 시작은 사용자 몫이다.
+- 완료 불명인 실행·push는 확인 전 재실행하지 않는다(PAIR_CODING.md §7 "갑작스러운 한도 소진").
 
 ## 7. 남는 한계
 

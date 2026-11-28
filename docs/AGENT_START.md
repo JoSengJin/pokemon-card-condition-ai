@@ -18,7 +18,7 @@
 | 사람 라벨·정답 의미·검토 화면 | [LABELING_PROTOCOL.md](../LABELING_PROTOCOL.md) 전체 + 해당 사진·사람 응답·현재 계약 + [품질 규칙](agent/QUALITY_RULES.md) | 완료 재요청 금지, unknown 보존, 모델 오답으로 사람 정답 변경 금지 |
 | 자동 검토·실험 연결·오류 재개 | 공통 실험 계약 + [AUTO_REVIEW_CONTRACT.md](agent/AUTO_REVIEW_CONTRACT.md) 전체 + [자동 개발 안내](../AUTO_DEVELOPMENT_20261020.md) + 실제 journal | 기존 승인·무료 가드·입력 예산, 결과 불명 재요청 금지, 저장 응답 재사용 조건 |
 | 성과·진척 보고 | [PROGRESS_CRITERIA.md](../PROGRESS_CRITERIA.md) 전체 + [development-progress.json](../development-progress.json) + [HTML_REPORTING.md](collaboration/HTML_REPORTING.md) | 현재 버전·점수 정본, 고정 배점, 이번 검사와 과거 성능 구분 |
-| 통합·원격 반영·역할 교대·worktree 정리 | PAIR_CODING.md 전체 + 배정 계약·승인 장부·전달 SHA | 기존 일반 push 승인 유지, force 금지, 승인 승계 조건, 실행 중·고유 증거 보호 |
+| 통합·원격 반영·역할 교대·worktree 정리 | PAIR_CODING.md 전체 + 배정 계약·승인 장부·전달 SHA | 통합·push는 각각 SHA별 사용자 승인, force 금지, 승인 승계 조건, 실행 중·고유 증거 보호 |
 | 자율 개발 하네스 설계·구현 | [하네스 설계 묶음](collaboration/plans/autonomous-harness-20261127/README.md)의 읽는 순서 전체 | 설계 확정·구현 미승인, D-1~D-4 확정 전 구현 금지, 이 묶음은 새 권한이 아님 |
 
 ## 현재 상태의 정본
@@ -42,7 +42,7 @@
 | receiving-code-review | 검토 의견을 반영할 때 | 적용 전 코드로 확인한다. 불명확한 항목만 보류하고 독립 항목은 계속한다. 삭제 제안은 허용 파일·승인 안에서만. 외부 스레드 답글은 하지 않는다. |
 | using-git-worktrees | 격리 확인만 | 생성·설치·.gitignore 변경·현재 checkout fallback은 PAIR_CODING.md §4를 따른다. |
 | brainstorming | 요구가 실제로 불명확할 때 | 명확한 요청은 바로 처리한다. 승인된 TODO마다 설계를 다시 묻지 않는다. |
-| pair-coding(저장소 스킬 `.agents/skills/pair-coding`) | 사용자가 `pair-coding 열기/시작/이어하기/통합/인수`를 부를 때만 | Codex·Claude 병렬 구현 절차. 권한을 새로 부여하지 않으며 PAIR_CODING.md·AGENTS.md가 우선한다. 구현 담당은 push하지 않는다. 메인의 열기·통합 push는 기존 push 상시 승인 범위를 따른다. |
+| pair-coding(저장소 스킬 `.agents/skills/pair-coding`) | 사용자가 `pair-coding 열기/시작/이어하기/통합/인수`를 부를 때만 | Codex·Claude 병렬 구현 절차. 권한을 새로 부여하지 않으며 PAIR_CODING.md·AGENTS.md가 우선한다. 구현 담당은 push하지 않는다. 메인의 열기·통합 커밋과 push는 AGENTS.md의 SHA별 사용자 직접 승인을 받은 뒤에만 한다. |
 | writing-plans | task 계약 안에서 | 별도 계획 문서와 실행 스킬 자동 연결을 만들지 않는다. |
 | executing-plans | 원리만 | 진행 장부 개념만 쓴다. 절차·기록 삭제·마무리 연결은 PAIR_CODING.md를 따른다. |
 
