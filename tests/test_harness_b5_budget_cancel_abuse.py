@@ -62,6 +62,7 @@ class BudgetCancelAbuseTest(unittest.TestCase):
         cases = {"no_charge": [("cancel", dict(good, charge_seq=9))], "amount": [("cancel", dict(good, amount=5))],
                  "period": [("cancel", dict(good, period="week:2030-W03"))], "key": [("cancel", dict(good, key="K1"))],
                  "kind": [("cancel", dict(good, kind="vision_zone"))], "seq_type": [("cancel", dict(good, charge_seq="0"))],
+                 "seq_bool": [("cancel", dict(good, charge_seq=False))],  # False == 0: bool 번호로 0번 차감을 가리키는 위조
                  "points_at_itself": [("cancel", dict(good, charge_seq=1))], "before_charge": [("cancel", dict(good, key="K2", charge_seq=2)),
                                                                                             ("charge", later)],
                  "double": [("cancel", good), ("cancel", good)], "unknown_event": [("refund", {"kind": "experiment", "amount": -1})]}
