@@ -28,7 +28,7 @@ import subprocess
 import sys
 import time
 
-from . import apply_main, claude_job, dedupe, evidence, graph, ledger, opstate, plan_gate, silver_store, withdrawal
+from . import al_cycle, apply_main, claude_job, dedupe, evidence, graph, ledger, opstate, plan_gate, silver_store, withdrawal
 from .jsonio import read_json
 
 POLL_S = 60.0
@@ -142,6 +142,7 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
                     # 정수 글자는 dedupe.json_number로 읽는다: 자릿수가 너무 큰 정수 하나가 파일 전체를 깨지 않고 그 선언만 거절된다(4차 결함 I2)
                     declared = read_json(os.path.join(root, DECLARED), {}, parse_int=dedupe.json_number)
                     declared = plan_gate.gate(root, declared, now, source_root)  # VS3: 실험 VERIFIED → ANALYZE, 분석 → PLAN_GATE → 다음 실험 선언
+                    declared = al_cycle.declare(root, declared)  # D7: 허용 사유 코드·승인 입력이 비어 있으면(기본) 아무 일도 하지 않는다
                     if declared:
                         graph.register_missing(root, declared, now, source_root=source_root)
                 except (graph.GraphError, ValueError, RecursionError) as exc:  # ValueError: 깨진 JSON(장부 오류 LedgerError는 여기서 잡지 않는다)

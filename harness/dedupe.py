@@ -56,7 +56,7 @@ from .contract import ContractError
 from .jsonio import read_json
 
 CONDITION_TYPES = ("experiment", "training", "evaluation")
-PLAIN_TYPES = frozenset(claude_perm.BUNDLE_OF) | {"deterministic"} | frozenset(route_history.CHECKER_TYPES)  # 실행 조건 없이 등록하는 유형(고정 목록)
+PLAIN_TYPES = frozenset(claude_perm.BUNDLE_OF) | {"deterministic", "al_select"} | frozenset(route_history.CHECKER_TYPES)  # 실행 조건 없이 등록하는 유형(고정 목록, al_select = D7 al_cycle.TASK_TYPE)
 CONDITION_KEYS = ("command", "code_sha", "config", "seed")
 NOTE_KEYS = ("hypothesis_id", "description", "input_roles")
 _SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")

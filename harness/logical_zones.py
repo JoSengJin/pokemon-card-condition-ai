@@ -11,7 +11,7 @@
 - 한도 비교·차감·멱등은 budget.charge가 한다(여기서 다시 하지 않는다). 호출자 claude_job.execute(VS4):
   budget.charge(root, "vision_zone", count_logical_zones(task_dir, contract), now, key=task_key) — Claude 실행 시작 직전, key는 run_token이 아니다.
   LogicalZoneError면 그 작업만 거절한다(fail-closed).
-호출 깊이: count_logical_zones → _unique_keys(json 콜백) 1. 나머지는 표준 라이브러리다.
+호출 깊이: count_logical_zones → read_input 1(_unique_keys는 json 콜백). 나머지는 표준 라이브러리다.
 """
 import hashlib
 import json
@@ -35,29 +35,35 @@ def _unique_keys(pairs):
     return found
 
 
-def count_logical_zones(task_dir, contract):
-    """task_dir/in/INPUT(SHA 확인)의 후보 구역 수(1 이상). 셀 수 없으면 LogicalZoneError."""
-    want = contract.get("inputs", {}).get(INPUT)
+def read_input(task_dir, contract, rel, label="후보 목록"):
+    """task_dir/in/<rel>의 읽은 바이트를 계약 inputs의 SHA와 대조한 뒤 JSON(중복 키 거절)으로 해석해 돌려준다. 어긋나면 LogicalZoneError.
+    al_cycle.load_inputs도 같은 읽기를 쓴다(링크·일반 파일·SHA·중복 키 규칙을 한 곳에 둔다)."""
+    want = contract.get("inputs", {}).get(rel)
     if not isinstance(want, str):
-        raise LogicalZoneError("계약 inputs에 후보 목록(%s)이 없다" % INPUT)
+        raise LogicalZoneError("계약 inputs에 %s(%s)이 없다" % (label, rel))
     path = task_dir
-    for part in ["in"] + INPUT.split("/"):  # 원본·다른 파일을 가리키는 링크 사본은 읽지 않는다
+    for part in ["in"] + rel.split("/"):  # 원본·다른 파일을 가리키는 링크 사본은 읽지 않는다
         path = os.path.join(path, part)
         if os.path.islink(path):
-            raise LogicalZoneError("후보 목록 사본 경로에 링크가 있다: %s" % path)
+            raise LogicalZoneError("%s 사본 경로에 링크가 있다: %s" % (label, path))
     try:
         if not stat.S_ISREG(os.lstat(path).st_mode):  # FIFO는 여는 순간 멈춘다
-            raise LogicalZoneError("후보 목록 사본이 일반 파일이 아니다")
+            raise LogicalZoneError("%s 사본이 일반 파일이 아니다" % label)
         with open(path, "rb") as handle:
             data = handle.read()
     except OSError as exc:
-        raise LogicalZoneError("후보 목록 사본을 읽을 수 없다: %s" % exc)
+        raise LogicalZoneError("%s 사본을 읽을 수 없다: %s" % (label, exc))
     if hashlib.sha256(data).hexdigest() != want.lower():
-        raise LogicalZoneError("후보 목록 사본의 SHA가 계약과 다르다")
+        raise LogicalZoneError("%s 사본의 SHA가 계약과 다르다" % label)
     try:
-        body = json.loads(data.decode("utf-8"), object_pairs_hook=_unique_keys)
+        return json.loads(data.decode("utf-8"), object_pairs_hook=_unique_keys)
     except (ValueError, RecursionError) as exc:  # LogicalZoneError도 ValueError: 사유를 그대로 담는다
-        raise LogicalZoneError("후보 목록 해석 실패: %s" % exc)
+        raise LogicalZoneError("%s 해석 실패: %s" % (label, exc))
+
+
+def count_logical_zones(task_dir, contract):
+    """task_dir/in/INPUT(SHA 확인)의 후보 구역 수(1 이상). 셀 수 없으면 LogicalZoneError."""
+    body = read_input(task_dir, contract, INPUT)
     items = body.get("selected") if isinstance(body, dict) and set(body) == {"selected"} else None
     if not isinstance(items, list) or not items:
         raise LogicalZoneError('후보 목록은 비어 있지 않은 {"selected": [...]} 하나여야 한다')
