@@ -24,6 +24,10 @@ CLAUSES['모서리 재판정'] = CLAUSES['모서리']
 ALIAS = {'관찰 제한(휴대폰)': '관찰 제한', '모서리 재판정': '모서리'}  # which canonical text a screen is held to
 
 
+V2_PARAGRAPH = ('모서리의 둥근 끝에서 뭉개짐·찍힘·백화·접힘이 사진을 확대하여 명확히 구분되면 크기와 관계없이 결함으로 판정한다. 확대해도 반사인지 실제 마모인지 구분되지 않거나 '
+                '가림·흐림 등으로 판별할 수 없으면 판단 불가로 처리하며, 원본 사진에 없는 세부정보는 추정하지 않는다.')  # 2026-11-28 user decision A, verbatim
+
+
 def plain(text):
     return re.sub(r'<[^>]+>|[\s*`\'"‘’“”]', '', text)
 
@@ -63,6 +67,13 @@ class LabelCriteriaSourceTest(unittest.TestCase):
                     self.assertNotIn(clause, drift(cell, canonical(cell), screen(cell)))  # present on both sides first
                     self.assertIn(clause, drift(cell, re.sub(clause, '', canonical(cell)), screen(cell)))
                     self.assertIn(clause, drift(cell, canonical(cell), re.sub(clause, '', screen(cell))))
+
+    def test_canonical_corner_v2_states_d1_d2_and_what_stays_open(self):
+        # Canonical text only: screens are not held to these sentences until R9 puts them on the corner screen.
+        text = canonical('모서리')
+        for clause in (re.escape(plain(V2_PARAGRAPH)), '걸친두위치모두결함', '표면·엣지(?:에대한)?적용범위는미정', '옛기준\\(v1\\)라벨', '소급하지않'):
+            with self.subTest(clause=clause):
+                self.assertRegex(text, clause)
 
     def test_surface_screens_use_the_shared_copy_instead_of_their_own(self):
         for name in SURFACE_TOOLS:
