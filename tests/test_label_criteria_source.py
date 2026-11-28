@@ -21,7 +21,8 @@ CLAUSES = {
                     '카드뒷면이아니거나\\(금속·복제등\\)네변이사진에다보이지않(?:으면|거나)', '추정하지않', '판단이안서면'),
 }
 CLAUSES['모서리 재판정'] = CLAUSES['모서리']
-ALIAS = {'관찰 제한(휴대폰)': '관찰 제한', '모서리 재판정': '모서리'}  # which canonical text a screen is held to
+# 2026-11-28 모서리 v2 (D-1·D-2): only the new screen is held to the v2 sentences. The re-judgment pages keep the v1 clause set (alias split instead of editing them; they are older screens' siblings).
+ALIAS = {'관찰 제한(휴대폰)': '관찰 제한', '모서리 재판정': '모서리', '모서리 v2': '모서리'}  # which canonical text a screen is held to
 
 
 V2_PARAGRAPH = ('모서리의 둥근 끝에서 뭉개짐·찍힘·백화·접힘이 사진을 확대하여 명확히 구분되면 크기와 관계없이 결함으로 판정한다. 확대해도 반사인지 실제 마모인지 구분되지 않거나 '
@@ -30,6 +31,10 @@ V2_PARAGRAPH = ('모서리의 둥근 끝에서 뭉개짐·찍힘·백화·접힘
 
 def plain(text):
     return re.sub(r'<[^>]+>|[\s*`\'"‘’“”]', '', text)
+
+
+# v2 is held to the user's 2026-11-28 decision-A paragraph verbatim (the v1 '확대해서보이면' regex no longer fits it) plus D-2.
+CLAUSES['모서리 v2'] = (re.escape(plain(V2_PARAGRAPH)), '둥근끝과직선엣지에걸쳐있으면걸친두위치모두결함')
 
 
 def canonical(cell):
@@ -45,7 +50,8 @@ def canonical(cell):
 
 def screen(cell):
     tool = {'엣지': 'mobile_edge_zone_label_pages', '모서리': 'mobile_corner_label_pages', '관찰 제한': 'ebay_back_label_pages',
-            '관찰 제한(휴대폰)': 'mobile_visibility_label_pages', '모서리 재판정': 'relabel_corner_blind_pages'}.get(cell)
+            '관찰 제한(휴대폰)': 'mobile_visibility_label_pages', '모서리 재판정': 'relabel_corner_blind_pages',
+            '모서리 v2': 'mobile_corner_label_pages_v2'}.get(cell)
     return plain((ROOT / f'tools/{tool}.py').read_text(encoding='utf-8') if tool else SURFACE_INSTRUCTIONS)
 
 
@@ -69,11 +75,19 @@ class LabelCriteriaSourceTest(unittest.TestCase):
                     self.assertIn(clause, drift(cell, canonical(cell), re.sub(clause, '', screen(cell))))
 
     def test_canonical_corner_v2_states_d1_d2_and_what_stays_open(self):
-        # Canonical text only: screens are not held to these sentences until R9 puts them on the corner screen.
+        # The canonical side of the v2 sentences; the v2 screen is held to them in the other tests (cell '모서리 v2').
         text = canonical('모서리')
         for clause in (re.escape(plain(V2_PARAGRAPH)), '걸친두위치모두결함', '표면·엣지(?:에대한)?적용범위는미정', '옛기준\\(v1\\)라벨', '소급하지않'):
             with self.subTest(clause=clause):
                 self.assertRegex(text, clause)
+
+    def test_v2_screen_does_not_write_what_the_canonical_leaves_undecided(self):
+        from tools import mobile_corner_label_pages_v2 as v2
+        shown = plain(v2.INSTRUCTIONS)
+        for undecided in ('판본', '표면·엣지(?:에대한)?적용', '\\d(?:\\.\\d)?mm', '그림'):  # judgment version V, surface/edge scope, boundary numbers or picture
+            with self.subTest(undecided=undecided):
+                self.assertNotRegex(shown, undecided)
+        self.assertRegex(canonical('모서리'), '표면·엣지(?:에대한)?적용범위는미정')  # still undecided on the canonical side
 
     def test_surface_screens_use_the_shared_copy_instead_of_their_own(self):
         for name in SURFACE_TOOLS:
