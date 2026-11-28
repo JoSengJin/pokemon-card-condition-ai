@@ -1,5 +1,5 @@
 {
- "status": "사용자 D4 결정(2026-11-28): 기본 checkout 밖에서 추적 봉인 사본이 발견된 작업 폴더 루트(다른 worktree·.codex/.claude worktrees·scratchpad 복제본) 153개. 이름 기준 조사, 내용 미열람. 이 목록에 없는 새 사본은 자동으로 막을 수 없다(git worktree로 등록된 것만 실행 시점에 추가)",
+ "status": "사용자 D4 결정(2026-11-28): 기본 checkout 밖에서 추적 봉인 사본이 발견된 작업 폴더 루트(다른 worktree·.codex/.claude worktrees·scratchpad 복제본) 153개. 이름 기준 조사, 내용 미열람. 이 목록에 없는 새 사본은 자동으로 막을 수 없다(git worktree로 등록된 것만 실행 시점에 추가) + 대화 기록 폴더 3개(~/.claude/projects, ~/.claude-mem, ~/.codex/sessions: 기록에 봉인 경로 이름이 나온다, 내용 미확인, fail-safe 기본 차단)",
  "use": "sandbox 프로필이 각 루트 전체의 읽기를 거절한다(claude_perm.outside_roots). 현재 저장소·source_root 자신이나 그 조상인 루트는 제외한다. 실행 시점의 git worktree list(저장소 기준)에 있는 다른 worktree도 함께 거절한다. 파일이 없거나 링크·형식 오류면 fail-closed.",
  "roots": [
   "/Users/jueun/.codex/worktrees/agent-doc-loading-20261118/pokemon-card-condition",
@@ -154,6 +154,9 @@
   "/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/ff47f16a-54f8-44c6-be6f-271fdd12c6ce/scratchpad/pol.myuG",
   "/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/ff47f16a-54f8-44c6-be6f-271fdd12c6ce/scratchpad/pol2.6rd7",
   "/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/ff851e77-19d0-4c49-a7ea-faa02ea4038c/scratchpad/trial.v3ou",
-  "/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/ff851e77-19d0-4c49-a7ea-faa02ea4038c/scratchpad/trial2.ustz"
+  "/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/ff851e77-19d0-4c49-a7ea-faa02ea4038c/scratchpad/trial2.ustz",
+  "/Users/jueun/.claude/projects",
+  "/Users/jueun/.claude-mem",
+  "/Users/jueun/.codex/sessions"
  ]
 }

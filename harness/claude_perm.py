@@ -89,6 +89,7 @@ def sealed_paths(bases):
     found = set()
     for base in filter(None, bases):
         found.update(os.path.realpath(q) for r in rels for q in (glob.glob(os.path.join(glob.escape(base), r)) if "*" in r else [os.path.join(base, r)]))  # *는 지금 있는 경로로 푼다(없으면 막을 것 없음)
+        found.update(os.path.join(os.path.realpath(base), r) for r in rels if "*" in r)  # *가 든 항목 자체도 넣는다: sandbox.profile이 regex 규칙으로 바꿔 실행 중 생긴 파일도 막는다
         dot = os.path.join(base, ".git")  # git 객체로도 봉인 파일 내용을 읽을 수 있다(git show·객체 직접 읽기): git 폴더도 넣는다
         found.add(os.path.realpath(dot))
         if os.path.isfile(dot):  # worktree: .git 파일의 "gitdir: <worktree git 폴더>"와 그 안 commondir(공통 git 폴더)
@@ -106,8 +107,8 @@ def sealed_paths(bases):
 
 def outside_roots(bases):
     """저장소 밖 봉인 사본 보호(사용자 D4): OUTSIDE_LIST의 루트 + 실행 시점 `git worktree list`(sandbox 밖)로 잡히는 다른 worktree를 실제 경로로
-    바꾼 정렬 목록. bases(None은 건너뜀) 자신이나 그 조상인 루트는 뺀다. worktree 목록은 첫 base(저장소)만 읽고 git을 못 읽으면
-    ValueError(fail-closed)다(다른 base = source_root 저장소의 worktree는 모른다: task 문서 한계). 목록 파일이 없거나 링크·일반 파일이 아니거나 형식(비어 있지 않은 정규화된 절대 경로 문자열 목록, 따옴표·역슬래시 없음)이
+    바꾼 정렬 목록. bases(None은 건너뜀)와 같은 루트는 뺀다. 루트가 기준 폴더의 조상이면 ValueError(실행 차단, F1). worktree 목록은 첫 base(저장소)는
+    전부(git을 못 읽으면 ValueError), 다른 base는 그 폴더 안에 중첩된 것만 더한다(git 저장소가 아니면 건너뜀). 목록 파일이 없거나 링크·일반 파일이 아니거나 형식(비어 있지 않은 정규화된 절대 경로 문자열 목록, 따옴표·역슬래시 없음)이
     틀리면 ValueError. 말단(git 하위 프로세스만)."""
     try:
         fd = os.open(OUTSIDE_LIST, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -121,12 +122,16 @@ def outside_roots(bases):
         raise ValueError("저장소 밖 봉인 루트 목록 형식이 틀렸다: %s" % OUTSIDE_LIST)
     own = [os.path.realpath(b) for b in bases if b]
     env = dict({k: v for k, v in os.environ.items() if not k.startswith("GIT_")}, GIT_OPTIONAL_LOCKS="0")
-    done = subprocess.run(["git", "-C", own[0], "worktree", "list", "--porcelain"], env=env, capture_output=True, text=True, timeout=60, check=False)
-    if done.returncode != 0:
-        raise ValueError("git worktree 목록을 읽지 못함: %s" % own[0])
-    roots = roots + [line[len("worktree "):] for line in done.stdout.split("\n") if line.startswith("worktree /")]
+    for base in own:  # 저장소(첫 base)는 모든 worktree, source_root는 그 폴더 안에 중첩된 worktree만(다른 저장소의 형제 worktree는 모른다)
+        done = subprocess.run(["git", "-C", base, "worktree", "list", "--porcelain"], env=env, capture_output=True, text=True, timeout=60, check=False)
+        if done.returncode != 0 and base == own[0]:
+            raise ValueError("git worktree 목록을 읽지 못함: %s" % base)
+        listed = [line[len("worktree "):] for line in done.stdout.split("\n") if line.startswith("worktree /")]
+        roots = roots + [w for w in listed if base == own[0] or (w != base and os.path.commonpath([os.path.realpath(w), base]) == base)]
     found = {os.path.realpath(r) for r in roots}
-    return sorted(r for r in found if not any(os.path.commonpath([r, b]) == r for b in own))
+    if any(r not in own and os.path.commonpath([r, b]) == r for r in found for b in own):  # 거절 루트가 기준 폴더의 조상이면 그 아래 전체가 열리거나 읽을 수 없게 된다
+        raise ValueError("저장소 밖 봉인 루트가 현재 저장소·source_root의 조상이다(기본 작업 폴더 밖에서는 실행하지 않는다)")
+    return sorted(r for r in found if r not in own)
 
 
 def _ids(paths):
@@ -139,7 +144,7 @@ def stage_inputs(task_dir, contract, source_root, harness_root):
     안전하지 않은 경로·링크·없는 파일·SHA 불일치는 ValueError(그 작업은 실행하지 않는다)."""
     base, guard = os.path.realpath(source_root), os.path.realpath(harness_root)
     # 위치는 경로 문자열이 아니라 (장치, inode)로 비교한다: APFS 기본은 대소문자·유니코드 정규화를 무시해 VAULT/·NFD 이름도 같은 폴더다
-    sealed, inside, harness, copied = _ids(sealed_paths([REPO, base])), _ids([base]), _ids([guard]), []  # 목록 오류면 ValueError
+    sealed, inside, harness, copied = _ids(sealed_paths([REPO, base]) + outside_roots([REPO, base])), _ids([base]), _ids([guard]), []  # 목록 오류면 ValueError
     for rel, want in sorted(contract["inputs"].items()):
         parts = rel.split("/")
         if rel.startswith("/") or any(p in ("", ".", "..") for p in parts) \

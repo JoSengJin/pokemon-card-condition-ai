@@ -59,6 +59,8 @@ MAX_OUTPUT_BYTES = 1 << 30  # 산출물 파일 하나의 크기 상한(임시값
 MAX_STDOUT_BYTES = 1 << 24  # sandbox 자식 표준 출력 상한(임시값 16 MiB, 결과 JSON 한 줄이면 충분하다)
 MAX_TOTAL_OUTPUT_BYTES = 1 << 32  # 한 실행의 산출물 합계 크기 상한(임시값 4 GiB, 4차 결함 I9: 넘으면 결정적 실패)
 RUN_PREFIX, PENDING_PREFIX = "harness-exec-", ".out-pending-"  # 실행 폴더(시스템 임시 폴더, + task_key) / 반영 임시 폴더(작업 폴더)
+REGEX_ESCAPE = {ord(c): "\\" + c for c in ".+()[]{}|^$?"}  # 봉인 경로 목록의 *가 든 항목을 SBPL regex로: 글자는 이스케이프, *는 한 폴더 이름 안(슬래시 제외)
+REGEX_ESCAPE[ord("*")] = "[^/]*"
 MACH_ALLOW = ("com.apple.system.opendirectoryd.libinfo",)  # 4차 I7: 기본 거절 뒤 허용하는 mach 이름(사용자 정보 조회 pwd.getpwuid, 읽기)
 DENY_MORE = ('(deny network*)', '(deny network-outbound (remote ip "localhost:*"))', '(deny lsopen)',
              '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd"))',  # 3차 결함 H9(이 macOS에서 문법·효과 확인)
@@ -93,7 +95,9 @@ def profile(root, run_dir, sealed, outside=()):
         lines.append('(deny file-read* %s)' % " ".join('(subpath "%s")' % p for p in outside))
         keep = {os.path.realpath(p) for p in (sys.prefix, sys.exec_prefix)}  # 이 python의 환경(venv)이 막은 루트 안이면 그것만 다시 읽게 한다
         lines += ['(allow file-read* (subpath "%s"))' % p for p in sorted(keep) if any(os.path.commonpath([r, p]) == r for r in outside)]
-    return "\n".join(lines + ['(deny file-read* %s)' % " ".join('(subpath "%s")' % p for p in sealed),
+    # *가 든 항목은 regex(그 경로 또는 그 아래): 프로필을 만든 뒤 sandbox 밖에서 새로 생긴 파일도 막는다(실행 중 실측: 생성 시점·대소문자 변형 무관)
+    rules = ['(regex #"^%s(/.*)?$")' % p.translate(REGEX_ESCAPE) if "*" in p else '(subpath "%s")' % p for p in sealed]
+    return "\n".join(lines + ['(deny file-read* %s)' % " ".join(rules),
                       '(deny file-write*)', '(allow file-write* %s)' % " ".join(grant),
                       '(deny process-exec %s)' % " ".join('(literal "%s")' % p for p in DENY_EXEC), '(deny appleevent-send)']
                      + list(DENY_MORE))
@@ -104,7 +108,7 @@ def available():
     if not os.path.isfile(SANDBOX_EXEC):
         return False
     try:
-        done = subprocess.run([SANDBOX_EXEC, "-p", profile(REPO, None, sealed_paths([REPO]), outside_roots([REPO])), "/usr/bin/true"], stdin=subprocess.DEVNULL,
+        done = subprocess.run([SANDBOX_EXEC, "-p", profile(REPO, None, sealed_paths([REPO, os.environ.get(SOURCE_ENV)]), outside_roots([REPO, os.environ.get(SOURCE_ENV)])), "/usr/bin/true"], stdin=subprocess.DEVNULL,
                               capture_output=True, timeout=30, check=False)
     except (OSError, subprocess.SubprocessError, ValueError):  # ValueError: 봉인 경로 목록 없음·링크·형식 오류(fail-closed)
         return False
@@ -214,7 +218,7 @@ def sweep(task_dir):
 
 def sandboxed(root, spec):
     """sandbox 안에서 spec(module:ATTR)의 유형 목록을 읽어 {task_type: run_one 부분 적용} dict를 만든다. 실패는 ChildError."""
-    done = subprocess.run([SANDBOX_EXEC, "-p", profile(root, None, sealed_paths([REPO]), outside_roots([REPO]))] + CHILD + ["list", spec], cwd=REPO, stdin=subprocess.DEVNULL,
+    done = subprocess.run([SANDBOX_EXEC, "-p", profile(root, None, sealed_paths([REPO, os.environ.get(SOURCE_ENV)]), outside_roots([REPO, os.environ.get(SOURCE_ENV)]))] + CHILD + ["list", spec], cwd=REPO, stdin=subprocess.DEVNULL,
                           capture_output=True, text=True, errors="replace", check=False)
     try:
         names = json.loads(done.stdout.strip().split("\n")[-1])

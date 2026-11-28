@@ -231,6 +231,8 @@ def main(argv):
     executor는 sandbox 안에서만 실행한다."""
     limit = int(argv[argv.index("--max") + 1]) if "--max" in argv else None
     source = argv[argv.index("--source-root") + 1] if "--source-root" in argv else None
+    if source:
+        os.environ[experiment_exec.SOURCE_ENV] = os.path.realpath(source)  # available·sandboxed도 source_root 기준 봉인 경로·거절 루트를 계산한다(F4)
     if not sandbox.available():
         print(json.dumps({"sandbox_unavailable": sandbox.SANDBOX_EXEC, "executed": 0}, ensure_ascii=False), flush=True)
         return SANDBOX_EXIT

@@ -38,7 +38,7 @@ def sandboxed(prof, probes):
 
 def git_world(case):
     """임시 저장소 repo(f.txt 커밋)와 그 worktree wt2, 따로 있는 other, exp/e1·e2/ref.json 용 폴더. 목록 파일을 만들어 claude_perm에 연결한다.
-    OUTSIDE 루트 = [other, repo(자기 자신), base(조상), gone(없는 경로)], SEALED = ["vault", "exp/*/ref.json"]. base 경로 dict를 돌려준다."""
+    OUTSIDE 루트 = [other, repo(자기 자신), gone(없는 경로)], SEALED = ["vault", "exp/*/ref.json"]. base 경로 dict를 돌려준다."""
     base = os.path.realpath(tempfile.mkdtemp(prefix="seal-scope-"))
     case.addCleanup(shutil.rmtree, base, True)
     repo, wt2, other = (os.path.join(base, n) for n in ("repo", "wt2", "other"))
@@ -48,7 +48,7 @@ def git_world(case):
             handle.write("x")
     for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "m"], ["worktree", "add", "-q", wt2]):
         subprocess.run(GIT + ["-C", repo] + args, check=True, capture_output=True)
-    for name, text in (("outside.json", {"roots": [other, repo, base, base + "/gone"]}), ("sealed.json", {"paths": ["vault", "exp/*/ref.json"]})):
+    for name, text in (("outside.json", {"roots": [other, repo, base + "/gone"]}), ("sealed.json", {"paths": ["vault", "exp/*/ref.json"]})):
         with open(os.path.join(base, name), "w") as handle:
             json.dump(text, handle)
     for attr, name in (("OUTSIDE_LIST", "outside.json"), ("SEALED_LIST", "sealed.json")):
@@ -77,7 +77,7 @@ class SealScopeTest(unittest.TestCase):
     def test_outside_roots_come_from_the_list_and_git_worktrees_without_own_roots_or_ancestors(self):
         w = git_world(self)
         got = claude_perm.outside_roots([w["repo"], None])
-        self.assertEqual(got, sorted([w["other"], w["wt2"], w["base"] + "/gone"]))  # repo(자기)·base(조상) 제외, 목록에 없는 wt2는 git worktree list로 추가
+        self.assertEqual(got, sorted([w["other"], w["wt2"], w["base"] + "/gone"]))  # repo(자기) 제외, 목록에 없는 wt2는 git worktree list로 추가
         self.assertEqual(claude_perm.outside_roots([w["wt2"]]), sorted([w["other"], w["base"] + "/gone", w["repo"]]))  # 기준이 바뀌면 자기 루트가 바뀐다
         bads = ["missing", "link", "not json", "[]", '{"roots": []}', '{"roots": ["rel"]}', '{"roots": ["/"]}', '{"roots": ["/a/../b"]}',
                 '{"roots": ["/a/"]}', '{"roots": ["/a\\"b"]}', '{"roots": [1]}', '{"roots": "/a"}']
@@ -122,7 +122,7 @@ class SealScopeTest(unittest.TestCase):
             listed = json.load(handle)["paths"]
         with open(claude_perm.OUTSIDE_LIST, encoding="utf-8") as handle:
             roots = json.load(handle)["roots"]
-        self.assertEqual((len(listed), len(roots)), (144, 153))
+        self.assertEqual((len(listed), len(roots)), (144, 156))
         for needed in ("artifacts/cohort2-seal-20261123", "artifacts/cohort-seal-20261123", "artifacts/d1-testset-20261103", "artifacts/d1b-surface-20261104",
                        "artifacts/c4-expansion-20261103/answers-holdout-5.txt", "artifacts/ebay-independent-20261119-a", "artifacts/experiments/*/reference.json"):
             self.assertIn(needed, listed)
