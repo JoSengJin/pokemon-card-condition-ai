@@ -21,6 +21,8 @@
 - 자동 재개 활성화 목록 AUTO_RESUME(작업 유형 → 실환경 증거 {"evidence": 경로, "sha256": 그 파일 sha256})은 빈 dict로 시작한다. 증거 파일이
   있고 해시가 맞는 유형만 켜진 것으로 본다(auto_resume_allowed). 목록에 없으면 한도 해제·실행 중 사망 뒤에도 자동 재개하지 않는다(첫 실행은 허용).
 - 봉인 경로 목록(harness/sealed_paths.json, 2026-11-28 자동 추정 초안·사용자 확인 전·완전성 미확인)은 sandbox 프로필의 읽기 거절에도 쓴다.
+  저장소·source_root의 git 폴더(worktree면 gitdir·commondir 둘 다)도 함께 거절한다(git show·객체 직접 읽기 우회, 2026-11-28 독립 검증 결함).
+  그래서 sandbox 안 executor는 그 저장소에 git을 쓸 수 없다(실제 ./experiment 연결 때 확인 필요).
 호출 깊이: stage_inputs만 safefs.replace_new·sealed_paths·_ids(말단)를 부른다(1). sandbox.profile도 sealed_paths를 부른다. 나머지는 말단이다.
 """
 import hashlib
@@ -67,7 +69,8 @@ def auto_resume_allowed(task_type):
 
 
 def sealed_paths(bases):
-    """봉인 경로 목록(SEALED_LIST의 paths)을 bases(None은 건너뜀) 각각 아래 실제 경로(realpath)로 바꾼 정렬 목록. 목록 파일이 없거나
+    """봉인 경로 목록(SEALED_LIST의 paths)을 bases(None은 건너뜀) 각각 아래 실제 경로(realpath)로 바꾼 정렬 목록. 각 base의 git 폴더
+    (.git, worktree면 .git 파일이 가리키는 git 폴더와 공통 git 폴더 commondir)도 넣는다(형식을 모르는 .git 파일은 ValueError). 목록 파일이 없거나
     링크·일반 파일이 아니거나 형식(비어 있지 않은 상대 경로 문자열 목록, ''·.·.. 조각·따옴표·역슬래시 없음)이 틀리면 ValueError(fail-closed)."""
     try:
         fd = os.open(SEALED_LIST, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -80,7 +83,22 @@ def sealed_paths(bases):
             isinstance(r, str) and not r.startswith("/") and '"' not in r and "\\" not in r
             and not any(p in ("", ".", "..") for p in r.split("/")) for r in rels):
         raise ValueError("봉인 경로 목록 형식이 틀렸다: %s" % SEALED_LIST)
-    return sorted({os.path.realpath(os.path.join(b, r)) for b in bases if b for r in rels})
+    found = set()
+    for base in filter(None, bases):
+        found.update(os.path.realpath(os.path.join(base, r)) for r in rels)
+        dot = os.path.join(base, ".git")  # git 객체로도 봉인 파일 내용을 읽을 수 있다(git show·객체 직접 읽기): git 폴더도 넣는다
+        found.add(os.path.realpath(dot))
+        if os.path.isfile(dot):  # worktree: .git 파일의 "gitdir: <worktree git 폴더>"와 그 안 commondir(공통 git 폴더)
+            with open(dot, encoding="utf-8") as handle:
+                line = handle.read().strip()
+            if not line.startswith("gitdir: "):
+                raise ValueError("git 폴더를 알 수 없다(.git 파일 형식): %s" % dot)
+            gitdir = os.path.join(base, line[len("gitdir: "):])
+            found.add(os.path.realpath(gitdir))
+            if os.path.isfile(os.path.join(gitdir, "commondir")):
+                with open(os.path.join(gitdir, "commondir"), encoding="utf-8") as handle:
+                    found.add(os.path.realpath(os.path.join(gitdir, handle.read().strip())))
+    return sorted(found)
 
 
 def _ids(paths):
