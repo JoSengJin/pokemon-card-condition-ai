@@ -62,7 +62,11 @@
   - `test_harness_supervisor_*` 47개 OK
   - `test_harness_withdrawal_*` 20개 OK
   - `test_harness_b5_*` 33개 OK
-- 전체 시험 결과(아래 "전체 시험" 절)
+- 전체 시험(대상 `5b3aeef`, 저장소 루트, `discover -s tests -p "test_harness_*.py"`)
+  - Python 3.12.14: 482개 OK
+  - `/usr/bin/python3` 3.9.6: 482개 OK
+  - 분기점 477개에 새 시험 5개를 더한 수다. 기존 시험은 바꾸거나 지우지 않았다.
+  - 로그: `<SP>/vs6_full_312.log`, `<SP>/vs6_full_39.log`
 
 ## 구조
 - `harness/supervisor.py`의 함수 수는 4에서 4로 그대로다.
