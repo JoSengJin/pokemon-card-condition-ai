@@ -15,6 +15,9 @@ Supervisor가 회차마다 declared.json을 읽은 뒤 gate를 부르고, gate�
    - 사전 등록: 가설 문구는 Claude, 성공·실패 기준 문구·acceptance·reference_result·code_changes·입력(평가 자료)·command·seed는 대조에서 그대로
      물려받는다(Claude가 바꿀 자리가 없다). experiment_exec.build_plan(실행 때와 같은 검사)을 통과해야 한다.
    - 기각 가설: dedupe.find_duplicate(상태 무관, 가설 ID·설명은 키에서 빠짐)로 같은 실행 조건의 실험이 있으면 거절.
+     승인 변수 value는 기존 파라미터 정의(cross_review_auto_contract.PARAMETER의 JSON number, check_experiment_parameter)대로 수로 본다(D2):
+     baseline·대조 값과 같은 수면 거절하고, 기각 대조는 제안 표기와 같은 수의 int·float 표기로 각각 한다. 전역 dedupe의 config 자료형 규칙
+     (사람 등록 config의 1 ≠ 1.0, 4차 I3·사용자 숫자 표기 결정 "자료형을 확인할 수 없으면 변환하지 않는다")은 바꾸지 않는다: 이 변수만 정의상 자료형이 수다.
    - 예산: budget.usage로 이번 주 실험 사용량을 읽기만 한다(한도면 대기). 실제 차감은 실행 직전 runner의 charge 하나뿐(중복 차감 경로 없음).
    next_plan.json 키는 PLAN_KEYS만(command·inputs·run_conditions 등 다른 키는 거절). 통과한 계약 = 대조 계약 + code_sha(HEAD) + 새 plan·가설 문구,
    depends_on = [그 분석].
@@ -119,6 +122,8 @@ def _derive(root, parent, analyze_key, source_root):
     # float 범위 비교: int도 예외 없이 본다(D1: 거대 정수의 math.isfinite는 OverflowError. 기존 check_experiment_parameter도 받지 못하는 값)
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not -sys.float_info.max <= value <= sys.float_info.max:
         raise Hold("refused", "experiment_parameter.value는 유한한 숫자여야 한다")
+    if value == spec["baseline"] or value == spec["value"]:  # D2: 수로 비교(1 = 1.0). 기존 check_experiment_parameter는 baseline과 같은 값을 거절한다
+        raise Hold("refused", "experiment_parameter.value가 baseline 또는 대조 실험 값과 같은 수다(자료형만 다른 같은 수 포함)")
     head = _head(source_root)
     new = dict(parent, depends_on=[analyze_key], run_conditions=dict(
         cond, code_sha=head, config=dict(cond["config"], plan=nxt["plan"]), hypothesis_id=nxt["hypothesis_id"],
@@ -130,7 +135,10 @@ def _derive(root, parent, analyze_key, source_root):
     if trees.get(cond["code_sha"].lower()) != trees[head]:
         raise Hold("waiting", "source_root 코드가 대조 실험과 다르다(두 번째 변수, 문서 docs/*.md 외 변경)")
     experiment_exec.build_plan(new)  # 실행 때와 같은 사전 등록 검사(문구 비어 있음 등은 ExperimentError)
-    return new
+    # D2: 같은 수의 다른 표기(2 ↔ 2.0, 정확히 같은 수일 때만). 기각 대조에만 쓴다(등록하는 계약은 new 하나)
+    twins = [dict(new, run_conditions=dict(new["run_conditions"], config=dict(cond["config"], plan=dict(nxt["plan"], experiment_parameter=dict(
+        nxt["plan"]["experiment_parameter"], value=form))))) for form in (float(value), int(value)) if form == value and type(form) is not type(value)]
+    return [new] + twins
 
 
 def _screen(declared, infos, derived):
@@ -180,10 +188,11 @@ def gate(root, declared, now, source_root=None):
                 if pstate != states.VERIFIED or parent is None or parent["task_type"] != "experiment" \
                         or _analyze(task["depends_on"][0], os.path.join(tasks_dir, task["depends_on"][0])) != task:
                     continue  # 하네스가 만든 분석이 아니다: 그 출력은 계획으로 보지 않는다
-                new = _derive(root, parent, key, src)
+                forms = _derive(root, parent, key, src)
+                new = forms[0]
                 if budget.usage(root, "experiment", budget.period_of("experiment", now)) + 1 > budget.LIMITS["experiment"][1]:
                     raise Hold("waiting", "이번 주 실험 예산이 남지 않았다(실행 직전 차감은 runner, 여기서는 읽기만)")
-                dup = dedupe.find_duplicate(root, new, ct.task_key(new), src)
+                dup = next(filter(None, (dedupe.find_duplicate(root, form, ct.task_key(new), src) for form in forms)), None)
                 if dup is not None:
                     raise Hold("refused", "기각·중복 가설: 같은 실행 조건의 실험이 이미 있다(가설 ID·설명 무관) %s" % dup)
                 derived[key] = new
