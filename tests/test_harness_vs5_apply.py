@@ -24,7 +24,8 @@ class ApplyPromoteTest(unittest.TestCase):
         self.assertEqual((early["ok"], early["reason"]), (False, "candidate_not_applied"))
         self.assertEqual((verdicts(self.root), os.path.exists(os.path.join(self.root, apply_promote.VERDICTS))), ([], False))
         model = apply_train.apply(self.root, self.tkey, 6.0)["model_id"]
-        first, again = apply_promote.apply(self.root, self.ekey, 7.0), apply_promote.apply(self.root, self.ekey, 8.0)
+        with mock.patch.object(champion, "promote", side_effect=AssertionError("승격 실행 금지")):  # 판정기는 승격 함수를 부르지 않는다
+            first, again = apply_promote.apply(self.root, self.ekey, 7.0), apply_promote.apply(self.root, self.ekey, 8.0)
         self.assertEqual((first["ok"], first["verdict"], again["ok"], again.get("already")), (True, "통과", True, True))
         [line] = verdicts(self.root)  # 두 번 적용해도 장부 한 줄
         self.assertEqual((line["task_key"], line["model_id"], line["verdict"], line["promoted"]), (self.ekey, model, "통과", False))
