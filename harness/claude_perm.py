@@ -13,14 +13,15 @@
   작업 폴더 안의 하네스 파일(lease.json·done.json·complete.json)은 쓰기 허용 규칙(out/ 아래만)에 없어 거절 대상이다(문서 기준).
 - 계약 입력은 stage_inputs가 source_root(기본 저장소) 아래에서 SHA를 확인해 작업 폴더 in/으로 복사한다. 링크(심볼릭·하드 링크 수 2 이상)·
   폴더 밖·하네스 root 안·이름에 gold/seal이 든 경로(봉인·Gold 임시 규칙)는 거절한다. 봉인 경로 목록(SEALED_LIST, sealed_paths) 아래
-  실제 경로(realpath, 저장소·source_root 기준)도 거절한다(이중 차단, 목록이 없거나 링크·형식 오류면 복사하지 않는다). 복사는 safefs.replace_new(새 임시 파일, 쓴 내용의
+  실제 경로(realpath, 저장소·source_root 기준)도 거절한다(이중 차단, 목록이 없거나 링크·형식 오류면 복사하지 않는다). 원본 폴더·하네스 root·
+  봉인 경로 포함 여부는 (장치, inode)로 비교한다(대소문자·NFD 이름 우회 방지, 2026-11-28 독립 검증 결함). 복사는 safefs.replace_new(새 임시 파일, 쓴 내용의
   sha256이 계약과 같을 때만 교체: 대조와 사용 사이 틈이 없다)로 한다. Python 실험·학습·평가 executor도 같은 함수로 실행 직전에 복사한
   사본(작업 폴더 in/, sandbox가 쓰기를 허용하지 않는 곳)을 읽는다(2차 결함 G6, runner._execute).
 - 환경변수는 ENV_ALLOW만 넘긴다(구독 인증 최소 추정값. API 키·토큰류는 넘기지 않는다). 인증이 이것으로 되는지는 실환경 미확인.
 - 자동 재개 활성화 목록 AUTO_RESUME(작업 유형 → 실환경 증거 {"evidence": 경로, "sha256": 그 파일 sha256})은 빈 dict로 시작한다. 증거 파일이
   있고 해시가 맞는 유형만 켜진 것으로 본다(auto_resume_allowed). 목록에 없으면 한도 해제·실행 중 사망 뒤에도 자동 재개하지 않는다(첫 실행은 허용).
 - 봉인 경로 목록(harness/sealed_paths.json, 2026-11-28 자동 추정 초안·사용자 확인 전·완전성 미확인)은 sandbox 프로필의 읽기 거절에도 쓴다.
-호출 깊이: stage_inputs만 safefs.replace_new·sealed_paths(말단)를 부른다(1). sandbox.profile도 sealed_paths를 부른다. 나머지는 말단이다.
+호출 깊이: stage_inputs만 safefs.replace_new·sealed_paths·_ids(말단)를 부른다(1). sandbox.profile도 sealed_paths를 부른다. 나머지는 말단이다.
 """
 import hashlib
 import json
@@ -82,11 +83,17 @@ def sealed_paths(bases):
     return sorted({os.path.realpath(os.path.join(b, r)) for b in bases if b for r in rels})
 
 
+def _ids(paths):
+    """있는 경로들의 (장치, inode) 집합(없는 경로는 건너뜀). 대소문자·유니코드 정규화를 무시하는 파일 시스템에서도 같은 파일·폴더면 같다."""
+    return {(s.st_dev, s.st_ino) for s in map(os.stat, filter(os.path.exists, paths))}
+
+
 def stage_inputs(task_dir, contract, source_root, harness_root):
     """계약 inputs({상대 경로: sha256})를 source_root에서 task_dir/in/으로 복사하고 복사본 SHA를 확인한다. 복사한 경로 목록.
     안전하지 않은 경로·링크·없는 파일·SHA 불일치는 ValueError(그 작업은 실행하지 않는다)."""
     base, guard = os.path.realpath(source_root), os.path.realpath(harness_root)
-    sealed, copied = sealed_paths([REPO, base]), []  # 목록이 없거나 틀리면 여기서 ValueError(아무것도 복사하지 않는다)
+    # 위치는 경로 문자열이 아니라 (장치, inode)로 비교한다: APFS 기본은 대소문자·유니코드 정규화를 무시해 VAULT/·NFD 이름도 같은 폴더다
+    sealed, inside, harness, copied = _ids(sealed_paths([REPO, base])), _ids([base]), _ids([guard]), []  # 목록 오류면 ValueError
     for rel, want in sorted(contract["inputs"].items()):
         parts = rel.split("/")
         if rel.startswith("/") or any(p in ("", ".", "..") for p in parts) \
@@ -98,9 +105,13 @@ def stage_inputs(task_dir, contract, source_root, harness_root):
             if os.path.islink(cur):
                 raise ValueError("입력 경로에 링크가 있다: %r" % rel)
         real = os.path.realpath(cur)
-        if os.path.commonpath([base, real]) != base or os.path.commonpath([guard, real]) == guard or not os.path.isfile(real):
+        ups = [real] if os.path.isfile(real) else []  # real과 그 모든 상위 폴더
+        while ups and os.path.dirname(ups[-1]) != ups[-1]:
+            ups.append(os.path.dirname(ups[-1]))
+        chain = _ids(ups)
+        if not chain or not chain & inside or chain & harness:
             raise ValueError("입력이 원본 폴더 밖·하네스 root 안이거나 일반 파일이 아니다: %r" % rel)
-        if any(os.path.commonpath([s, real]) == s for s in sealed):
+        if chain & sealed:
             raise ValueError("봉인 경로 목록 아래 입력은 복사하지 않는다: %r" % rel)
         if os.stat(real).st_nlink > 1:  # 하드 링크는 이름 검사를 피해 봉인·하네스 파일을 가리킬 수 있다(검증 결함 F11)
             raise ValueError("하드 링크 입력은 복사하지 않는다: %r" % rel)
