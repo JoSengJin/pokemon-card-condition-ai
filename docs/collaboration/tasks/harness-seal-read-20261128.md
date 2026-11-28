@@ -138,6 +138,92 @@ git ls-files | python3 -I gen.py > paths.json
 ### 롤백(이번 변경만)
 `git revert ac87afd 3c6840f 5f8f220` → 어댑터의 sandbox 안 `verify_code`로 돌아가 실험 어댑터가 다시 모든 실험을 `refused`하고 위 2개 시험이 다시 실패한다(6c564d4 유지 시). 6c564d4·cbe25fe는 건드리지 않았다.
 
+## D4 사용자 결정 반영: 봉인 범위 확대·저장소 밖 사본 차단 (2026-11-28 밤, 커밋 `29e2e0f`(구현)·`8670d3b`(시험)·`2fda4c1`(보강))
+
+증거 수준: **구현 완료 + 합성 시험**(임시 git 저장소·가짜 목록·실제 `sandbox-exec`, 실제 목록으로는 이름·형식·실행 시간만). 봉인 내용 열람 0건, 실제 실험·학습·평가 0건, 모델 누락·오탐 변화 없음. 입력: `artifacts/harness-resume-20261127/session-6702a9/seal-scope/final-list.json`(140)·`outside-roots.txt`(153).
+
+변경(최소):
+1. `harness/sealed_paths.json`: 44 → **144항목**(468·C4·350·D1·D1b·11-19 포함, 소진만으로 해제하지 않음, 미확인 42개는 차단). final-list의 140개 중 **설명문이던 4항목은 실제 경로 규칙으로 풀었다**(그대로 쓰면 존재하지 않는 글자 그대로의 경로라 아무것도 막지 못한다): `artifacts/experiments/*/reference.json`·`.../observations.json`, 실험 폴더 `20261116T104632-5f5ebb42`·`20261116T131107-9c2af49d`(폴더 전체, "sealed-*.json" 용도 미확인), `data/*independent*-review-*.jsonl*`(.bak 포함), `artifacts/reports-20261031/holdout*.html`·`artifacts/edge-back-add*-20261031/holdout-rows.json`·`artifacts/experiments/20261031T093842-2ba28932/holdout_scores.json`. `*`가 든 항목은 `claude_perm.sealed_paths`가 **실행 시점에 glob으로** 풀어 나중에 생긴 파일도 막는다(`?`·`[`는 형식 오류). 
+2. `harness/sealed_outside_roots.json`(새 파일, 루트 153개)과 `claude_perm.outside_roots`(함수 6→7): sandbox 프로필이 각 루트 **전체** 읽기를 거절한다(`sandbox.profile(..., outside)`, 140×153 규칙 대신 루트 단위). 현재 저장소(REPO)·`HARNESS_SOURCE_ROOT` 자신이나 그 조상인 루트는 뺀다. 실행 때마다(sandbox 밖) `git worktree list --porcelain`(REPO 기준)에 있는 다른 worktree도 추가로 거절한다. 목록 파일 없음·링크·형식 오류·git worktree 목록 읽기 실패는 fail-closed(`available()` False, `run_one`·`sandboxed`는 ValueError, 아무것도 실행하지 않음). `sandbox.py` 함수 수 5→5(`profile`에 인자 1개 추가, 호출처 3곳).
+3. 이 python의 prefix(`sys.prefix`·`sys.exec_prefix`, 예: 기본 checkout의 `.venv`)가 거절 루트 안에 있으면 그 폴더만 다시 허용한다(봉인 목록 거절이 그 뒤 규칙이라 우선). 이유: REPO가 기본 checkout이 아닌 worktree일 때 기본 checkout 전체가 거절 대상이 되어 python 자신을 못 읽는다. 하네스 root·실행 폴더가 거절 루트 안이면 프로필을 만들지 않는다(ValueError).
+- 호출 깊이: `runner.main → drain → _execute → sandbox.run_one → claude_perm.outside_roots` = 4(말단). 기존 구조 유지.
+
+실측: 프로필 14줄·약 40KB(봉인 경로 142 + 거절 루트 161개). `sandbox-exec` python 실행 0.09초(봉인만일 때 0.05초), 프로필 생성 0.04초, `sandbox.available()` 0.1초. 시험이 10초 상한으로 고정(`test_real_lists_keep_sandbox_exec_working_and_fast`).
+
+시험(새 파일 `tests/test_harness_seal_scope.py`, 5개, 함수 7개): glob 풀이·나중에 생긴 파일 포함·`?`/`[` 거절 / 거절 루트 = 목록 + git worktree에서 온 것(목록에 없는 wt2)·자기 루트·조상 제외·기준을 바꾸면 자기 루트가 바뀜·목록 오류 12종·git 실패 단독 거절 / 실제 sandbox에서 다른 루트·worktree 읽기·stat·목록 거절, 자기 저장소 읽기 성공, 봉인 목록 거절, python 환경 예외, 하네스 root·실행 폴더가 거절 루트 안이면 프로필 거절, `run_one`이 거절 루트를 프로필에 넘김 / 실제 목록(144·153, 필수 항목 7종 포함, 소스·문서 경로 없음)으로 sandbox 실행 시간·기본 checkout 거절(이 worktree가 기본 checkout이 아닐 때) / 목록 없음이면 `available()` False·`run_one`·`sandboxed` ValueError·산출물 없음. 기존 시험 파일은 고치지 않았다.
+결함 주입 14개(스크립트 `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/seal-d4-inject.py`, 로그 `logs/seal-d4-fault-*.log`) 전부 시험이 잡았다: glob 미풀이·목록 루트 무시·worktree 목록 무시·자기/조상 미제외·프로필 deny 제거·python 예외 제거·root가 거절 루트 안 허용·목록 없음 통과·git 실패 무시·`run_one`/`available`/`sandboxed`가 거절 루트 미전달·`?[` 허용·비정규 경로 허용. (처음 D9·D10은 못 잡아 시험을 보강한 뒤 다시 잡음.)
+
+전체 하네스 시험(대상 `2fda4c1`, `full-suite.lock` 획득 뒤 1회씩): **두 Python 모두 567 통과, 실패 0**(562 + 새 5).
+
+| Python | 결과 | 로그 |
+|---|---|---|
+| `.venv/bin/python`(3.12) | 567 통과 (366초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-d4-venv312.log` |
+| `/usr/bin/python3`(3.9) | 567 통과 (412초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-d4-py39.log` |
+
+### 한계·실제 실행 전 사람이 확인할 것(보장 못 하면 실행 보류)
+- **목록에 없는 새 사본은 자동으로 막을 수 없다.** 막히는 것은 (a) `sealed_outside_roots.json`의 153개, (b) 실행 시점 `git worktree list`에 등록된 worktree, (c) `sealed_paths.json`이 가리키는 REPO·source_root 아래 경로뿐이다. git에 등록되지 않은 `cp -r`·clone·scratchpad 복제본·압축 해제본은 `git worktree list`에 없어 자동으로 못 잡는다. **실제 실험을 시작하기 전에 사람이 확인할 항목**: 마지막 조사(2026-11-28) 이후 새로 만든 복제본·worktree가 있는지(`outside-roots.txt` 조사를 다시 돌려 목록과 대조), 있으면 이 파일에 추가하고 커밋. 이 확인 없이는 "저장소 밖 사본까지 차단"이라고 보고하지 않는다. 사본 삭제·새 관리 시스템은 만들지 않았다.
+- worktree 목록은 REPO 기준만 읽는다. `HARNESS_SOURCE_ROOT`가 다른 저장소면 그 저장소의 다른 worktree는 모른다(그 저장소가 REPO와 다른 repo일 때만 해당).
+- 이 worktree가 기본 checkout이 아니므로 시험은 기본 checkout을 "다른 worktree"로 거절한다. **기본 checkout에서 돌릴 때** 봉인 경로는 REPO 기준 `sealed_paths.json`으로 막히고(아직 이 환경에서 실행해 보지 않음), 기본 checkout 안의 추적되지 않는 봉인 자료는 목록의 glob·경로가 이름으로 맞아야 막힌다.
+- **`artifacts/experiments/*/reference.json`·`observations.json` 전체 차단(미확인 42개의 한 항목)은 나중에 연결할 sandbox 안 실제 `./experiment` worker가 자신의 실험 폴더 reference.json·이전 실험 결과를 읽는 것도 막는다**(worker가 `CARD_CONDITION_EXPERIMENT_REFERENCE` 정답을 읽음). C 트랙 연결 전에 사용자가 이 항목을 정해야 한다(내가 풀지 않았다).
+- final-list의 `dropped`(편입 기록 확인 2개: `artifacts/holdout-h-head3-20261031`, `artifacts/surface-spotcheck-20261101/key-sealed.json`)는 넣지 않았다. 목록 완전성은 이름·문서 기준이고 파일 내용은 열지 않았으므로 완전 보호로 보고하지 않는다.
+- 같은 사용자의 sandbox 밖 프로세스는 여전히 막지 못한다(D-7).
+
+### 롤백(D4만)
+`git revert 2fda4c1 8670d3b 29e2e0f` → 봉인 목록 44항목·저장소 밖 루트 차단 없음으로 돌아간다(위 (나) 변경은 유지).
+
+### 부록: 목록 항목 분류와 근거(final-list.json, 이름·문서 기준; 항목 수는 조사 proposal 기준 140, 위 설명문 4항목은 실제 경로로 풀어 144)
+| 구분 | 분류 | 항목 수 | 근거(조사 proposal 첫 항목, 문서·키 이름만) |
+|---|---|---|---|
+| keep | 미소진 봉인(C4 보류 정답) | 7 | artifacts/c4-expansion-20261103/MANIFEST.json 키 rule: holdout은 측정기 동결 전 개발 사용 금지; CLAUDE_HANDOFF_20261104.md:7 (C4 포기 → 보류 미사용) |
+| keep | 소진된 독립 보류 또는 그 평가 행(답·점수) | 24 | docs/collaboration/CLAUDE_HANDOFF_20261103.md:53, CLAUDE_HANDOFF_20261104.md:44 (소비된 보류, 재사용 금지); 정책 확인 필요: 소진된 옛 보류를 계속 막을지(HOLDOUT.md는 학습·튜닝 금지, 일부는 학습 편입 기록 있음) |
+| keep | 봉인(D1, 1회 평가했지만 개발 사용 영구 금지) | 2 | docs/collaboration/D1_TESTSET_PLAN_20261103.md:21,25 (ax+새 intake, 봉인 뒤 개발·선택·임계·원인분석 금지); artifacts/ebay-intake-20261103-{ax,az,ba..bd}/HOLDOUT.md:1 |
+| keep | 봉인(D1b 표면 보충, 후보 B 1회 평가 뒤 소진) | 2 | artifacts/d1b-surface-20261104/SEALED.json 키 label_file_sha256=surface-holdout2-20261103/answers.txt; docs/collaboration/CLAUDE_HANDOFF_20261104.md:14,25,44 (D2 1회 평가, E2·F1에 D1 사용, D1 소비) |
+| add | 미소진 C4 보류 라벨 화면 | 11 | artifacts/c4-expansion-20261103/MANIFEST.json 키 rule: holdout은 측정기 동결 전 개발 사용 금지; CLAUDE_HANDOFF_20261104.md:7 (C4 포기 → 보류 미사용) |
+| add | 350장 봉인(소진, 학습 금지 유지) | 1 | docs/collaboration/reports/label-provenance-correction-20261126.md:25 (1차 독립 시험 350장 = cohort-seal-20261123, 정답 corner-independent-eval-20261123/answers.json); t5-eval-criteria-20261123.md:64,86 (소진 뒤에도 학습·튜닝 금지) |
+| add | 미소진 봉인 468장 정답 파일 | 1 | docs/collaboration/plans/corner-cohort2-seal-criteria-20261123.md:3,5,21 (468장 봉인, 평가 전, 학습·튜닝 금지) |
+| add | 350장 정답·평가 | 1 | docs/collaboration/reports/label-provenance-correction-20261126.md:25 (1차 독립 시험 350장 = cohort-seal-20261123, 정답 corner-independent-eval-20261123/answers.json); t5-eval-criteria-20261123.md:64,86 (소진 뒤에도 학습·튜닝 금지) |
+| add | 350·468(예비분) 사진·라벨 원천 | 4 | artifacts/cohort-seal-20261123/seal-cohort.py:11 (v1·next·next2·next3 에서 구성; 경로 줄만 확인) |
+| add | 468장 사진·라벨 원천 | 3 | artifacts/cohort2-seal-20261123/seal-cohort2.py:10-13,31 (1차 봉인 예비분 + corner-rank-independent-next[456] 에서 구성; 경로 줄만 확인) |
+| add | 11-19 독립 평가 수집(사진·라벨), 평가 실행 여부 미확인 | 15 | docs/collaboration/tasks/ebay-independent-collection-plan-20261119.md:11 (새 독립 평가 수집, 봉인→동결→라벨 순서); reports/ebay-independent-back-labels-20261119.md:25 |
+| add | D1 사진(git 추적 pairing/answers.txt 포함) | 1 | docs/collaboration/D1_TESTSET_PLAN_20261103.md:21,25 (ax+새 intake, 봉인 뒤 개발·선택·임계·원인분석 금지); artifacts/ebay-intake-20261103-{ax,az,ba..bd}/HOLDOUT.md:1 |
+| add | D1 사진 | 4 | docs/collaboration/D1_TESTSET_PLAN_20261103.md:21,25 (ax+새 intake, 봉인 뒤 개발·선택·임계·원인분석 금지); artifacts/ebay-intake-20261103-{ax,az,ba..bd}/HOLDOUT.md:1 |
+| add | D1 정답 원본(git 추적 답 8개) | 1 | artifacts/d1-testset-20261103/SEALED.json 키 label_file_sha256 = edge/cor/sur/obs/cen-answers.txt (키 이름만 확인) → 실제 파일은 artifacts/d1-labels-20261103/ (git 추적 8개) |
+| add | 468장 정상 점검 사람 응답 | 1 | docs/collaboration/reports/label-provenance-correction-20261126.md:27-28,44 (468 정상 점검 응답·재시험 응답); cohort2-normal-label-check-prereg-20261124.md:9,86 |
+| add | 468장 재시험 응답 | 1 | docs/collaboration/reports/label-provenance-correction-20261126.md:27-28,44 (468 정상 점검 응답·재시험 응답); cohort2-normal-label-check-prereg-20261124.md:9,86 |
+| add | 350장 출처·식별자 | 1 | docs/collaboration/reports/corner-independent-d3-first-trial-analysis-20261123.md:51 |
+| add | 468장 예비분 목록 | 1 | docs/collaboration/plans/corner-cohort2-prep-20261123.md:5,7 |
+| add | D1 평가 행(답 포함 가능) | 1 | docs/collaboration/CLAUDE_HANDOFF_20261104.md:14,25,44 (D2 1회 평가, E2·F1에 D1 사용, D1 소비) |
+| add | D1 평가 행 | 4 | docs/collaboration/CLAUDE_HANDOFF_20261104.md:14,25,44 (D2 1회 평가, E2·F1에 D1 사용, D1 소비) |
+| add | D1 사용 시나리오 | 1 | docs/collaboration/CLAUDE_HANDOFF_20261104.md:14,25,44 (D2 1회 평가, E2·F1에 D1 사용, D1 소비) |
+| add | D1 평가 기록(reference.json=정답) | 1 | docs/collaboration/CLAUDE_HANDOFF_20261104.md:14,25,44 (D2 1회 평가, E2·F1에 D1 사용, D1 소비) |
+| add | D1 평가 기록 | 2 | docs/collaboration/CLAUDE_HANDOFF_20261104.md:14,25,44 (D2 1회 평가, E2·F1에 D1 사용, D1 소비) |
+| add | D1 엣지 구역 평가 기록 | 1 | docs/collaboration/CLAUDE_HANDOFF_20261104.md:14,25,44 (D2 1회 평가, E2·F1에 D1 사용, D1 소비) |
+| add | D1b 표면 평가 기록 | 1 | docs/collaboration/CLAUDE_HANDOFF_20261104.md:14,25,44 (D2 1회 평가, E2·F1에 D1 사용, D1 소비) |
+| add | 350장 평가 기록(independent-result.json) | 1 | corner-independent-d3-first-trial-analysis-20261123.md (1차 시험); 파일 이름만 확인 |
+| unknown | 소진 보류 + 학습 편입 기록 | 7 | performance-top3-consensus-20261030.md:483 (y·z·aa·ad·ae·af 를 후보 B 학습에 사용); CLAUDE_HANDOFF_20261103.md:53 (C5 aj~ao 후보 F 학습 편입) → 막으면 기존 학습 입력과 충돌 가능 |
+| unknown | 10월 독립 검증(평가 완료) | 8 | docs/history/CHIEUT_INDEPENDENT_VALIDATION_20261012.md, INDEPENDENT_SIX_NORMAL_VALIDATION_20261011.md (10월 독립 검증, 평가 완료); 정책 확인 필요: 소진된 옛 보류를 계속 막을지(HOLDOUT.md는 학습·튜닝 금지, 일부는 학습 편입 기록 있음) |
+| unknown | 소진 보류 평가 행·화면 | 7 | docs/collaboration/CLAUDE_HANDOFF_20261103.md:53, CLAUDE_HANDOFF_20261104.md:44 (소비된 보류, 재사용 금지); 정책 확인 필요: 소진된 옛 보류를 계속 막을지(HOLDOUT.md는 학습·튜닝 금지, 일부는 학습 편입 기록 있음) |
+| unknown | 소진 보류(C5 ap~aw) | 3 | docs/collaboration/CLAUDE_HANDOFF_20261103.md:53, CLAUDE_HANDOFF_20261104.md:44 (소비된 보류, 재사용 금지); 정책 확인 필요: 소진된 옛 보류를 계속 막을지(HOLDOUT.md는 학습·튜닝 금지, 일부는 학습 편입 기록 있음) |
+| unknown | 이름의 independent는 판정자 독립 뜻, 사진 172장 출처 미확인 | 1 | docs/collaboration/reports/independent-judgment-pilot-result-20261113.md:37 |
+| unknown | C4 보류 ID 목록(정답 아님), C4 보류 사진의 실제 위치 미확인 | 1 | artifacts/c4-expansion-20261103/MANIFEST.json 키 rule: holdout은 측정기 동결 전 개발 사용 금지; CLAUDE_HANDOFF_20261104.md:7 (C4 포기 → 보류 미사용) |
+| unknown | 소진 보류(§62) + 후보 B 학습 편입, HOLDOUT.md 없음 | 1 | performance-top3-consensus-20261030.md:483 (y·z·aa·ad·ae·af 를 후보 B 학습에 사용); CLAUDE_HANDOFF_20261103.md:53 (C5 aj~ao 후보 F 학습 편입) |
+| unknown | 소진 보류(§62) + 후보 B 학습 편입 | 2 | performance-top3-consensus-20261030.md:483 (y·z·aa·ad·ae·af 를 후보 B 학습에 사용); CLAUDE_HANDOFF_20261103.md:53 (C5 aj~ao 후보 F 학습 편입) |
+| unknown | 소진 보류(§65), HOLDOUT.md 없음 | 1 | performance-top3-consensus-20261030.md:494,501 |
+| unknown | 소진 보류(§25), HOLDOUT.md 미추적 | 1 | performance-top3-consensus-20261030.md:218; HOLDOUT.md:1 |
+| unknown | 소진 보류(§26) | 2 | performance-top3-consensus-20261030.md:227 |
+| unknown | 소진 보류 + 후보 B 학습 편입 | 2 | performance-top3-consensus-20261030.md:483 (y·z·aa·ad·ae·af 를 후보 B 학습에 사용); CLAUDE_HANDOFF_20261103.md:53 (C5 aj~ao 후보 F 학습 편입) |
+| unknown | HOLDOUT.md만 있음(수집 중단, 비어 있음) | 1 | docs/collaboration/CLAUDE_HANDOFF_20261103.md:51 |
+| unknown | 모든 보류 평가 기록에 정답 사본이 들어감(전수 미확인) | 1 | AGENTS.md 실험 공통 기록: worker가 CARD_CONDITION_EXPERIMENT_REFERENCE 정답을 읽음 |
+| unknown | 이름에 sealed, 용도 미확인 | 1 | 파일 이름만 확인 |
+| unknown | 10월 독립 검증 라벨 | 1 | docs/history/CHIEUT_INDEPENDENT_VALIDATION_20261012.md, INDEPENDENT_SIX_NORMAL_VALIDATION_20261011.md (10월 독립 검증, 평가 완료) |
+| unknown | 소진 보류 p·q·r 파생 | 1 | docs/collaboration/CLAUDE_HANDOFF_20261103.md:53, CLAUDE_HANDOFF_20261104.md:44 (소비된 보류, 재사용 금지) |
+| unknown | 옛 worktree 압축본, 내용 미확인 | 1 | 파일 이름만 확인 |
+| remove | 봉인 아님(개발 라벨을 재판정 중 가린 것) | 1 | performance-top3-consensus-20261030.md:384 (개발 라벨이 있던 사진 12장, 개발 라벨을 보여주지 않고(봉인)) |
+| remove | 봉인 아님(설계 문서 BRIEF·FINAL·compare.py) | 1 | 파일 이름만 확인, 사진 0 |
+| remove | 봉인 아님(NEXT_PROMPT.md 1개) | 1 | 파일 이름만 확인 |
+| remove | 봉인 아님(worker.py 1개) | 1 | 파일 이름만 확인 |
+| remove | 봉인 아님(plan·worker만) | 1 | 파일 이름만 확인 |
+
 ## 한계·미확인
 
 - **같은 macOS 사용자의 sandbox 밖 프로세스**(Codex·대화형 Claude·사용자 셸)는 여전히 봉인 자료를 읽을 수 있다(OS 사용자 분리 D-7 범위).
