@@ -1,0 +1,142 @@
+"""하네스 시험 공용 도구(시험 없음). 실제 하위 프로세스 작업자와 합성 상황 생성기."""
+import functools
+import os
+import subprocess
+import sys
+from unittest import mock
+
+from harness import checkpoint, dedupe, lease, manifest, queue
+from harness.contract import COMPLETION
+from harness.jsonio import write_json
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BOOT = "boot-test-1"
+RUNNER_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"  # sysctl(부팅 식별자)은 필요하고 claude는 없는 PATH
+SHA_A = "ab" * 32
+# 재실행 안전으로 등록한 것처럼 볼 시험용 유형(작업 계약 2단계 R1: 실제 등록 목록 recovery.RERUN_SAFE_TYPES는 비어 있다).
+# 재실행·재개 절차 자체를 시험하는 기존 시험만 이 목록으로 patch한다. 등록하지 않은 유형의 대기는 test_harness_policy_regress가 본다.
+RERUN_SAFE = frozenset(["unit-" + c for c in "abcdefghijklmnopqrstuvwxyz"] + ["calc", "flaky", "slow", "oom", "buggy", "exiter"])
+# 검증 결함 F3: 등록 가능한 작업 유형은 코드의 고정 목록(dedupe.PLAIN_TYPES·CONDITION_TYPES)뿐이다. 시험용 합성 유형(make_contract 기본
+# "unit-<tag>"·시험 executor 이름)은 이 시험 프로세스에서만 목록에 더한다(정확한 이름만, 변형 이름은 그대로 거절: test_harness_dedupe_conditions).
+TEST_TYPES = frozenset(RERUN_SAFE | {"unit-r1", "unit-r1b", "ok", "nap", "bad", "wrong", "unknown_type", "nobody", "link", "ki",
+                                     "intruder", "extra", "exit"})
+dedupe.PLAIN_TYPES = dedupe.PLAIN_TYPES | TEST_TYPES
+
+WORKER = r'''
+import os, sys, time
+from harness import lease, queue, recovery
+root, key, boot, gate = sys.argv[1:5]
+lease.boot_id = lambda: boot  # 합성 부팅 식별자(claim은 lease.boot_id()와 대조한다)
+recovery.RERUN_SAFE_TYPES = frozenset(["unit-a"])  # 재실행 절차 시험용 등록 유형(start_workers의 계약 유형)
+while not os.path.exists(gate):
+    time.sleep(0.005)
+res = queue.claim(root, key, os.getpid(), boot, time.time())
+print("CLAIMED " + res["run_id"] if res["ok"] else "REFUSED " + res["reason"], flush=True)
+if res["ok"]:
+    sys.stdin.readline()
+'''
+
+CHURN = r'''
+import os, sys, time
+from harness import queue, lease
+root, key, boot, gate, rounds = sys.argv[1:6]
+lease.boot_id = lambda: boot
+print("READY", flush=True)  # 모두 준비된 뒤에 동시에 출발시키려고
+while not os.path.exists(gate):
+    time.sleep(0.001)
+wins = overlaps = 0
+for _ in range(int(rounds)):
+    res = queue.claim(root, key, os.getpid(), boot, time.time())
+    if not res["ok"]:
+        continue
+    wins += 1
+    try:  # 작업권을 쥔 동안 O_EXCL 표식을 만든다. 이미 있으면 두 프로세스가 동시에 쥐고 있었다는 뜻
+        os.close(os.open(os.path.join(root, "SENTINEL"), os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
+        overlaps += 1
+        lease.release(res["lease"], remove=True)
+        continue
+    time.sleep(0.0005)
+    os.unlink(os.path.join(root, "SENTINEL"))
+    lease.release(res["lease"], remove=True)
+print(wins, overlaps, flush=True)
+'''
+
+EXEC_CLAIM = r'''
+import os, sys, time
+from harness import lease, queue
+root, key, boot = sys.argv[1:4]
+lease.boot_id = lambda: boot
+res = queue.claim(root, key, os.getpid(), boot, time.time())
+print("CLAIMED" if res["ok"] else "REFUSED", flush=True)
+os.execv("/bin/sleep", ["sleep", "30"])  # 같은 pid가 계속 실행되지만 잠금 fd(close-on-exec)는 사라진다
+'''
+
+FAIL_CRASH = r'''
+import os, sys, time
+from harness import lease, queue
+root, key, boot = sys.argv[1:4]
+lease.boot_id = lambda: boot
+res = queue.claim(root, key, os.getpid(), boot, time.time())
+queue.ledger.append = lambda *args: os.kill(os.getpid(), 9)  # 실패 기록 파일을 쓴 직후, 작업권 해제 전에 kill -9
+queue.fail(root, key, res["run_id"], res["lease"], "deterministic", "TypeError", time.time())
+'''
+
+def make_contract(tag="a", depends_on=(), outputs=("result.txt",), inputs=None, needs_llm=False, task_type=None):
+    return {"task_type": task_type or "unit-" + tag, "inputs": inputs or {"in.txt": SHA_A}, "outputs": list(outputs),
+            "depends_on": list(depends_on), "needs_llm": needs_llm, "needs_vision": False,
+            "risk": "low", "retry_policy": {}, "escalation_level": 0}
+
+
+def claim(root, key, pid, boot, now, current=None):
+    """queue.claim을 시험용 부팅 식별자(BOOT)로 부른다. 주입은 공개 인자가 아니라 lease.boot_id patch다."""
+    with mock.patch.object(lease, "boot_id", return_value=BOOT):
+        return queue.claim(root, key, pid, boot, now, current)
+
+
+def alive_with(boot=BOOT, pid_alive=None):
+    """부팅 식별자를 고정한 is_alive. 기본은 실제 pid 생존 조회(os.kill)."""
+    extra = {} if pid_alive is None else {"pid_alive": pid_alive}
+    return functools.partial(lease.is_alive, boot_id_fn=lambda: boot, **extra)
+
+
+def finish(root, task, now, payload=b"v1"):
+    """enqueue -> claim -> 산출물 쓰기 -> 완료 표시(runner와 같은 형식) -> complete(합성 정상 완료). (task_key, run_id)."""
+    key = queue.enqueue(root, task, now)
+    res = claim(root, key, os.getpid(), BOOT, now)
+    for rel in task["outputs"]:
+        path = os.path.join(root, "tasks", key, "out", rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(payload)
+    out_dir = os.path.join(root, "tasks", key, "out")
+    write_json(os.path.join(root, "tasks", key, COMPLETION), {"task_key": key, "outputs": manifest.build(out_dir, task["outputs"])})
+    queue.complete(root, key, res["run_id"], res["lease"], now + 1)
+    return key, res["run_id"]
+
+
+def start_workers(case, root, count, worker=WORKER, rounds=1):
+    """작업을 등록하고 실제 하위 프로세스 count개를 gate 파일이 생길 때까지 대기시킨다(동시 출발용).
+
+    (key, gate, 프로세스 목록). 정리는 거꾸로 실행되므로 kill -> wait -> 파이프 닫기 순이다.
+    """
+    key = queue.enqueue(root, make_contract(), 1_000_000.0)
+    gate = os.path.join(root, "go")
+    procs = [subprocess.Popen([sys.executable, "-c", worker, root, key, BOOT, gate, str(rounds)], cwd=REPO,
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) for _ in range(count)]
+    for proc in procs:
+        for cleanup in (proc.stdout.close, proc.stdin.close, proc.wait, proc.kill):
+            case.addCleanup(cleanup)
+    return key, gate, procs
+
+
+def dead_lease(root, key, started, run_id="r-dead", pid=999999):
+    """중단된 실행이 남긴 작업권 파일(시작 시각·run_id 지정). 생존 여부는 alive_with(pid_alive=...)로 주입한다."""
+    handle = lease.lock(os.path.join(root, "tasks", key, "lease.json"))
+    lease.stamp(handle, pid, BOOT, started, {"run_id": run_id, "resumed": False})
+    lease.release(handle)
+
+
+def fingerprint(**override):
+    """체크포인트·현재 실행 지문(코드·자료 SHA, seed, 난수·옵티마이저·데이터 순서)."""
+    return dict({name: "v-" + name for name in checkpoint.REQUIRED}, **override)

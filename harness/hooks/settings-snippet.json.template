@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'__PYTHON__' -I -B '__REPO__/harness/hooks/user_prompt_submit.py' '__HARNESS_ROOT__'",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

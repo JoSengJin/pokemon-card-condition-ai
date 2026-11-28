@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  하네스 Supervisor LaunchAgent 템플릿(3단계). 템플릿일 뿐이며 설치·로드하지 않았다(설치는 사용자 승인 사항).
+  자리표시자: __LABEL__ __PYTHON__ __REPO__ __ROOT__ __CLAUDE_BIN__ __EXECUTORS__ __LOG_DIR__
+  - KeepAlive: 프로세스가 끝나면 다시 띄운다. root마다 supervisor.lock으로 하나만 돌고, 상태는 파일에서 이어간다.
+  - continue 옵션, /low-priority, /rate-limit-options는 쓰지 않는다(XML 주석에는 하이픈 두 개를 쓸 수 없어 이름만 적음).
+  - 미검증: LaunchAgent에서 실행한 claude -p가 구독 로그인(키체인)으로 인증되는지(EVIDENCE 7절 2번), 재부팅·로그아웃 뒤 동작.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>__LABEL__</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PYTHON__</string>
+    <string>-m</string>
+    <string>harness.supervisor</string>
+    <string>--root</string>
+    <string>__ROOT__</string>
+    <string>--claude-bin</string>
+    <string>__CLAUDE_BIN__</string>
+    <string>--executors</string>
+    <string>__EXECUTORS__</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/supervisor.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/supervisor.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PYTHONDONTWRITEBYTECODE</key>
+    <string>1</string>
+  </dict>
+</dict>
+</plist>
