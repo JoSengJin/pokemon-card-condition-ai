@@ -16,7 +16,10 @@
 
 ## 한계·미검증
 - 증거 수준: 구현 완료 + 합성 종단 검증. 실제 ./experiment 실행은 안 했다(금지). `codex_model_calls_allowed` 키를 실제 ./experiment·card_condition이 읽는지는 확인하지 못했다(grep 결과 이 저장소 코드에서 쓰는 곳 없음, 하네스 쪽 필수 표지일 뿐).
-- 계획 JSON에 두 키가 필수가 되므로 기존 계약 생성 경로(analyze/vs3 등)가 이 키를 넣지 않으면 실행 단계에서 refused된다. 전체 시험 결과는 아래.
+- 계획 JSON에 두 키가 필수가 되므로 기존 계약 생성 경로(analyze/vs3 등)가 이 키를 넣지 않으면 실행 단계에서 refused된다. 실제로 수정 전 전체 시험에서 vs3 gate·b5 run 계열 23건이 실패해, 시험 고정값(tests/harness_plan_gate_kit.py `control`, tests/test_harness_b5_experiment_run.py `_task`)에 두 키를 0으로 넣었다(새 필수 항목이므로, 시험 완화 아님).
+
+## 시험(전체 1회, 잠금 사용)
+- 3.12: 548 통과 OK (`scratchpad/logs/a4-py312.log`), 3.9: 548 통과 OK (`scratchpad/logs/a4-py39.log`). 커밋 164970e 기준.
 
 ## 롤백
 `git revert <A4 커밋>` (두 파일 + 이 문서).
