@@ -28,9 +28,13 @@ RUN_ID = re.compile(r"[0-9a-f]+")  # 실패 기록 파일 이름(failures/NNN-<r
 
 
 def task_key(task):
-    """같은 계약이면 같은 키(정규화 JSON의 sha256). expected_minutes(예상 시간 힌트)만 키에서 뺀다."""
+    """같은 계약이면 같은 키(정규화 JSON의 sha256). expected_minutes(예상 시간 힌트)만 키에서 뺀다. JSON으로 적을 수 없는 계약(NaN·무한대·
+    Python 3.11+ 정수 변환 상한을 넘는 정수·JSON이 아닌 값·너무 깊은 중첩)은 ContractError(4차 결함 I2: 등록 경로 밖으로 다른 예외를 내지 않는다)."""
     body = {k: v for k, v in task.items() if k != "expected_minutes"}
-    text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    try:
+        text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise ContractError("계약을 JSON으로 정규화할 수 없다: %s: %s" % (type(exc).__name__, str(exc)[:200]))
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 

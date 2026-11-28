@@ -32,10 +32,10 @@ def write_json(path, obj):
         raise
 
 
-def read_json(path, default=None):
-    """파일이 없으면 default. 내용이 깨졌으면 ValueError(추정하지 않는다)."""
+def read_json(path, default=None, **options):
+    """파일이 없으면 default. 내용이 깨졌으면 ValueError(추정하지 않는다). options는 json.load에 그대로 넘긴다(parse_int 등)."""
     try:
         with open(path, "r", encoding="utf-8") as handle:
-            return json.load(handle)
+            return json.load(handle, **options)
     except FileNotFoundError:
         return default

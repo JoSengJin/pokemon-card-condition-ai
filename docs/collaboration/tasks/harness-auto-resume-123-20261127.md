@@ -318,7 +318,7 @@ harness 함수 정의 수 전→후(`de6286b` 기준): `dedupe` 2→5, `sandbox`
 | 3 | `8020053` | G3·G5·G8·G9·G10·G11·G12 |
 | 인계 | 이 문서 커밋 | 이 절, G3 새 세션 상한 단언 추가(변이 X09 공백) |
 
-#### 경계 설계(사용자 지시 1~5)
+#### 경계 설계(메인 지시 1~5: `briefs/brief-fix2.md`. 4차에 출처 정정, 이전 표기 "사용자 지시"는 오표기)
 
 1. 실행기 경계: executor가 쓸 수 있는 곳은 `sandbox.run_one`이 실행마다 하네스 root·저장소 밖에 새로 만드는 실행 폴더의 `out/`(staging)·`tmp/`(TMPDIR)뿐이다.
    확정 `out/`(root/tasks/<키>/out)에는 executor 쓰기 권한이 한 번도 없다(프로필이 실행 폴더 자체·`in/`·root 전체를 거절). 실행 뒤 하네스가 실행 전에 연
@@ -400,9 +400,9 @@ r2 생존 7개(새 코드 위치로 옮김: N03·N06 실행 폴더 root 안 허�
 
 | 시험 | 이전 기대 | 새 기대 | 근거 |
 |---|---|---|---|
-| `test_harness_supervisor_resume.test_unknown_reset_backs_off_three_times_then_stops_and_notifies` | 작업 1개로 claude 4회, 알림 `[rate_limit_unknown_exhausted]` | 작업 2개: 같은 작업 3회(새·재개·재개) 뒤 `too_many_interrupts` 대기, 4번째 시도는 다른 작업 첫 실행. 간격 900초·5시간·8일·횟수 4 그대로, 알림 `[claude_job_blocked, rate_limit_unknown_exhausted]` | 사용자 지시 2(모든 자동 재개 합계 ≤ MAX_INTERRUPTS), 승인 원문 "기존 재시도 상한 2회 안" |
-| `test_harness_graph.test_declared_key_must_match_the_contract_hash` | GraphError | 그 선언만 `rejected`(GraphError 사유), 등록 없음 | 사용자 지시 4, HARNESS_RULES "그 작업과 의존 작업만 대기" |
-| `test_harness_graph.test_register_missing_validates_each_contract_before_writing_it` | ContractError | `rejected`(ContractError 사유), 쓰지 않음(그대로) | 같음 |
+| `test_harness_supervisor_resume.test_unknown_reset_backs_off_three_times_then_stops_and_notifies` | 작업 1개로 claude 4회, 알림 `[rate_limit_unknown_exhausted]` | 작업 2개: 같은 작업 3회(새·재개·재개) 뒤 `too_many_interrupts` 대기, 4번째 시도는 다른 작업 첫 실행. 간격 900초·5시간·8일·횟수 4 그대로, 알림 `[claude_job_blocked, rate_limit_unknown_exhausted]` | 메인 지시 2(`brief-fix2.md`: 모든 자동 재개 합계 ≤ MAX_INTERRUPTS), 승인 원문 "기존 재시도 상한 2회 안" |
+| `test_harness_graph.test_declared_key_must_match_the_contract_hash` | GraphError | 그 선언만 `rejected`(GraphError 사유), 등록 없음 | 메인 지시 4(`brief-fix2.md`), HARNESS_RULES "그 작업과 의존 작업만 대기" |
+| `test_harness_graph.test_register_missing_validates_each_contract_before_writing_it` | ContractError | `rejected`(ContractError 사유), 쓰지 않음(그대로) | 같음(메인 지시 4) |
 | `test_harness_dedupe_conditions.test_unknown_or_variant_task_types…`의 graph 부분 | ContractError | `rejected`(ContractError 사유) | 같음 |
 
 기대값은 같고 준비만 바꾼 시험(삭제·완화·skip 없음):
@@ -506,8 +506,8 @@ H8, H9a~d(규칙 하나씩 제거), H4a~d(잰 크기 제한·산출물 상한·�
 
 | 시험 | 이전 기대 | 새 기대 | 근거 |
 |---|---|---|---|
-| `test_harness_dedupe_conditions.test_real_differences_are_registered` | `needs_vision=True`만 다른 실험이 등록(6번째 키) | ContractError, 키 5개 | 사용자 지시 1(needs_llm=false 대상 유형은 needs_vision=true 거절) |
-| `test_harness_dedupe_keys.test_registrant_labels…` | 명령 `0.10` = `0.1` 중복 | 등록(다른 키) | 사용자 지시 2·승인 계약 "실행 조건이 하나라도 실제로 다르면 통과": 소수점 끝 0은 버전·ID 문자열일 수 있어 같은지 판별할 수 없다. 다르게 봐서 생기는 손해(같은 실험 중복 등록 가능)를 택했다 |
+| `test_harness_dedupe_conditions.test_real_differences_are_registered` | `needs_vision=True`만 다른 실험이 등록(6번째 키) | ContractError, 키 5개 | 메인 지시 1(`briefs/brief-fix3.md` "메인 결정", 사용자 승인 원문 아님: needs_llm=false 대상 유형은 needs_vision=true 거절) |
+| `test_harness_dedupe_keys.test_registrant_labels…` | 명령 `0.10` = `0.1` 중복 | 등록(다른 키) | 메인 지시 2(`briefs/brief-fix3.md`, 사용자 승인 원문 아님. 4차에 출처 정정)·승인 계약 "실행 조건이 하나라도 실제로 다르면 통과": 소수점 끝 0은 버전·ID 문자열일 수 있어 같은지 판별할 수 없다. 다르게 봐서 생기는 손해(같은 실험 중복 등록 가능)를 택했다 |
 
 기대값은 같고 준비만 바꾼 시험(삭제·완화·skip 없음): 실험 계약을 만드는 `dedupe_conditions`·`dedupe_keys`·`exec_boundary`·`policy_guards`·`policy_regress`·`task_isolation`이 원본 폴더를
 `test_harness_git_kit.git_source`로 git 저장소(고정 작성자·시각의 커밋 하나, 입력 자료는 추적 안 함)로 만들고 code_sha를 그 HEAD(`CODE`, 모든 폴더에서 같음)로 바꿨다(근거 H1: 이전 `"c"*40`은

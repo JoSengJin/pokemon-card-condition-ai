@@ -27,7 +27,7 @@ import subprocess
 import sys
 import time
 
-from . import claude_job, evidence, graph, ledger, opstate
+from . import claude_job, dedupe, evidence, graph, ledger, opstate
 from .jsonio import read_json
 
 POLL_S = 60.0
@@ -109,11 +109,12 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
             try:
                 if _live(root, summary) is None:
                     continue
-                try:  # 선언 파일 자체의 문제(깨진 JSON·dict 아님·순환)는 그 회차의 그래프 등록만 건너뛰고 한 번 알린다(2차 결함 G5)
-                    declared = read_json(os.path.join(root, DECLARED), {})
+                try:  # 선언 파일 자체의 문제(깨진 JSON·dict 아님·순환·너무 깊은 중첩)는 그 회차의 그래프 등록만 건너뛰고 한 번 알린다(2차 결함 G5)
+                    # 정수 글자는 dedupe.json_number로 읽는다: 자릿수가 너무 큰 정수 하나가 파일 전체를 깨지 않고 그 선언만 거절된다(4차 결함 I2)
+                    declared = read_json(os.path.join(root, DECLARED), {}, parse_int=dedupe.json_number)
                     if declared:
                         graph.register_missing(root, declared, now, source_root=source_root)
-                except (graph.GraphError, ValueError) as exc:  # ValueError: read_json의 깨진 JSON(장부 오류 LedgerError는 여기서 잡지 않는다)
+                except (graph.GraphError, ValueError, RecursionError) as exc:  # ValueError: 깨진 JSON(장부 오류 LedgerError는 여기서 잡지 않는다)
                     graph.note_rejected(root, {"<declared.json>": "%s: %s" % (type(exc).__name__, exc)}, now)
                 while executors and _live(root, summary) is not None:  # Python 작업 하나를 시작하기 전마다 정지 상태를 본다
                     summary["python_runs"] += 1

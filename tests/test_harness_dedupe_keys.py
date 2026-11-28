@@ -4,8 +4,8 @@
   역할 이름(input_roles, 이제 설명)·세 유형 이름(experiment·training·evaluation은 한 부류)을 바꿔도 같은 키, 학습·검증 맞바꿈(같은 역할 두
   입력의 내용 맞바꿈 포함)은 다른 키다. command가 참조하지 않는 입력·없는 입력을 가리키는 자리표시자는 등록 거절이다.
 - 표기 정규화(중복 쪽이 안전한 방향): python·python3·절대 경로 python 실행 파일은 같은 것, config 안 seed = seed 키(둘 다 있고 다르면
-  거절), config 숫자 1 = 1.0. 명령의 숫자 토큰 0.10과 0.1은 이제 다르다(3차 결함 H2, 이전 기대: 같은 값. 근거와 나머지 숫자 규칙은
-  test_harness_dedupe_numbers).
+  거절). 명령의 숫자 토큰 0.10과 0.1은 다르다(3차 H2부터, 2차 기대: 같은 값). config 숫자 1과 1.0도 이제 다르다(2·3차 기대: 같은 값 = 중복.
+  근거: 사용자 결정 2026-11-28 숫자 표기 "수치형 파라미터는 자료형과 실제 값을 기준으로 정규화", 나머지 숫자 규칙은 test_harness_dedupe_numbers).
 - 검사와 등록은 파일 잠금 안에서 한다: 두 프로세스가 같은 조건을 동시에 등록해도 하나만 들어간다.
 - 실험 executor를 다른 유형 이름(deterministic 등)으로 감싼 executor 표는 쓰지 않는다. 실행 조건을 가진 비실험 유형은 거절한다.
 """
@@ -78,10 +78,12 @@ class DedupeKeyTest(unittest.TestCase):
         trailing = queue.enqueue(self.root, exp(self.src, command=cmd[:3] + ["0.10"] + cmd[4:]), T0 + 1, source_root=self.src)
         self.assertNotEqual(trailing, first)  # 3차 H2: 소수점 끝 0은 문자열 그대로(이전 기대: first의 중복)
         seeded = queue.enqueue(self.root, exp(self.src, seed=3, config={"epochs": 1}), T0, source_root=self.src)
-        for task in (exp(self.src, config={"epochs": 1, "seed": 3}), exp(self.src, seed=3, config={"epochs": 1.0})):
-            with self.assertRaises(queue.DuplicateTask, msg=task) as caught:  # config 안 seed = seed 키, 1 = 1.0(중복 쪽)
+        for task in (exp(self.src, config={"epochs": 1, "seed": 3}),):
+            with self.assertRaises(queue.DuplicateTask, msg=task) as caught:  # config 안 seed = seed 키
                 queue.enqueue(self.root, task, T0 + 1, source_root=self.src)
             self.assertEqual(caught.exception.existing, seeded)
+        typed = queue.enqueue(self.root, exp(self.src, seed=3, config={"epochs": 1.0}), T0 + 1, source_root=self.src)
+        self.assertNotIn(typed, (first, seeded))  # 사용자 결정 2026-11-28 숫자 표기: int 1 ≠ float 1.0(이전 기대: seeded의 중복)
 
     def test_real_swaps_and_differences_are_registered(self):
         same_role = {"data/a.csv": "X", "data/b.csv": "Y"}

@@ -15,21 +15,24 @@
 - 키 = sha256("condition"(세 유형 한 부류), 정규화한 command·code_sha(= 대조한 HEAD)·config·seed, needs_llm, needs_llm=true일 때만 needs_vision).
   needs_llm=false면 needs_vision은 실행에 쓰이지 않으므로 키에서 빼고 true는 거절한다(3차 결함 H1: 그 값만 뒤집어 다시 등록하는 우회). 정규화는 중복 쪽(같다고 보는 쪽)이
   안전한 방향만 한다: --opt=value → 두 토큰, 경로 모양 토큰(/ 포함) normpath, 저장소(claude_perm.REPO) 아래 절대 경로 → 상대 경로, 첫 토큰의
-  python 실행 파일 별칭(python·python3·python3.12·절대 경로) → python, 숫자 토큰은 정확한 값으로(3차 결함 H2: 정수는 부호 표기만 +5 = 5,
-  소수·지수는 십진 값 .5 = 0.5·1e-3 = 0.001. float를 거치지 않아 큰 정수·긴 소수를 접지 않는다. 앞자리 0(01)·소수점 끝 0(1.10·0.10·1.0)·
-  끝 점(1.)은 문자열 ID·버전일 수 있어 문자열 그대로 = 다른 값), config 안 seed → seed 키(둘 다 있고
-  다르면 거절), config 숫자 1.0 → 1(JSON 왕복). config 1과 1.0을 같게 보는 이유: 대부분의 실행 코드가 수치로 같게 쓰고, 같다고 봐서 생기는
-  손해는 등록 거절(DuplicateTask가 기존 작업을 알려 주고 사람이 고칠 수 있음)이지만 다르다고 봐서 생기는 손해는 같은 실험의 중복 실행이다.
+  python 실행 파일 별칭(python·python3·python3.12·절대 경로) → python, config 안 seed → seed 키(둘 다 있고 다르면 거절).
+- 숫자(4차 결함 I1·I2·I3, 사용자 결정 2026-11-28 숫자 표기): command 토큰은 자료형을 알 수 없어 숫자로 바꾸지 않는다(글자 그대로: 1e3 ≠ 1000,
+  +5 ≠ 5, 0.10 ≠ 0.1). 3차의 십진 정규화는 뺐다(정수 값 지수 표기 1e3 ≠ 1000 회귀와 거대 지수 decimal 예외를 만들었다). 위 숫자 외 정규화는
+  숫자 변환에 기대지 않아 그대로다(숫자 모양 토큰은 / 가 없어 경로 정규화에 걸리지 않는다). config·seed(JSON, 자료형이 있음)는 자료형과 값으로
+  본다: int·float·bool은 서로 다른 자료형(1 ≠ 1.0, true ≠ 1), 같은 자료형 안에서는 값(-0.0 = 0.0, JSON 글자 0.10 = 0.1 = 1e-1), 문자열은
+  그대로. NaN·무한대·MAX_INT_DIGITS자리를 넘는 정수·JSON이 아닌 값·너무 깊은 중첩은 거절(ContractError). 한계: 명령 안 숫자 표기만 다른
+  같은 실험은 다시 등록될 수 있다(같은 실험인지 확정할 수 없다). 수치 파라미터는 config로 넘기면 중복 판정이 된다.
   남는 한계(판별할 수 없는 표기 차이): 인자 순서, 짧은 옵션 결합(-abc), 저장소 밖 절대 경로 철자, config 안의 경로 문자열 철자, 명령 안
-  seed 인자(--seed 1)와 seed 키, 그 밖의 실행 파일 별칭, 인터프리터 옵션(python -u 등), 실행에 쓰이지 않는 config 키는 다르게 본다(같은
-  실험이 중복 등록될 수 있다, 3차 H3).
+  seed 인자(--seed 1)와 seed 키, 그 밖의 실행 파일 별칭, 인터프리터 옵션(python -u 등), 실행에 쓰이지 않는 config 키, 명령 안 숫자 표기는
+  다르게 본다(같은 실험이 중복 등록될 수 있다, 3차 H3·4차 I3).
+- 등록 경로의 예외(4차 I2): logical_key·verify_inputs는 어떤 계약에도 ContractError만 낸다(형식·자료형·크기 문제를 TypeError·ValueError·
+  RecursionError 등으로 새어 나가게 하지 않는다: 선언 하나가 Supervisor 전체를 멈추거나 선언 파일 전체를 건너뛰게 하지 않게).
 - risk·retry_policy·escalation_level·expected_minutes·outputs·depends_on·설명 문구는 키에 넣지 않는다. task_key·run_id는 그대로 둔다.
 - verify_inputs: 대상 유형의 입력을 source_root 아래 실제 파일과 대조한다(queue.enqueue·graph.register_missing 등록 때). 실행 직전에는 runner가
   claude_perm.stage_inputs로 사본을 만들며 다시 대조한다. 그 밖의 유형은 대조하지 않는다(Python 작업 입력의 원본 위치가 계약에 없다).
 - 등록(검사 + 저장)은 root의 contract.ENQUEUE_LOCK 파일 잠금 안에서 한다(queue.enqueue·graph.register_missing): 동시 등록이 둘 다 통과하지 않게.
 호출 깊이: find_duplicate → logical_key → _command(말단) 2, verify_inputs → verify_code(말단)·cas.sha_file(말단) 1.
 """
-import decimal
 import hashlib
 import json
 import os
@@ -48,9 +51,7 @@ NOTE_KEYS = ("hypothesis_id", "description", "input_roles")
 _SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 PLACEHOLDER = re.compile(r"\{input:([^{}]+)\}")  # runner가 실행 직전 사본 경로로 바꾼다(3차 H7)
-_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
-_INTEGER = re.compile(r"[+-]?\d+")
-_LITERAL = re.compile(r"^[+-]?0\d|\.\d*0(?:[eE]|$)|\.(?:[eE]|$)")  # 앞자리 0(01)·소수점 끝 0(1.10)·끝 점(1.): 문자열 그대로(3차 H2)
+MAX_INT_DIGITS = 4000  # config·seed·선언 파일 정수의 자릿수 상한(Python 3.11+ 정수 문자열 변환 상한 4300 아래: 버전마다 결과가 같게)
 _PYTHON = re.compile(r"python(?:\d+(?:\.\d+)*)?")
 
 
@@ -69,12 +70,6 @@ def _command(command, inputs):
                 part = "".join(p if i % 2 == 0 else "{sha:%s}" % inputs[os.path.normpath(p)] for i, p in enumerate(pieces))
             elif index == 0 and _PYTHON.fullmatch(os.path.basename(part)):
                 part = "python"
-            elif _NUMBER.fullmatch(part) and not _LITERAL.search(part):  # 숫자 값 비교(float를 거치지 않는다, 3차 결함 H2)
-                if _INTEGER.fullmatch(part):  # 앞자리 0 없는 정수: 부호 표기만 정규화(= int로 정확히 비교, 자릿수 제한 없음)
-                    part = "0" if part.lstrip("+-") == "0" else part.lstrip("+")
-                else:  # 소수·지수: 자릿수만큼 정밀도를 둔 십진 값(반올림 없음)
-                    exact = decimal.Context(prec=len(part) + 2, Emax=decimal.MAX_EMAX, Emin=decimal.MIN_EMIN)
-                    part = str(decimal.Decimal(part).normalize(exact))
             elif os.path.isabs(part) and os.path.commonpath([claude_perm.REPO, os.path.normpath(part)]) == claude_perm.REPO:
                 part = os.path.relpath(os.path.normpath(part), claude_perm.REPO)
             elif "/" in part and "://" not in part and not part.startswith("-"):
@@ -85,44 +80,55 @@ def _command(command, inputs):
     return tokens
 
 
-def _number(text):
-    """JSON 실수 문자열 → 정수로 같으면 int(1.0 → 1), 아니면 float."""
-    value = float(text)
-    return int(value) if value.is_integer() else value
+def json_number(text):
+    """JSON 숫자 글자 → 값(json parse_int·parse_float, 4차 결함 I2). 정수 글자는 int(MAX_INT_DIGITS자리 초과는 NaN: JSON 정규화가 거절한다.
+    Python 3.11+의 정수 변환 상한 ValueError가 선언 파일 전체를 깨지 않게 하고 3.9와 결과를 같게 한다), 소수·지수 글자는 float(-0.0은 0.0,
+    넘치면 무한대 → 정규화가 거절). 자료형은 바꾸지 않는다(1.0은 float, 1은 int)."""
+    if any(c in text for c in ".eE"):
+        return float(text) + 0.0
+    return int(text) if len(text.lstrip("-")) <= MAX_INT_DIGITS else float("nan")
 
 
 def logical_key(task):
-    """실험·학습·평가면 논리 키(16진 64자), 고정 목록의 그 밖 유형이면 None. 모르는 유형·판별할 수 없는 실행 조건은 ContractError."""
-    kind, cond = task.get("task_type"), task.get("run_conditions")
-    if kind in PLAIN_TYPES and cond is None:
-        return None
-    if kind not in CONDITION_TYPES:
-        raise ContractError("등록 목록에 없는 작업 유형이거나 실행 조건을 가진 비실험 유형: %r" % (kind,))
-    if not isinstance(cond, dict) or set(cond) - set(CONDITION_KEYS + NOTE_KEYS):
-        raise ContractError("실험·학습·평가 작업은 run_conditions(%s, 설명 %s)가 필요하다" % (CONDITION_KEYS, NOTE_KEYS))
-    command, code_sha, inputs = cond.get("command"), cond.get("code_sha"), task.get("inputs")
-    config, seed = {} if cond.get("config") is None else cond["config"], cond.get("seed")
-    if isinstance(config, dict) and "seed" in config:  # config 안 seed = seed 키(둘 다 있고 다르면 판별 불가)
-        if seed is not None and config["seed"] != seed:
-            raise ContractError("seed가 config와 seed 키에 서로 다르게 있다")
-        seed, config = config["seed"], {k: v for k, v in config.items() if k != "seed"}
-    if not isinstance(command, list) or not command or not all(isinstance(a, str) and a for a in command) \
-            or not isinstance(code_sha, str) or not _SHA.fullmatch(code_sha.lower()) or not isinstance(config, dict) \
-            or (seed is not None and (isinstance(seed, bool) or not isinstance(seed, int))):
-        raise ContractError("run_conditions 형식 오류(command 문자열 목록·code_sha 16진·config dict·seed 정수)")
-    if not isinstance(inputs, dict) or not all(isinstance(s, str) and _SHA256.fullmatch(s.lower()) for s in inputs.values()):
-        raise ContractError("실험·학습·평가 입력 SHA는 16진 64자다")
-    paths = {os.path.normpath(rel): sha.lower() for rel, sha in inputs.items()}
-    if len(paths) != len(inputs):
-        raise ContractError("inputs에 철자만 다른 같은 경로가 있다: %s" % sorted(inputs))
-    if not task.get("needs_llm") and task.get("needs_vision") is True:  # 실행에 쓰이지 않는 값(3차 H1: 뒤집어 다시 등록하는 우회)
-        raise ContractError("needs_llm=false인 실험·학습·평가는 needs_vision=true일 수 없다")
-    body = {"class": "condition", "command": _command(command, paths), "code_sha": code_sha.lower(),
-            "config": json.loads(json.dumps(config, allow_nan=False), parse_float=_number), "seed": seed,
-            "needs_llm": task.get("needs_llm")}
-    if task.get("needs_llm"):  # LLM을 쓰는 경우에만 needs_vision이 실행 조건이다
-        body["needs_vision"] = task.get("needs_vision")
-    text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    """실험·학습·평가면 논리 키(16진 64자), 고정 목록의 그 밖 유형이면 None. 모르는 유형·판별할 수 없는 실행 조건은 ContractError
+    (형식·자료형·크기 문제의 다른 예외도 ContractError로 바꾼다, 4차 I2)."""
+    try:
+        kind, cond = task.get("task_type"), task.get("run_conditions")
+        if kind in PLAIN_TYPES and cond is None:
+            return None
+        if kind not in CONDITION_TYPES:
+            raise ContractError("등록 목록에 없는 작업 유형이거나 실행 조건을 가진 비실험 유형: %r" % (kind,))
+        if not isinstance(cond, dict) or set(cond) - set(CONDITION_KEYS + NOTE_KEYS):
+            raise ContractError("실험·학습·평가 작업은 run_conditions(%s, 설명 %s)가 필요하다" % (CONDITION_KEYS, NOTE_KEYS))
+        command, code_sha, inputs = cond.get("command"), cond.get("code_sha"), task.get("inputs")
+        config, seed = {} if cond.get("config") is None else cond["config"], cond.get("seed")
+        if isinstance(config, dict) and "seed" in config:  # config 안 seed = seed 키(둘 다 있고 다르면 판별 불가)
+            if seed is not None and config["seed"] != seed:
+                raise ContractError("seed가 config와 seed 키에 서로 다르게 있다")
+            seed, config = config["seed"], {k: v for k, v in config.items() if k != "seed"}
+        if not isinstance(command, list) or not command or not all(isinstance(a, str) and a for a in command) \
+                or not isinstance(code_sha, str) or not _SHA.fullmatch(code_sha.lower()) or not isinstance(config, dict) \
+                or (seed is not None and (isinstance(seed, bool) or not isinstance(seed, int))):
+            raise ContractError("run_conditions 형식 오류(command 문자열 목록·code_sha 16진·config dict·seed 정수)")
+        if not isinstance(inputs, dict) or not all(isinstance(s, str) and _SHA256.fullmatch(s.lower()) for s in inputs.values()):
+            raise ContractError("실험·학습·평가 입력 SHA는 16진 64자다")
+        paths = {os.path.normpath(rel): sha.lower() for rel, sha in inputs.items()}
+        if len(paths) != len(inputs):
+            raise ContractError("inputs에 철자만 다른 같은 경로가 있다: %s" % sorted(inputs))
+        if not task.get("needs_llm") and task.get("needs_vision") is True:  # 실행에 쓰이지 않는 값(3차 H1: 뒤집어 다시 등록하는 우회)
+            raise ContractError("needs_llm=false인 실험·학습·평가는 needs_vision=true일 수 없다")
+        typed = json.loads(json.dumps({"config": config, "seed": seed}, allow_nan=False),  # 자료형 유지, 같은 자료형 안에서 값(4차 I3)
+                           parse_int=json_number, parse_float=json_number)
+        body = {"class": "condition", "command": _command(command, paths), "code_sha": code_sha.lower(),
+                "config": typed["config"], "seed": typed["seed"], "needs_llm": task.get("needs_llm")}
+        if task.get("needs_llm"):  # LLM을 쓰는 경우에만 needs_vision이 실행 조건이다
+            body["needs_vision"] = task.get("needs_vision")
+        text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    except ContractError:
+        raise
+    except (TypeError, ValueError, AttributeError, ArithmeticError, RecursionError) as exc:
+        raise ContractError("실행 조건을 정규화할 수 없다(NaN·무한대·%d자리 넘는 정수·JSON이 아닌 값·너무 깊은 중첩 등): %s: %s" % (
+            MAX_INT_DIGITS, type(exc).__name__, str(exc)[:200]))
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -180,9 +186,14 @@ def verify_inputs(task, source_root):
         return
     verify_code(task, source_root)
     base = os.path.realpath(source_root)
-    for rel, want in sorted(task["inputs"].items()):
-        real = os.path.realpath(os.path.join(base, rel))
-        if os.path.isabs(rel) or os.path.commonpath([base, real]) != base or not os.path.isfile(real):
-            raise ContractError("입력이 원본 폴더 밖이거나 일반 파일이 아니다: %r" % rel)
-        if sha_file(real) != str(want).lower():
-            raise ContractError("입력 SHA가 실제 파일과 다르다: %r" % rel)
+    try:
+        for rel, want in sorted(task["inputs"].items()):
+            real = os.path.realpath(os.path.join(base, rel))
+            if os.path.isabs(rel) or os.path.commonpath([base, real]) != base or not os.path.isfile(real):
+                raise ContractError("입력이 원본 폴더 밖이거나 일반 파일이 아니다: %r" % rel)
+            if sha_file(real) != str(want).lower():
+                raise ContractError("입력 SHA가 실제 파일과 다르다: %r" % rel)
+    except ContractError:
+        raise
+    except (OSError, TypeError, ValueError) as exc:  # 읽을 수 없는 입력·NUL 든 경로 등: 그 작업만 거절(4차 I2)
+        raise ContractError("입력을 대조할 수 없다: %s: %s" % (type(exc).__name__, str(exc)[:200]))

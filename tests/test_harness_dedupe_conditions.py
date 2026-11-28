@@ -2,9 +2,10 @@
 
 - 작업 유형은 코드의 고정 목록으로만 판별한다. 모르는 유형·변형 이름(대소문자·접미어)은 run_conditions가 있든 없든 등록 거절이라
   중복 검사를 빠져나갈 수 없다. 실행 조건을 가진 비실험 유형도 거절한다.
-- 같은 조건의 다른 표기(config 생략·{}·null, seed 생략·null, 1과 1.0, SHA 대소문자, ./train.py, --lr=0.1, 입력 파일 경로 철자)는 중복,
+- 같은 조건의 다른 표기(config 생략·{}·null, seed 생략·null, SHA 대소문자, ./train.py, --lr=0.1, 입력 파일 경로 철자)는 중복,
   실제로 다른 조건(학습·검증 맞바꿈: 명령의 자리표시자 자리가 바뀜, 입력 내용, 입력 추가)은 등록된다(2차 G4 뒤 기준은
   test_harness_dedupe_keys). needs_llm=false 실험의 needs_vision=true는 등록 거절이다(3차 결함 H1, 이전 기대: 다른 조건으로 등록).
+  config 1과 1.0은 이제 다른 조건이다(이전 기대: 중복. 근거: 사용자 결정 2026-11-28 숫자 표기 "수치형 파라미터는 자료형과 실제 값을 기준으로").
 - 입력 SHA는 형식을 검사하고 등록할 때와 executor 실행 직전에 실제 파일과 대조한다(다르면 등록 거절·결정적 실패, executor 실행 0).
 """
 import hashlib
@@ -78,11 +79,13 @@ class DedupeConditionTest(unittest.TestCase):
                  (_exp(dict(sha, **{"./data/train.csv": sha["data/train.csv"]}),
                        roles={"./data/train.csv": "train", "data/val.csv": "val"}), first),
                  (_exp(sha, hypothesis_id="H-9", description="다른 설명"), first),
-                 (_exp(sha, config={"lr": 1.0}), lr1)]
+                 (dict(_exp(sha, config={"lr": 1}), risk="high"), lr1)]  # risk만 다름
         for task, existing in cases:
             with self.assertRaises(queue.DuplicateTask, msg=task["run_conditions"]) as caught:
                 queue.enqueue(root, task, T0 + 1, source_root=src)
             self.assertEqual(caught.exception.existing, existing)
+        typed = queue.enqueue(root, _exp(sha, config={"lr": 1.0}), T0 + 1, source_root=src)  # 사용자 결정 2026-11-28 숫자 표기
+        self.assertNotIn(typed, (first, lr1))  # int 1 ≠ float 1.0(이전 기대: lr1의 중복)
 
     def test_real_differences_are_registered(self):
         root, (src, sha) = tempfile.mkdtemp(), _source(self)
