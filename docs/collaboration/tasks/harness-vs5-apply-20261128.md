@@ -143,7 +143,9 @@ declared.json(사람이 쓴 학습·평가 계약) → register_missing → runn
 
 # 10. 전체 시험
 
-(아래에 기록)
+대상 11839d5 이후 문서 정정 커밋(코드 변경 없음), 저장소 루트에서 `PYTHONDONTWRITEBYTECODE=1 <python> -m unittest discover -s tests -p "test_harness_*.py"`, full-suite.lock 잠금 아래 순차(내가 만든 잠금만 rmdir):
+- Python 3.12(.venv): 534개 OK(306.6초). 3.9(/usr/bin/python3): 534개 OK(358.1초). 간헐 실패 test_kill9_while_waiting_then_restart_resumes는 이번 실행에서 발생하지 않았다.
+- 로그: scratchpad `vs5-c-evidence/full-312.log`·`full-39.log`.
 
 # 11. 롤백
 
