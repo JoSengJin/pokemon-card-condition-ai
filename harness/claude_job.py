@@ -9,9 +9,12 @@ rate_limited|done|failed|blocked|stale), session_id, crash_resumes, mode, run_to
 - 사람 확인 대기(status=blocked, hold_reason)는 그 작업(과 그것에 의존하는 작업)만 멈춘다. pick은 대기 작업을 건너뛰고 다른 독립 작업을
   고른다. 공통 장애 근거(현재는 한도 이벤트 → opstate 한도 조건)만 Claude 실행 전체를 멈춘다. 대기 사유: claude 실패(원인 필드 포함),
   pid 기록 불일치, 결과 반영 claim 거절, 완료 표시 없음, 선언 자리가 폴더 등(G11), 자동 재개 한도(recovery.MAX_INTERRUPTS=2) 초과, 상태 파일
-  형식이 다름(job_state_invalid: 깨진 JSON·dict 아님·KNOWN 밖 status, 3차 결함 H6, 새 작업으로 보지 않는다). 알림(claude_job_blocked)을
-  남기며 자동 재시도하지 않는다. 사람이 확인한 뒤 그 작업의 상태 파일을 지우면(새 세션으로 다시 고름) 이어간다. status를 rate_limited로
-  고치는 같은 세션 --resume은 그 유형의 자동 재개가 켜져 있을 때만 된다(claude_perm.AUTO_RESUME, 3단계). 큐 작업이 PENDING이 아니게 되면 닫는다(VERIFIED면 done, 그 밖은 stale).
+  형식이 다름(job_state_invalid: 깨진 JSON·dict 아님·KNOWN 밖 status, 3차 결함 H6, 새 작업으로 보지 않는다), 내용이 모순(4차 결함 I6: 큐가
+  PENDING인데 status done·failed·stale, status new인데 crash_resumes가 정수 0이 아니거나 session_id가 있음). 알림(claude_job_blocked)을
+  남기며 자동 재시도하지 않는다. 사람 해제는 한 가지뿐이다: 사람이 확인한 뒤 그 작업의 상태 파일을 지우면(새 세션으로 다시 고름) 이어간다
+  (status를 new·done·failed·stale로 고쳐 쓰는 것은 해제가 아니다: 위 모순 규칙에 걸려 다시 대기한다). 기존 규칙 그대로, status를
+  rate_limited로 고치는 같은 세션 --resume은 그 유형의 자동 재개가 켜져 있을 때만 되고(claude_perm.AUTO_RESUME, 3단계, 지금 빈 목록이라
+  대기) crash_resumes 상한을 그대로 따른다. 큐 작업이 PENDING이 아니게 되면 닫는다(VERIFIED면 done, 그 밖은 stale).
 - 완료 표시(contract.COMPLETION): claude가 성공 종료하고 Claude의 선언(out/ 안 contract.DECLARATION: task_key·run_token·outputs 경로 목록)이
   이번 실행의 run_token·계약과 맞으면 execute가 산출물 sha256으로 완료 표시를 원자 저장한다. 실행(재개·새 세션 포함) 직전마다 이전 선언을
   지우고 프롬프트에 이번 run_token을 준다(검증 결함 F4: 낡은 선언 + 성공 종료로 반쯤 쓴 산출물이 완료되지 않게). Claude는 명령 실행 도구가 없어 sha256을 직접 계산할 수 없으므로 해시는
@@ -84,7 +87,10 @@ def pick(root, now):
             job = read_json(path)
         except ValueError:  # 깨진 JSON: 아래에서 형식이 다른 상태 파일로 다룬다
             job = ValueError
-        if job is not None and not (isinstance(job, dict) and job.get("status") in KNOWN):
+        odd = isinstance(job, dict) and state == states.PENDING and (job.get("status") in ("done", "failed", "stale") or (
+            job.get("status") == "new" and (type(job.get("crash_resumes")) is not int or job["crash_resumes"] != 0
+                                            or job.get("session_id") is not None)))  # 4차 결함 I6: 정상 흐름에서 생기지 않는 모순
+        if odd or (job is not None and not (isinstance(job, dict) and job.get("status") in KNOWN)):
             if state == states.PENDING:  # 새 작업으로 보지 않는다(재개 상한 근거가 사라진 파일, 3차 H6): 그 작업만 대기 + 알림 한 번
                 seen = "깨진 JSON" if job is ValueError else repr(job)[:200]
                 write_json(path, {"task_key": key, "status": HOLD, "hold_reason": "job_state_invalid: %s" % seen, "updated_at": now})

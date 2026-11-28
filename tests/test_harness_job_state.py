@@ -4,6 +4,9 @@
   대기(blocked, hold_reason job_state_invalid) + 알림 한 번. 독립 작업은 계속한다.
 - S30 crash_resumes(자동 재개 합계)가 없음·null·정수 아님(bool 포함)·음수면 상한에 닿은 것으로 본다(claude를 부르지 않고 대기).
 - H8 복원 불가 판정은 결과 이벤트의 session_id가 재개하려던 ID와 같을 때만 True(실환경 t4-bogus-resume.jsonl도 같다).
+- 4차 결함 I6: status가 KNOWN 안이어도 내용이 모순이면 같은 job_state_invalid 대기다. 큐 작업이 PENDING인데 status가 done·failed·stale
+  (정상 흐름에서는 큐가 VERIFIED·FAILED이거나 PENDING이 아닐 때만 쓴다), status new인데 crash_resumes가 정수 0이 아니거나 session_id가 있음
+  (pick이 쓰는 new는 0·null뿐). 사람 해제는 그 작업의 상태 파일 삭제 한 가지뿐이다(지우면 새 작업으로 다시 고른다).
 """
 import json
 import os
@@ -48,6 +51,38 @@ class JobStateTest(unittest.TestCase):
             self.assertTrue(job["hold_reason"].startswith("job_state_invalid"), job)
             notes = [e["data"] for e in events(root, path=opstate.NOTIFICATIONS)]
             self.assertEqual([n["data"].get("task_key") for n in notes if n["kind"] == "claude_job_blocked"], [bad], text)
+
+    def test_contradictory_job_state_holds_only_that_task_until_the_file_is_deleted(self):
+        capped = {"session_id": SID, "crash_resumes": recovery.MAX_INTERRUPTS, "hold_reason": "too_many_interrupts: 2"}
+        variants = [dict(capped, status=s) for s in ("done", "failed", "stale", "new")] + [
+            {"status": "new", "session_id": SID, "crash_resumes": 0}, {"status": "new", "session_id": None, "crash_resumes": 1},
+            {"status": "new", "session_id": None, "crash_resumes": False}, {"status": "new", "session_id": None}]
+        for variant in variants:
+            root = tempfile.mkdtemp()
+            bad, good = llm_task(root, "a"), llm_task(root, "b")
+            path = claude_job.paths(root, bad)[0]
+            write_json(path, dict(variant, task_key=bad))
+            claude, log, env = make_fake(self, [{"do": "success"}] * 3)
+            for _ in range(2):
+                out = supervisor.run(root, claude_bin=claude, max_cycles=4, poll_s=0, env=env)
+            self.assertNotEqual(out["state"], opstate.INTEGRITY_HALT, variant)
+            self.assertEqual(len(runs(log)), 1, variant)  # 독립 작업 b만(모순 파일로 새 세션·첫 실행을 열지 않는다)
+            self.assertEqual(states.state_of(states.facts(os.path.join(root, "tasks", good)), False), states.VERIFIED, variant)
+            with open(path, encoding="utf-8") as handle:
+                job = json.load(handle)
+            self.assertEqual((job["status"], job["hold_reason"][:17]), (claude_job.HOLD, "job_state_invalid"), variant)
+            notes = [e["data"] for e in events(root, path=opstate.NOTIFICATIONS)]
+            self.assertEqual([n["data"].get("task_key") for n in notes if n["kind"] == "claude_job_blocked"], [bad], variant)
+            os.remove(path)  # 사람 해제(정해진 방법): 상태 파일 삭제 → 새 작업으로 다시 고른다
+            supervisor.run(root, claude_bin=claude, max_cycles=4, poll_s=0, env=env)
+            self.assertEqual(len(runs(log)), 2, variant)
+            self.assertEqual(states.state_of(states.facts(os.path.join(root, "tasks", bad)), False), states.VERIFIED, variant)
+        root = tempfile.mkdtemp()  # 정상 new(pick이 쓰는 모양: 0·null)는 그대로 첫 실행이다
+        key = llm_task(root)
+        write_json(claude_job.paths(root, key)[0], {"task_key": key, "status": "new", "session_id": None, "crash_resumes": 0})
+        claude, log, env = make_fake(self, [{"do": "success"}])
+        supervisor.run(root, claude_bin=claude, max_cycles=2, poll_s=0, env=env)
+        self.assertEqual((len(runs(log)), states.state_of(states.facts(os.path.join(root, "tasks", key)), False)), (1, states.VERIFIED))
 
     def test_missing_null_or_bad_resume_count_counts_as_the_limit(self):
         for value in ("missing", None, "1", 1.0, True, -1, recovery.MAX_INTERRUPTS):
