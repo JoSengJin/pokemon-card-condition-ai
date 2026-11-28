@@ -51,7 +51,7 @@ depends_on / done / next / unrecovered: 선행 task(통합 전까지 시작 금�
 
 ## 4. worktree와 실행 환경
 
-기본 checkout이 깨끗하고 진행 중인 실험·검토가 없는 시점에 pair-coding 스킬을 쓰는 구현 담당은 작업을 선점(`refs/claims`)한 뒤 자기 브랜치·worktree를 직접 만들고, 그 밖의 경우는 현재 메인이 준비한다. 아래는 설정 예제이며 실제 작업 생성·설치가 완료됐다는 뜻은 아니다.
+기본 checkout이 깨끗하고(추적 파일의 변경과 진행 중인 Git 작업이 없음. 미추적 항목은 작업의 allowed_files와 겹치지 않으면 허용) 진행 중인 실험·검토가 없는 시점에 pair-coding 스킬을 쓰는 구현 담당은 작업을 선점(`refs/claims`)한 뒤 자기 브랜치·worktree를 직접 만들고, 그 밖의 경우는 현재 메인이 준비한다. 아래는 설정 예제이며 실제 작업 생성·설치가 완료됐다는 뜻은 아니다.
 
 ```sh
 # 기본 checkout에서 실행. 값은 각자의 로컬 환경에 맞게 설정한다.

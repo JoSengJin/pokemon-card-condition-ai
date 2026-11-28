@@ -3,9 +3,7 @@ name: pair-coding
 description: Codex·Claude 병렬 페어코딩 절차. 사용자가 "pair-coding 열기/시작/이어하기/통합/인수"를 부를 때만 사용한다. 작업 계약을 open으로 올리고, refs/claims로 선점하고, 체크포인트로 이어받고, 메인이 대화 기록과 대조해 통합한다. 일반 개발 요청에는 쓰지 않는다.
 ---
 
-# pair-coding (초안 — 비활성)
-
-> 이 파일은 초안이다. `docs/collaboration/plans/`에 있어 어느 에이전트도 자동으로 불러오지 않는다. 사용자가 PAIR_CODING.md 개정(승인 3곳)과 `docs/AGENT_START.md` 스킬 선택표 추가를 승인한 뒤에만 `.agents/skills/pair-coding/SKILL.md`로 옮기고 `.claude/skills/pair-coding`을 연결한다.
+# pair-coding
 
 ## 0. 시작 전 관문 (모든 모드 공통)
 
@@ -71,7 +69,7 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
 
 1. **같은 세션 재개:** claim 목록에서 `agent=$AG`이고 `session=$SID`(내 환경 변수 값과 정확히 같음)인 claim을 찾는다. 그 브랜치 tip의 계약이 `ready_for_review`가 아니면 그 worktree에서 `next`부터 이어간다. `next`가 "실행 중이었음/결과 불명"이면 다시 실행하지 말고 확인부터 한다(PAIR_CODING.md 118행).
 2. **새 작업 맡기:** main의 `docs/collaboration/tasks/`에서 `status: open`이고, claim이 없고, `depends_on`이 전부 main에서 `status: integrated`인 작업 중 task_id가 가장 앞선 것을 고른다. 파일 겹침은 계산하지 않는다(메인이 열 때 보장).
-3. **선점 + worktree (한 명령, 승인 1회):** §0의 신원 줄 뒤에 이어서 한 번에 실행한다.
+3. **선점 + worktree (한 명령, 승인 1회):** 선점 전에 PAIR_CODING.md §4의 시작 조건을 기본 checkout에서 확인한다. `git status`에 진행 중인 Git 작업(merge·cherry-pick·rebase 등)이 없고, `git status --porcelain --untracked-files=no`와 `git ls-files --others --exclude-standard -- <계약의 allowed_files>`의 출력이 모두 비어 있으며, 진행 중인 실험·검토가 없어야 한다. allowed_files 밖의 미추적 항목은 그대로 두고 진행한다. 하나라도 어긋나거나 확인할 수 없으면 선점하지 말고 보고한다. 통과하면 §0의 신원 줄 뒤에 이어서 한 번에 실행한다.
 
    ```sh
    ID=<task-id>; BASE=$(git rev-parse main);  # 끝의 ; 필수: 여러 줄을 한 줄로 합쳐도 값이 비지 않게
