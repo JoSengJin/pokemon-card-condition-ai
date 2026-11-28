@@ -16,8 +16,8 @@
 - 오류(RouteHistoryError: 의존 계약·검사 기록·대상이 손상·미검증·형식 위반·귀속 위반)면 이력을 비우지 않는다(비우면 낮은 모델로 되돌아가 상향
   횟수가 초기화된다). 호출자는 그 작업만 대기시킨다.
 - 상향·중단 규칙은 route_escalate 그대로다. xhigh 필요성·학습 가치 값은 넘기지 않는다(claude_job은 budget_remaining도 주지 않아 Xhigh는 닫힘).
-  주의: pending 결정에도 model이 남는다. 연결하는 쪽(claude_job, 통합 뒤)이 decision["pending"]이면 실행하지 않아야 반복이 멈춘다.
-- CHECKER_TYPES는 아직 dedupe.PLAIN_TYPES에 없어 queue로 등록되지 않는다(통합 때 추가, 그 전에는 이력이 항상 비어 있다).
+  주의: pending 결정에도 model이 남는다. 호출자 claude_job.execute는 decision["pending"]이면 그 작업만 대기시킨다(VS4).
+- CHECKER_TYPES는 dedupe.PLAIN_TYPES에 있어 등록된다(VS4). 판정 파일을 쓰는 검사 executor는 아직 없다: 운영 executor 표에 없으면 이력은 비어 있다.
 호출 깊이: history → states.facts → 말단 2(supervisor.run → claude_job.execute → history에서 불러도 4). history → _verdict(말단) 1.
 """
 import hashlib
