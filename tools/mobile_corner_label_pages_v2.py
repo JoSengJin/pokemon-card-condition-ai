@@ -17,10 +17,22 @@ from tools import mobile_corner_label_pages as v1
 STATES = ['미확인', '정상', '결함', '판단 불가']
 CARD_MM, MODEL_PX_MM, QUALITY = (63, 88), 15.27, 92
 SCALE = 1.0  # shortcut: never downscale; a smaller value must still pass display_ok or the page is refused
-STYLE = v1.STYLE + '.c[data-s="판단 불가"]{background:#e8a600aa}'
+STYLE = v1.STYLE + '.c[data-s="판단 불가"]{background:#e8a600aa}.c[data-s="미확인"] i::after{content:"탭";font-weight:400;opacity:.8}'
+STYLE += '.tip{margin:4px 0;font-weight:700}'  # 2026-11-29 phone test: the cells were not tapped (the person judged by eye only)
 OLD_NEXT = "const NEXT={'미확인':'정상','정상':'결함','결함':'미확인'};"
 SCRIPT = v1.SCRIPT.replace(OLD_NEXT, "const NEXT={'미확인':'정상','정상':'결함','결함':'판단 불가','판단 불가':'미확인'};")
 assert SCRIPT != v1.SCRIPT  # the v1 script text changed: refuse to run on a mismatch instead of silently showing 3 states
+# Drag dots sit on the box SIDES, not its corners: a dot on a box corner covered the card corner being judged and caught the tap
+# (2026-11-29 phone test). Each dot moves one side.
+SIDE_DOTS = (("a.querySelectorAll('.h').forEach(e=>{e.style.left=(e.dataset.k.includes('l')?l:r)*100+'%';e.style.top=(e.dataset.k.includes('t')?t:b)*100+'%'})}",
+              "a.querySelectorAll('.h').forEach(e=>{const k=e.dataset.k;e.style.left=(k==='l'?l:k==='r'?r:(l+r)/2)*100+'%';e.style.top=(k==='t'?t:k==='b'?b:(t+b)/2)*100+'%'})}"),
+             ("if(k.includes('l'))a.b[0]=Math.min(x,a.b[2]-.05);else a.b[2]=Math.max(x,a.b[0]+.05);",
+              "if(k==='l')a.b[0]=Math.min(x,a.b[2]-.05);if(k==='r')a.b[2]=Math.max(x,a.b[0]+.05);"),
+             ("if(k.includes('t'))a.b[1]=Math.min(y,a.b[3]-.05);else a.b[3]=Math.max(y,a.b[1]+.05);",
+              "if(k==='t')a.b[1]=Math.min(y,a.b[3]-.05);if(k==='b')a.b[3]=Math.max(y,a.b[1]+.05);"))
+for _old, _new in SIDE_DOTS:
+    assert SCRIPT.count(_old) == 1  # refuse to run if the v1 script text moved
+    SCRIPT = SCRIPT.replace(_old, _new)
 INSTRUCTIONS = (
     '<p><b>이 페이지의 판정은 모서리(카드 네 귀퉁이의 둥근 끝: 뭉개짐·찍힘·백화·접힘)만입니다.</b> 근처 직선 테두리만의 마모·백화, 면 안쪽 기스·오염은 이 항목이 아니므로 결함으로 누르지 마세요. 이 페이지에는 네 모서리 칸만 있습니다.</p>'
     '<p>빨간 점 4개를 끌어 파란 상자가 <b>카드가 전부 안에 들어오게</b> 맞추세요(딱 맞을 필요 없음). 상자를 고쳤다면 마지막에 “상자 확인”을 누르세요. '
@@ -54,9 +66,10 @@ def photo(path, box):
 
 def article(number, face, data):
     cells = ''.join(f'<div class="c" data-a="{a}" data-s="미확인" data-x="{x}" data-y="{y}"><i></i></div>' for a, x, y in v1.AREAS)
-    handles = ''.join(f'<div class="h" data-k="{k}"></div>' for k in ('lt', 'rt', 'rb', 'lb'))
+    handles = ''.join(f'<div class="h" data-k="{k}"></div>' for k in ('t', 'r', 'b', 'l'))
     return (f'<article data-id="{html.escape(face["id"])}" data-ok="0" data-box="{html.escape(json.dumps(face["box"]))}">'
             f'<h2>{number}. {html.escape(face["title"][:60])} ({face["id"].rsplit("/", 1)[-1]})</h2>'
+            '<p class="tip">점선 모서리 칸을 탭해 입력: 정상 → 결함 → 판단 불가</p>'
             f'<div class="ph"><img alt="" src="data:image/jpeg;base64,{data}"><div class="bx"></div>{cells}{handles}</div>'
             '<div class="row"><button class="ok">상자 확인(카드가 안에 들어옴)</button></div>'
             '<div class="row"><button class="alln">4모서리 전부 정상</button><button class="reset">구역 초기화</button></div></article>')
