@@ -1,7 +1,7 @@
 {
  "status": "사용자 D4 결정 반영(2026-11-28), 미확인 42개는 확인 전 차단 상태, 목록 완전성은 이름·문서 기준(파일 내용 미확인)",
  "how": "메인이 조사 proposal(keep 35·add 58·unknown 42·remove 5, 편입 기록 확인 2개 제외)로 만든 final-list 140항목에서 설명문이던 4항목을 실제 경로·glob으로 풀었다(이름만, 내용 미열람). 항목별 근거: docs/collaboration/tasks/harness-seal-read-20261128.md 부록. 468·C4·350·D1·D1b·11-19 포함, 소진만으로 해제하지 않는다.",
- "use": "저장소 기준 상대 경로. *가 든 항목은 실행 시점에 glob으로 풀어(sealed_paths) 그 시점의 실제 경로를 막는다(새로 생긴 파일도 포함). sandbox 프로필이 이 경로들의 읽기를 거절하고(file-read* subpath) claude_perm.stage_inputs가 이 아래 입력 복사를 거절한다. 파일이 없거나 링크·형식 오류면 둘 다 fail-closed.",
+ "use": "저장소 기준 상대 경로. *가 든 항목은 sealed_paths가 실행 시점의 실제 경로로도 풀고, sandbox 프로필에는 regex 규칙으로 넣어 실행 중 생긴 파일도 막는다. sandbox 프로필이 이 경로들의 읽기를 거절하고(file-read* subpath·regex) claude_perm.stage_inputs가 이 아래 입력 복사를 거절한다. 파일이 없거나 링크·형식 오류면 둘 다 fail-closed.",
  "paths": [
   "artifacts/c4-expansion-20261103/answers-holdout-1-5.txt",
   "artifacts/c4-expansion-20261103/answers-holdout-5.txt",

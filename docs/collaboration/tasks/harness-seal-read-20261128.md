@@ -101,10 +101,10 @@ git ls-files | python3 -I gen.py > paths.json
 
 증거 수준: **구현 완료 + 합성 시험**(가짜 저장소·가짜 봉인 목록·실제 `sandbox-exec`). 실제 실험·학습·평가 0건, 봉인 자료 내용 열람 0건, 모델 누락·오탐 변화 없음. 사용자 결정 원문 요약: `artifacts/harness-resume-20261127/decisions-integration-seal-20261128.md`.
 
-방식: runner(sandbox 밖)가 기존 `dedupe.verify_code` 직후 `experiment_exec.record_code`로 **`code_sha` 커밋의 파일별 git blob SHA 목록**(`git ls-tree -r -z`, 추적 파일 2522개·모드 포함)을 `<작업 폴더>/code-check.json`에 쓴다. 어댑터(`execute`)는 `check_code`로 그 파일만 읽어 git 없이 각 파일의 blob SHA(`sha1(b"blob N\0"+내용)`, 링크는 `readlink`, 모드 비트 포함)를 다시 계산해 전부 같은지 본다. 하나라도 다르거나 읽을 수 없으면 `refused`(실행 안 함). 메인 권고의 `git ls-files -s` 대신 `ls-tree <code_sha>^{tree}`를 썼다: 인덱스가 아니라 계약의 `code_sha` 커밋에 직접 묶여서 같은 보장(검증 뒤 작업 트리 변경 차단)을 주고 `code_sha` 일치도 함께 성립한다.
+방식: runner(sandbox 밖)가 기존 `dedupe.verify_code` 직후 `experiment_exec.record_code`로 **`code_sha` 커밋의 파일별 git blob SHA 목록**(`git ls-tree -r -z`, 추적 파일, 현재 2488개·모드 포함)을 `<작업 폴더>/code-check.json`에 쓴다. 어댑터(`execute`)는 `check_code`로 그 파일만 읽어 git 없이 각 파일의 blob SHA(`sha1(b"blob N\0"+내용)`, 링크는 `readlink`, 모드 비트 포함)를 다시 계산해 전부 같은지 본다. 하나라도 다르거나 읽을 수 없으면 `refused`(실행 안 함). 메인 권고의 `git ls-files -s` 대신 `ls-tree <code_sha>^{tree}`를 썼다: 인덱스가 아니라 계약의 `code_sha` 커밋에 직접 묶여서 같은 보장(검증 뒤 작업 트리 변경 차단)을 주고 `code_sha` 일치도 함께 성립한다.
 
 - 고정 위치: 작업 폴더(`root/tasks/<키>/code-check.json`). sandbox는 쓰기 거절(덮어쓰기·새 파일·교체 모두 EPERM, 실제 sandbox 시험). 경로는 runner가 넣는 환경변수 `HARNESS_CODE_CHECK`(기존 `HARNESS_SOURCE_ROOT`와 같은 방식, 계약 작성자가 정할 수 없음). 어댑터는 `O_NOFOLLOW`·일반 파일·링크 수 1·파일 이름·`realpath(path)==path`를 확인한다. `run()`을 직접 부르는 경로(기존 시험)는 예전처럼 `verify_code`를 직접 한다(`checked=False` 기본).
-- 대조 범위(기록 범위): 봉인 경로 목록(`harness/sealed_paths.json`) 아래 추적 파일은 sandbox가 읽을 수 없어 대조에서 빼고 `sealed_skipped`에 남긴다. 이 저장소 실측 2522개 대조 + 97개 제외(모두 `artifacts/` 아래, .json 43·.txt 26·.md 17·.py 8·.html 3; .py 8개는 옛 holdout worker). 그 파일은 sandbox 안에서 읽기·실행이 거절되어(`test_sealed_reads_are_refused_in_sandbox_…`) sandbox 안 어댑터·`./experiment`가 실행할 수 없다. 이 저장소에서 sandbox 안 `check_code` 0.35초(비 sandbox 기록 0.28초).
+- 대조 범위(기록 범위): 봉인 경로 목록(`harness/sealed_paths.json`) 아래 추적 파일은 sandbox가 읽을 수 없어 대조에서 빼고 `sealed_skipped`에 남긴다. **현재 목록(144항목, D4 반영 뒤) 기준 실측(HEAD `4a5a890`): 2488개 대조 + 134개 제외**(모두 `artifacts/` 아래, .json 56·.txt 50·.md 17·.py 8·.html 3; .py 8개는 옛 holdout 폴더의 worker). 그 파일은 sandbox 안에서 읽기·실행이 거절되어(`test_sealed_reads_are_refused_in_sandbox_…`) sandbox 안 어댑터·`./experiment`가 실행할 수 없다. 이 저장소에서 sandbox 안 `check_code` 0.35초(비 sandbox 기록 0.28초, 44항목 목록일 때 측정). (이전 문서의 2522/97은 44항목 목록 기준이었다.)
 - 실행 파일 `experiment`가 목록에 없으면 거절(추적되지 않은 실행 파일 방지).
 
 구조(`PAIR_CODING.md`): `harness/experiment_exec.py` 함수 5→7(`record_code`·`check_code` 추가, 람다 없음), `harness/runner.py` 5→5(한 줄 추가). 호출: `runner.main → drain → _execute → experiment_exec.record_code → claude_perm.sealed_paths·jsonio.write_json` = 4, `execute → check_code` = 2(말단). 시험 새 파일 3개(각 함수 3·4·3개).
@@ -143,8 +143,8 @@ git ls-files | python3 -I gen.py > paths.json
 증거 수준: **구현 완료 + 합성 시험**(임시 git 저장소·가짜 목록·실제 `sandbox-exec`, 실제 목록으로는 이름·형식·실행 시간만). 봉인 내용 열람 0건, 실제 실험·학습·평가 0건, 모델 누락·오탐 변화 없음. 입력: `artifacts/harness-resume-20261127/session-6702a9/seal-scope/final-list.json`(140)·`outside-roots.txt`(153).
 
 변경(최소):
-1. `harness/sealed_paths.json`: 44 → **144항목**(468·C4·350·D1·D1b·11-19 포함, 소진만으로 해제하지 않음, 미확인 42개는 차단). final-list의 140개 중 **설명문이던 4항목은 실제 경로 규칙으로 풀었다**(그대로 쓰면 존재하지 않는 글자 그대로의 경로라 아무것도 막지 못한다): `artifacts/experiments/*/reference.json`·`.../observations.json`, 실험 폴더 `20261116T104632-5f5ebb42`·`20261116T131107-9c2af49d`(폴더 전체, "sealed-*.json" 용도 미확인), `data/*independent*-review-*.jsonl*`(.bak 포함), `artifacts/reports-20261031/holdout*.html`·`artifacts/edge-back-add*-20261031/holdout-rows.json`·`artifacts/experiments/20261031T093842-2ba28932/holdout_scores.json`. `*`가 든 항목은 `claude_perm.sealed_paths`가 **실행 시점에 glob으로** 풀어 나중에 생긴 파일도 막는다(`?`·`[`는 형식 오류). 
-2. `harness/sealed_outside_roots.json`(새 파일, 루트 153개)과 `claude_perm.outside_roots`(함수 6→7): sandbox 프로필이 각 루트 **전체** 읽기를 거절한다(`sandbox.profile(..., outside)`, 140×153 규칙 대신 루트 단위). 현재 저장소(REPO)·`HARNESS_SOURCE_ROOT` 자신이나 그 조상인 루트는 뺀다. 실행 때마다(sandbox 밖) `git worktree list --porcelain`(REPO 기준)에 있는 다른 worktree도 추가로 거절한다. 목록 파일 없음·링크·형식 오류·git worktree 목록 읽기 실패는 fail-closed(`available()` False, `run_one`·`sandboxed`는 ValueError, 아무것도 실행하지 않음). `sandbox.py` 함수 수 5→5(`profile`에 인자 1개 추가, 호출처 3곳).
+1. `harness/sealed_paths.json`: 44 → **144항목**(468·C4·350·D1·D1b·11-19 포함, 소진만으로 해제하지 않음, 미확인 42개는 차단). final-list의 140개 중 **설명문이던 4항목은 실제 경로 규칙으로 풀었다**(그대로 쓰면 존재하지 않는 글자 그대로의 경로라 아무것도 막지 못한다): `artifacts/experiments/*/reference.json`·`.../observations.json`, 실험 폴더 `20261116T104632-5f5ebb42`·`20261116T131107-9c2af49d`(폴더 전체, "sealed-*.json" 용도 미확인), `data/*independent*-review-*.jsonl*`(.bak 포함), `artifacts/reports-20261031/holdout*.html`·`artifacts/edge-back-add*-20261031/holdout-rows.json`·`artifacts/experiments/20261031T093842-2ba28932/holdout_scores.json`. `*`가 든 항목은 `claude_perm.sealed_paths`가 실행 시점에 glob으로 풀어 그 시점에 있는 파일을 `stage_inputs`·`record_code`에 쓰고, sandbox 프로필에는 **regex 규칙**으로 넣는다(아래 "독립 검증 수정" F3, 프로필을 만든 뒤 sandbox 밖에서 생긴 파일도 막는 것을 실측). 새 항목 추가는 목록 갱신이다. (`?`·`[`는 형식 오류.) 
+2. `harness/sealed_outside_roots.json`(새 파일, 루트 153개)과 `claude_perm.outside_roots`(함수 6→7): sandbox 프로필이 각 루트 **전체** 읽기를 거절한다(`sandbox.profile(..., outside)`, 140×153 규칙 대신 루트 단위). 현재 저장소(REPO)·`HARNESS_SOURCE_ROOT`와 같은 루트는 뺀다(조상인 루트는 아래 F1처럼 실행 차단). 실행 때마다(sandbox 밖) `git worktree list --porcelain`에 있는 worktree도 추가로 거절한다: **REPO 저장소는 등록된 모든 worktree, source_root는 그 폴더 안에 중첩된 worktree만**(다른 저장소의 형제 worktree는 모른다). 목록 파일 없음·링크·형식 오류·git worktree 목록 읽기 실패는 fail-closed(`available()` False, `run_one`·`sandboxed`는 ValueError, 아무것도 실행하지 않음). `sandbox.py` 함수 수 5→5(`profile`에 인자 1개 추가, 호출처 3곳).
 3. 이 python의 prefix(`sys.prefix`·`sys.exec_prefix`, 예: 기본 checkout의 `.venv`)가 거절 루트 안에 있으면 그 폴더만 다시 허용한다(봉인 목록 거절이 그 뒤 규칙이라 우선). 이유: REPO가 기본 checkout이 아닌 worktree일 때 기본 checkout 전체가 거절 대상이 되어 python 자신을 못 읽는다. 하네스 root·실행 폴더가 거절 루트 안이면 프로필을 만들지 않는다(ValueError).
 - 호출 깊이: `runner.main → drain → _execute → sandbox.run_one → claude_perm.outside_roots` = 4(말단). 기존 구조 유지.
 
@@ -160,16 +160,42 @@ git ls-files | python3 -I gen.py > paths.json
 | `.venv/bin/python`(3.12) | 567 통과 (366초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-d4-venv312.log` |
 | `/usr/bin/python3`(3.9) | 567 통과 (412초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-d4-py39.log` |
 
+### D4 독립 검증 수정(Opus 신뢰 경계 검증 결과, 커밋 `ef6931f`(구현)·`4a5a890`(시험))
+
+증거 수준: 합성 시험(임시 저장소·실제 `sandbox-exec`). 신뢰 경계 자체의 우회는 없었고 D4 범위 결함 4건 + 추가 1건을 고쳤다.
+
+| 결함 | 수정 | 시험(`tests/test_harness_seal_scope_v2.py`) |
+|---|---|---|
+| F1 기준 폴더의 **조상** 루트를 뺐다 → REPO·source_root가 `main/.claude/worktrees/x`이면 기본 checkout 전체가 열림 | 루트가 기준 폴더와 같으면 빼고, **조상이면 ValueError**(`available()` False, `run_one`·`sandboxed`·`stage_inputs` 실행 안 함) | 목록·git worktree 조상 둘 다 거절, 같은 루트는 제외, 중첩 worktree를 REPO로 두면 `available()` False |
+| F2 `stage_inputs` 봉인 집합에 저장소 밖 루트가 없어 차단된 worktree 안 사본이 `in/`으로 복사됨 | 봉인 집합에 `outside_roots([REPO, base])` 추가(호출 깊이 4, 함수 수 7 유지) | 목록 루트 안·source_root 안 중첩 worktree 안 입력 거절, 정상 입력은 복사 |
+| F3 `*` glob이 프로필 생성 때 한 번만 풀려 실행 중 새로 생긴 파일(예: 새 실험 reference.json)이 읽힘 | `*`가 든 항목은 SBPL **regex 규칙**(`^<경로>(/.*)?$`, `*`는 슬래시 제외 한 조각, 나머지 정규식 문자는 이스케이프)으로 프로필에 넣는다. **실측**: sandbox 실행 중 밖에서 만든 `exp/new/ref.json`·대문자 변형 `EXP/NEW/REF.JSON`·`Ref.json` 변형 모두 EPERM, 같은 폴더의 다른 파일은 읽힘, 이름에 `(+)`가 든 경로도 글자 그대로 | 실시간 생성 시험(regex 이스케이프 포함) |
+| F4 `available`·`sandboxed`가 `[REPO]`만 기준 | 둘 다 `HARNESS_SOURCE_ROOT`도 기준에 넣고, `runner.main`이 `--source-root`를 그 환경변수로 먼저 설정(최소 변경) | spy로 3회 호출 모두 source_root의 봉인 경로를 받음, main이 환경 설정 |
+| F5(추가) 대화 기록에 봉인 경로 이름이 나옴 | 거절 루트에 `~/.claude/projects`·`~/.claude-mem`·`~/.codex/sessions` 추가(목록 153→156, 기본 차단·내용 미열람). sandbox 안 python·저장소 읽기는 이 폴더 없이 되고(시험, stat만 확인) 전체 하네스 시험도 통과 | 목록 포함·stat 거절·python/저장소 읽기 성공 |
+
+source_root 쪽 worktree 목록은 **그 폴더 안에 중첩된 것만** 더한다. 이유: 기존 시험 `test_git_show_and_direct_git_reads_are_refused_for_plain_repo_and_worktree`가 source_root 저장소의 형제 worktree(`wt`) 읽기가 성공하는 것을 기대하며, 기대값은 바꾸지 않았다(바꾸려면 별도 승인).
+
+결함 주입 11개(스크립트 `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/seal-v2-inject.py`, 로그 `logs/seal-v2-fault-*.log`): 조상 검사 제거·stage_inputs 거절 루트 제거·source_root 중첩 worktree 제거·`*`를 글자 그대로 subpath·패턴 문자열 미추가·`available`/`sandboxed`가 REPO만 기준·`runner.main`이 환경 미설정·대화 기록 루트 제거·regex 이스케이프 제거 모두 시험이 잡았다. 반환 필터에서 조상 제외를 되살리는 주입(V1b)은 위 검사가 먼저 막아 동치라 잡히지 않는다(중복 방어). V8은 처음 못 잡아 시험을 고친 뒤 잡았다.
+
+전체 하네스 시험(대상 `4a5a890`, `full-suite.lock` 획득 뒤 1회씩): **두 Python 모두 572 통과, 실패 0**(567 + 새 5).
+
+| Python | 결과 | 로그 |
+|---|---|---|
+| `.venv/bin/python`(3.12) | 572 통과 (375초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-v2-venv312.log` |
+| `/usr/bin/python3`(3.9) | 572 통과 (470초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-v2-py39.log` |
+
+정정(과장 문구): "나중에 생긴 파일도 막는다"는 **프로필 regex로 sandbox 실행 중 생긴 파일에만** 해당한다. `stage_inputs`·`record_code`는 그 시점의 glob 결과만 쓴다(입력은 존재해야 복사하므로 영향 없음). "다른 worktree 거절"은 **`git worktree list`에 등록된 것**(REPO 저장소 전부, source_root 안 중첩분)과 목록의 153+3개뿐이다. 등록 안 된 복제본·`cp -r`·압축 해제본은 막지 못한다.
+
 ### 한계·실제 실행 전 사람이 확인할 것(보장 못 하면 실행 보류)
 - **목록에 없는 새 사본은 자동으로 막을 수 없다.** 막히는 것은 (a) `sealed_outside_roots.json`의 153개, (b) 실행 시점 `git worktree list`에 등록된 worktree, (c) `sealed_paths.json`이 가리키는 REPO·source_root 아래 경로뿐이다. git에 등록되지 않은 `cp -r`·clone·scratchpad 복제본·압축 해제본은 `git worktree list`에 없어 자동으로 못 잡는다. **실제 실험을 시작하기 전에 사람이 확인할 항목**: 마지막 조사(2026-11-28) 이후 새로 만든 복제본·worktree가 있는지(`outside-roots.txt` 조사를 다시 돌려 목록과 대조), 있으면 이 파일에 추가하고 커밋. 이 확인 없이는 "저장소 밖 사본까지 차단"이라고 보고하지 않는다. 사본 삭제·새 관리 시스템은 만들지 않았다.
-- worktree 목록은 REPO 기준만 읽는다. `HARNESS_SOURCE_ROOT`가 다른 저장소면 그 저장소의 다른 worktree는 모른다(그 저장소가 REPO와 다른 repo일 때만 해당).
+- worktree 목록은 REPO 저장소는 전부, `HARNESS_SOURCE_ROOT`는 그 폴더 안에 중첩된 것만 읽는다. source_root가 다른 저장소면 그 저장소의 형제 worktree(폴더 밖)는 모른다.
+- **실제 실행(C 트랙) 전 필수 확인**: (1) 사본 조사 갱신(등록 안 된 새 복제본), (2) REPO·source_root가 기본 작업 폴더인지(조상 루트가 있으면 실행이 차단된다), (3) `artifacts/experiments/*/reference.json` 항목 처리 결정, (4) 목록 완전성(이름·문서 기준, 내용 미확인) 사용자 확인.
 - 이 worktree가 기본 checkout이 아니므로 시험은 기본 checkout을 "다른 worktree"로 거절한다. **기본 checkout에서 돌릴 때** 봉인 경로는 REPO 기준 `sealed_paths.json`으로 막히고(아직 이 환경에서 실행해 보지 않음), 기본 checkout 안의 추적되지 않는 봉인 자료는 목록의 glob·경로가 이름으로 맞아야 막힌다.
 - **`artifacts/experiments/*/reference.json`·`observations.json` 전체 차단(미확인 42개의 한 항목)은 나중에 연결할 sandbox 안 실제 `./experiment` worker가 자신의 실험 폴더 reference.json·이전 실험 결과를 읽는 것도 막는다**(worker가 `CARD_CONDITION_EXPERIMENT_REFERENCE` 정답을 읽음). C 트랙 연결 전에 사용자가 이 항목을 정해야 한다(내가 풀지 않았다).
 - final-list의 `dropped`(편입 기록 확인 2개: `artifacts/holdout-h-head3-20261031`, `artifacts/surface-spotcheck-20261101/key-sealed.json`)는 넣지 않았다. 목록 완전성은 이름·문서 기준이고 파일 내용은 열지 않았으므로 완전 보호로 보고하지 않는다.
 - 같은 사용자의 sandbox 밖 프로세스는 여전히 막지 못한다(D-7).
 
 ### 롤백(D4만)
-`git revert 2fda4c1 8670d3b 29e2e0f` → 봉인 목록 44항목·저장소 밖 루트 차단 없음으로 돌아간다(위 (나) 변경은 유지).
+`git revert 4a5a890 ef6931f 2fda4c1 8670d3b 29e2e0f`(검증 수정 F1~F5 포함) → 봉인 목록 44항목·저장소 밖 루트 차단 없음으로 돌아간다(위 (나) 변경은 유지).
 
 ### 부록: 목록 항목 분류와 근거(final-list.json, 이름·문서 기준; 항목 수는 조사 proposal 기준 140, 위 설명문 4항목은 실제 경로로 풀어 144)
 | 구분 | 분류 | 항목 수 | 근거(조사 proposal 첫 항목, 문서·키 이름만) |
