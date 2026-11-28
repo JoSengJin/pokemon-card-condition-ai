@@ -70,7 +70,9 @@ def _python(root, executors, now, total_s=None, source_root=None):
     except ValueError:
         summary = None
     executed = summary.get("executed") if isinstance(summary, dict) else None
-    if proc.returncode != 0 or not isinstance(summary, dict) or executed:
+    # 결과 불명(executor_killed)은 실행 0건이어도 남긴다. 계속 대기 중인 다른 정지 사유는 회차마다 줄이 늘지 않게 남기지 않는다(VS2)
+    unknown = isinstance(summary, dict) and any(str(v).startswith("executor_killed:") for v in (summary.get("stopped") or {}).values())
+    if proc.returncode != 0 or not isinstance(summary, dict) or executed or unknown:
         ledger.append(os.path.join(root, "ledger.jsonl"), now, "python_drain",
                       {"returncode": proc.returncode, "summary": summary, "stderr_tail": evidence.mask(err, 500),
                        "cause": cause, "signal": -proc.returncode if proc.returncode < 0 else None,

@@ -90,6 +90,11 @@ class ExperimentRunFaultTest(unittest.TestCase):
             if mode == "busy":
                 [drained] = events(root, "python_drain")
                 self.assertEqual(drained["data"]["summary"]["failed"], [[key, "deterministic"]])
+            else:  # 결과 불명은 실행 0건이어도 그 회차의 사유가 장부에 남는다. 대기 중인 다음 회차는 줄을 늘리지 않는다
+                [drained] = events(root, "python_drain")
+                self.assertTrue(drained["data"]["summary"]["stopped"][key].startswith("executor_killed:"), drained)
+                again = subprocess.run(done.args, cwd=kit.REPO, capture_output=True, text=True, timeout=300)
+                self.assertEqual((again.returncode, len(events(root, "python_drain"))), (0, 1), again.stderr[-800:])
         self.assertEqual(sorted(sandbox.sandboxed(root, "harness.experiment_exec:EXECUTORS")), ["experiment"])
 
 
