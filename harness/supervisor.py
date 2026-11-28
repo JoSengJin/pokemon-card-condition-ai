@@ -3,7 +3,7 @@
 한 회차: 운영 상태 확인(opstate) → 정지 상태(INTEGRITY_HALT·USER_STOPPED·DONE·BUDGET_EXCEEDED)면 아무 작업도 시작하지 않고 감시만
 → 끊긴 Silver 철회 복구(withdrawal.withdraw(root, now), policy_id 없이 복구만·멱등, silver/store.jsonl이 있을 때만. 정지 상태에서는
 하지 않는다: 보수적 기본값, 사용자 확인 필요) → 의존 그래프 대조(graph.register_missing, 선언 파일 root/supervisor/declared.json이 있을 때) → Python 작업 처리(2단계 runner를
-별도 프로세스로 `--max 1`씩, 종료 코드 3 = 장부 무결성 → INTEGRITY_HALT) → 한도 상태면 Claude 작업만 멈추고 재개 시각(next_try_at)이
+별도 프로세스로 `--max 1`씩, 종료 코드 3 = 장부 무결성 → INTEGRITY_HALT) → 적용기(VS5: VERIFIED 학습 작업을 모델 레지스트리에 등록·VERIFIED 평가 작업을 채점해 승격 판정만 기록, apply_main을 별도 프로세스로, 적용할 것이 있을 때만, 실패는 INTEGRITY_HALT, 승격은 하지 않는다) → 한도 상태면 Claude 작업만 멈추고 재개 시각(next_try_at)이
 지났을 때만 한도 조건을 자동 해제(clear_auto)하고 재개 → Claude 작업 칸(claude_job) 실행·반영 → 다음 회차까지 대기(sleep_fn, 한도면 재개 시각까지).
 - 정지 상태는 회차 시작에만 보지 않는다: Python 작업 하나를 시작하기 전마다, Python 처리 뒤(clear_auto 직전), pick 직전, execute 직전에
   다시 읽어 정지면 그 회차를 끝낸다(처리 중 건 USER_STOPPED 뒤에 새 작업을 시작하지 않는다). 이미 돌고 있는 작업은 강제로 끊지 않는다.
@@ -16,7 +16,7 @@
   무결성 오류에 남긴다.
 - 실행: python -m harness.supervisor --root R [--claude-bin B] [--executors mod:ATTR] [--max-cycles N] [--poll S]
 호출 깊이: run → runner.drain은 별도 프로세스라 세지 않는다. run → _live(2)·withdrawal.withdraw(4, 래퍼 없이 직접)·opstate.clear_auto(3)·graph.register_missing(3)·graph.note_rejected(1)·plan_gate.gate(3, VS3: 선언을 읽은 뒤 register_missing 전)·
-claude_job.pick(2)·execute(3)·settle(3)이라 최대 4다. 모듈 맨 아래 __main__ 블록은 _args와 run만 부른다.
+claude_job.pick(2)·execute(3)·settle(3)·_apply(apply_main.pending → states.facts → cas.sha_file = 4, 반영은 별도 프로세스)이라 최대 4다. 모듈 맨 아래 __main__ 블록은 _args와 run만 부른다.
 - root는 절대 경로로 바꿔 쓴다(runner는 cwd=REPO에서 돌기 때문에 상대 경로면 다른 폴더를 본다).
 """
 import errno
@@ -28,7 +28,7 @@ import subprocess
 import sys
 import time
 
-from . import claude_job, dedupe, evidence, graph, ledger, opstate, plan_gate, silver_store, withdrawal
+from . import apply_main, claude_job, dedupe, evidence, graph, ledger, opstate, plan_gate, silver_store, withdrawal
 from .jsonio import read_json
 
 POLL_S = 60.0
@@ -36,6 +36,8 @@ INTEGRITY_EXIT = 3  # harness.runner의 장부 무결성 종료 코드(runner.IN
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DECLARED = os.path.join("supervisor", "declared.json")
 RUNNER = [sys.executable, "-m", "harness.runner"]  # runner 하위 프로세스 명령(뒤에 root·executors·--max 1)
+APPLY = [sys.executable, "-m", "harness.apply_main"]  # 적용기 하위 프로세스 명령(뒤에 root, VS5)
+APPLY_TOTAL_S = 1800.0  # 임시 기본값: 적용기 한 번(학습 등록·판정 몇 건)의 총 시간. 넘기면 사람 확인 정지
 PYTHON_TOTAL_S = 3 * 3600.0  # 임시 기본값: runner 한 번(작업 1개)의 총 시간. 기존 실험 최대 113분보다 길어야 한다(시험이 대조)
 
 
@@ -78,6 +80,28 @@ def _python(root, executors, now, total_s=None, source_root=None):
                        "cause": cause, "signal": -proc.returncode if proc.returncode < 0 else None,
                        "duration_s": round(time.monotonic() - started, 3)})
     return proc.returncode, executed if proc.returncode == 0 and type(executed) is int else 0
+
+
+def _apply(root, now):
+    """VS5: VERIFIED 학습·평가 작업의 결과를 반영하는 적용기(apply_main)를 별도 프로세스로 한 번 돌린다. 적용할 것이 없으면 프로세스를 띄우지 않는다.
+    새로 반영한 것이 있으면 장부(apply_drain), 영구 거절 사유는 알림 한 번(graph.note_rejected). 대기(정지·후보 미적용)는 남기지 않는다.
+    비정상 종료·시간 초과·출력 불명은 반영 상태를 알 수 없으므로 예외로 올려 INTEGRITY_HALT가 되게 한다(run의 except). 결과 목록."""
+    if not apply_main.pending(root):
+        return []
+    proc = subprocess.run(APPLY + [root], cwd=REPO, stdin=subprocess.DEVNULL, capture_output=True, text=True, errors="replace",
+                          timeout=APPLY_TOTAL_S, start_new_session=True)
+    try:
+        results = json.loads(proc.stdout.strip().split("\n")[-1])
+    except ValueError:
+        results = None
+    if proc.returncode != 0 or not isinstance(results, list):
+        raise RuntimeError("적용기 실패(종료 코드 %s): %s" % (proc.returncode, evidence.mask(proc.stderr, 300)))
+    if any(r["ok"] and not r.get("already") for r in results):
+        ledger.append(os.path.join(root, "ledger.jsonl"), now, "apply_drain", {"results": results})
+    waiting = ("candidate_not_applied",)
+    graph.note_rejected(root, {"apply:%s:%s" % (r["kind"], r["task_key"]): r["reason"] for r in results
+                               if not r["ok"] and r["reason"] not in waiting and not r["reason"].startswith("halted:")}, now)
+    return results
 
 
 def _live(root, summary):
@@ -135,6 +159,9 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
                 state = _live(root, summary)  # Python 처리 뒤·clear_auto 직전
                 if state is None:
                     continue
+                applied = [r for r in _apply(root, now_fn()) if r["ok"] and not r.get("already")]  # VS5: 학습 등록·채점 판정(승격은 하지 않는다)
+                if applied:
+                    summary["applied"] = summary.get("applied", []) + applied
                 eff = summary["state"]
                 gate = state["conditions"].get(eff) if eff in opstate.RATE_LIMITED else None
                 if gate is not None and not gate.get("exhausted") and gate.get("next_try_at") is not None \
