@@ -81,7 +81,7 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
 
    - `reference already exists`로 실패 → 다른 쪽이 먼저 잡았다. 2로 돌아가 다음 후보.
    - 선점은 됐는데 worktree 생성이 실패 → claim을 지우지 말고 멈추고 보고한다.
-   - Codex: 샌드박스에서 막히므로 이 명령 하나에 대해 권한 상승을 한 번 요청한다(2026-11-22 실측).
+   - Codex: 선점·worktree 생성 명령과, 이후 worktree의 각 체크포인트·완료 커밋은 Git 메타데이터(`.git`) 쓰기라 샌드박스에서 막힌다(`index.lock: Operation not permitted`, 2026-11-22·11-28 실측). 해당 명령마다 권한 상승을 요청한다. 이는 규칙 회피가 아니다(150행의 금지는 검사·규칙을 건너뛰는 상승).
    - 첫 체크포인트에서 계약의 `owner`, `branch`, `base_sha`(= 위 `BASE`), `status: implementing`을 채운다.
 4. 새 worktree에서 PAIR_CODING.md §4(66–74행)대로 자체 `.venv`를 준비하고, 모델·worker 수정은 `./develop -- <명령>` 안에서 한다.
 5. **체크포인트:** 의미 단위가 끝날 때마다 **한 커밋에** 코드 + 계약의 `done`(이번 단위 추가)·`next`(다음 할 일 하나)를 함께 넣는다. 제목 `checkpoint(<task-id>): <끝낸 단위>`. 커밋 전 `git diff --check`, `git diff --name-only <base_sha>`가 allowed_files + 계약 문서 안인지 확인한다.
