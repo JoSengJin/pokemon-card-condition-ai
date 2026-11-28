@@ -53,8 +53,8 @@ import os
 import uuid
 
 from . import contract as ct
-from . import budget, cas, claude_perm, claude_run, evidence, ledger, lease, logical_zones, manifest, opstate, queue, ratelimit, recovery
-from . import route, route_history, states
+from . import budget, cas, claude_perm, claude_run, evidence, experiment_exec, ledger, lease, logical_zones, manifest, opstate, queue, ratelimit, recovery
+from . import plan_gate, route, route_history, states
 from .jsonio import read_json, write_json
 
 JOBS = os.path.join("supervisor", "claude")  # 작업별 상태 <task_key>.json·<task_key>.pid
@@ -139,7 +139,17 @@ def pick(root, now):
     return job
 
 
-def _prompt(root, job, mode, failed_session=None):
+# ANALYZE 작업에만 붙는 next_plan.json 형식 안내. 키·변수·뺄 키는 plan_gate 상수에서 만들어 PLAN_GATE 검사와 어긋나지 않게 한다.
+_PLAN_FORMAT = ("\n5. 이 작업은 다음 실험 제안이다. 산출물 %s(JSON 객체)의 형식(하네스 PLAN_GATE가 검사하며 어기면 그 제안만 거절된다):\n"
+                "- 키: %s (이 키만, 다른 키 금지). 앞의 4개는 비지 않은 문자열, plan은 객체.\n"
+                "- 변수: %s 하나만 바꾼다. variable에 이 경로를 그대로 적는다.\n"
+                "- plan 만드는 법: 대조 계획 사본 %%s 을 읽어 키 %s 를 뺀 나머지를 그대로 옮기고, %s의 %s만 baseline과 사본의 값 모두와 다른 수로 바꾼다. 그 밖의 값은 고치지 않는다.\n"
+                "- 새로 쓰는 것은 hypothesis_id·hypothesis·change 문구뿐이다. 성공·실패 기준·명령·입력은 쓰지 않는다(대조에서 하네스가 이어받는다).")
+_PLAN_FORMAT %= (plan_gate.NEXT_PLAN, ", ".join(plan_gate.PLAN_KEYS), ".".join(plan_gate.VARIABLE),
+                 ", ".join(("hypothesis_id",) + experiment_exec.TEXT_KEYS + tuple(plan_gate._FROZEN)), plan_gate.VARIABLE[0], plan_gate.VARIABLE[1])
+
+
+def _prompt(root, job, mode, contract, failed_session=None):
     task_dir = os.path.join(root, "tasks", job["task_key"])
     base = ("하네스 작업 %s를 수행한다.\n실행 토큰: %s\n계약 파일: %s\n산출물 폴더: %s\n계약의 outputs를 산출물 폴더에 쓴다.\n"
             "규칙(프로젝트 지침이 로드되지 않을 수 있어 여기에 적는다):\n"
@@ -150,6 +160,9 @@ def _prompt(root, job, mode, failed_session=None):
             " \"outputs\": [outputs 경로 목록]}을 쓴다. 그 뒤에는 산출물을 고치지 않는다."
             % (job["task_key"], job["run_token"], os.path.join(task_dir, "contract.json"), os.path.join(task_dir, "out"),
                ct.DECLARATION, job["task_key"], job["run_token"]))
+    copies = [rel for rel in sorted(contract["inputs"]) if rel.endswith("/plan.json")]  # 대조 계획 사본: stage_inputs가 in/에 복사한 동결 plan.json
+    if contract["task_type"] == plan_gate.ANALYZE_TYPE and plan_gate.NEXT_PLAN in contract["outputs"] and copies:
+        base += _PLAN_FORMAT % ("in/" + copies[0])
     if mode == "resume":
         return "사용량 한도 또는 중단으로 멈춘 같은 작업을 이어서 진행한다.\n" + base
     if failed_session:
@@ -262,7 +275,7 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None, s
         ledger.append(log, now_fn(), "claude_run_started", {"task_key": key, "mode": mode,
                       "session_id": job["session_id"], "model": decision["model"], "effort": decision["effort"]})
         started = now_fn()
-        res = claude_run.run_once(claude_bin, _prompt(root, job, mode, failed_session), decision["model"],
+        res = claude_run.run_once(claude_bin, _prompt(root, job, mode, contract, failed_session), decision["model"],
                                   decision["effort"], run, env, resume=job["session_id"] if mode == "resume" else None,
                                   session_id=job["session_id"] if mode == "new" else None, extra=extra)
         kind = "rate_limited" if res["limited"] else "success" if res["success"] else "failed"

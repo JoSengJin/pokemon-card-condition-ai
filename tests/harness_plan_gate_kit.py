@@ -47,11 +47,11 @@ def control(head, value=0.6, hid="H1", **plan):
                                                "failure_criterion": "fn>2"}}}
 
 
-def seed(src, hid):
-    """원본 저장소에 가설 hid의 동결 기록(./experiment가 남기는 record·result·plan)을 심는다. 실험 폴더 경로."""
+def seed(src, hid, plan=None):
+    """원본 저장소에 가설 hid의 동결 기록(./experiment가 남기는 record·result·plan)을 심는다. plan은 plan.json 내용(없으면 최소 모양). 실험 폴더 경로."""
     folder = os.path.join(src, "artifacts", "experiments", "20300101T000000-" + hashlib.sha256(hid.encode()).hexdigest()[:8])
     os.makedirs(folder, exist_ok=True)
-    for name, body in (("plan.json", {"hypothesis_id": hid, "schema_version": 1}), ("result.json", {"rows": [], "scores": [0.1]})):
+    for name, body in (("plan.json", plan or {"hypothesis_id": hid, "schema_version": 1}), ("result.json", {"rows": [], "scores": [0.1]})):
         with open(os.path.join(folder, name), "w", encoding="utf-8") as handle:
             json.dump(body, handle)
     sha = {n: cas.sha_file(os.path.join(folder, n)) for n in ("plan.json", "result.json")}
