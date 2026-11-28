@@ -45,7 +45,7 @@ import subprocess
 import sys
 import tempfile
 
-from .claude_perm import sealed_paths
+from .claude_perm import outside_roots, sealed_paths
 from .dedupe import CONDITION_TYPES
 from .experiment_exec import SOURCE_ENV
 from .safefs import open_regular, publish, replace_new
@@ -72,19 +72,28 @@ class ChildError(Exception):
     status = None
 
 
-def profile(root, run_dir, sealed):
+def profile(root, run_dir, sealed, outside=()):
     """SBPL 문자열: 쓰기 기본 거절 + run_dir/out·run_dir/tmp·DEVICES만 허용(run_dir 자체와 그 밖 자리는 거절). run_dir은 하네스 root·저장소
     (REPO) 밖이어야 한다. 경로에 따옴표·역슬래시가 있거나 위치가 맞지 않으면 ValueError(프로필을 안전하게 적을 수 없다).
-    sealed(호출자가 claude_perm.sealed_paths로 읽은 실제 경로 목록)의 읽기는 거절한다. 비어 있으면 ValueError(목록 없이 만들지 않는다)."""
+    sealed(호출자가 claude_perm.sealed_paths로 읽은 실제 경로 목록)의 읽기는 거절한다. 비어 있으면 ValueError(목록 없이 만들지 않는다).
+    outside(claude_perm.outside_roots: 저장소 밖 다른 작업 폴더 루트, 사용자 D4)는 루트 전체 읽기를 거절하되 이 python의 prefix(venv 등)가 그 안에
+    있으면 그 폴더만 다시 허용한다(sealed 거절은 그 뒤라 우선). 하네스 root·실행 폴더가 outside 루트 안이면 ValueError(읽을 수 없게 된다)."""
     base, run = os.path.realpath(root), os.path.realpath(run_dir) if run_dir else None
     if not sealed:
         raise ValueError("봉인 경로 목록 없이 sandbox 프로필을 만들지 않는다")
-    if any('"' in p or "\\" in p for p in [base] + ([run] if run else []) + list(DENY_EXEC) + sealed):
+    if any('"' in p or "\\" in p for p in [base] + ([run] if run else []) + list(DENY_EXEC) + sealed + list(outside)):
         raise ValueError("sandbox 프로필에 쓸 수 없는 경로")
     if run and any(os.path.commonpath([inner, run]) == inner for inner in (base, os.path.realpath(REPO))):
         raise ValueError("실행 폴더는 하네스 root·저장소 밖이어야 한다")
+    if any(os.path.commonpath([r, p]) == r for r in outside for p in [base] + ([run] if run else [])):
+        raise ValueError("하네스 root·실행 폴더가 저장소 밖 봉인 루트 안에 있다")
     grant = ['(subpath "%s")' % os.path.join(run, sub) for sub in ("out", "tmp") if run] + ['(literal "%s")' % d for d in DEVICES]
-    return "\n".join(['(version 1)', '(allow default)', '(deny file-read* %s)' % " ".join('(subpath "%s")' % p for p in sealed),
+    lines = ['(version 1)', '(allow default)']
+    if outside:
+        lines.append('(deny file-read* %s)' % " ".join('(subpath "%s")' % p for p in outside))
+        keep = {os.path.realpath(p) for p in (sys.prefix, sys.exec_prefix)}  # 이 python의 환경(venv)이 막은 루트 안이면 그것만 다시 읽게 한다
+        lines += ['(allow file-read* (subpath "%s"))' % p for p in sorted(keep) if any(os.path.commonpath([r, p]) == r for r in outside)]
+    return "\n".join(lines + ['(deny file-read* %s)' % " ".join('(subpath "%s")' % p for p in sealed),
                       '(deny file-write*)', '(allow file-write* %s)' % " ".join(grant),
                       '(deny process-exec %s)' % " ".join('(literal "%s")' % p for p in DENY_EXEC), '(deny appleevent-send)']
                      + list(DENY_MORE))
@@ -95,7 +104,7 @@ def available():
     if not os.path.isfile(SANDBOX_EXEC):
         return False
     try:
-        done = subprocess.run([SANDBOX_EXEC, "-p", profile(REPO, None, sealed_paths([REPO])), "/usr/bin/true"], stdin=subprocess.DEVNULL,
+        done = subprocess.run([SANDBOX_EXEC, "-p", profile(REPO, None, sealed_paths([REPO]), outside_roots([REPO])), "/usr/bin/true"], stdin=subprocess.DEVNULL,
                               capture_output=True, timeout=30, check=False)
     except (OSError, subprocess.SubprocessError, ValueError):  # ValueError: 봉인 경로 목록 없음·링크·형식 오류(fail-closed)
         return False
@@ -110,6 +119,7 @@ def run_one(root, spec, task_type, task, out_dir):
     (작업 폴더의 .out-pending-*)에 연 순간의 fstat 크기까지만 복사한 뒤 한 번에 옮긴다: 하나라도 거절되면 확정 out/은 그대로다(H5).
     산출물 하나가 MAX_OUTPUT_BYTES, 표준 출력이 MAX_STDOUT_BYTES를 넘으면 결정적 실패다(H4)."""
     sealed = sealed_paths([REPO, os.environ.get(SOURCE_ENV)])  # 봉인 경로 목록 오류면 ValueError: 아무것도 만들거나 실행하지 않는다
+    outside = outside_roots([REPO, os.environ.get(SOURCE_ENV)])  # 저장소 밖 봉인 루트(목록 파일 + git worktree list) 오류도 ValueError
     try:
         os.makedirs(out_dir, exist_ok=True)
         final = os.open(out_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)  # 확정 out/이 링크면 ELOOP: 실행하지 않는다
@@ -125,7 +135,7 @@ def run_one(root, spec, task_type, task, out_dir):
         held = os.open(stage, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)  # 실행 전에 연 staging: 이름이 바뀌어도 이 폴더만 읽는다
         try:
             with tempfile.TemporaryFile() as said, tempfile.TemporaryFile() as noise:
-                child = subprocess.Popen([SANDBOX_EXEC, "-p", profile(root, run, sealed)] + CHILD + ["run", spec, task_type, stage], cwd=REPO,
+                child = subprocess.Popen([SANDBOX_EXEC, "-p", profile(root, run, sealed, outside)] + CHILD + ["run", spec, task_type, stage], cwd=REPO,
                                          env=env, stdin=subprocess.PIPE, stdout=said, stderr=noise, start_new_session=True)
                 child.communicate(json.dumps(task, ensure_ascii=False).encode("utf-8"))
                 try:
@@ -204,7 +214,7 @@ def sweep(task_dir):
 
 def sandboxed(root, spec):
     """sandbox 안에서 spec(module:ATTR)의 유형 목록을 읽어 {task_type: run_one 부분 적용} dict를 만든다. 실패는 ChildError."""
-    done = subprocess.run([SANDBOX_EXEC, "-p", profile(root, None, sealed_paths([REPO]))] + CHILD + ["list", spec], cwd=REPO, stdin=subprocess.DEVNULL,
+    done = subprocess.run([SANDBOX_EXEC, "-p", profile(root, None, sealed_paths([REPO]), outside_roots([REPO]))] + CHILD + ["list", spec], cwd=REPO, stdin=subprocess.DEVNULL,
                           capture_output=True, text=True, errors="replace", check=False)
     try:
         names = json.loads(done.stdout.strip().split("\n")[-1])

@@ -23,12 +23,14 @@
 - 봉인 경로 목록(harness/sealed_paths.json, 2026-11-28 자동 추정 초안·사용자 확인 전·완전성 미확인)은 sandbox 프로필의 읽기 거절에도 쓴다.
   저장소·source_root의 git 폴더(worktree면 gitdir·commondir 둘 다)도 함께 거절한다(git show·객체 직접 읽기 우회, 2026-11-28 독립 검증 결함).
   그래서 sandbox 안 executor는 그 저장소에 git을 쓸 수 없다(실제 ./experiment 연결 때 확인 필요).
-호출 깊이: stage_inputs만 safefs.replace_new·sealed_paths·_ids(말단)를 부른다(1). sandbox.profile도 sealed_paths를 부른다. 나머지는 말단이다.
+호출 깊이: stage_inputs만 safefs.replace_new·sealed_paths·_ids(말단)를 부른다(1). sandbox의 available·sandboxed·run_one은 sealed_paths·outside_roots(말단)를 읽어 profile에 넘긴다. 나머지는 말단이다.
 """
+import glob
 import hashlib
 import json
 import os
 import stat
+import subprocess
 
 from .safefs import replace_new
 
@@ -44,6 +46,7 @@ ENV_ALLOW = ("HOME", "PATH", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "LC_C
 AUTO_RESUME = {}  # 실환경 시험으로 권한·부작용 제한과 중복 반영 방지를 확인한 유형만 증거와 함께 추가한다(A → B → C 순)
 FORBIDDEN_PARTS = ("gold", "seal")  # 임시 규칙: 경로 조각에 이 글자가 들어 있으면 봉인·Gold 자료로 보고 복사하지 않는다
 SEALED_LIST = os.path.join(REPO, "harness", "sealed_paths.json")  # 봉인 경로 목록(저장소 기준 상대 경로, 추적 파일)
+OUTSIDE_LIST = os.path.join(REPO, "harness", "sealed_outside_roots.json")  # 봉인 사본이 있는 다른 작업 폴더 루트(절대 경로, 추적 파일)
 
 
 def options(task_type):
@@ -71,7 +74,7 @@ def auto_resume_allowed(task_type):
 def sealed_paths(bases):
     """봉인 경로 목록(SEALED_LIST의 paths)을 bases(None은 건너뜀) 각각 아래 실제 경로(realpath)로 바꾼 정렬 목록. 각 base의 git 폴더
     (.git, worktree면 .git 파일이 가리키는 git 폴더와 공통 git 폴더 commondir)도 넣는다(형식을 모르는 .git 파일은 ValueError). 목록 파일이 없거나
-    링크·일반 파일이 아니거나 형식(비어 있지 않은 상대 경로 문자열 목록, ''·.·.. 조각·따옴표·역슬래시 없음)이 틀리면 ValueError(fail-closed)."""
+    링크·일반 파일이 아니거나 형식(비어 있지 않은 상대 경로 문자열 목록, ''·.·.. 조각·따옴표·역슬래시·?·[ 없음, *는 glob)이 틀리면 ValueError(fail-closed)."""
     try:
         fd = os.open(SEALED_LIST, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except OSError as exc:
@@ -80,12 +83,12 @@ def sealed_paths(bases):
         data = json.loads(handle.read().decode("utf-8")) if stat.S_ISREG(os.fstat(fd).st_mode) else None
     rels = data.get("paths") if isinstance(data, dict) else None
     if not isinstance(rels, list) or not rels or not all(
-            isinstance(r, str) and not r.startswith("/") and '"' not in r and "\\" not in r
+            isinstance(r, str) and not r.startswith("/") and '"' not in r and "\\" not in r and "?" not in r and "[" not in r
             and not any(p in ("", ".", "..") for p in r.split("/")) for r in rels):
         raise ValueError("봉인 경로 목록 형식이 틀렸다: %s" % SEALED_LIST)
     found = set()
     for base in filter(None, bases):
-        found.update(os.path.realpath(os.path.join(base, r)) for r in rels)
+        found.update(os.path.realpath(q) for r in rels for q in (glob.glob(os.path.join(glob.escape(base), r)) if "*" in r else [os.path.join(base, r)]))  # *는 지금 있는 경로로 푼다(없으면 막을 것 없음)
         dot = os.path.join(base, ".git")  # git 객체로도 봉인 파일 내용을 읽을 수 있다(git show·객체 직접 읽기): git 폴더도 넣는다
         found.add(os.path.realpath(dot))
         if os.path.isfile(dot):  # worktree: .git 파일의 "gitdir: <worktree git 폴더>"와 그 안 commondir(공통 git 폴더)
@@ -99,6 +102,31 @@ def sealed_paths(bases):
                 with open(os.path.join(gitdir, "commondir"), encoding="utf-8") as handle:
                     found.add(os.path.realpath(os.path.join(gitdir, handle.read().strip())))
     return sorted(found)
+
+
+def outside_roots(bases):
+    """저장소 밖 봉인 사본 보호(사용자 D4): OUTSIDE_LIST의 루트 + 실행 시점 `git worktree list`(sandbox 밖)로 잡히는 다른 worktree를 실제 경로로
+    바꾼 정렬 목록. bases(None은 건너뜀) 자신이나 그 조상인 루트는 뺀다. worktree 목록은 첫 base(저장소)만 읽고 git을 못 읽으면
+    ValueError(fail-closed)다(다른 base = source_root 저장소의 worktree는 모른다: task 문서 한계). 목록 파일이 없거나 링크·일반 파일이 아니거나 형식(비어 있지 않은 정규화된 절대 경로 문자열 목록, 따옴표·역슬래시 없음)이
+    틀리면 ValueError. 말단(git 하위 프로세스만)."""
+    try:
+        fd = os.open(OUTSIDE_LIST, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError as exc:
+        raise ValueError("저장소 밖 봉인 루트 목록을 열 수 없다(없음·링크): %s" % exc)
+    with os.fdopen(fd, "rb") as handle:
+        data = json.loads(handle.read().decode("utf-8")) if stat.S_ISREG(os.fstat(fd).st_mode) else None
+    roots = data.get("roots") if isinstance(data, dict) else None
+    if not isinstance(roots, list) or not roots or not all(
+            isinstance(r, str) and r.startswith("/") and r != "/" and os.path.normpath(r) == r and '"' not in r and "\\" not in r for r in roots):
+        raise ValueError("저장소 밖 봉인 루트 목록 형식이 틀렸다: %s" % OUTSIDE_LIST)
+    own = [os.path.realpath(b) for b in bases if b]
+    env = dict({k: v for k, v in os.environ.items() if not k.startswith("GIT_")}, GIT_OPTIONAL_LOCKS="0")
+    done = subprocess.run(["git", "-C", own[0], "worktree", "list", "--porcelain"], env=env, capture_output=True, text=True, timeout=60, check=False)
+    if done.returncode != 0:
+        raise ValueError("git worktree 목록을 읽지 못함: %s" % own[0])
+    roots = roots + [line[len("worktree "):] for line in done.stdout.split("\n") if line.startswith("worktree /")]
+    found = {os.path.realpath(r) for r in roots}
+    return sorted(r for r in found if not any(os.path.commonpath([r, b]) == r for b in own))
 
 
 def _ids(paths):
