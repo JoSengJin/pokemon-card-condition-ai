@@ -24,7 +24,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 try:
     os.makedirs(os.path.join(here, "artifacts"), exist_ok=True)
     with open(os.path.join(here, "artifacts", "argv.log"), "a") as log:
-        log.write(json.dumps({"opts": opts, "cmd": cmd, "plan": plan}) + "\n")
+        log.write(json.dumps({"opts": opts, "cmd": cmd, "plan": plan, "auto_child": os.environ.get("CARD_CONDITION_AUTO_CHILD")}) + "\n")
 except OSError:
     pass  # sandbox 안(저장소 쓰기 거절, B5-4 진입점 시험): 호출 기록 없이 계속
 mode = plan["fake"]
@@ -67,6 +67,9 @@ sys.exit({"completed": 0, "failed": 1, "failed_with_result": 0, "interrupted": 1
 '''
 
 
+NO_AI = {"gemini_calls_allowed": 0, "codex_model_calls_allowed": 0}  # A4: 외부 AI 호출 금지 고정값
+
+
 class ExperimentExecTest(unittest.TestCase):
     def setUp(self):
         self.base = tempfile.mkdtemp(prefix="b5-exp-")
@@ -88,7 +91,7 @@ class ExperimentExecTest(unittest.TestCase):
                 "needs_vision": False, "risk": "high", "retry_policy": {}, "escalation_level": 0,
                 "run_conditions": {"command": command or ["python", "-m", "card_condition.fake", "--seed", "1"],
                                    "code_sha": code_sha or self.head, "config": {"plan": plan or {"fake": mode, "reference_result": "r.json",
-                                                                                               "acceptance": {"max_fn": 1}}},
+                                                                                               "acceptance": {"max_fn": 1}, **NO_AI}},
                                    "hypothesis_id": hypothesis,
                                    "description": {"hypothesis": text, "change": "변수 하나", "success_criterion": "fn<=1",
                                                    "failure_criterion": "fn>1"}}}
@@ -108,15 +111,28 @@ class ExperimentExecTest(unittest.TestCase):
         with open(os.path.join(self.repo, "artifacts", "argv.log"), encoding="utf-8") as handle:
             [seen] = [json.loads(line) for line in handle]
         self.assertEqual((len(seen["opts"]), seen["opts"][0], seen["cmd"]), (2, "--plan", task["run_conditions"]["command"]))
-        self.assertEqual(seen["plan"], {"fake": "completed", "reference_result": "r.json", "acceptance": {"max_fn": 1}, "hypothesis_id": "H-1",
+        self.assertEqual(seen["plan"], {"fake": "completed", "reference_result": "r.json", "acceptance": {"max_fn": 1}, **NO_AI, "hypothesis_id": "H-1",
                                         "hypothesis": "가설 설명", "change": "변수 하나", "success_criterion": "fn<=1", "failure_criterion": "fn>1"})
-        bad = {"override": self.task(plan={"fake": "completed", "hypothesis_id": "H-9"}), "no_plan": dict(self.task(), run_conditions=dict(
+        bad = {"override": self.task(plan={"fake": "completed", "hypothesis_id": "H-9", **NO_AI}), "no_plan": dict(self.task(), run_conditions=dict(
             self.task()["run_conditions"], config={})), "no_text": dict(self.task(), run_conditions=dict(self.task()["run_conditions"], description={})),
             "outputs": dict(self.task(), outputs=["record.json"]), "type": dict(self.task(), task_type="training")}
         for name, contract in bad.items():
             self.assertEqual(self.outcome(contract)[0], "deterministic", name)
         with open(os.path.join(self.repo, "artifacts", "argv.log"), encoding="utf-8") as handle:
             self.assertEqual(len(handle.read().splitlines()), 1, "거절한 계약은 실행하지 않는다")
+
+    def test_external_ai_review_is_off_for_the_child_and_plan_must_forbid_it(self):
+        self.assertEqual(self.outcome(self.task())[0], "done")
+        with open(os.path.join(self.repo, "artifacts", "argv.log"), encoding="utf-8") as handle:
+            self.assertEqual([json.loads(line)["auto_child"] for line in handle], ["1"])  # development_review.enabled()가 꺼진다
+        base = {"fake": "completed", "reference_result": "r.json"}
+        bad = [base, {**base, "gemini_calls_allowed": 0}, {**base, "codex_model_calls_allowed": 0}]
+        bad += [dict(base, **{k: v}, **{o: 0}) for k, o in (("gemini_calls_allowed", "codex_model_calls_allowed"), ("codex_model_calls_allowed", "gemini_calls_allowed"))
+                for v in (1, "0", True, False, 0.0, None)]
+        for plan in bad:
+            self.assertEqual(self.outcome(self.task(plan=plan)), ("deterministic", {"status": "refused", "detail": "계획에 %s가 정수 0으로 있어야 한다" % (tuple(NO_AI),)}), plan)
+        with open(os.path.join(self.repo, "artifacts", "argv.log"), encoding="utf-8") as handle:
+            self.assertEqual(len(handle.read().splitlines()), 1, "거절한 계획은 실행하지 않는다")
 
     def test_exit_code_and_record_status_must_agree(self):
         want = {"completed": "done", "failed": "deterministic", "failed_with_result": "interrupted", "quiet_fail": "interrupted", "interrupted": "interrupted", "busy": "deterministic", "setup": "deterministic", "setup_after_folder": "interrupted",
@@ -147,7 +163,7 @@ class ExperimentExecTest(unittest.TestCase):
         first = queue.enqueue(root, self.task(), 1.0, source_root=self.repo)
         with self.assertRaises(queue.DuplicateTask):  # 가설 ID·설명 문구만 다르면 같은 실험
             queue.enqueue(root, self.task(hypothesis="H-2", text="다른 문구"), 2.0, source_root=self.repo)
-        other = queue.enqueue(root, self.task(plan={"fake": "completed", "reference_result": "r.json", "acceptance": {"max_fn": 2}}), 3.0,
+        other = queue.enqueue(root, self.task(plan={"fake": "completed", "reference_result": "r.json", "acceptance": {"max_fn": 2}, **NO_AI}), 3.0,
                               source_root=self.repo)  # 수치 기준이 다르면 다른 실험
         self.assertNotEqual(first, other)
         self.assertNotIn("experiment", recovery.RERUN_SAFE_TYPES)

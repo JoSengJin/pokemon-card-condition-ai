@@ -45,7 +45,7 @@ def _task(head, mode, seed=1):
     return {"task_type": "experiment", "inputs": {}, "outputs": list(experiment_exec.OUTPUTS), "depends_on": [], "needs_llm": False,
             "needs_vision": False, "risk": "high", "retry_policy": {}, "escalation_level": 0,
             "run_conditions": {"command": ["python", "-m", "card_condition.fake"], "code_sha": head, "seed": seed,
-                               "config": {"plan": {"fake": mode, "reference_result": "r.json"}}, "hypothesis_id": "H-" + mode,
+                               "config": {"plan": {"fake": mode, "reference_result": "r.json", "gemini_calls_allowed": 0, "codex_model_calls_allowed": 0}}, "hypothesis_id": "H-" + mode,
                                "description": {"hypothesis": "가설", "change": "변수 하나", "success_criterion": "fn<=1",
                                                "failure_criterion": "fn>1"}}}
 
