@@ -66,3 +66,8 @@ next_plan.json(가짜 claude가 프롬프트만 보고 생성): {"hypothesis_id"
 # 8. 롤백
 
 브랜치 커밋을 되돌리면 `_prompt`는 기존 4-인자 시그니처·일반 문구로 돌아간다(다른 파일 의존 없음, 장부·계약 형식 변경 없음).
+
+# 9. 전체 시험 결과(저장소 루트, 잠금 절차 사용)
+
+- 코드 커밋 b0418eb에서 `PYTHONDONTWRITEBYTECODE=1 …/.venv/bin/python -m unittest discover -s tests -p "test_harness_*.py"`: 530 통과(304초).
+- 같은 명령 `/usr/bin/python3`: 530 통과(342초). 분기점 대비 시험 +4(신규 파일). kill9 간헐 실패는 이번 두 번에서는 나오지 않았다(고치지 않음).
