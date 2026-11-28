@@ -100,7 +100,7 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
 
 1. `git for-each-ref --format='%(refname:short) %(objectname)' refs/heads/claude/ refs/heads/codex/`로 브랜치를 훑고, tip 계약이 `ready_for_review`인 것을 찾는다(`git show <브랜치>:docs/collaboration/tasks/<id>.md`).
 2. **통합 검사 (구현 담당이 아닌 메인이 직접, 하나라도 실패하면 통합하지 않고 보고):**
-   - `refs/claims/<id>`의 `branch=`가 이 브랜치다. 아니면(인수·이어하기로 바뀐 옛 브랜치 등) 통합하지 않는다.
+   - `refs/claims/<id>`의 `branch=`가 이 브랜치다. 아니면(인수·이어하기로 바뀐 옛 브랜치 등) 통합하지 않는다. 이때 본 claim 값(`git rev-parse refs/claims/<id>`의 OID)을 적어 둔다. 5의 삭제는 이 값만 쓴다.
    - `BASE=$(git merge-base main <tip>)`가 브랜치 계약의 `base_sha`와 같다.
    - `git diff --name-only "$BASE" <tip>` ⊆ **main 쪽 계약**의 allowed_files + 계약 문서. (통합 전 main 계약 사본을 보관해 두고 대조한다 — 통합 후에는 브랜치가 고친 계약이 main에 들어온다.)
    - 인수 브랜치면 takeover 커밋에 사용자 지시 인용, 이어하기 브랜치면 `resumed_by`가 있다.
@@ -112,10 +112,10 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
    - 기록을 찾을 수 없거나 비어 있으면 **"신원 검증 불가"로 통합하지 않는다**(`--ephemeral` 실행 포함).
    - `git config --get core.logAllRefUpdates`가 `always`면 `git reflog show refs/claims/<id>`의 변경 수가 기록 속 claim 명령 수와 같아야 한다. 아니면 "reflog 미사용"으로 적는다.
 4. 기존 PAIR_CODING.md §6(92–101행) 절차로 통합한다. cherry-pick은 범위로 한 번: `./develop -- git cherry-pick -x "$BASE"..<tip>`. squash 금지(145행 대응 확인 보존). 충돌은 93행대로. 검사는 메인이 통합한 코드에서 **직접 다시 실행**한다(구현 담당의 "통과" 보고를 근거로 쓰지 않는다, 94행).
-5. main 계약 `status: integrated` 커밋 → claim 삭제(이전 값 일치 시만):
+5. main 계약 `status: integrated` 커밋 → claim 삭제(2에서 적은 값과 일치할 때만). 삭제 직전에 다시 읽은 값을 기대값으로 쓰지 않는다(항상 일치해 보호가 사라진다). 실패하면 검사 뒤 claim이 바뀐 것이므로 지우지 말고 멈추고 보고한다.
 
    ```sh
-   ID=<task-id>; OLD=$(git rev-parse "refs/claims/$ID") && git update-ref -d "refs/claims/$ID" "$OLD"
+   ID=<task-id>; CHECKED="<2에서 적은 OID>"; [ -n "$CHECKED" ] && git update-ref -d "refs/claims/$ID" "$CHECKED"
    ```
 
 6. 기존 push·worktree 정리 절차(130–152행)를 따른다.
