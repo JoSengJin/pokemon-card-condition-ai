@@ -119,10 +119,12 @@ class PlanGateTest(unittest.TestCase):
         again = self._chain({"over": {"value": 0.6, "hypothesis_id": "H-renamed", "change": "다른 문구"}},
                             world=(root, src, got["head"]), parent_key=k2)
         self.assertTrue(again["reason"].startswith("refused: 기각·중복 가설") and got["parent"] in again["reason"], again["reason"])
+        self.assertNotIn("plan:" + got["analyze"], read_json(os.path.join(root, graph.REJECTED)))  # 이미 다음 실험을 낸 분석은 다시 보지 않는다
 
     def test_evaluation_data_and_success_criteria_cannot_be_changed_by_the_plan(self):
         for key, value in (("reference_result", "artifacts/ref/other.json"), ("acceptance", dict(kit.ACCEPT, max_fn=5)),
-                           ("acceptance", dict(kit.ACCEPT, no_new_errors=False)), ("required_cohorts", []), ("threshold", 0.4),
+                           ("acceptance", dict(kit.ACCEPT, no_new_errors=False)), ("acceptance", dict(kit.ACCEPT, max_fn=2.0)),  # 값은 같고 자료형만 다름(2 → 2.0)
+                           ("required_cohorts", []), ("threshold", 0.4),
                            ("independent", True)):
             self._refused("변수 하나", spec={"plan_extra": {key: value}})
         for key in ("success_criterion", "failure_criterion", "description"):
