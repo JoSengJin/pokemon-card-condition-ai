@@ -6,8 +6,12 @@
 2. audit_failed / lineage_invalid: 자신 또는 조상이 무효 묶음을 썼다(장부에서 파생, 레지스트리 무효화가 아직 안 쓰였어도 막는다).
    무효 묶음 = 감사 실패 묶음 ∪ 철회 기록이 무효 범위로 지정한 묶음(아래 REASONS).
 3. policy_withdrawn_hold(보류): 철회된 정책(감사 실패가 기록된 정책 포함)의 묶음을 썼다. 자동 재적격 경로는 없다(사용자 결정 2026-11-27 ②).
-4. manifest_missing / manifest_mismatch / manifest_pending_labels: 자신 또는 조상의 학습 manifest를 확인할 수 없거나 선언과 다르거나
-   Pending 라벨을 썼다(마지막은 보류). 선언하지 않은 부모 가중치를 쓴 학습은 manifest로 잡을 수 없다(한계).
+4. manifest_missing / manifest_mismatch / manifest_parent_mismatch / manifest_pending_labels: 자신 또는 조상의 학습 manifest를 확인할 수
+   없거나 선언과 다르거나, 학습 시작 가중치(start_weights_sha)가 선언된 부모(parent)의 가중치 SHA와 다르거나, Pending 라벨을 썼다(마지막은 보류).
+   manifest v2(B5-2): start_weights_sha가 None(처음부터 학습)이면 parent도 None이어야 하고, 값이 있으면 선언된 부모의 weights_sha와 정확히
+   같아야 한다(대소문자·공백·접두어 변형 거절). v1(키 없음)은 확인 불가라 manifest_mismatch다(fail-closed, 완화하지 않는다).
+   한계: manifest 내용 자체를 학습 산출물이 정직하게 채웠는지는 여기서 알 수 없다. 하네스가 계약 입력으로 manifest를 만드는 쪽은
+   train_manifest(B5-7)다. 가중치 바이트가 똑같은 두 모델은 SHA로 구분할 수 없다.
 5. audit_pending: 계보가 쓴 묶음의 감사가 complete·not_required가 아니다(부모 조회에서는 보지 않는다: 감사 중에도 학습은 계속한다).
 """
 import json
@@ -20,8 +24,8 @@ AUDIT_OK = ("complete", "not_required")
 REASONS = ("batch_label_error", "systematic_error", "contamination", "scope_change", "criteria_change", "unclear")
 SCOPED = ("batch_label_error", "contamination")  # 지정한 묶음(batches)만 무효. contamination에 묶음이 없으면 정책 전체 무효
 WHOLE = ("systematic_error",)  # 정책 전체 무효
-MANIFEST_FORMAT = "harness-train-manifest-v1"
-MANIFEST_KEYS = frozenset(("format", "silver_batches", "silver_label_ids"))
+MANIFEST_FORMAT = "harness-train-manifest-v2"
+MANIFEST_KEYS = frozenset(("format", "silver_batches", "silver_label_ids", "start_weights_sha"))
 
 
 def silver_facts(entries):
@@ -54,9 +58,10 @@ def silver_facts(entries):
             "invalid_batches": invalid, "held_policies": held}
 
 
-def _manifest_reason(root, record, facts):
+def _manifest_reason(root, record, facts, models):
     """모델 하나의 학습 manifest 대조 → 사유 문자열 또는 None. CAS 보관본의 해시가 이름과 같아야 하고, 형식이 맞고,
-    silver_batches가 선언과 같고, 모든 라벨 ID가 Silver 장부에 있으며 선언한 묶음 안에 있어야 한다(선언 묶음 중 라벨을 안 쓴 묶음은 허용: 더 막는 쪽)."""
+    silver_batches가 선언과 같고, 모든 라벨 ID가 Silver 장부에 있으며 선언한 묶음 안에 있어야 한다(선언 묶음 중 라벨을 안 쓴 묶음은 허용: 더 막는 쪽).
+    start_weights_sha는 선언된 부모(models[record["parent"]])의 weights_sha와 같아야 한다(부모가 없으면 None)."""
     sha = record["data_manifest_sha"]
     path = cas.blob_path(os.path.join(root, "cas"), sha)
     try:
@@ -75,6 +80,11 @@ def _manifest_reason(root, record, facts):
     if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids) or len(set(ids)) != len(ids) \
             or data["silver_batches"] != record["silver_batches"]:
         return "manifest_mismatch"
+    parent = record["parent"]
+    want = None if parent is None else models.get(parent, {}).get("weights_sha", "")  # 모르는 부모는 어떤 값과도 같지 않다
+    start = data["start_weights_sha"]
+    if type(start) is not type(want) or start != want or (parent is not None and not want):
+        return "manifest_parent_mismatch"
     found = [facts["labels"].get(i) for i in ids]
     if None in found or not {f["batch_id"] for f in found} <= set(record["silver_batches"]):
         return "manifest_mismatch"
@@ -84,7 +94,7 @@ def _manifest_reason(root, record, facts):
 def manifest_reasons(root, state, facts):
     """모든 등록 모델의 manifest 대조 결과 {모델 ID: 사유 또는 None}."""
     # shortcut: 호출마다 모든 모델의 manifest를 다시 읽는다. 모델이 수천 개가 되면 필요한 계보만 읽는다
-    return {m: _manifest_reason(root, rec, facts) for m, rec in state["models"].items()}
+    return {m: _manifest_reason(root, rec, facts, state["models"]) for m, rec in state["models"].items()}
 
 
 def model_reason(state, facts, manifests, model_id, need_audit=True):
