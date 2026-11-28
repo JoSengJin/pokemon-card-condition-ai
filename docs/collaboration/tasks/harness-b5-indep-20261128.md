@@ -1,17 +1,17 @@
 task_id: harness-b5-indep-20261128
 owner: Claude
-status: ready_for_review (체크포인트 정지: B5-5·B5-6 미착수, 묶음 끝 전체 시험 미실행)
+status: ready_for_review (B5-5·B5-6 새 파일 구현·전체 시험 완료, 호출부 연결은 통합 뒤)
 base_sha: df6b78b
 branch: claude/harness-b5-indep-20261128
-goal: B5 독립 묶음(B5-3·B5-2·B5-7·B5-8)을 새 파일·비공통 파일만으로 구현하고 합성 시험·변이로 고정한다.
-allowed_files: harness/budget.py, harness/eligibility.py, 새 harness/train_manifest.py·apply_train.py·experiment_exec.py, 새 tests/test_harness_b5_*.py·tests/harness_depth_kit.py, 형식 이전 시험 도우미 2개(아래), 이 문서
+goal: B5 독립 묶음(B5-3·B5-2·B5-7·B5-8, 추가 배정 B5-5·B5-6)을 새 파일·비공통 파일만으로 구현하고 합성 시험·변이로 고정한다.
+allowed_files: harness/budget.py, harness/eligibility.py, 새 harness/train_manifest.py·apply_train.py·experiment_exec.py·logical_zones.py·route_history.py, 새 tests/test_harness_b5_*.py·tests/harness_depth_kit.py, 형식 이전 시험 도우미 2개(아래), 이 문서
 forbidden_files: dedupe·claude_job·sandbox·runner·safefs·graph·supervisor·queue와 그 시험(다른 담당 수정 중), 실데이터·라벨·봉인 자료
 
 # 상태 구분
 
-- 구현 완료·합성 검증 완료: B5-3, B5-2, B5-7, B5-8(어댑터만).
+- 구현 완료·합성 검증 완료: B5-3, B5-2, B5-7, B5-8(어댑터만), B5-5(세는 함수만), B5-6(이력 읽기만).
 - 실환경 검증: 없음. 실제 claude·모델·네트워크·./experiment·학습·승격은 실행하지 않았다.
-- 미완료: 호출부 연결(runner·claude_job·supervisor, 공통 파일이라 통합 뒤), **실제 ./experiment 연결: 미완료**, B5-5·B5-6(체크포인트 지시로 보류, 착수 안 함), 묶음 끝 전체 시험(지시로 미실행).
+- 미완료: 호출부 연결(runner·claude_job·supervisor·dedupe, 공통 파일이라 통합 뒤, **B5-5·B5-6도 연결 전이라 실행 경로에서는 아직 아무것도 하지 않는다**), **실제 ./experiment 연결: 미완료**.
 - 합성 시험 통과는 실제 작동·자율 루프 완료·모델 정확도(누락·오탐) 개선 근거가 아니다. 정확도 변화 없음.
 
 # 단계별 커밋
@@ -23,8 +23,10 @@ forbidden_files: dedupe·claude_job·sandbox·runner·safefs·graph·supervisor�
 | 깊이 도구 수정 | f35d92f | tests/harness_depth_kit.py(`from harness import x`를 놓쳐 낮게 재던 것) | — |
 | B5-7 학습 적용기 | ce4e776 | harness/train_manifest.py(새), harness/apply_train.py(새), tests/test_harness_b5_apply_train.py(새) | 새 4, 새 1 |
 | B5-8 실험 어댑터(합성) | 0a7a1da | harness/experiment_exec.py(새), tests/test_harness_b5_experiment_exec.py(새) | 새 3 |
+| B5-5 논리 구역 수 | e53e56f | harness/logical_zones.py(새), tests/test_harness_b5_logical_zones.py·b5_zone_budget.py(새) | 새 2 |
+| B5-6 route 이력 | c82d4f7 | harness/route_history.py(새), tests/test_harness_b5_route_history.py(새) | 새 2 |
 
-새 시험 파일 함수 수: 4·5·5·7, 깊이 도구 2(모두 ≤7).
+새 시험 파일 함수 수: 4·5·5·7, 깊이 도구 2, B5-5·6은 5·7·7(lambda 포함, 모두 ≤7). B5-5·6은 기존 파일을 고치지 않았다.
 
 # 구조(AST, tests/harness_depth_kit.py)
 
@@ -63,11 +65,40 @@ forbidden_files: dedupe·claude_job·sandbox·runner·safefs·graph·supervisor�
 5. 예산: runner에서 claim 뒤·실행 직전 `budget.charge(root, "experiment", 1, now, key=<논리 실험 키>)`. not_started만 취소 후보.
 6. 결과 반영: record.json·result.json 사본만 outputs로. 결과 불명은 자동 재실행하지 않고 사람/검증 확인 뒤 반영. 다음 가설 생성(ANALYZE 입력 development_handoff.json)까지 실제로 확인해야 최종 완료(사용자 결정).
 
+## B5-5 (세는 함수만, 연결 전)
+결정: decisions-b5-b6-20261128.md "B5-5·B5-6 결정"(나안 조건부 승인).
+- `logical_zones.count_logical_zones(task_dir, contract)`: 계약 입력 `candidates/selection.json`(이 구현에서 고정한 경로)의 작업 폴더 사본을 한 번 읽어 **읽은 바이트**의 SHA를 계약과 대조하고 구역 수를 센다. **실제 AI 사용량(호출·토큰·본 사진 수)이 아니다**(모듈 설명에 명시).
+- 형식은 `{"selected": [...]}` 하나이며 항목은 `active_learning.select`의 selected 항목과 정확히 같다. 거절: 빈 목록, 모르는 키(최상위·항목), 중복 JSON 키, region_id 중복, (image_sha, zone) 중복(앞뒤 공백·대소문자 무시), 링크·FIFO·폴더·없는 사본, SHA 불일치, 입력 미선언.
+- **select의 반환 전체는 거절한다(담당의 해석)**: 이 파일은 Claude가 읽는 입력인데 trace에는 선별 점수가, silver_queue·human_queue 소속에는 기대 라벨이 드러난다. 세지 않는 목록에 구역을 숨길 수도 있다. 후보 목록을 만드는 쪽은 selected만 저장해야 한다.
+- 차감·멱등·잠금은 새로 만들지 않았다. 기존 budget.charge(key=task_key)를 시험으로 고정: 목록이 바뀌면 task_key가 달라 별도 차감, 같은 계약의 재개는 다음 주에도 재차감 없음, 8개 프로세스 동시 100구역 → 성공 3개·합 300(3회 반복), 같은 key 6개 동시 → 한 줄, 실제 SIGKILL 세 지점(장부 쓰기 전 / 장부 뒤·꼬리 전 / 꼬리 뒤·반환 전) 뒤 재시작에서 누락·중복 없음, 반쯤 쓴 장부 줄 → 모든 차감 거절.
+- 연결(통합 뒤): claude_job.execute에서 needs_vision 작업의 Claude 실행 시작 직전에 `budget.charge(root, "vision_zone", count_logical_zones(task_dir, contract), now, key=task_key)`. stage_inputs 뒤여야 한다. LogicalZoneError·한도 거절이면 그 작업을 실행하지 않는다.
+
+## B5-6 (이력 읽기만, 연결 전)
+결정: 같은 절(가안 조건부 승인). route.py·route_escalate.py·routing_policy.json은 고치지 않았고 새 상향·중단 규칙, 사용량 지표, PLAN_GATE는 없다.
+- `route_history.history(root, task_key, policy)`: 검사 유형(`quality_gate`·`reverification`·`promotion_judge`, 이 구현에서 정한 이름)이고 needs_llm=false이며 VERIFIED인 작업의 `out/route_cause.json`만 읽는다(읽은 바이트를 done.json manifest와 대조). 형식은 `{"target_task_key", "cause", "ruled_out"}` 정확히 셋. xhigh_justified 같은 추가 키는 거절한다.
+- 귀속: 검사 작업이 대상에 의존 + 라우팅 작업이 검사 작업에 의존 + 대상이 needs_llm=true·같은 task_type이고 대상 inputs가 같은 SHA로 모두 들어 있음(마지막 조건은 **담당의 해석**: 같은 작업의 이전 시도). 아니면 이력으로 세지 않는다. 손상·위조·귀속 위반·서로 다른 두 시도의 판정에 함께 의존은 RouteHistoryError(이력을 비우면 낮은 모델로 돌아가 횟수가 초기화되므로 그 작업을 대기시킨다).
+- 관문 실패만으로는 상향 없음: 상향 원인은 ruled_out이 data·checker·criteria 전부일 때만 넘기고 아니면 cause=None. 데이터·검사기·기준 문제는 검사기가 기존 no_escalate 원인을 적는다. 한 시도는 검사기가 여럿이어도 한 번만 세며, 하나라도 상향 불가 판정이면 올리지 않는다. 통과(cause=null)에서 연쇄를 끊는다.
+- 기존 규칙 확인(합성 6회 연쇄, general_dev): sonnet/medium → sonnet/high → opus/high → pending(request_user=False, Xhigh 미사용), 이후 실패에도 pending 유지. 다시 읽어도 같은 결과.
+- 연결(통합 뒤): claude_job의 `route.route(contract, [], ...)`의 `[]`를 이력으로 바꾸고, RouteHistoryError면 held, **decision["pending"]이면 held**. 검사 유형 3개를 dedupe.PLAIN_TYPES에 추가하고 검사 executor를 만들어야 이력이 생긴다.
+
+## B5-5·B5-6: 기존 정책과 충돌·미검증(별도 보고)
+1. **pending이 실행을 막지 않는다**: route()의 pending 결정에는 model·effort(opus/high)가 남고 claude_job.execute는 `model is None`만 본다. 지금은 이력이 `[]`라 pending이 생기지 않지만, 이력만 연결하면 최상위 모델이 계속 실행된다. 연결과 같은 커밋에서 pending 대기를 넣어야 "기존 중단 정책"이 실제로 멈춘다(시험은 route 결정 수준까지만 고정).
+2. **중단 규칙의 우회 가능성**: 이력은 재시도 계약이 직전 시도의 검사 작업에 의존할 때만 생긴다. 의존을 선언하지 않거나 task_type·입력 경로·SHA를 바꾸면 기본 모델부터 다시다. PLAN_GATE가 없어 강제하지 않는다. 또 데이터·검사기 문제(no_escalate)는 기존 정책상 "상향 안 함"일 뿐 재시도를 멈추지 않는다. 재시도 계약을 자동으로 만드는 호출부는 지금 없다(선언은 declared.json).
+3. **원인 분리는 검사기의 자기 선언이다**: ruled_out을 실제로 확인했는지는 이 모듈이 알 수 없다. 검사 executor를 만들 때 확인 근거를 검토해야 하며, 검사기가 Claude 산출물의 문구를 cause·ruled_out으로 옮기면 안 된다. 대상 inputs가 빈 계약이면 입력 귀속 조건은 아무것도 거르지 않는다.
+4. Xhigh는 claude_job이 runtime(budget_remaining)을 주지 않고 이력이 xhigh_justified를 넘기지 않아 닫혀 있다. route() 자체의 Xhigh 경로는 그대로 있다.
+5. **한 작업의 301구역 이상은 "그 작업만 거절"이 아니라 전체 정지**: 기존 budget 정책대로 BUDGET_EXCEEDED(사람 재승인)를 켠다. 바꾸지 않고 시험으로 고정했다. 그 작업만 거절하려면 별도 결정이 필요하다.
+6. **논리 차감과 실제 사용의 차이**: 같은 task_key의 재개·새 세션·사람이 작업 상태를 지운 뒤 재실행은 AI가 다시 보더라도 추가 차감이 없다. 목록에 없는 입력 이미지를 Claude가 읽는 것도 막지 않는다(B군 이미지 접근 범위 미구현). charge의 key 멱등은 금액을 비교하지 않는다(금액이 SHA 고정 입력에서 나오는 것이 전제).
+7. select는 region_id만 중복 검사하므로 같은 (image_sha, zone)을 결함 유형만 달리해 둘 담을 수 있고, 그런 목록은 여기서 통째로 거절된다(라벨 단위는 relabel·silver_gate와 같은 (image_sha, zone)). selected 항목의 part(ranked/random)·defect_type이 라벨러에게 주는 앵커링 영향은 검토하지 않았다.
+8. 반쯤 쓴 예산 장부 줄은 이미 차감한 작업의 재개까지 막는다. 자동 복구는 없다(사람 확인).
+9. 미검증: 실제 claude·비전 호출, claude_job 연결 뒤의 깊이·함수 수(claude_job은 6/7), B군 활성화(RUNNABLE=("A",)라 실제 차감 경로는 아직 쓰이지 않는다), 전원 장애 수준의 부분 쓰기.
+
 # 실제로 돌린 시험
 
 - Python 3.12(.venv): tests.test_harness_b5_budget_depth·supervisor_budget·evidence_fixes·supervisor_halt·policy_guards·supervisor_ratelimit(28개 OK), eligibility·champion·silver·withdrawal 관련 28개 모듈(118개 OK), test_harness_b5_apply_train(3 OK), test_harness_b5_experiment_exec(4 OK).
 - Python 3.9(/usr/bin/python3): budget 관련 6개 모듈(28 OK), b5_apply_train·b5_manifest_parent·b5_budget_depth(10 OK), b5_experiment_exec(4 OK).
-- 전체 시험(`test_harness_*.py` 전부): **미실행**(체크포인트 지시). 통합 전 반드시 3.12·3.9 순차 실행.
+- B5-3~8 당시 전체 시험은 체크포인트 지시로 미실행.
+- B5-5·6 새 시험 14개: 3.12·3.9 OK. 구조(AST): route_history.history 깊이 2, count_logical_zones 0 → 예정 호출 지점(supervisor.run → execute → 함수)에서 합 4 이내.
+- **전체 시험(`tests/test_harness_*.py` 전부, 대상 c82d4f7, full-suite.lock 잠금 아래 순차): 3.12 444개 OK, 3.9 444개 OK.** 첫 시도는 discover `-t .` 옵션 오류(tests에 __init__.py 없음)로 시험 0개 실행·종료 1이었고, 모듈 이름 나열로 다시 돌렸다.
 
 # 변이 시험(scratchpad 복사본, 원본 미수정)
 
@@ -77,6 +108,8 @@ forbidden_files: dedupe·claude_job·sandbox·runner·safefs·graph·supervisor�
 | B5-2 | M11 비교 삭제, M12 None이면 건너뜀, M13 자기 SHA와 비교, M14 키 집합에서 제거, M15 v1 허용, M16 대소문자 무시, M17 부모 없으면 아무 값 허용 | 7/7 |
 | B5-7 | M18 executor manifest 사용, M19 parent=None, M20 적용 기록 멱등 제거, M21 기록을 등록 전에, M22 사본 SHA 대조 제거, M23 부모 SHA 대조 제거, M24 선언 안 한 가중치 검사 제거, M25 파일의 batch_id 신뢰, M26 정지 확인 제거, M27 VERIFIED 확인 제거, M28 중복 라벨 허용, M29 부모 여럿 허용 | 처음 11/12, M25 생존 → 위조 batch_id 시험 추가 뒤 12/12 |
 | B5-8 | M30 130을 실패로, M31 interrupted를 완료로, M32 상태 무시·코드만 신뢰, M33 code_sha 재대조 제거, M34 command를 `--` 앞에, M35 설명 키 덮어쓰기 허용, M36 기록 경로 범위 제거, M37 result 해시 제거, M38 결과 불명을 결정적으로, M39 시간 초과를 not_started로, M40 안내문 없이 not_started, M41 명령 불일치 무시 | 처음 8/12, M32·M36·M37·M40 생존 → 가짜 모드 추가(failed_with_result·quiet_fail·폴더 밖 완결 기록)·해석 단계 직접 시험 뒤 12/12 |
+| B5-5 | SHA 대조·(사진,구역) 중복·region_id 중복·정규화·중복 JSON 키·최상위/항목 추가 키·빈 목록·링크·일반 파일 검사·random_part 일치 제거(Z1~Z11) | 11/11(Z10은 FIFO에서 멈춰 시간 초과로 포착) |
+| B5-6 | needs_llm·검사 유형·대상 의존·task_type·inputs 귀속, 검사기/대상 VERIFIED, 바이트 대조, 추가 키, ruled_out, 상향 불가 우선, 시도당 1회, 연쇄, 순서, 통과에서 끊기, 두 시도 거절, 손상 의존, 대상 needs_llm(R1~R18) | 처음 16/18, R6·R18 생존 → 시험 보강 뒤 18/18 |
 
 # 통합 뒤 필요(공통 파일, 이 브랜치에서 고치지 않음)
 
@@ -84,12 +117,12 @@ forbidden_files: dedupe·claude_job·sandbox·runner·safefs·graph·supervisor�
 2. 예산 차감 취소(not_started 확인 시): budget.py에 취소 이벤트가 없다. 사용자 결정 3의 "객관적으로 미실행만 취소"를 구현하려면 장부 이벤트 하나 추가가 필요(설계 범위 확인 필요). 지금은 차감 시점을 사전 검사 뒤로 두면 대부분 불필요.
 3. experiment_exec를 executor로 쓰려면 실행 경계 결정(위 초안)과 runner 쪽 ExperimentError → 실패 종류 연결(sandbox.ChildError와 같은 kind 규칙), dedupe 유형 등록은 불필요(experiment는 이미 CONDITION_TYPES).
 4. apply_train 호출: Supervisor 회차 또는 적용기 진입점(apply_main)에서 VERIFIED training 작업마다 별도 프로세스로 호출. 학습 계약이 parents/·silver/ 입력 규칙을 쓰도록 PLAN_GATE/등록 쪽 연결(결정 7 확정 필요).
-5. B5-1(supervisor 철회 복구 호출), B5-4, B5-5(claude_job 비전 차감), B5-6(claude_job route 이력), B5-9·10, B5-11.
+5. B5-1(supervisor 철회 복구 호출), B5-4, B5-5(claude_job 비전 차감, 위 B5-5 연결 항목), B5-6(claude_job route 이력·pending 대기, dedupe 검사 유형·검사 executor, 위 B5-6 연결 항목), B5-9·10, B5-11.
 
-# 미완료(체크포인트 정지)
+# 미완료
 
-- B5-5 구역 수 세기, B5-6 route_history.py: 사용자 조건부 승인(2026-11-28)을 받았으나 개발 전략 재검토 지시로 착수하지 않았다. 코드·시험 없음.
-- 묶음 끝 전체 시험: 미실행.
+- 위 "통합 뒤 필요"의 호출부 연결 전부. B5-5·B5-6은 함수만 있고 호출하는 곳이 없다.
+- 합성 시험 통과는 실제 Claude 실행 성공이나 모델 정확도(누락·오탐) 개선 근거가 아니다. 정확도 변화 없음.
 
 # 한계·리스크
 
@@ -101,4 +134,4 @@ forbidden_files: dedupe·claude_job·sandbox·runner·safefs·graph·supervisor�
 
 # 롤백
 
-단계별 독립 커밋이라 `git revert <SHA>`로 되돌린다(역순 권장: 0a7a1da → ce4e776 → f35d92f → e26df65 → 9bbe392). e26df65는 시험 도우미 형식 이전을 같은 커밋에 포함하므로 함께 돌아간다. ce4e776은 e26df65의 v2 형식에 의존한다.
+단계별 독립 커밋이라 `git revert <SHA>`로 되돌린다(역순 권장: c82d4f7 → e53e56f → 0a7a1da → ce4e776 → f35d92f → e26df65 → 9bbe392). e26df65는 시험 도우미 형식 이전을 같은 커밋에 포함하므로 함께 돌아간다. ce4e776은 e26df65의 v2 형식에 의존한다.
