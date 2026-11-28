@@ -43,7 +43,7 @@ class ControlStopTest(unittest.TestCase):
         self.assertIn(opstate.USER_STOPPED, opstate.load(self.root)["conditions"])
         with self.assertRaises(opstate.OpStateError):
             opstate.clear_auto(self.root, opstate.USER_STOPPED, 3.0, "자동 재개")
-        for word in ("resume", "release", "clear"):  # 해제 명령은 없다(B6-5 미구현)
+        for word in ("resume", "release", "clear"):  # control에는 해제 명령이 없다(해제는 harness.control_release 별도 진입점)
             self.assertEqual(cli(word, "--root", self.root)[0], 2, word)
         self.assertIn(opstate.USER_STOPPED, opstate.load(self.root)["conditions"])
 
