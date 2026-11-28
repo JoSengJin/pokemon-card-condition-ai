@@ -13,6 +13,7 @@ python -m tools.rater_gate ANSWER [--ai DIR ...] [--statement FILE --expected FI
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -23,26 +24,36 @@ from pathlib import Path
 from tools.self_agreement.import_round import confirmed
 from tools.self_agreement.stats import WILSON
 
+SECOND_CARD = re.compile(r'/\s*(?:front|back)\s*=', re.I)  # another card's 'id/side=' swallowed into one value
 SECOND_ZONE = re.compile(r'z\s*\d+\s*[=:]', re.I)  # a second assignment swallowed into one value
 PHONE = re.compile(r'[^\s#;=-][^;=]*/[^;=/]+=[^;=]+;box:[^;]*;.+')
 
 
 def line_pairs(line):
-    """[(zone key, value)] for one supported line, else None. Values are never repaired; NFKC is used only to detect."""
+    """([(zone key, value)], whole line readable). Values are never repaired; NFKC is used only to detect.
+
+    A phone zone that cannot be read keeps its key with value None (covered, never a match). From the point where a
+    second card starts, nothing is attributed to the first card.
+    """
     numbered = re.fullmatch(r'(z[0-9]+)\s*=\s*([^#]+)', line)
     if numbered:
-        return None if SECOND_ZONE.search(unicodedata.normalize('NFKC', numbered[2])) else [numbered.groups()]
+        merged = SECOND_ZONE.search(unicodedata.normalize('NFKC', numbered[2]))
+        return ([], False) if merged else ([numbered.groups()], True)
     if not PHONE.fullmatch(line):
-        return None
+        return [], False
     head, _, *zones = line.split(';')
-    pairs = []
+    pairs, readable = [], True
     for zone in zones:
         area, _, value = zone.partition(':')
-        seen = unicodedata.normalize('NFKC', value)
-        if not area.strip() or not value.strip() or ':' in seen or SECOND_ZONE.search(seen):
-            return None
-        pairs.append((f"{head.split('=')[0]}/{area}", value))
-    return pairs
+        name, seen = (unicodedata.normalize('NFKC', part).strip() for part in (area, value))
+        other = name == 'box' or '=' in name or SECOND_CARD.search(seen)
+        bad = other or not name or not seen or ':' in seen or SECOND_ZONE.search(seen)
+        if name and name != 'box' and '=' not in name:
+            pairs.append((f"{head.split('=')[0]}/{area}", None if bad else value))
+        readable = readable and not bad
+        if other:
+            break
+    return pairs, readable
 
 
 def values(text, unread=None):
@@ -55,12 +66,11 @@ def values(text, unread=None):
     for number, line in enumerate((l.strip() for l in text.splitlines()), 1):
         if not line or line.startswith('#'):
             continue
-        pairs = line_pairs(line)
-        if pairs is None:
+        pairs, readable = line_pairs(line)
+        if not readable:
             if unread is None:
                 raise ValueError(f'읽을 수 없는 줄: {line}')
             unread.append(number)
-            continue
         for key, value in pairs:
             if out.setdefault(key, value) != value:
                 if unread is None:
@@ -70,12 +80,33 @@ def values(text, unread=None):
     return {key: value for key, value in out.items() if key not in clash}
 
 
+def walk(folders):
+    """(every entry, [(path, reason)] for what the traversal cannot enter). Directory links are not followed."""
+    entries, errors, links = [], [], []
+    for folder in folders:
+        for root, dirs, files in os.walk(folder, onerror=errors.append):
+            links += [(os.path.join(root, d), '폴더 링크는 따라가지 않음') for d in dirs if os.path.islink(os.path.join(root, d))]
+            entries += [Path(root, f) for f in files]
+    return sorted(entries), links + [(str(e.filename), f'폴더를 읽을 수 없음: {e.strerror}') for e in errors]
+
+
 def compare(answer, folders, answered_at, screen):
     """Every AI file gets its own record (zero overlap included), whatever its name. Anything not fully read is listed in
     `incomplete`; only .log files may stay unread. Only OS metadata without a judgment line is excluded, with a reason."""
-    records, unreadable, incomplete, excluded = [], [], [], []
-    for path in sorted(p for folder in folders for p in Path(folder).rglob('*') if p.is_file()):
-        data, unread = path.read_bytes(), []
+    records, unreadable, excluded = [], [], []
+    entries, blocked = walk(folders)
+    incomplete = [dict(path=path, reason=reason, unread_lines=[]) for path, reason in blocked]
+    for path in entries:
+        unread = []
+        try:
+            if not path.is_file():  # broken link, pipe, socket: never opened
+                raise OSError('일반 파일이 아님')
+            data, modified = path.read_bytes(), path.stat().st_mtime
+        except OSError as error:
+            unreadable.append(str(path))
+            if path.suffix != '.log':
+                incomplete.append(dict(path=str(path), reason=f'파일을 읽을 수 없음: {error.strerror or error}', unread_lines=[]))
+            continue
         try:
             text = data.decode('utf-8-sig')
             found = values(text, unread)
@@ -92,7 +123,6 @@ def compare(answer, folders, answered_at, screen):
         shared = answer.keys() & found.keys()
         header = re.search(r'^#\s*화면=(\S+)', text, re.M)
         relation = 'unknown' if not (screen and header) else 'same' if header[1] == screen else 'other'
-        modified = path.stat().st_mtime
         records.append(dict(path=str(path), matches=sum(answer[k] == found[k] for k in shared), total=len(shared),
                             answer_total=len(answer), full_coverage=len(shared) == len(answer), screen=relation,
                             other_screen=relation == 'other', unread_lines=unread, sha256=hashlib.sha256(data).hexdigest(),
@@ -143,7 +173,7 @@ def main(argv=None):
         except ValueError:
             statement_ok = False
         answered_at = args.answer.stat().st_mtime
-        records, unreadable, incomplete, excluded = compare(answer, [f for f in folders if f.is_dir()], answered_at, header and header[1])
+        records, unreadable, incomplete, excluded = compare(answer, [f for f in folders if f.is_dir() or f.is_symlink()], answered_at, header and header[1])
         baseline = chance(answer)
         result = dict(verdict=verdict(records, baseline, statement_ok, incomplete), answer_sha256=hashlib.sha256(data).hexdigest(),
                       answer_mtime=datetime.fromtimestamp(answered_at, timezone.utc).isoformat(), zones=len(answer),
