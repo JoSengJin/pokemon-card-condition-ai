@@ -41,7 +41,7 @@ import subprocess
 import sys
 
 from . import contract as ct
-from . import budget, cas, claude_perm, dedupe, experiment_exec, graph, ledger, states
+from . import budget, cas, claude_perm, dedupe, experiment_exec, graph, ledger, seal_check, states
 from .jsonio import read_json, write_json
 
 ANALYZE_TYPE = "misanalysis_general"  # A 묶음(claude_perm.BUNDLE_OF), 라우팅 sonnet·medium
@@ -152,12 +152,18 @@ def _external(src, new):
     new의 command와 같고(자리표시자 {input:…} 자리는 실행 때 사본 경로로 바뀌므로 아무 값), record.source_hashes가 지금 원본 파일과 같음.
     판별할 수 없는 기록(record.json이 없는 실험 폴더, 읽을 수 없음, 형식·상태, plan.json이 record의 SHA와 다름, 같은 조건인데 코드 해시를 못 냄)이
     하나라도 있으면 Hold(waiting). 기록 형식의 근거는 card_condition/experiment_record.py(prepare·records) 코드뿐이다(실제 기록은 열어 보지 않았다).
+    봉인 보호(2026-11-28 신뢰 경계 조사): Supervisor는 sandbox 밖이라, 봉인 경로 목록(harness/sealed_paths.json) 아래 실험 폴더·record.json·plan.json은 열기 전에
+    seal_check로 걸러 건너뛴다(내용·해시 모두 안 읽음). 같은 조건(plan·command 같음)인 기록의 source_hashes가 봉인·절대·`..` 경로를 가리키면 해시하지 않고 Hold(waiting). 하드 링크 기록(nlink>1)도 Hold(waiting). 목록 오류도 Hold(waiting).
+    건너뛴 폴더는 비교하지 않으므로 봉인 실험과 같은 조건의 새 계획은 못 잡는다(한계, 거절 쪽이 아니라 통과 쪽 공백).
     한계: ./experiment는 code_changes 파일 해시만 남기므로 그 밖 코드가 달라도 같다고 본다(거절 쪽). 회차마다 모든 기록을 읽는다(기록 수에 비례)."""
     base = os.path.join(src, "artifacts", "experiments")
     mine = {k: v for k, v in dict(experiment_exec.build_plan(new), **_FROZEN).items() if k not in _NOTES}
     command = new["run_conditions"]["command"]
+    sealed = seal_check.load([claude_perm.REPO, src])  # 목록 오류는 ValueError → 그 계획만 대기(fail-closed)
     for name in sorted(os.listdir(base)) if os.path.isdir(base) else []:
         folder = os.path.join(base, name)
+        if any(seal_check.under(os.path.join(folder, part), sealed) for part in ("", "record.json", "plan.json")):
+            continue  # 봉인 폴더·파일은 열지 않는다(Supervisor는 sandbox 밖). shortcut: 봉인 실험과 같은 조건의 새 계획은 못 알아본다(이름만으로는 비교 불가), 사용자가 봉인 해제·요약 자료를 정할 때 보완
         if not _EID.fullmatch(name) and not os.path.isfile(os.path.join(folder, "record.json")):
             continue  # experiment_record.records()처럼 */record.json이 기록이다(prepare 이름 형식 폴더는 record.json이 없어도 미완성 기록으로 본다)
         try:
@@ -166,8 +172,10 @@ def _external(src, new):
                 and isinstance(record.get("command"), list) and isinstance(record.get("source_hashes"), dict) \
                 and record["files"]["plan.json"] == cas.sha_file(os.path.join(folder, "plan.json"))
             same = ok and {k: v for k, v in plan.items() if k not in _NOTES} == mine and len(record["command"]) == len(command) \
-                and all(a == b or dedupe.PLACEHOLDER.search(b) for a, b in zip(record["command"], command)) \
-                and all(cas.sha_file(os.path.join(src, p)) == h for p, h in record["source_hashes"].items())
+                and all(a == b or dedupe.PLACEHOLDER.search(b) for a, b in zip(record["command"], command))  # 같은 조건일 때만 해시가 필요하다
+            if same and any(os.path.isabs(p) or ".." in p.split("/") or seal_check.under(os.path.join(src, p), sealed) for p in record["source_hashes"]):
+                raise ValueError("source_hashes가 절대·상위 경로이거나 봉인 경로를 가리킨다")  # 해시하려고 봉인 파일을 열지 않는다: 판별 불가(대기)
+            same = same and all(cas.sha_file(os.path.join(src, p)) == h for p, h in record["source_hashes"].items())
         except (OSError, ValueError, LookupError, TypeError, AttributeError, RecursionError) as exc:
             raise Hold("waiting", "판별할 수 없는 ./experiment 기록 %s: %s" % (name, type(exc).__name__))
         if not ok:
