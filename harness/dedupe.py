@@ -1,7 +1,7 @@
 """논리 중복 키(작업 계약 2단계 R2, 검증 결함 F3·2차 결함 G4 뒤). 실험·학습·평가 작업은 실제 실행 조건과 입력 내용(SHA)으로만 같은 작업인지 판정한다.
 
 - 작업 유형은 코드의 고정 목록으로만 판별한다: CONDITION_TYPES(experiment·training·evaluation, 정확히 같은 이름)와 PLAIN_TYPES(Claude 권한 묶음
-  유형 + deterministic). 목록에 없는 유형(대소문자·접미어 변형 포함)은 등록을 거절한다(fail-closed: 변형 이름으로 중복 검사를 빠져나갈 수 없다).
+  유형 + deterministic + 라우팅 이력의 결정론 검사 유형 route_history.CHECKER_TYPES, VS4). 목록에 없는 유형(대소문자·접미어 변형 포함)은 등록을 거절한다(fail-closed: 변형 이름으로 중복 검사를 빠져나갈 수 없다).
   새 Python 작업 유형은 이 목록에 코드로 추가해야 등록된다. 실행 조건(run_conditions)을 가진 PLAIN 유형도 거절한다(실험을 deterministic으로
   감싸 실행 조건 없이 다시 등록하는 경로. 실험 executor를 다른 유형 이름에도 등록한 executor 표는 sandbox_child가 거절한다).
 - run_conditions(대상 유형은 필수): command(비지 않은 문자열 목록), code_sha(16진 40·64자, 대소문자 무시. 3차 결함 H1: 등록 때와 executor
@@ -46,13 +46,13 @@ import os
 import re
 import subprocess
 
-from . import claude_perm
+from . import claude_perm, route_history
 from .cas import sha_file
 from .contract import ContractError
 from .jsonio import read_json
 
 CONDITION_TYPES = ("experiment", "training", "evaluation")
-PLAIN_TYPES = frozenset(claude_perm.BUNDLE_OF) | {"deterministic"}  # 실행 조건 없이 등록하는 유형(고정 목록)
+PLAIN_TYPES = frozenset(claude_perm.BUNDLE_OF) | {"deterministic"} | frozenset(route_history.CHECKER_TYPES)  # 실행 조건 없이 등록하는 유형(고정 목록)
 CONDITION_KEYS = ("command", "code_sha", "config", "seed")
 NOTE_KEYS = ("hypothesis_id", "description", "input_roles")
 _SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
