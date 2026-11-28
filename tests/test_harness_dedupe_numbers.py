@@ -100,7 +100,7 @@ class DedupeNumberTest(unittest.TestCase):
         self.assertEqual(len(graph.register_missing(tempfile.mkdtemp(), {ct.task_key(token): token}, T0, source_root=src)["registered"]), 1)
         good = make_contract("good", task_type="deterministic")
         text = json.dumps({ct.task_key(token): token, ct.task_key(good): good})[:-1]
-        for bad_key, literal in (("a" * 64, "1e1000000000000000000"), ("b" * 64, "9" * (dedupe.MAX_INT_DIGITS + 1))):
+        for bad_key, literal in (("a" * 64, "1e1000000000000000000"), ("b" * 64, "9" * 4400)):  # 4400자리: Python 3.11+ 정수 변환 상한(4300)도 넘는다
             text += ', "%s": %s' % (bad_key, json.dumps(_conf(src, 0)).replace('"x": 0', '"x": ' + literal))
         os.makedirs(os.path.join(root, "supervisor"), exist_ok=True)
         with open(os.path.join(root, supervisor.DECLARED), "w", encoding="utf-8") as handle:
