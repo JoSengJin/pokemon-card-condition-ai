@@ -5,7 +5,11 @@
   승격은 호출자가 준 봉인 교체 주기 ID(seal_cycle)로 센다.
 - 한도를 넘는 charge는 기록하지 않고 BUDGET_EXCEEDED를 켜고 알림을 남긴다(중단·보고). 자동 재개 경로는 없다:
   BUDGET_EXCEEDED(및 다른 정지 상태)가 켜져 있는 동안 charge는 모두 거절되고, 해제는 opstate.clear_by_user(사람)뿐이다(예산 재승인 필요).
-- 호출자: 실험을 시작하는 쪽(4단계 계획 관문)과 비전 작업(5단계)이 charge를 부른다. Supervisor 루프는 부르지 않는다.
+- 호출자: 실험을 시작하는 쪽(runner.drain: 실험·학습·평가 executor 직전, key = 논리 실험 키)과 비전 작업(5단계)이 charge를 부른다. Supervisor 루프는 부르지 않는다.
+- 취소(B5-4, 사용자 결정 3 "실행되지 않았음이 객관적으로 확인된 경우에만 취소"): cancel 이벤트 하나만 더했다. cancel은 charge가 돌려준 차감 번호(seq)
+  하나를 한 번만 되돌리며 그 차감의 기간(주)에서 뺀다(다음 주 예산을 비우지 않는다). 취소된 차감은 key 멱등의 근거가 아니다(다시 시작하면 새로 차감).
+  앞선 같은 (kind, key, period, amount) 차감을 가리키지 않거나 같은 차감을 두 번 되돌리는 cancel 줄·모르는 이벤트는 위조·손상으로 BudgetError
+  (사용량을 추정하지 않고 모든 차감을 거절한다). 무엇이 '실행되지 않음'인지는 호출자(runner, 어댑터 not_started)가 정한다.
 - 장부가 손상됐으면 BudgetError(사용량을 추정하지 않는다). 꼬리 잘림(마지막 줄 삭제)은 체인만으로는 보이지 않으므로 charge마다 마지막
   해시를 root/supervisor/budget.tail.json에 남기고 usage가 ledger.verify(expected_tail)로 대조한다. 장부에 한 줄 쓰고 꼬리를 쓰기 전에
   죽은 경우(마지막 줄의 prev가 저장한 꼬리)만 정상으로 인정한다. 꼬리 파일이 없으면 GENESIS로 본다(줄이 있으면 거절).
@@ -50,12 +54,25 @@ def period_of(kind, now, seal_cycle=None):
 
 
 def _tally(problems, rows, tail, kind, period):
-    """검증 결과(problems)·장부 줄·저장한 꼬리로 (kind, period) 사용량 합. 손상·잘림이면 BudgetError. 다른 함수를 부르지 않는다."""
+    """검증 결과(problems)·장부 줄·저장한 꼬리로 ((kind, period) 사용량 합, 취소된 차감 번호 집합). 손상·잘림·맞지 않는 취소는 BudgetError.
+    다른 함수를 부르지 않는다."""
     if any(p["problem"] != "tail_mismatch" for p in problems):
         raise BudgetError("예산 장부 손상: %s" % problems[:3])
     if problems and not (rows and rows[-1]["prev"] == tail):  # 꼬리 기록 전에 죽은 한 줄만 허용한다
         raise BudgetError("예산 장부 꼬리 불일치(잘림·삭제 의심): %s" % problems)
-    return sum(r["data"]["amount"] for r in rows if r["data"].get("kind") == kind and r["data"].get("period") == period)
+    charges, cancelled = {}, set()
+    for row in rows:
+        data = row["data"] if isinstance(row["data"], dict) else None
+        if data is not None and row["event"] == "charge":
+            charges[row["seq"]] = data
+            continue
+        ref = data.get("charge_seq") if data is not None else None
+        base = charges.get(ref) if type(ref) is int else None  # 앞선 줄의 차감만(bool·문자열 번호 거절)
+        if data is None or row["event"] != "cancel" or base is None or ref in cancelled or not isinstance(base.get("key"), str) \
+                or any(base.get(f) != data.get(f) for f in ("kind", "key", "period", "amount")):
+            raise BudgetError("예산 장부의 취소·이벤트 기록이 앞선 차감과 맞지 않는다(위조·중복 의심): seq %r" % row["seq"])
+        cancelled.add(ref)
+    return sum(d["amount"] for s, d in charges.items() if s not in cancelled and d.get("kind") == kind and d.get("period") == period), cancelled
 
 
 def usage(root, kind, period):
@@ -70,7 +87,7 @@ def usage(root, kind, period):
     if not any(p["problem"] != "tail_mismatch" for p in problems) and os.path.exists(path):
         with open(path, "r", encoding="utf-8") as handle:
             rows = [json.loads(raw) for raw in handle]
-    return _tally(problems, rows, tail, kind, period)
+    return _tally(problems, rows, tail, kind, period)[0]
 
 
 def charge(root, kind, amount, now, seal_cycle=None, actor="harness", key=None):
@@ -101,8 +118,11 @@ def charge(root, kind, amount, now, seal_cycle=None, actor="harness", key=None):
         if not any(p["problem"] != "tail_mismatch" for p in problems) and os.path.exists(path):
             with open(path, "r", encoding="utf-8") as handle:
                 rows = [json.loads(raw) for raw in handle]
-        used = _tally(problems, rows, tail, kind, period)
-        if key is not None and any((row["data"].get("kind"), row["data"].get("key")) == (kind, key) for row in rows):
+        used, cancelled = _tally(problems, rows, tail, kind, period)
+        if problems:  # 꼬리 기록 전에 죽은 한 줄(_tally가 인정): 꼬리를 먼저 맞춘다(그 줄을 지워 사용량을 되돌리지 못하게, 다음 kill이 두 줄 차이가 되지 않게)
+            write_json(os.path.join(root, TAIL), {"hash": rows[-1]["hash"], "seq": rows[-1]["seq"]})
+        if key is not None and any(row["event"] == "charge" and row["seq"] not in cancelled
+                                   and (row["data"].get("kind"), row["data"].get("key")) == (kind, key) for row in rows):
             return dict(result, ok=True, already=True, used=used)
         if used + amount > limit:
             info = dict(result, used=used)
@@ -123,4 +143,40 @@ def charge(root, kind, amount, now, seal_cycle=None, actor="harness", key=None):
         entry = ledger.append(os.path.join(root, BUDGET), now, "charge", dict(
             {"kind": kind, "period": period, "amount": amount, "actor": actor}, **({"key": key} if key is not None else {})))
         write_json(os.path.join(root, TAIL), {"hash": entry["hash"], "seq": entry["seq"]})
-        return dict(result, ok=True, used=used + amount)
+        return dict(result, ok=True, used=used + amount, seq=entry["seq"])
+
+
+def cancel(root, kind, key, seq, now, actor="harness", reason="not_started"):
+    """charge가 돌려준 차감 하나(seq)를 되돌린다(cancel 이벤트, 모듈 설명 참조). {"ok", "kind", "period"(그 차감의 기간), "used"(그 기간의 취소 뒤 사용량)}.
+    이미 취소된 차감이면 ok·already(kill 뒤 다시 부른 취소, 두 번 빼지 않는다). 그 번호가 같은 kind·key의 차감이 아니면 기록하지 않고 ok=False.
+    정지 상태는 보지 않는다(취소는 작업을 시작하지 않는다). 장부 손상·맞지 않는 취소 줄은 BudgetError. 호출 깊이 2(charge와 같은 검증을 펼쳤다)."""
+    if isinstance(now, bool) or not isinstance(now, (int, float)) or not math.isfinite(now):
+        raise BudgetError("now는 유한한 epoch 초 숫자여야 한다")
+    if kind not in LIMITS or not isinstance(key, str) or not key or type(seq) is not int:
+        return {"ok": False, "reason": "bad_request", "kind": kind}
+    os.makedirs(os.path.join(root, "supervisor"), exist_ok=True)
+    with open(os.path.join(root, "supervisor", "budget.lock"), "a") as guard:  # charge와 같은 잠금: 확인과 기록 사이에 다른 charge·cancel이 끼지 않게
+        fcntl.flock(guard.fileno(), fcntl.LOCK_EX)
+        path = os.path.join(root, BUDGET)
+        try:
+            tail = read_json(os.path.join(root, TAIL), {}).get("hash", ledger.GENESIS)
+        except (ValueError, AttributeError) as exc:
+            raise BudgetError("예산 꼬리 기록 손상: %s" % exc)
+        problems = ledger.verify(path, expected_tail=tail)
+        rows = []
+        if not any(p["problem"] != "tail_mismatch" for p in problems) and os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as handle:
+                rows = [json.loads(raw) for raw in handle]
+        base = next((r["data"] for r in rows if r["seq"] == seq and r["event"] == "charge"), None)
+        used, cancelled = _tally(problems, rows, tail, kind, base.get("period") if base else None)
+        if problems:  # charge와 같은 꼬리 맞춤
+            write_json(os.path.join(root, TAIL), {"hash": rows[-1]["hash"], "seq": rows[-1]["seq"]})
+        if base is None or (base.get("kind"), base.get("key")) != (kind, key):
+            return {"ok": False, "reason": "no_matching_charge", "kind": kind}
+        result = {"ok": True, "kind": kind, "period": base["period"]}
+        if seq in cancelled:
+            return dict(result, already=True, used=used)
+        entry = ledger.append(path, now, "cancel", {"kind": kind, "key": key, "charge_seq": seq, "period": base["period"],
+                                                    "amount": base["amount"], "actor": actor, "reason": reason})
+        write_json(os.path.join(root, TAIL), {"hash": entry["hash"], "seq": entry["seq"]})
+        return dict(result, used=used - base["amount"])
