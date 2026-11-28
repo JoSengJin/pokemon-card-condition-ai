@@ -2,31 +2,14 @@
 import io
 import os
 import pathlib
-import subprocess
-import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
 from harness import control, ledger, opstate, queue, supervisor
+from tests.test_harness_control_kit import cli, spawn
 from tests.test_harness_runner_kit import task
-from tests.test_harness_support import REPO
-
-CLI = [sys.executable, "-m", "harness.control"]
-
-
-def spawn(*args):
-    return subprocess.Popen(CLI + list(args), cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                            env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"))
-
-
-def cli(*args):
-    """(종료 코드, 표준 출력)."""
-    proc = spawn(*args)
-    out = proc.communicate(timeout=60)[0]
-    return proc.returncode, out
-
 
 class ControlStopTest(unittest.TestCase):
     def setUp(self):
