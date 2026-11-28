@@ -40,7 +40,7 @@
 - 소스 수정은 `./develop -- <명령>` 안에서만 한다. 먼저 `./develop --check`. 기존 tools/back_triage_review.py는 과거 화면 재현을 위해 수정하지 않고, 새 파일(예: tools/back_triage_review_v2.py)을 만든다. 파일당 함수 ≤7, 호출 깊이 ≤4. 기존 `card_html`의 crop·구역 계산은 import해 재사용해도 되지만 호출 깊이를 센다.
 - 구현 전에 테스트를 먼저 쓴다(예: 같은 클릭 시퀀스에 대해 신구 화면의 출력 문자열이 같은지 골든 비교, 이미 답한 id가 남은 목록에서 빠지는지, 쪽 파일 크기 ≤0.7MB).
 - 출력 폴더는 새로 만든다(예: artifacts/e2-scenario-20261120-v2/). 기존 review-*.html과 answers-*.txt는 덮어쓰지 않는다. artifacts는 Git 제외이므로 도구와 테스트만 커밋한다.
-- 검증 후 기능별로 커밋하고 `./develop -- git push origin main`까지 한다(상시 승인). force push·이력 재작성 금지. 커밋 메시지 끝에 현재 세션 지침의 Co-Authored-By 줄을 붙인다.
+- 검증 후 기능별로 커밋하고 `./develop -- git push origin main`까지 한다(SHA별 사용자 직접 승인 뒤, 사람이 직접 연 메인 세션만). force push·이력 재작성 금지. 커밋 메시지 끝에 현재 세션 지침의 Co-Authored-By 줄을 붙인다.
 
 ## 검증 (전부 직접 실행하고 결과 확인)
 1. `.venv/bin/python -m unittest tests.test_back_triage_suite tests.test_back_triage_usage tests.test_back_triage_release` 통과, 이어서 새 테스트와 전체 `unittest discover -s tests` 통과.

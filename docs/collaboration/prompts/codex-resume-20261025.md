@@ -29,7 +29,7 @@ PYTHONPATH=tests .venv/bin/python -m unittest test_threshold_contract test_paire
 git diff --check
 ```
 
-정확한 커밋 순서와 SHA는 `docs/collaboration/reports/metrics-neighbors-contract-20261025.md`에 있다. 원격 반영은 별도 승인된 작업만 일반 push한다.
+정확한 커밋 순서와 SHA는 `docs/collaboration/reports/metrics-neighbors-contract-20261025.md`에 있다. 원격 반영은 SHA별 사용자 직접 승인 뒤, 사람이 직접 연 메인 세션만 일반 push한다.
 
 ## 4. Codex가 결정해야 할 열린 항목
 

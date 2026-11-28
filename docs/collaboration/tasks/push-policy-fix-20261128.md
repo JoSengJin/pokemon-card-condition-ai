@@ -25,9 +25,9 @@ allowed_files: AGENTS.md, PAIR_CODING.md, docs/AGENT_START.md, .agents/skills/pa
 
 ## AGENTS.md 크기와 하네스 절 수용
 
-- 전: 16,343B → 후: 16,002B (한도 <16,384B 유지, 한도·시험 기대값 변경 없음).
+- 전: 16,343B → 후: 15,983B (2차 보완 뒤) (한도 <16,384B 유지, 한도·시험 기대값 변경 없음).
 - 줄인 곳은 보호 해시 대상이 아닌 줄뿐이다(아래 "의미 변경 여부"). 보호 줄 46개의 해시는 전부 그대로이며 BASELINE_RULE_HASHES 갱신 없음.
-- 하네스 절(아래 제안문, 371B)을 끝에 붙인 가정치: 16,373B (<16,384, 여유 11B). 임시 복사본에서 시험 통과 조건(크기·보호 해시 포함·`review_rules` 2,142B <3,000B)을 확인했다. 이 브랜치에는 넣지 않았다.
+- 하네스 절(아래 제안문, 371B)을 끝에 붙인 가정치: 16,354B (<16,384, 여유 30B; 2차 보완 뒤). 임시 복사본에서 시험 통과 조건(크기·보호 해시 포함·`review_rules` 2,142B <3,000B)을 확인했다. 이 브랜치에는 넣지 않았다.
 
 압축한 줄(의미 변경 없음, 다른 문서와 중복이거나 어순·접속만 정리):
 
@@ -45,7 +45,7 @@ allowed_files: AGENTS.md, PAIR_CODING.md, docs/AGENT_START.md, .agents/skills/pa
 하네스 무인 실행에 한해 [운영 규칙](docs/agent/HARNESS_RULES.md)이 "자동 재시도 금지"·"세션 상시 깨우기 금지"·"최종 응답 이후 자동 실행 약속 금지"보다 우선하며 대화형 에이전트의 미래 작업 약속은 허용하지 않는다. 다른 제한은 그대로다.
 ```
 
-주의: 합칠 때 하네스 브랜치의 기존 두 줄 절과 충돌하므로 위 문안으로 교체하고, 합친 파일이 16,384B 미만인지 `wc -c`로 다시 확인한다. 여유는 11B뿐이라 AGENTS.md에 다른 글자를 더하면 초과한다.
+주의: 합칠 때 하네스 브랜치의 기존 두 줄 절과 충돌하므로 위 문안으로 교체하고, 합친 파일이 16,384B 미만인지 `wc -c`로 다시 확인한다. 여유는 30B뿐이라 AGENTS.md에 다른 글자를 더하면 초과한다.
 
 ## 시험
 
@@ -74,3 +74,9 @@ allowed_files: AGENTS.md, PAIR_CODING.md, docs/AGENT_START.md, .agents/skills/pa
 
 - 스킬 새 문구가 실제 세션에서 동작하는지(실행 시험 없음).
 - 열기 계약의 "별도 브랜치" 방식이 pair-control이나 기존 선점 흐름(§2 open 탐색)과 충돌하는지(관제 도구 미검토).
+
+## 2차 보완 (독립 검증 의견 반영)
+
+1. 압축 손실 복원(AGENTS.md): "추론 근거가 없을 때만", "빠진 점검을 붙이고", "상대가 대화를 모른다고" 3곳을 127c529 원문 의미로 되돌렸다. 늘어난 바이트는 공통 입구 문단의 "잘린 출력은 누락 구간을 다시 읽고,"를 삭제해 상쇄했다(같은 의미가 docs/AGENT_START.md 시작 순서 4번 "truncated/생략 표시가 있으면 … 끝까지 읽는다"에 실제로 있음). 보호 줄·승인 문구는 변경 없음.
+2. 잔존 push 지시 5건을 "SHA별 사용자 직접 승인 뒤, 사람이 직접 연 메인 세션만"으로 최소 정정(다른 내용·기록 불변): tasks/corner-d3-miss-fa-critical-20261120.md:37, tasks/e2-review-remaining-20261120.md:43, tasks/accuracy-ceiling-head-input-quality-20261121.md:31, prompts/codex-resume-20261025.md:32, docs/superpowers/plans/2026-11-21-corner-blind-rejudge.md:29. 위 "잔존 문구" 목록의 앞 두 task는 이로써 정정됨.
+3. SKILL.md 열기 4번: 별도 브랜치는 현재 main에서 분기하고, main 반영은 fast-forward로만 해 고지한 SHA가 그대로 main이 되게 한다(ff 불가 시 새 SHA로 재승인).

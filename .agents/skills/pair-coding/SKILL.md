@@ -61,7 +61,7 @@ git for-each-ref --format='%(refname:strip=2) %(objectname)' refs/claims/ | whil
    handoff:
    ```
 
-4. 계약 문서만 main이 아닌 별도 브랜치에 커밋해(`docs(pair): open <task-id>...`) 전체 SHA를 만든다. main 반영과 origin/main push는 각각 그 SHA를 알리고 사용자 직접 승인을 받은 뒤에만 한다. 승인·반영 전에는 열린 작업이 아니다. 계약을 확정할 수 없으면 open으로 올리지 않는다.
+4. 계약 문서만 현재 main에서 분기한 별도 브랜치에 커밋해(`docs(pair): open <task-id>...`) 전체 SHA를 만든다. main 반영은 fast-forward로만 해 고지한 SHA가 그대로 main이 되게 한다(ff가 안 되면 새 SHA로 다시 승인). main 반영과 origin/main push는 각각 그 SHA를 알리고 사용자 직접 승인을 받은 뒤에만 한다. 승인·반영 전에는 열린 작업이 아니다. 계약을 확정할 수 없으면 open으로 올리지 않는다.
 5. 보고: 연 작업 목록, 병렬 가능한 묶음, 사용자가 각 창에 넣을 한 줄(`pair-coding 시작`).
 
 ## 2. 시작 — 구현 담당 (`pair-coding 시작`)
