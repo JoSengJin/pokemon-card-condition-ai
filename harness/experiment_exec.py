@@ -167,8 +167,10 @@ def check_code(task, workdir):
                 with open(os.open(spot, os.O_RDONLY | os.O_NOFOLLOW), "rb") as handle:
                     seen = os.fstat(handle.fileno())
                     digest.update(b"blob %d\0" % seen.st_size)
-                    for chunk in iter(lambda: handle.read(1 << 20), b""):
+                    chunk = handle.read(1 << 20)
+                    while chunk:
                         digest.update(chunk)
+                        chunk = handle.read(1 << 20)
                     if bool(seen.st_mode & 0o100) != (mode == "100755") or not stat.S_ISREG(seen.st_mode):
                         raise ValueError("모드 불일치: %s" % rel)
             if digest.hexdigest() != blob:
