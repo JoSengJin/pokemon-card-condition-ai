@@ -64,6 +64,13 @@ class LabelCriteriaSourceTest(unittest.TestCase):
                     self.assertIn(clause, drift(cell, re.sub(clause, '', canonical(cell)), screen(cell)))
                     self.assertIn(clause, drift(cell, canonical(cell), re.sub(clause, '', screen(cell))))
 
+    def test_canonical_corner_v2_states_d1_d2_and_what_stays_open(self):
+        # Canonical text only: screens are not held to these sentences until R9 puts them on the corner screen.
+        text = canonical('모서리')
+        for clause in ('구분되는흰흔적은크기와관계없이결함', '걸친두위치모두결함', '표면·엣지(?:에대한)?적용범위는미정', '옛기준\\(v1\\)라벨', '소급하지않'):
+            with self.subTest(clause=clause):
+                self.assertRegex(text, clause)
+
     def test_surface_screens_use_the_shared_copy_instead_of_their_own(self):
         for name in SURFACE_TOOLS:
             source = (ROOT / f'tools/{name}.py').read_text(encoding='utf-8')
