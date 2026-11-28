@@ -17,6 +17,8 @@ Supervisor `--executors`)에 등록했다. runner가 sandbox 안에서 부르므
   workdir/artifacts/experiments 목록이 같음 = 실행 안 됨(not_started: 예산 차감 취소 대상, 결정 3. 실제 ./experiment는 prepare가 실험 폴더를 만든 뒤
   명령을 실행하고, 그 뒤의 OSError·ValueError에도 2 안내문을 내므로 목록이 바뀌면 결과 불명이다). 그 밖(불일치·running·기록 경로가
   workdir/artifacts/experiments 밖·명령/가설 불일치·시간 초과·신호로 죽음)은 결과 불명(unknown). refused(계약 거절)도 실험 프로세스를 띄우기 전이다.
+- 외부 AI 검토 차단(A4): 자식 환경에 CARD_CONDITION_AUTO_CHILD=1(card_condition/development_review.enabled()가 False) + config.plan에
+  gemini_calls_allowed·codex_model_calls_allowed가 정수 0이 아니면 거절(refused).
 - 오류는 ExperimentError(종류, {"status", ...}). 종류는 runner 실패 종류와 같다(recovery.kind_of가 args[0]을 쓴다): deterministic(거절·실패·
   not_started), interrupted(중단·결과 불명: 작업권을 남겨 INTERRUPTED → 결과 확인 전 대기. 재실행 안전 목록은 비어 있어 자동 재실행되지 않는다).
   sandbox 안에서는 sandbox_child가 종류와 status를 결과 줄로 넘긴다(sandbox.ChildError.kind·status).
@@ -38,7 +40,9 @@ OUTPUTS = ("plan.json", "record.json", "result.json")
 TEXT_KEYS = ("hypothesis", "change", "success_criterion", "failure_criterion")
 _LINE = re.compile(r"^실험 기록: (.+) / 상태: (\S+)$", re.M)
 _NOT_STARTED = {1: "다른 개발·실험·검토가 진행 중입니다", 2: "실험 계획·기준 결과·코드 경로를 확인하세요"}
-_ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "en_US.UTF-8", "PYTHONIOENCODING": "utf-8"}
+_ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "en_US.UTF-8", "PYTHONIOENCODING": "utf-8",
+         "CARD_CONDITION_AUTO_CHILD": "1"}  # A4: development_review.enabled()를 끈다(./review --auto의 Codex·Gemini 호출 차단, 설정·세션 ID와 무관)
+NO_AI_KEYS = ("gemini_calls_allowed", "codex_model_calls_allowed")
 SOURCE_ENV = "HARNESS_SOURCE_ROOT"
 
 
@@ -60,6 +64,8 @@ def build_plan(task):
     if not isinstance(text, dict) or set(text) != set(TEXT_KEYS) or not all(isinstance(v, str) and v.strip() for v in text.values()) \
             or not isinstance(cond.get("hypothesis_id"), str) or not cond["hypothesis_id"].strip():
         raise ExperimentError("deterministic", {"status": "refused", "detail": "hypothesis_id·description(%s)이 필요하다" % (TEXT_KEYS,)})
+    if any(type(plan.get(key)) is not int or plan[key] != 0 for key in NO_AI_KEYS):  # bool·"0"·0.0 거절, 계획을 몰래 바꾸지 않는다(fail-closed)
+        raise ExperimentError("deterministic", {"status": "refused", "detail": "계획에 %s가 정수 0으로 있어야 한다" % (NO_AI_KEYS,)})
     return dict(plan, hypothesis_id=cond["hypothesis_id"], **text)
 
 

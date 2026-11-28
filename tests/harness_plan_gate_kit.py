@@ -37,6 +37,7 @@ def world(case):
 def control(head, value=0.6, hid="H1", **plan):
     """사람이 등록하는 대조 실험 계약(experiment_parameter 관례, 수치 기준·기준 결과·code_changes 포함). plan 키워드로 plan을 덮어쓴다(None = 삭제)."""
     body = {"experiment_parameter": dict(PARAM, value=value), "reference_result": "artifacts/ref/result.json", "acceptance": dict(ACCEPT),
+            "gemini_calls_allowed": 0, "codex_model_calls_allowed": 0,  # A4: 외부 AI 호출 금지 고정값
             "code_changes": [{"path": "card_condition/head.py", "baseline": None}]}
     body.update(plan)
     return {"task_type": "experiment", "inputs": {}, "outputs": list(experiment_exec.OUTPUTS), "depends_on": [], "needs_llm": False,
