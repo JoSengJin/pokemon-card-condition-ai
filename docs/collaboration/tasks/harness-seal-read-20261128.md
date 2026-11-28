@@ -97,6 +97,47 @@ git ls-files | python3 -I gen.py > paths.json
 
 실패: `test_harness_b5_e2e_synthetic…test_real_adapter_in_the_sandbox_cannot_record_so_the_chain_stops_at_the_first_experiment`(기대 INTERRUPTED, 실제 FAILED), `test_harness_b5_experiment_run_faults…test_supervisor_entry_point_runs_the_registered_adapter_in_the_sandbox`(completed 기대 charge·INTERRUPTED, 실제 charge·cancel·FAILED). 원인: 위 한계의 어댑터 안 git 대조(실패 기록 `code_sha를 판별할 수 없다`). 확인: `2e7c583`의 `claude_perm.py`(git 거절 전)로 두 모듈을 돌리면 6개 통과(`/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-read-git-conflict-without-gitdeny.log`). 두 시험은 고치지 않았다(완화 금지).
 
+## (나) 적용: runner 검증 결과 전달 (2026-11-28, 커밋 `5f8f220` 구현 · `3c6840f` 시험 · `ac87afd` 문구)
+
+증거 수준: **구현 완료 + 합성 시험**(가짜 저장소·가짜 봉인 목록·실제 `sandbox-exec`). 실제 실험·학습·평가 0건, 봉인 자료 내용 열람 0건, 모델 누락·오탐 변화 없음. 사용자 결정 원문 요약: `artifacts/harness-resume-20261127/decisions-integration-seal-20261128.md`.
+
+방식: runner(sandbox 밖)가 기존 `dedupe.verify_code` 직후 `experiment_exec.record_code`로 **`code_sha` 커밋의 파일별 git blob SHA 목록**(`git ls-tree -r -z`, 추적 파일 2522개·모드 포함)을 `<작업 폴더>/code-check.json`에 쓴다. 어댑터(`execute`)는 `check_code`로 그 파일만 읽어 git 없이 각 파일의 blob SHA(`sha1(b"blob N\0"+내용)`, 링크는 `readlink`, 모드 비트 포함)를 다시 계산해 전부 같은지 본다. 하나라도 다르거나 읽을 수 없으면 `refused`(실행 안 함). 메인 권고의 `git ls-files -s` 대신 `ls-tree <code_sha>^{tree}`를 썼다: 인덱스가 아니라 계약의 `code_sha` 커밋에 직접 묶여서 같은 보장(검증 뒤 작업 트리 변경 차단)을 주고 `code_sha` 일치도 함께 성립한다.
+
+- 고정 위치: 작업 폴더(`root/tasks/<키>/code-check.json`). sandbox는 쓰기 거절(덮어쓰기·새 파일·교체 모두 EPERM, 실제 sandbox 시험). 경로는 runner가 넣는 환경변수 `HARNESS_CODE_CHECK`(기존 `HARNESS_SOURCE_ROOT`와 같은 방식, 계약 작성자가 정할 수 없음). 어댑터는 `O_NOFOLLOW`·일반 파일·링크 수 1·파일 이름·`realpath(path)==path`를 확인한다. `run()`을 직접 부르는 경로(기존 시험)는 예전처럼 `verify_code`를 직접 한다(`checked=False` 기본).
+- 대조 범위(기록 범위): 봉인 경로 목록(`harness/sealed_paths.json`) 아래 추적 파일은 sandbox가 읽을 수 없어 대조에서 빼고 `sealed_skipped`에 남긴다. 이 저장소 실측 2522개 대조 + 97개 제외(모두 `artifacts/` 아래, .json 43·.txt 26·.md 17·.py 8·.html 3; .py 8개는 옛 holdout worker). 그 파일은 sandbox 안에서 읽기·실행이 거절되어(`test_sealed_reads_are_refused_in_sandbox_…`) sandbox 안 어댑터·`./experiment`가 실행할 수 없다. 이 저장소에서 sandbox 안 `check_code` 0.35초(비 sandbox 기록 0.28초).
+- 실행 파일 `experiment`가 목록에 없으면 거절(추적되지 않은 실행 파일 방지).
+
+구조(`PAIR_CODING.md`): `harness/experiment_exec.py` 함수 5→7(`record_code`·`check_code` 추가, 람다 없음), `harness/runner.py` 5→5(한 줄 추가). 호출: `runner.main → drain → _execute → experiment_exec.record_code → claude_perm.sealed_paths·jsonio.write_json` = 4, `execute → check_code` = 2(말단). 시험 새 파일 3개(각 함수 3·4·3개).
+
+### 변경 파일·커밋
+| 커밋 | 내용 |
+|---|---|
+| `5f8f220` | `harness/experiment_exec.py`(record_code·check_code·run `checked`·execute), `harness/runner.py`(_execute가 record_code 호출·환경변수) |
+| `3c6840f` | `tests/test_harness_code_check.py`(3)·`test_harness_code_check_run.py`(2)·`harness_code_check_kit.py` |
+| `ac87afd` | experiment_exec 문서 문구 |
+
+### 시험
+- 기존 실패 2개를 **기대값 변경 없이** 통과: `test_harness_b5_e2e_synthetic…test_real_adapter_in_the_sandbox_cannot_record_so_the_chain_stops_at_the_first_experiment`, `test_harness_b5_experiment_run_faults…test_supervisor_entry_point_runs_the_registered_adapter_in_the_sandbox`. 기존 시험 파일은 하나도 고치지 않았다(`git diff 521cb6b HEAD --stat`: 새 시험 3개 + 소스 2개).
+- 새 시험 5개: 기록·범위(`sealed_skipped`), 반례 19종(환경변수 없음·결과 파일 없음·JSON 아님·키 추가·링크·하드 링크·다른 이름·링크 폴더·code_sha 불일치·source_root 불일치·검증 뒤 파일 1개 내용 변경(같은 길이)·삭제·링크로 교체·모드 변경·링크 대상 변경·experiment 목록 누락·`..` 경로·잘못된 모드·잘못된 blob), 계약 필드·staging 폴더로 위조 결과 제공 시도(무시됨), runner가 기록 실패(submodule 항목) 시 executor를 부르지 않고 `not_started`, 실제 sandbox 안에서 작업 폴더 쓰기 거절 + git은 실패(`git rev-parse` 비0)인데 `check_code`는 통과 + 밖에서 파일 변경 뒤 거절.
+- 결함 주입(고친 뒤 시험, 끝나면 `git checkout`으로 되돌림, 스크립트 `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/seal-nah-inject.py`, 로그 `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-nah-fault-*.log`): blob 대조 제거·code_sha 대조 제거·source_root 대조 제거·하드 링크 허용·`O_NOFOLLOW` 제거(단독은 `realpath` 검사가 겹쳐 잡지 못함 → 둘 다 제거하면 잡음)·realpath 검사 제거·파일 이름 검사 제거·experiment 필수 제거·모드 대조 제거·환경변수 없음 통과·봉인 제외를 전부로 확대·submodule 항목 허용·runner 기록 제거·sandbox가 root에 쓰기 허용 — 14개 모두 시험이 잡았다(N5 단독 제외, 조합으로 잡음).
+- 전체 하네스 시험(대상 `ac87afd`, `full-suite.lock` 획득 뒤 1회씩, `python -m unittest discover -s tests -p "test_harness_*.py"`): **두 Python 모두 562 통과, 실패 0**(557 + 새 5).
+
+| Python | 결과 | 로그 |
+|---|---|---|
+| `.venv/bin/python`(3.12) | 562 통과 (345초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-nah-venv312.log` |
+| `/usr/bin/python3`(3.9) | 562 통과 (411초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/seal-nah-py39.log` |
+
+### 한계·미확인(이번 변경)
+- 환경변수 `HARNESS_CODE_CHECK`는 runner 프로세스가 정한다. sandbox 밖 같은 사용자 프로세스(Codex·셸·다른 runner)가 작업 폴더나 환경을 바꾸는 것은 막지 못한다(D-7 OS 사용자 분리 범위, 기존 `HARNESS_SOURCE_ROOT`와 같은 신뢰 수준).
+- 대조는 어댑터 실행 직전 한 번이다. 대조와 `./experiment` 실행 사이에 sandbox 밖에서 파일을 바꾸는 것(같은 사용자)은 막지 못한다. sandbox 안 프로세스는 저장소에 쓸 수 없다.
+- 줄바꿈 변환·`.gitattributes` 필터가 있는 저장소는 blob SHA가 어긋나 항상 거절된다(fail-closed, 이 저장소는 해당 설정 없음: `.gitattributes`·`core.autocrlf` 없음 확인).
+- 추적되지 않은 파일(untracked)은 기존 `verify_code`처럼 대조하지 않는다(`experiment`가 import하는 untracked 파일은 막지 못함).
+- 목록 완전성 미확인·미추적 후보 65개 보호 범위·AGENTS.md 별도 검토·최신 main 충돌 확인은 이 작업 범위 밖이라 하지 않았다(통합 전 필수 항목으로 남음). 실제 `./experiment`를 sandbox 안에서 돌려 보지 않았다(합성).
+- 목록 완전성이 미확인이므로 봉인 읽기 차단을 완전 보호로 보고하지 않는다(위 기존 한계 유지).
+
+### 롤백(이번 변경만)
+`git revert ac87afd 3c6840f 5f8f220` → 어댑터의 sandbox 안 `verify_code`로 돌아가 실험 어댑터가 다시 모든 실험을 `refused`하고 위 2개 시험이 다시 실패한다(6c564d4 유지 시). 6c564d4·cbe25fe는 건드리지 않았다.
+
 ## 한계·미확인
 
 - **같은 macOS 사용자의 sandbox 밖 프로세스**(Codex·대화형 Claude·사용자 셸)는 여전히 봉인 자료를 읽을 수 있다(OS 사용자 분리 D-7 범위).
@@ -105,7 +146,7 @@ git ls-files | python3 -I gen.py > paths.json
 - 이름 규칙에 안 걸리는 봉인 자료(예: 봉인 350·468장이 다른 이름 폴더에 있다면)는 목록에 없다.
 - `tools/experiments/*holdout*/`의 `plan.json`·`worker.py`는 코드로 보고 뺐다(봉인 자료 여부 사용자 확인 필요).
 - sandbox 규칙은 경로(실제 경로) 기준이다. 이 macOS에서 대소문자·NFD 변형 경로도 거절됨을 실측했다. 목록 항목이 나중에 생긴 경로면 그때 실제 경로로 다시 계산된다(프로필은 실행마다 만든다).
-- **git 사용 제한 — 기존 어댑터와 충돌(미해결, 결정 필요).** sandbox 안 executor는 저장소·`HARNESS_SOURCE_ROOT`의 git 폴더를 읽을 수 없어 그 저장소에서 `git`이 실패한다. "실제 executor는 git을 쓰지 않는다"는 전제는 틀렸다: 실험 어댑터 `harness/experiment_exec.py:110`이 sandbox 안에서 `dedupe.verify_code(task, workdir)`(git rev-parse·status·ls-files)로 code_sha를 다시 대조한다. 그래서 `6c564d4` 뒤 어댑터는 모든 실험을 `refused`(code_sha를 판별할 수 없다)로 거절하고(fail-closed, 실행 안 함), 기존 시험 2개가 실패한다(아래 전체 시험 2회차). runner는 sandbox 밖에서 같은 대조를 실행 직전에 이미 한다(`harness/runner.py:108`).
+- **git 사용 제한 — 기존 어댑터와 충돌(아래 "(나) 적용"으로 해결, 5f8f220).** 아래는 해결 전 기록이다. sandbox 안 executor는 저장소·`HARNESS_SOURCE_ROOT`의 git 폴더를 읽을 수 없어 그 저장소에서 `git`이 실패한다. "실제 executor는 git을 쓰지 않는다"는 전제는 틀렸다: 실험 어댑터 `harness/experiment_exec.py:110`이 sandbox 안에서 `dedupe.verify_code(task, workdir)`(git rev-parse·status·ls-files)로 code_sha를 다시 대조한다. 그래서 `6c564d4` 뒤 어댑터는 모든 실험을 `refused`(code_sha를 판별할 수 없다)로 거절하고(fail-closed, 실행 안 함), 기존 시험 2개가 실패한다(아래 전체 시험 2회차). runner는 sandbox 밖에서 같은 대조를 실행 직전에 이미 한다(`harness/runner.py:108`).
   - 고르는 길(사용자·메인 결정): (가) 어댑터 안 재대조를 빼고 runner 대조만 믿는다(sandbox가 저장소 쓰기를 막으므로 남는 틈은 sandbox 밖 같은 사용자 프로세스 = D-7 범위. 어댑터 재대조 시험의 기대도 바뀐다). (나) runner가 sandbox 밖에서 구한 대조 결과를 넘기고 어댑터는 그것만 확인한다. (다) git 폴더 거절을 되돌린다(`git revert 6c564d4`, git show 우회가 다시 열린다). git 폴더 읽기를 일부만 허용하는 방법은 없다(봉인 파일이 추적되어 있어 객체에 내용이 들어 있다).
   - 나중에 실제 `./experiment`·worker를 sandbox 안에서 연결할 때도 그 안에서 git을 쓰면 막힌다: 연결 전에 git 호출 여부를 확인한다.
 - git 폴더는 저장소와 `HARNESS_SOURCE_ROOT` 기준만 막는다. 같은 저장소의 다른 복제본(다른 위치의 clone·백업, 다른 git 폴더를 가진 checkout)은 막지 않는다. `.git` 파일이 가리키는 폴더를 따라가므로 worktree는 막힌다.
