@@ -61,8 +61,10 @@ DENY_MORE = ('(deny network*)', '(deny network-outbound (remote ip "localhost:*"
 
 
 class ChildError(Exception):
-    """sandbox 안 executor의 실패. kind: transient | deterministic | interrupted(신호로 죽음)."""
+    """sandbox 안 executor의 실패. kind: transient | deterministic | interrupted(신호로 죽음 또는 자식이 알린 결과 불명).
+    status: 자식이 결과 줄로 알린 executor 상태(실험 어댑터의 not_started 등, 없으면 None)."""
     kind = "deterministic"
+    status = None
 
 
 def profile(root, run_dir=None):
@@ -103,7 +105,7 @@ def run_one(root, spec, task_type, task, out_dir):
         final = os.open(out_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)  # 확정 out/이 링크면 ELOOP: 실행하지 않는다
     except OSError as exc:
         raise ChildError("확정 out/이 링크이거나 폴더가 아니다: %s (%s)" % (out_dir, exc))
-    run, pending = tempfile.mkdtemp(prefix="%s%s-" % (RUN_PREFIX, os.path.basename(os.path.dirname(os.path.abspath(out_dir))))), None
+    run, pending, status = tempfile.mkdtemp(prefix="%s%s-" % (RUN_PREFIX, os.path.basename(os.path.dirname(os.path.abspath(out_dir))))), None, None
     stage, env = os.path.join(run, "out"), dict(os.environ, TMPDIR=os.path.join(run, "tmp"))
     if task_type in CONDITION_TYPES:
         env["HARNESS_INPUT_DIR"] = os.path.join(os.path.dirname(os.path.abspath(out_dir)), "in")
@@ -157,8 +159,10 @@ def run_one(root, spec, task_type, task, out_dir):
             else:
                 reason = reply.get("error") if isinstance(reply, dict) else "executor 하위 프로세스 종료 코드 %r: %s" % (
                     child.returncode, err)
+                # 자식이 알린 interrupted(실험 결과 불명)도 받는다: executor가 스스로 신호로 죽어 얻을 수 있던 종류라 권한이 넓어지지 않는다(B5-8)
                 kind = "interrupted" if child.returncode < 0 else reply.get("kind") if isinstance(reply, dict) \
-                    and reply.get("kind") in ("transient", "deterministic") else "deterministic"
+                    and reply.get("kind") in ("transient", "deterministic", "interrupted") else "deterministic"
+                status = reply.get("status") if isinstance(reply, dict) and isinstance(reply.get("status"), str) else None
         finally:
             os.close(held)
     finally:
@@ -168,6 +172,7 @@ def run_one(root, spec, task_type, task, out_dir):
         os.close(final)
     failure = ChildError(reason)
     failure.kind = kind
+    failure.status = status  # 자식 결과 줄(ok=false)에서만 정해진다
     raise failure
 
 

@@ -21,10 +21,16 @@ split = args.index("--")
 opts, cmd = args[:split], args[split + 1:]  # argparse REMAINDER처럼: "--" 앞만 옵션
 plan = json.load(open(opts[opts.index("--plan") + 1]))
 here = os.path.dirname(os.path.abspath(__file__))
-os.makedirs(os.path.join(here, "artifacts"), exist_ok=True)
-with open(os.path.join(here, "artifacts", "argv.log"), "a") as log:
-    log.write(json.dumps({"opts": opts, "cmd": cmd, "plan": plan}) + "\n")
+try:
+    os.makedirs(os.path.join(here, "artifacts"), exist_ok=True)
+    with open(os.path.join(here, "artifacts", "argv.log"), "a") as log:
+        log.write(json.dumps({"opts": opts, "cmd": cmd, "plan": plan}) + "\n")
+except OSError:
+    pass  # sandbox 안(저장소 쓰기 거절, B5-4 진입점 시험): 호출 기록 없이 계속
 mode = plan["fake"]
+if mode == "setup_after_folder":  # 실험 폴더를 만든 뒤 계획 오류 안내문(실제 ./experiment의 prepare 뒤 오류): 실행 안 됨을 확정할 수 없다
+    os.makedirs(os.path.join(here, "artifacts", "experiments", "x-half"))
+    print("실험 계획·기준 결과·코드 경로를 확인하세요. 원문 오류는 출력하지 않습니다."); sys.exit(2)
 if mode == "busy":
     print("다른 개발·실험·검토가 진행 중입니다. 새 실험을 실행하지 않았습니다."); sys.exit(1)
 if mode == "setup":
@@ -113,7 +119,7 @@ class ExperimentExecTest(unittest.TestCase):
             self.assertEqual(len(handle.read().splitlines()), 1, "거절한 계약은 실행하지 않는다")
 
     def test_exit_code_and_record_status_must_agree(self):
-        want = {"completed": "done", "failed": "deterministic", "failed_with_result": "interrupted", "quiet_fail": "interrupted", "interrupted": "interrupted", "busy": "deterministic", "setup": "deterministic",
+        want = {"completed": "done", "failed": "deterministic", "failed_with_result": "interrupted", "quiet_fail": "interrupted", "interrupted": "interrupted", "busy": "deterministic", "setup": "deterministic", "setup_after_folder": "interrupted",
                 "lie_code": "interrupted", "running": "interrupted", "escape": "interrupted", "tamper": "interrupted", "other_cmd": "interrupted",
                 "no_line": "interrupted", "killed": "interrupted", "sleep": "interrupted"}
         for mode, kind in want.items():

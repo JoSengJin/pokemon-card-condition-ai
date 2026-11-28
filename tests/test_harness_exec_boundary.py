@@ -81,6 +81,9 @@ class ExecBoundaryTest(unittest.TestCase):
 
     def test_experiment_executor_reads_the_verified_input_copy(self):
         root, _ = self._root()
+        # B5-4: runner가 실험 예산 차감에서 운영 상태를 읽는다. 표식 글자 "ORIG"는 깨진 상태 파일 = INTEGRITY_HALT라 실험을 시작하지 않으므로
+        # 이 시험(입력 사본 읽기)에서만 지운다. 깨진 상태에서 실험을 거절하는 것은 tests/test_harness_b5_experiment_run이 본다.
+        os.remove(os.path.join(root, "supervisor", "opstate.json"))
         src = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, src, True)
         git_source(src)  # code_sha는 source_root의 HEAD와 대조한다(3차 결함 H1)
