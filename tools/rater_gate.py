@@ -16,68 +16,13 @@ import json
 import os
 import re
 import sys
-import unicodedata
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from tools.rater_gate_lines import values
 from tools.self_agreement.import_round import confirmed
 from tools.self_agreement.stats import WILSON
-
-SECOND_CARD = re.compile(r'/\s*(?:front|back)\s*=', re.I)  # another card's 'id/side=' swallowed into one value
-SECOND_ZONE = re.compile(r'z\s*\d+\s*[=:]', re.I)  # a second assignment swallowed into one value
-PHONE = re.compile(r'[^\s#;=-][^;=]*/[^;=/]+=[^;=]+;box:[^;]*;.+')
-
-
-def line_pairs(line):
-    """([(zone key, value)], whole line readable). Values are never repaired; NFKC is used only to detect.
-
-    A phone zone that cannot be read keeps its key with value None (covered, never a match). From the point where a
-    second card starts, nothing is attributed to the first card.
-    """
-    numbered = re.fullmatch(r'(z[0-9]+)\s*=\s*([^#]+)', line)
-    if numbered:
-        merged = SECOND_ZONE.search(unicodedata.normalize('NFKC', numbered[2]))
-        return ([], False) if merged else ([numbered.groups()], True)
-    if not PHONE.fullmatch(line):
-        return [], False
-    head, _, *zones = line.split(';')
-    pairs, readable = [], True
-    for zone in zones:
-        area, _, value = zone.partition(':')
-        name, seen = (unicodedata.normalize('NFKC', part).strip() for part in (area, value))
-        other = name == 'box' or '=' in name or SECOND_CARD.search(seen)
-        bad = other or not name or not seen or ':' in seen or SECOND_ZONE.search(seen)
-        if name and name != 'box' and '=' not in name:
-            pairs.append((f"{head.split('=')[0]}/{area}", None if bad else value))
-        readable = readable and not bad
-        if other:
-            break
-    return pairs, readable
-
-
-def values(text, unread=None):
-    """{zone key: value string} from 'zN=값' lines or phone lines 'id/side=..;box:..;구역:상태'. '#' lines are comments.
-
-    Without `unread` (the human answer) any other line or a conflicting repeat is refused. With a list (AI files) the
-    numbers of those lines are appended, a conflicting zone is dropped, and every other readable zone is kept.
-    """
-    out, clash = {}, set()
-    for number, line in enumerate((l.strip() for l in text.splitlines()), 1):
-        if not line or line.startswith('#'):
-            continue
-        pairs, readable = line_pairs(line)
-        if not readable:
-            if unread is None:
-                raise ValueError(f'읽을 수 없는 줄: {line}')
-            unread.append(number)
-        for key, value in pairs:
-            if out.setdefault(key, value) != value:
-                if unread is None:
-                    raise ValueError(f'같은 구역에 다른 값이 두 번 있음: {key}')
-                unread.append(number)
-                clash.add(key)
-    return {key: value for key, value in out.items() if key not in clash}
 
 
 def walk(folders):
@@ -124,7 +69,8 @@ def compare(answer, folders, answered_at, screen):
         header = re.search(r'^#\s*화면=(\S+)', text, re.M)
         relation = 'unknown' if not (screen and header) else 'same' if header[1] == screen else 'other'
         records.append(dict(path=str(path), matches=sum(answer[k] == found[k] for k in shared), total=len(shared),
-                            answer_total=len(answer), full_coverage=len(shared) == len(answer), screen=relation,
+                            answer_total=len(answer), unread_zones=sum(found[k] is None for k in shared),
+                            full_coverage=len(shared) == len(answer), screen=relation,
                             other_screen=relation == 'other', unread_lines=unread, sha256=hashlib.sha256(data).hexdigest(),
                             mtime=datetime.fromtimestamp(modified, timezone.utc).isoformat(),
                             answer_modified_after=answered_at > modified))
@@ -140,13 +86,13 @@ def chance(answer):
 
 def verdict(records, baseline, statement_ok, incomplete):
     """A partial-coverage file never decides. Flags may come from any full file; 'no match' needs a same-screen full
-    file and nothing left incompletely read. Evidence already found stays in the records."""
+    file whose shared zones were all read, and nothing left incompletely read. Evidence already found stays in the records."""
     full = [r for r in records if r['full_coverage']]
     if any(r['matches'] == r['total'] for r in full):
         return 'ai_identical'
     if any(r['matches'] / r['total'] > baseline['wilson95_upper'] for r in full):
         return 'ai_suspect'
-    compared = any(not r['other_screen'] for r in full)
+    compared = any(not r['other_screen'] and not r['unread_zones'] for r in full)
     return 'no_match_found' if compared and not incomplete and statement_ok else 'unknown'
 
 
