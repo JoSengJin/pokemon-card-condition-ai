@@ -42,7 +42,7 @@
 | receiving-code-review | 검토 의견을 반영할 때 | 적용 전 코드로 확인한다. 불명확한 항목만 보류하고 독립 항목은 계속한다. 삭제 제안은 허용 파일·승인 안에서만. 외부 스레드 답글은 하지 않는다. |
 | using-git-worktrees | 격리 확인만 | 생성·설치·.gitignore 변경·현재 checkout fallback은 PAIR_CODING.md §4를 따른다. |
 | brainstorming | 요구가 실제로 불명확할 때 | 명확한 요청은 바로 처리한다. 승인된 TODO마다 설계를 다시 묻지 않는다. |
-| pair-coding(저장소 스킬 `.agents/skills/pair-coding`) | 사용자가 `pair-coding 열기/시작/이어하기/통합/인수`를 부를 때만 | Codex·Claude 병렬 구현 절차. 권한을 새로 부여하지 않으며 PAIR_CODING.md·AGENTS.md가 우선한다. 구현 담당은 push하지 않는다. 메인의 열기·통합 push는 기존 push 상시 승인 범위를 따른다. |
+| pair-coding(저장소 스킬 `.agents/skills/pair-coding`) | 사용자가 `pair-coding 열기/시작/이어하기/통합/인수`를 부를 때만 | Codex·Claude 병렬 구현 절차. 권한을 새로 부여하지 않으며 PAIR_CODING.md·AGENTS.md가 우선한다. 구현 담당은 push하지 않는다. 메인의 열기·통합 커밋과 push는 AGENTS.md의 SHA별 사용자 직접 승인을 받은 뒤에만 한다. |
 | writing-plans | task 계약 안에서 | 별도 계획 문서와 실행 스킬 자동 연결을 만들지 않는다. |
 | executing-plans | 원리만 | 진행 장부 개념만 쓴다. 절차·기록 삭제·마무리 연결은 PAIR_CODING.md를 따른다. |
 
