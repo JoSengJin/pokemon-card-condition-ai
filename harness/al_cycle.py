@@ -16,7 +16,8 @@
 import json
 import os
 
-from . import active_learning, logical_zones
+from . import contract as ct
+from . import active_learning, logical_zones, relabel, silver_policy, silver_store
 from .active_learning import ActiveLearningError
 
 TASK_TYPE = "al_select"  # dedupe.PLAIN_TYPES에 같은 이름으로 등록한다(시험이 일치를 확인)
@@ -45,3 +46,37 @@ def load_inputs(task_dir, contract):
     except (ValueError, ActiveLearningError, TypeError, AttributeError, KeyError) as exc:  # ValueError: LogicalZoneError·AlCycleError 포함
         raise AlCycleError("%s: %s" % (type(exc).__name__, exc))
     return {"candidates": cands, "protected": prot, "config": sett["config"], "budget": sett["budget"], "seed": deps[0]}
+
+
+def record_queue(root, now, task_key, result, criteria_version, completed=()):
+    """select 결과의 human_queue 항목마다 al_queued 이벤트를 Silver 저장소에 남긴다. 반환 {ok, accepted, rejected}(request_relabel과 같은 모양).
+
+    키 = (이미지 SHA, 구역, 기준 판본, "human"). 이미 요청·대기열에 있으면 duplicate_request, completed(사람 Gold가 끝낸 키 목록)에 있으면 already_completed로 거절한다.
+    모델 결과·미리 채운 필드가 있는 항목과 형식 오류는 아무것도 쓰기 전에 거절한다(AlCycleError·RelabelError·PolicyError). silver_queue는 기록하지 않는다.
+    """
+    items = result.get("human_queue") if isinstance(result, dict) else None
+    if not isinstance(items, list) or not isinstance(criteria_version, str) or not criteria_version:
+        raise AlCycleError("result는 human_queue 목록을, criteria_version은 비어 있지 않은 문자열을 가져야 한다")
+    ct.check_key(task_key)
+    relabel.reject_model_fields(items)
+    silver_policy.reject_prefilled(items)
+    rows = []
+    for item in items:
+        if not isinstance(item, dict) or any(not isinstance(item.get(k), str) or not item[k] for k in ("region_id", "group_id")) \
+                or not isinstance(item.get("random_part"), bool):
+            raise AlCycleError("대기열 항목에는 region_id·group_id(문자열)와 random_part(bool)가 필요하다: %r" % (item,))
+        key = relabel.key_of(dict(item, criteria_version=criteria_version, judge="human"))
+        rows.append({"key": list(key), "task_key": task_key, "region_id": item["region_id"], "group_id": item["group_id"],
+                     "random_part": item["random_part"]})
+    finished, accepted, rejected = {tuple(k) for k in completed}, [], []
+    with silver_store.lock(root):
+        seen = relabel.fold_requests(silver_store.load(root))["requested"]
+        for row in rows:
+            key = tuple(row["key"])
+            if key in seen or key in finished:
+                rejected.append({"key": row["key"], "reason": "duplicate_request" if key in seen else "already_completed"})
+            else:
+                silver_store.append(root, now, "al_queued", row)
+                seen.add(key)
+                accepted.append(row["key"])
+    return {"ok": True, "accepted": accepted, "rejected": rejected}

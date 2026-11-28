@@ -47,11 +47,13 @@ def key_of(item):
 
 
 def fold_requests(entries):
-    """장부에서 {requested: 재라벨 요청 키, repeats: (키, 계획 ID, 반복 번호), done: 끝난 에이전트 라벨 키} 집합."""
+    """장부에서 {requested: 재라벨 요청·능동 학습 대기열(al_queued) 키, repeats: (키, 계획 ID, 반복 번호), done: 끝난 에이전트 라벨 키} 집합."""
     requested, repeats, done = set(), set(), set()
     for entry in entries:
         data = entry["data"]
-        if entry["event"] == "relabel_requested" and data["kind"] == "relabel":
+        if entry["event"] == "al_queued":  # D7 B: 능동 학습 사람 대기열도 같은 키의 중복 요청을 막는다(al_cycle.record_queue)
+            requested.add(tuple(data["key"]))
+        elif entry["event"] == "relabel_requested" and data["kind"] == "relabel":
             requested.add(tuple(data["key"]))
         elif entry["event"] == "relabel_requested":
             repeats.add((tuple(data["key"]), data["plan_id"], data["repeat_index"]))
