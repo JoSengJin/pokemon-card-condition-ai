@@ -62,7 +62,7 @@ git ls-files | python3 -I gen.py > paths.json
 | `.venv/bin/python`(3.12) | 555 통과, 실패 0 (340초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/harness-seal-read-venv312.log` |
 | `/usr/bin/python3`(3.9) | 555 통과, 실패 0 (382초) | `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/harness-seal-read-py39.log` |
 
-이전 547개 + 새 시험 4개 외 차이(551이 아닌 555)는 분기 `0da3cb7`에 이미 있던 시험 수 차이로 보이며 확인하지 않았다. 기존 시험은 고치거나 지우지 않았다.
+분기 `0da3cb7`의 시험 정의 551개(`git grep -c "    def test_"`) + 새 시험 4개 = 555. 기존 시험은 고치거나 지우지 않았다.
 
 ## 한계·미확인
 
