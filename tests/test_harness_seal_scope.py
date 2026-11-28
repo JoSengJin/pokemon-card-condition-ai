@@ -91,6 +91,7 @@ class SealScopeTest(unittest.TestCase):
                 open(claude_perm.OUTSIDE_LIST, "w").write(bad)
             with self.assertRaises(ValueError, msg=bad):
                 claude_perm.outside_roots([w["repo"]])
+        open(claude_perm.OUTSIDE_LIST, "w").write('{"roots": ["/x"]}')  # 목록은 정상, git만 실패하는 경우
         with self.assertRaises(ValueError):  # git 저장소가 아니면 worktree 목록을 모른다 → 보장 못 함 → 거절
             claude_perm.outside_roots([tempfile.gettempdir()])
 
@@ -105,6 +106,11 @@ class SealScopeTest(unittest.TestCase):
         probes = [(os.path.join(w["other"], "f.txt"), "read"), (w["other"], "stat"), (w["other"], "ls"), (os.path.join(w["wt2"], "f.txt"), "read"),
                   (os.path.join(w["repo"], "f.txt"), "read"), (os.path.join(w["repo"], "vault", "s.txt"), "read"), (os.path.join(fake, "ok.txt"), "read")]
         self.assertEqual(sandboxed(prof, probes)[0], [1, 1, 1, 1, "ok", 1, "ok"])  # 다른 루트·worktree 거절, 자기 저장소 정상, 봉인 목록 거절, python 환경만 예외
+        task = make_contract("O", task_type="peeker", inputs={"src": w["repo"]})
+        final = os.path.join(w["base"], "root", "tasks", ct.task_key(task), "out")
+        with mock.patch.dict(os.environ, {sandbox.SOURCE_ENV: w["repo"]}), mock.patch.object(sandbox, "profile", wraps=sandbox.profile) as spy:
+            sandbox.run_one(os.path.join(w["base"], "root"), "tests.test_harness_sandbox_read:EXECUTORS", "peeker", task, final)
+        self.assertIn(w["other"], spy.call_args.args[3])  # run_one이 실제로 저장소 밖 루트를 프로필에 넘긴다
         with self.assertRaises(ValueError):  # 하네스 root나 실행 폴더가 거절 루트 안이면 읽을 수 없게 되므로 프로필을 만들지 않는다
             sandbox.profile(os.path.join(w["other"], "root"), None, claude_perm.sealed_paths([w["repo"]]), claude_perm.outside_roots([w["repo"]]))
         with self.assertRaises(ValueError):
