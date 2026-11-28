@@ -67,20 +67,22 @@ not_touched: harness/claude_job.py·budget.py·logical_zones.py(VS4 담당), ded
 
 # 4. 필수 합성 시험 대응(원문 4절 12개)
 
+독립 검증(verify-vs3-20261128.md, 미통과·필수 결함 D1~D4)의 수정은 맨 아래 "독립 검증 결함 수정" 절. 2·4·7·8·10행에 그 시험을 더했다.
+
 "수정 전 실패 확인": P1은 dedupe 변경 전 HEAD(94b9bf6)에서 실행해 실패를 봤다. 관문 시험은 구현 뒤 HEAD 복사본에 "관문 없음" 변이(M0: gate가 선언을 그대로 돌려줌 = 수정 전 동작)와 runner 옛 오염원(M10)을 넣어 실패를 봤다(scratchpad `vs3-mut/run.log`). 결과는 최종 HEAD 기준.
 
 | # | 항목 | 시험 이름 | 수정 전 실패 확인 | 결과 |
 |---|---|---|---|---|
 | 1 | 적격한 단일 변수 계획의 자동 등록 | test_harness_vs3_gate: test_eligible_single_variable_plan_is_declared_registered_and_runs_with_its_lineage | M0 실패, M10 실패(등록돼도 실행 안 됨) | 통과 |
-| 2 | 복수 변수 변경·허위 단일 변수 선언 차단 | test_multiple_variables_or_a_false_single_variable_declaration_are_refused(값+기준값, 새 키, 선언≠실제, 점 든 키 위장, 변경 0, 자유 문구 선언, bool·문자열·NaN·거대 정수, 코드 커밋·미커밋 = 대기) | M0·M1·M2·M3·M11·M12 실패 | 통과 |
+| 2 | 복수 변수 변경·허위 단일 변수 선언 차단 | test_multiple_variables_or_a_false_single_variable_declaration_are_refused(값+기준값, 새 키, 선언≠실제, 점 든 키 위장, 변경 0, 자유 문구 선언, bool·문자열·NaN·거대 정수, 코드 커밋·미커밋 = 대기) + 독립 검증 D2 test_harness_vs3_fixes: test_d2_type_only_change_of_the_approved_variable_is_the_same_number(자료형만 바꾼 같은 수 1.0→1, value=baseline) | M0·M1·M2·M3·M11·M12 실패 + D2 시험 c72a7ed에서 실패 | 통과(D 수정 뒤 e4cbd99) |
 | 3 | 미승인 명령·인자·입력 자료 차단 | test_unapproved_command_arguments_or_inputs_are_refused(next_plan의 command·inputs·run_conditions·depends_on·seed·task_type·code_sha, plan의 command·extra_args·worker·code_changes) | M0·M1·M4 실패 | 통과 |
-| 4 | 기각 가설 ID·설명 변경 재등록 차단 | test_rejected_hypothesis_with_a_new_id_or_description_is_refused_even_after_a_docs_commit(실패 실험 F와 같은 조건, 완료 대조로 되돌림 + 사이 문서 커밋) | M0·M5·M8 실패 | 통과 |
+| 4 | 기각 가설 ID·설명 변경 재등록 차단 | test_rejected_hypothesis_with_a_new_id_or_description_is_refused_even_after_a_docs_commit(실패 실험 F와 같은 조건, 완료 대조로 되돌림 + 사이 문서 커밋) + D2 시험(실패 F 2.0 ↔ 제안 2, F 2 ↔ 2.0) + D4 test_d4_unverifiable_records_wait_and_records_outside_the_harness_are_compared(손상 계약·커밋 소실 = 대기, 하네스 밖 ./experiment 기록 대조·판별 불가 = 대기) | M0·M5·M8 실패 + D2 시험 c72a7ed·D4 시험 2794e54에서 실패 | 통과(D 수정 뒤 e4cbd99) |
 | 5 | 평가 자료·성공 기준 임의 변경 차단 | test_evaluation_data_and_success_criteria_cannot_be_changed_by_the_plan(reference_result, acceptance 완화·자료형만 변경, required_cohorts, threshold, independent, 기준 문구 키; 대조에 승인 변수 없음 = 대기) | M0·M1·M4·M13 실패 | 통과 |
 | 6 | 예산 초과·중복 차감 방지 | test_harness_vs3_gate_flow: test_budget_exhausted_plan_waits_and_the_gate_never_charges(한도면 대기·차감 0·BUDGET_EXCEEDED 안 켬, 다음 주 등록, 두 번 돌려도 그 실험 차감 1건) | M0·M6 실패 | 통과 |
-| 7 | PLAN_GATE 우회 직접 등록 차단 | test_declarations_bypassing_the_gate_are_not_registered(분석 의존 위조 선언, 결정론 작업 경유 간접 의존, 하네스가 만들지 않은 분석(같은 실험 의존)·그 의존 선언, Claude가 out/에 쓴 declared.json) | M0·M7·M9 실패 | 통과(부분 — 6절 한계 4) |
-| 8 | 중단·재개 뒤 중복 등록 방지 | test_kill_and_restart_do_not_register_the_next_experiment_twice(실제 SIGKILL: 선언 저장 뒤·등록 전 + 그 사이 문서 커밋 / 등록 직후, 재시작 2회) | M0 실패 | 통과 |
+| 7 | PLAN_GATE 우회 직접 등록 차단 | test_declarations_bypassing_the_gate_are_not_registered(분석 의존 위조 선언, 결정론 작업 경유 간접 의존, 하네스가 만들지 않은 분석(같은 실험 의존)·그 의존 선언, Claude가 out/에 쓴 declared.json) + D3 test_d3_registration_outside_the_gate_never_runs(queue.enqueue·register_missing 직접 호출·결정론 작업 경유 간접 의존 = 실행 0) | M0·M7·M9 실패 + D3 시험 d2c8aeb에서 실패(우회 실험 실행됨) | 통과(D 수정 뒤 e4cbd99) |
+| 8 | 중단·재개 뒤 중복 등록 방지 | test_kill_and_restart_do_not_register_the_next_experiment_twice(실제 SIGKILL: 선언 저장 뒤·등록 전 + 그 사이 문서 커밋 / 등록 직후, 재시작 2회) + D3 test_d3_kill_between_declaration_ledger_and_registration_runs_the_passed_experiment_exactly_once(SIGKILL 4지점, 통과 실험 완료 1회, 위조 실험 claim 0) | M0 실패 + D3 시험 d2c8aeb에서 실패(관문 밖 등록이 파생을 막아 k0 kill 지점에 도달하지 못함) | 통과(D 수정 뒤 e4cbd99) |
 | 9 | 문서 커밋만 변경된 동일 실험 중복 실행 차단 | test_harness_vs3_doc_commit 3개(중복·실행 1회 / 코드·docs의 .json·AGENTS.md·README.md·docs .md 링크·.md 이름 폴더의 .py는 다른 실험 / 명령·config가 docs .md를 가리키면 다른 실험) | 94b9bf6에서 1번 실패(DuplicateTask 안 남), 변이 4개(항상 유지·폴더 조건 제거·모드 조건 제거·이름 조건 제거) 모두 실패 | 통과 |
-| 10 | 검증 불가 계획 대기 중 독립 작업 지속 | test_unverifiable_plan_waits_while_independent_work_continues(Supervisor 2회차, sandbox runner: 대조에 승인 변수 없는 계획만 대기·알림 1회, 다른 계획 등록, 독립 Python 작업 VERIFIED) | M0 실패 | 통과 |
+| 10 | 검증 불가 계획 대기 중 독립 작업 지속 | test_unverifiable_plan_waits_while_independent_work_continues(Supervisor 2회차, sandbox runner: 대조에 승인 변수 없는 계획만 대기·알림 1회, 다른 계획 등록, 독립 Python 작업 VERIFIED) + D1 test_d1_plan_content_exceptions_hold_only_that_plan(401자리 정수 = 그 계획만 거절, Supervisor RUNNING, 독립 계획 등록, 다른 예외 부류 = 대기) | M0 실패 + D1 시험 1e8b877에서 실패(OverflowError) | 통과(D 수정 뒤 e4cbd99) |
 | 11 | 사용자 추가 메시지 없이 적격 다음 계획 등록 | test_harness_vs3_entry: test_entry_point_chains_to_the_next_experiment_without_user_input_and_runs_no_real_experiment(실제 진입점, 아래 C 증거) | M0·M10 실패 | 통과 |
 | 12 | 실제 실험 미승인 상태 실제 실행 0건 | 같은 시험(원본에 ./experiment 없음, 실험 기록 폴더 = 심은 2개뿐, 차감 = 가짜 executor 실행 2건) + test_without_an_executor_table_the_gate_registers_but_nothing_is_executed(executor 표 없으면 등록만, python_runs 0, claimed 0) | M0 실패 | 통과 |
 
@@ -132,3 +134,44 @@ not_touched: harness/claude_job.py·budget.py·logical_zones.py(VS4 담당), ded
 # 10. 롤백
 
 `git revert a7db7ee 5144dee 6d76b2f`(역순). 5144dee만 되돌리면 Supervisor는 declared.json을 그대로 등록하고 runner는 VERIFIED LLM 의존도 막는다. 6d76b2f를 되돌리면 논리 키 코드 자리가 tree 전체로 돌아간다(문서 커밋 뒤 같은 실험이 다시 등록됨). 합성 root 밖의 상태 파일은 바꾸지 않았다.
+
+### 독립 검증 결함 수정
+
+- 대상: 검증 보고 `artifacts/harness-resume-20261127/verify-vs3-20261128.md`(대상 1e8b877, 판정 미통과)의 필수 결함 D1~D4만. 정본 `decisions-vs3-20261128.md`.
+- 커밋: c72a7ed(D1) → d2c8aeb(D2) → 2794e54(D3) → e4cbd99(D4) → 이 문서. 바꾼 파일과 함수 수(전→후, lambda 포함): harness/plan_gate.py 6→7(`_external`), runner.py 6→6, dedupe.py 6→6, ledger.py 5→6(`events`), tests/harness_plan_gate_kit.py 7→7(seed 본문만), tests/test_harness_vs3_entry.py 4→4(구조 시험 목록에 두 파일 추가), tests/test_harness_vs3_fixes.py 새 파일 6.
+- 호출 깊이(tests/harness_depth_kit): supervisor.run 4·runner.main 4(새 경로 main → drain → _scan → ledger.events → _load 4)·plan_gate.gate 3(새 경로 gate → _external → cas.sha_file·build_plan 2, gate → ledger.events → _load 2)·graph.register_missing 3. 재귀 없음.
+- "수정 전 실패 확인"은 결함마다 시험을 먼저 쓰고 그 직전 커밋(작업 트리)에서 돌려 본 결과다. 수정 뒤에는 수정 분기를 하나씩 되돌리는 변이로 시험이 잡는지 봤다(scratchpad 임시 수정, 되돌림 확인).
+
+| 결함 | 원인 | 수정 | 시험(tests/test_harness_vs3_fixes.py) | 수정 전 실패 확인 | 한계 |
+|---|---|---|---|---|---|
+| D1 계획 하나로 Supervisor 전체 INTEGRITY_HALT | `_derive`의 `math.isfinite(거대 int)` OverflowError가 계획 검사 예외 목록 `_PLAN_ERRORS`(ValueError·TypeError·KeyError…)에도 supervisor 선언 단계 except에도 없었다. 같은 원인(목록 밖 예외 부류): IndexError·ZeroDivisionError 등 | 공통 지점 `_PLAN_ERRORS`에 ArithmeticError·LookupError(KeyError 대체)를 넣고, 값 검사는 예외 없는 float 범위 비교(`-max <= value <= max`, NaN·무한대·거대 정수 거절)로 바꿨다. LedgerError·OpStateError는 넣지 않았다(장부·운영 상태 오류는 전체 정지 유지). Claude 문구가 그 뒤 경로에 남는 자리(사유 문자열 %r·task_key·declared.json·장부 data)는 코드로 확인: 사유는 repr이라 인코딩 오류가 없고, 짝 없는 서로게이트 문구는 gate 안 `ct.task_key`의 UnicodeEncodeError(ValueError)로 그 계획만 대기 | test_d1_plan_content_exceptions_hold_only_that_plan: 401자리 정수 → 그 계획만 refused, supervisor.run 2회차 RUNNING, 같은 root 독립 계획 등록, `_diff`가 IndexError·ZeroDivisionError·OverflowError를 내도 그 계획만 waiting | 1e8b877 + 새 시험: OverflowError로 오류. 수정 뒤 옛 `_PLAN_ERRORS`를 넣으면 IndexError 사례가 실패 | MemoryError(거대한 out 파일)는 넣지 않았다(자원 문제, claude 출력 크기 상한은 코드에 없음). 바깥 except Exception의 INTEGRITY_HALT는 그대로 |
+| D2 자료형만 바꿔 같은 실험 재실행 | `_diff`는 JSON 글자로 비교해 1.0→1을 변경 1개로 세고, 기각 대조 `find_duplicate`는 config의 int·float를 다른 자료형으로 본다(4차 I3). value=baseline도 막지 않았다 | 승인 변수에만: value가 baseline 또는 대조 값과 같은 수면 refused(기존 `check_experiment_parameter`의 `baseline==value` 규칙과 같은 == 비교). 기각 대조는 제안 표기 + 정확히 같은 수의 다른 표기(2 ↔ 2.0, `form == value`일 때만)로 각각 find_duplicate. 등록하는 계약은 제안 그대로 하나 | test_d2_type_only_change_of_the_approved_variable_is_the_same_number: A(대조 1.0, 제안 1)·C(=baseline 0.5)·B(실패 F 2.0, 제안 2)·B′(사람이 int로 등록한 F 2, 제안 2.0) 모두 refused, 2.5는 통과, 사람 등록 config는 2 ≠ 2.0 그대로(queue.enqueue 등록됨) | c72a7ed + 새 시험: A가 통과(사유 None). 변이: 같은 수 검사 제거 → A 사유가 달라 실패, twins 제거 → B 실패, baseline 조건 제거 → C 실패 | worker가 2와 2.0을 같게 쓰는지는 실행하지 않았다(검증자와 같은 미확인). 2**53 넘는 정수처럼 float로 정확히 못 쓰는 수는 다른 표기를 만들지 않는다 |
+| D3 공개 등록 함수로 관문 우회 | 관문이 supervisor 선언 경로(`plan_gate.gate`)에만 있었고, VS3 runner가 VERIFIED LLM 작업을 오염원에서 빼서 queue.enqueue·register_missing 직접 호출·업그레이드 전 PENDING의 LLM 의존 실험도 실행됐다 | 실행 직전 마지막 관문을 runner에 둔다: `_scan`은 LLM 작업에 직·간접 의존하는 실험·학습·평가를 장부 ledger.jsonl에 그 task_key의 `plan_gate_declared` 줄이 있을 때만 실행한다(새 저장소 없음, `ledger.events` 읽기 전용). gate는 통과한 파생마다 줄이 없으면 쓴다(declared.json 저장 뒤·등록 전, 줄이 없을 때만 → 저장 뒤 kill을 다음 회차가 채움). 관문 밖 등록이 계보를 막지 않도록 "이미 다음 실험을 낸 분석"은 줄이 있는 등록 실험만 센다. 그 밖 VERIFIED LLM 의존(결정론 작업 등)은 VS3 설계 (나)대로 실행 | test_d3_registration_outside_the_gate_never_runs(enqueue 우회·register_missing 직접 우회·결정론 작업 경유 간접 의존 = PENDING·llm_dependents, 관문 파생만 done), test_d3_kill_between_declaration_ledger_and_registration_runs_the_passed_experiment_exactly_once(실제 SIGKILL: k0 declared.json 저장 직전, k1 장부 줄 직전, k2 줄 직후, k3 등록 직후 → 재시작 2회차·drain 2회 뒤 통과 실험 1개 VERIFIED·completed 1줄, 미리 enqueue한 위조 실험 claim 0) | d2c8aeb + 새 시험: 우회 실험 2개 실행(done 3), kill 시험은 위조 등록이 파생을 막아 k0 kill 미도달. 변이: 줄 채우기 제거 → k1 PENDING, 계보 판정의 줄 조건 제거 → k0 실패 | 같은 사용자 프로세스의 장부 직접 위조(줄 추가·해시 재계산)는 막지 못한다(기존 한계, ledger 문서). runner·gate가 회차마다 장부 전체를 읽는다(코드 `shortcut:`). 사람이 관문 파생 실험 뒤에 선언하는 실험도 간접 LLM 의존이라 실행되지 않는다(운영 뒤 5가 runner에도 적용됨) |
+| D4 대조할 수 없는 기록을 통과 처리 | `find_duplicate`가 읽을 수 없는 계약·찾지 못하는 커밋을 건너뛰고, 하네스 밖 `./experiment` 기록(원본 artifacts/experiments)은 읽지 않았다 | `find_duplicate(strict=True)`(관문만): task_key 이름 폴더의 읽을 수 없는·판별할 수 없는 contract.json, source_root에서 찾지 못하는 code_sha 커밋이면 ContractError → 그 계획만 waiting. 등록 경로(strict=False) 동작은 그대로. `plan_gate._external`: 원본 `artifacts/experiments/*/` 기록을 card_condition/experiment_record.py 형식(prepare·records)으로만 읽어, 설명 키를 뺀 동결 plan.json(prepare와 같은 방식으로 만든 파생 계획과 ==)·record.command(자리표시자 자리는 아무 값)·record.source_hashes(지금 원본 파일 해시)가 같으면 refused, 판별할 수 없는 기록이 있으면 waiting. 새 실패 관리 체계·임계값 없음(기존 기록 읽기만, 상태 무관) | test_d4_unverifiable_records_wait_and_records_outside_the_harness_are_compared: 손상 계약·커밋 소실(문서 커밋 reset·gc) = waiting, 같은 조건의 하네스 밖 실패 기록 = refused, 코드 해시·값·명령이 다르면 통과, 실험 폴더 이름이 아닌 record.json 없는 폴더는 무시, prepare 형식 폴더인데 record.json 없음·plan.json SHA 불일치·source_hashes 형식 오류 = waiting | 2794e54 + 새 시험: 손상 계약 사례가 통과(사유 None). 변이: strict 해제·`_external` 제거·폴더 조건 제거·plan SHA 조건 제거·명령 비교 제거 각각 실패 | 아래 "영구 대기 조건". 실제 기록 파일은 열지 않았다(형식은 코드와 합성 자료만). ./experiment는 code_changes 파일 해시만 남겨 그 밖 코드 차이는 같다고 본다(거절 쪽). contract.json이 없는 폴더는 미등록으로 본다(states 기준) |
+
+D2 두 규칙의 관계: 전역 dedupe(논리 키)는 config의 자료형을 알 수 없으므로 int·float·bool을 다른 자료형으로 본다(4차 I3, 사용자 숫자 표기 결정 "자료형을 확인할 수 없는 경우 임의로 숫자로 변환하지 않는다"). 관문의 승인 변수 `experiment_parameter.value`는 기존 파라미터 정의(`card_condition/cross_review_auto_contract.py` PARAMETER의 `{'type': 'number'}`, `check_experiment_parameter`의 `type in (int, float)`·`isfinite`·`baseline==value`)로 자료형이 "수"로 정해져 있다. 그래서 결정의 "수치형 파라미터는 자료형과 실제 값을 기준으로 정규화"·"기존 실험 config 및 파라미터 정의를 우선 활용"에 따라 이 변수만 값으로 비교한다. 전역 규칙의 남는 차이: 사람이 queue.enqueue로 2와 2.0을 각각 등록하면 지금처럼 다른 실험이다(관문 파생만 막는다).
+
+D4 영구 대기 조건(코드상 보이는 것, 사람 확인 전까지 모든 PLAN_GATE 계획이 waiting. 임의로 완화하지 않았다):
+1. 하네스 root `tasks/<task_key>/contract.json`이 있는데 읽을 수 없거나(CORRUPT) dict가 아니거나 지금 `dedupe.logical_key`가 거절하는 계약이 하나라도 있을 때. 손상 말고도 규칙이 좁아지기 전에 등록된 옛 계약(자리표시자로 참조하지 않는 입력 G4, needs_llm=false·needs_vision=true H1, seed 충돌, 등록 목록에서 빠진 유형, 실행 조건을 가진 비실험 유형)이 여기에 든다.
+2. 등록된 실험·학습·평가 중 code_sha 커밋을 source_root에서 찾지 못하는 것이 있을 때(amend·rebase 뒤 gc, 다른 clone·저장소에서 등록).
+3. 원본 `artifacts/experiments/` 아래 prepare 이름 형식(`YYYYMMDDTHHMMSS-8자리16진`) 폴더에 record.json이 없을 때. prepare는 폴더를 만들고 plan.json·reference.json·코드 스냅샷·changes.diff를 쓴 뒤 record.json을 쓰므로 그 사이 kill·쓰기 오류면 이런 폴더가 남고, 지우는 코드는 없다.
+4. 어떤 record.json이 schema_version 1·상태(running·completed·failed·interrupted)·command 목록·source_hashes dict·files["plan.json"] = 지금 plan.json SHA를 만족하지 않거나 JSON이 아닐 때(plan.json이 없거나 dict가 아닐 때 포함). 코드 이력상 prepare는 첫 커밋 4d7cc67(2026-10-25)부터 이 필드를 모두 쓰고 plan.json을 다시 쓰지 않는다(records()는 record.json만 interrupted로 고친다). 그 전 기록·손으로 만든 기록은 열어 보지 않아 모른다.
+5. 실행 조건(plan·command)이 같은 기록의 source_hashes 파일을 지금 읽을 수 없을 때(그 계획만).
+
+운영 뒤 개선(검증 보고 표, 고치지 않음): 1 승인 변수 없는 대조에도 ANALYZE 선언 → Claude 사용 낭비, 2 next_plan.json을 done manifest SHA와 대조하지 않음, 3 등록·실행 사이 커밋이면 runner 결정적 실패 뒤 그 값이 계속 "기각", 4 같은 평가 자료로 값 탐색 반복(주간 예산 외 제한 없음, 개발 평가 표기), 5 관문 파생 뒤 사람이 선언한 후속 실험이 막힘(이번 D3로 runner에서도 막힘), 6 value 키 없으면 KeyError → refused가 아니라 waiting, 7 회차마다 커밋별 `git ls-tree -r`(D2 표기 수만큼 늘어남: 정수 값 계획은 find_duplicate 2회), 8 사람 선언·관문 파생 실험의 실제 실행 승인 구분 없음, 9 실제 claude가 next_plan 형식·대조 config.plan을 모름, 10 contract.json 없는 `tasks/<K>/`가 `_screen` 검사를 건너뜀(D3 뒤에는 runner 장부 확인이 실행을 막는다). 이번에 생긴 것: 11 runner·gate가 회차마다 장부 전체, gate가 원본 실험 기록 전체를 읽는다(기록 수에 비례).
+
+재현 스크립트(`verify-vs3-scripts/`, e4cbd99 `git archive` 복사본 scratchpad `vs3fix-copy-e4cbd99`, `/usr/bin/python3 -I`, 출력 scratchpad `vs3fix-repro.log`):
+- vs3v_overflow_halt: gate 직접 호출 예외 없음, supervisor.run 2회차 뒤 RUNNING("재현 안 됨").
+- vs3v_type_rerun: A·C refused(baseline 또는 대조 값과 같은 수), A′ refused(변경 0), B·B′ refused(기각·중복), 다섯 경우 모두 등록 0.
+- vs3v_enqueue_bypass: 두 우회 실험 PENDING, done 0, llm_dependents 2("실행되지 않음").
+- vs3v_unverifiable_pass: 0 refused, 1 손상·2 커밋 소실 waiting(비교할 수 없는 등록 기록), 3 waiting(이 스크립트의 합성 기록은 prepare가 남기는 command·source_hashes·files가 없어 "판별할 수 없는 기록"). 형식을 갖춘 같은 조건 기록의 refused는 새 시험이 본다. 모두 등록 0.
+
+시험 도구 기대값 변경(근거): `tests/harness_plan_gate_kit.seed`가 심는 record.json에 prepare가 남기는 started_at·command·source_hashes를 더했다. D4가 기록 형식을 확인하므로 옛 합성 기록(그 필드 없음)은 "판별할 수 없음"이 되어 모든 관문 시험이 대기한다. 기존 시험의 기대값은 바꾸지 않았다.
+
+전체 시험(대상 e4cbd99, `mkdir scratchpad/full-suite.lock` 12:53:20 획득 → 13:03:35 내가 만든 잠금만 rmdir, 저장소 루트 `python -m unittest discover -s tests -p "test_harness_*.py"`): Python 3.12(.venv) 526개 OK(287.7초), Python 3.9(/usr/bin/python3) 526개 OK(319.1초). 기존 521 + 새 5. 로그 scratchpad `vs3fix-full-312.log`·`vs3fix-full-39.log`.
+
+C 증거: 새 진입점 실행은 하지 않았다. 실제 진입점 시험 test_harness_vs3_entry(python -m harness.supervisor, 가짜 claude·가짜 executor)가 D3 뒤에도 통과한다 = 진입점 경로에서 관문 파생 실험이 장부 줄을 남기고 runner가 실행한다(전체 시험에 포함).
+
+사용자 확인 필요(추가): (1) D3로 "관문 파생 실험 뒤 사람이 선언한 후속 실험"은 runner에서도 실행되지 않는다(운영 뒤 5). (2) D4 영구 대기 조건 1~4가 실제 저장소·root에 있는지는 확인하지 않았다(실기록 미열람). 실제 연결 전 한 번 점검이 필요하다. (3) D2 worker의 int·float 처리 동일성 미확인.
+
+롤백: `git revert e4cbd99 2794e54 d2c8aeb c72a7ed`(역순, 이 문서 커밋 포함 시 먼저). D3만 되돌리면 공개 등록 함수 우회가 다시 열리고, D4만 되돌리면 대조 불가 기록을 통과시킨다. 합성 root 밖 상태 파일은 바꾸지 않았다.
