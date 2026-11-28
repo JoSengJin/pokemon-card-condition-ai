@@ -66,3 +66,25 @@ def values(text, unread=None):
     if unread is not None:
         unread += sorted(set(damaged))
     return out
+
+
+def loose(text):
+    """Comparison form for detection only: NFKC, casefold, letters and digits. Never used as a value."""
+    return ''.join(c for c in unicodedata.normalize('NFKC', text).casefold() if c.isalnum())
+
+
+def unmatched(text, answer, found):
+    """(line numbers, near count): this file points at the answer but is not compared as written. One way only: it can
+    block 'no match'; it changes no value and no match count.
+
+    Lines: a line names one of the answer's phone cards ('id/side') but does not start with it exactly as written.
+    Near: a zone name, or a value of the same zone, that differs from the answer only in what loose() drops.
+    """
+    cards = {key.rsplit('/', 1)[0] for key in answer if '/' in key}
+    lines = [number for number, line in enumerate(text.splitlines(), 1)
+             if any(loose(card) in loose(line) and not line.strip().startswith(card + '=') for card in cards)]
+    names = {loose(key) for key in answer}
+    near = sum(loose(key) in names if key not in answer else
+               value not in (None, answer[key]) and bool(loose(value)) and loose(value) == loose(answer[key])
+               for key, value in found.items())
+    return lines, near

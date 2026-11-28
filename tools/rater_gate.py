@@ -3,7 +3,8 @@
 verdict (fixed before use, 07 §4-4): any full-coverage AI file equal on every zone -> ai_identical; best k/n above the
 Wilson 95% upper bound of the chance agreement -> ai_suspect; otherwise no_match_found (not proof of a human), or
 unknown without the exact confirmation sentence, without any full-coverage AI file, or when any AI output (except
-.log) was not read completely (comparison_complete=false; see incomplete). A cleanly stored partial AI file is not
+.log) was not read completely or names the answer's card, zone or value in a form that was not compared as written
+(comparison_complete=false; see incomplete). Rewritten copies that drop the card id cannot be detected from text. A cleanly stored partial AI file is not
 "incomplete" and never decides. Limits: no per-screen value list or required-zone list exists, so values and missing
 zones are not checked. Raw pastes with tags or prose are refused: keep the original and judge an extracted copy that
 starts with '# 원문sha256=<hex>'.
@@ -20,7 +21,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tools.rater_gate_lines import values
+from tools.rater_gate_lines import unmatched, values
 from tools.self_agreement.import_round import confirmed
 from tools.self_agreement.stats import WILSON
 
@@ -52,6 +53,7 @@ def compare(answer, folders, answered_at, screen):
             if path.suffix != '.log':
                 incomplete.append(dict(path=str(path), reason=f'파일을 읽을 수 없음: {error.strerror or error}', unread_lines=[]))
             continue
+        text = ''
         try:
             text = data.decode('utf-8-sig')
             found = values(text, unread)
@@ -62,6 +64,10 @@ def compare(answer, folders, answered_at, screen):
             continue
         if (unread or not found) and path.suffix != '.log':
             incomplete.append(dict(path=str(path), reason='읽지 못한 줄 있음' if found else '읽은 판정 줄 없음', unread_lines=unread))
+        lines, near = unmatched(text, answer, found)
+        if (lines or near) and path.suffix != '.log':
+            incomplete.append(dict(path=str(path), reason=f'답을 가리키지만 적힌 그대로는 대조되지 않음 (가까운 구역·값 {near}개)',
+                                   unread_lines=lines))
         if not found:
             unreadable.append(str(path))
             continue
