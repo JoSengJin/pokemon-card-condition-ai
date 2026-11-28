@@ -3,7 +3,7 @@
 한 회차: 운영 상태 확인(opstate) → 정지 상태(INTEGRITY_HALT·USER_STOPPED·DONE·BUDGET_EXCEEDED)면 아무 작업도 시작하지 않고 감시만
 → 끊긴 Silver 철회 복구(withdrawal.withdraw(root, now), policy_id 없이 복구만·멱등, silver/store.jsonl이 있을 때만. 정지 상태에서는
 하지 않는다: 보수적 기본값, 사용자 확인 필요) → 의존 그래프 대조(graph.register_missing, 선언 파일 root/supervisor/declared.json이 있을 때) → Python 작업 처리(2단계 runner를
-별도 프로세스로 `--max 1`씩, 종료 코드 3 = 장부 무결성 → INTEGRITY_HALT) → 한도 상태면 Claude 작업만 멈추고 재개 시각(next_try_at)이
+별도 프로세스로 `--max 1`씩, 종료 코드 3 = 장부 무결성 → INTEGRITY_HALT) → 적용기(VS5: VERIFIED 학습 작업을 모델 레지스트리에 등록·VERIFIED 평가 작업을 채점해 승격 판정만 기록, apply_main을 별도 프로세스로, 적용할 것이 있을 때만, 실패는 INTEGRITY_HALT, 승격은 하지 않는다) → 한도 상태면 Claude 작업만 멈추고 재개 시각(next_try_at)이
 지났을 때만 한도 조건을 자동 해제(clear_auto)하고 재개 → Claude 작업 칸(claude_job) 실행·반영 → 다음 회차까지 대기(sleep_fn, 한도면 재개 시각까지).
 - 정지 상태는 회차 시작에만 보지 않는다: Python 작업 하나를 시작하기 전마다, Python 처리 뒤(clear_auto 직전), pick 직전, execute 직전에
   다시 읽어 정지면 그 회차를 끝낸다(처리 중 건 USER_STOPPED 뒤에 새 작업을 시작하지 않는다). 이미 돌고 있는 작업은 강제로 끊지 않는다.
@@ -16,7 +16,7 @@
   무결성 오류에 남긴다.
 - 실행: python -m harness.supervisor --root R [--claude-bin B] [--executors mod:ATTR] [--max-cycles N] [--poll S]
 호출 깊이: run → runner.drain은 별도 프로세스라 세지 않는다. run → _live(2)·withdrawal.withdraw(4, 래퍼 없이 직접)·opstate.clear_auto(3)·graph.register_missing(3)·graph.note_rejected(1)·plan_gate.gate(3, VS3: 선언을 읽은 뒤 register_missing 전)·
-claude_job.pick(2)·execute(3)·settle(3)이라 최대 4다. 모듈 맨 아래 __main__ 블록은 _args와 run만 부른다.
+claude_job.pick(2)·execute(3)·settle(3)·_apply(apply_main.pending → states.facts → cas.sha_file = 4, 반영은 별도 프로세스)이라 최대 4다. 모듈 맨 아래 __main__ 블록은 _args와 run만 부른다.
 - root는 절대 경로로 바꿔 쓴다(runner는 cwd=REPO에서 돌기 때문에 상대 경로면 다른 폴더를 본다).
 """
 import errno
