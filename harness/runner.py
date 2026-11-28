@@ -8,8 +8,10 @@
   SANDBOX_EXIT로 끝난다(fail-closed). 하위 프로세스 실행은 sandbox.py에 있다. drain에 dict를 직접 넘기는 경로(시험)는 sandbox가 없다.
 - sandbox 안 executor가 신호로 죽으면(메모리 부족 등) 작업권 기록을 남긴 채 놓아 다음 claim이 INTERRUPTED 규칙(2단계 R1)대로 다룬다.
 - LLM 작업(needs_llm=true)과, VERIFIED가 아닌 LLM 작업에 (간접으로) 의존하는 작업은 건드리지 않는다(claim도 하지 않으므로 장부에도 안 남는다).
-  VS3(2026-11-28): VERIFIED인 LLM 작업은 더 이상 오염원이 아니다(PLAN_GATE가 등록한 다음 실험이 ANALYZE에 의존한다). LLM 작업에 직·간접 의존하는
-  실험·학습·평가는 PLAN_GATE가 만든 계약과 같을 때만 등록된다(plan_gate). 미검증·실행 중·실패·대기·손상 LLM 의존은 그대로 막는다.
+  VS3(2026-11-28): VERIFIED인 LLM 작업은 더 이상 오염원이 아니다(PLAN_GATE가 등록한 다음 실험이 ANALYZE에 의존한다). 미검증·실행 중·실패·대기·손상
+  LLM 의존은 그대로 막는다. VS3 독립 검증 D3: LLM 작업에 직·간접 의존하는 실험·학습·평가는 장부(ledger.jsonl)에 그 task_key의 plan_gate_declared
+  줄(PLAN_GATE만 쓴다)이 있을 때만 실행한다. 등록 경로(queue.enqueue·graph.register_missing 직접 호출·declared.json·업그레이드 전 PENDING)와
+  무관하게 실행 직전 이 확인이 마지막 관문이다. 그 밖(결정론 작업 등)의 VERIFIED LLM 의존은 실행한다.
 - 일시적 실패는 1단계 규칙대로 최대 2회 재시도한 뒤 정지, 결정적 실패·needs_failure_policy·blocked·
   holder_alive_without_lock은 우회하지 않고 요약에 남기고 그 작업만 멈춘다.
   장부 체인 손상(LedgerError)은 무결성 문제라 drain 전체를 멈추고 요약에 INTEGRITY를 남기며 종료 코드 3을 낸다. 데몬·예산·한도 감지는 하지 않는다(3단계).
@@ -23,7 +25,7 @@
   not_started·refused) budget.cancel한다. 결과 불명(interrupted)·실험 실패·출력 불일치는 차감 유지. 취소는 실패 기록보다 먼저 한다(그 사이 kill이면
   작업권이 남아 INTERRUPTED → 결과 확인 대기, 다시 실행되면 새로 차감). executor 상태는 sandbox 결과 줄(ChildError.status)로 받는다.
 - 호출 깊이: main -> drain -> queue.claim/complete/fail(각각 깊이 2 이하)이라 최대 4다. drain -> manifest.build -> safe_path는 3.
-  drain -> budget.charge/cancel -> ledger.verify -> _check_line은 3, drain -> dedupe.logical_key -> _command는 2.
+  drain -> budget.charge/cancel -> ledger.verify -> _check_line은 3, drain -> dedupe.logical_key -> _command는 2, main -> drain -> _scan -> ledger.events -> _load는 4.
   executor는 호출자 코드(동적 호출)이며 이 깊이에 포함하지 않았다(experiment_exec.execute 자체 깊이 3).
 """
 import json
@@ -64,7 +66,17 @@ def _scan(root, executors):
     contracts = {k: i["contract"] for k, i in infos.items() if i["contract"] is not None}
     llm = {k for k, c in contracts.items() if c["needs_llm"]}
     tainted = {k for k in llm if state[k] != states.VERIFIED}  # VERIFIED LLM 작업 자체도 아래 상태 검사로 실행하지 않는다
-    while True:  # LLM 작업에 직접·간접으로 의존하는 작업
+    reach = set(llm)
+    while True:  # LLM 작업에 직·간접 의존하는 모든 작업
+        more = {k for k, c in contracts.items() if k not in reach and any(d in reach for d in c["depends_on"])}
+        if not more:
+            break
+        reach |= more
+    # VS3 D3: 그중 실험·학습·평가는 장부에 관문 통과 줄(plan_gate_declared)이 있을 때만 실행한다(실행 직전 마지막 관문: 공개 등록 함수로 관문을 건너뛴 등록·업그레이드 전 PENDING 차단)
+    # shortcut: 회차마다 장부 전체를 읽는다(줄 수에 비례), 장부가 커지면 색인을 둔다
+    passed = {d.get("task_key") for d in ledger.events(os.path.join(root, "ledger.jsonl"), "plan_gate_declared") if isinstance(d, dict)}
+    tainted |= {k for k in reach - llm if contracts[k]["task_type"] in dedupe.CONDITION_TYPES and k not in passed}
+    while True:  # 위 두 오염원에 직접·간접으로 의존하는 작업
         more = {k for k, c in contracts.items() if k not in tainted and any(d in tainted for d in c["depends_on"])}
         if not more:
             break

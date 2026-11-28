@@ -25,7 +25,8 @@ Supervisor가 회차마다 declared.json을 읽은 뒤 gate를 부르고, gate�
    검증을 우회하지 못한다). LLM 의존이 없는 선언(사람이 쓰는 대조 실험 등)은 그대로 둔다(신뢰 경계: root/supervisor는 하네스와 사용자만 쓴다.
    Claude A군은 ./out/**만 쓰고 sandbox executor는 root에 쓰지 못한다 — 실환경 권한 확인은 B4).
 거절(refused: 제안 위반)과 대기(waiting: 지금 확인할 수 없음)는 그 계획만 멈추고 graph.note_rejected로 장부·알림에 한 번 남긴다(같은 사유 반복 없음,
-키 "plan:<분석 task_key>"). 대기는 회차마다 다시 본다. 독립 작업은 계속한다. 새 선언은 plan_gate_declared 장부 줄을 남긴다(declared.json 저장 뒤).
+키 "plan:<분석 task_key>"). 대기는 회차마다 다시 본다. 독립 작업은 계속한다. 통과한 선언은 plan_gate_declared 장부 줄을 남긴다(declared.json 저장 뒤,
+줄이 없을 때만). 그 줄이 실행 허가다: runner는 LLM 작업에 직·간접 의존하는 실험·학습·평가를 그 줄이 있을 때만 실행한다(D3, 3의 선언 차단은 알림용 앞단).
 한계: declared.json은 새 선언이 있을 때만 다시 쓰며 사용자 선언도 JSON 정규화된다. 사용자 선언에 JSON으로 적을 수 없는 값(supervisor가 NaN으로 읽은
 거대 정수 등)이 있으면 파일을 쓰지 않고 알린다(그 회차 등록은 메모리의 선언으로 그대로 한다: 파생은 결정론이라 다음 회차에 다시 만든다).
 사용자가 같은 순간 파일을 고치면 덮어쓸 수 있다.
@@ -173,7 +174,9 @@ def gate(root, declared, now, source_root=None):
         if re.fullmatch(r"[0-9a-f]{64}", key):
             info = states.facts(os.path.join(tasks_dir, key))
             infos[key] = (states.state_of(info, False), info["contract"])
-    children = {d for s, c in infos.values() if c is not None and c["task_type"] in dedupe.CONDITION_TYPES for d in c["depends_on"]}
+    lined = {d.get("task_key") for d in ledger.events(os.path.join(root, "ledger.jsonl"), "plan_gate_declared") if isinstance(d, dict)}
+    # 관문을 통과해(장부 줄) 등록된 다음 실험이 있는 분석만 다시 보지 않는다(D3: 관문 밖 등록이 계보를 막지 못하게, 그런 실험은 runner가 실행하지 않는다)
+    children = {d for k, (s, c) in infos.items() if c is not None and c["task_type"] in dedupe.CONDITION_TYPES and k in lined for d in c["depends_on"]}
     added, derived, notes = {}, {}, {}
     for key, (state, task) in infos.items():
         if state != states.VERIFIED or task is None:
@@ -208,7 +211,10 @@ def gate(root, declared, now, source_root=None):
             write_json(os.path.join(root, "supervisor", "declared.json"), dict(declared, **added))
         except ValueError as exc:  # 사용자 선언에 JSON으로 적을 수 없는 값(NaN 등): 파일은 그대로 두고 알린다
             notes["<declared.json>"] = "plan_gate_write_skipped: %s" % str(exc)[:200]
-        for key, task in sorted(added.items()):
+    # 관문 통과 줄(D3: runner가 실행 직전 확인). declared.json 저장 뒤, 등록 전. 이번 회차에 통과한 선언 중 줄이 없는 것만 쓴다:
+    # 저장 뒤·줄 전 kill이면 다음 회차의 같은 파생(결정론)이 줄을 채우고, 줄 뒤 kill이면 다시 쓰지 않는다
+    for key, task in sorted(dict(added, **{ct.task_key(n): n for n in derived.values()}).items()):
+        if key not in lined:
             ledger.append(os.path.join(root, "ledger.jsonl"), now, "plan_gate_declared", {
                 "task_key": key, "task_type": task["task_type"], "depends_on": task["depends_on"],
                 "value": task.get("run_conditions", {}).get("config", {}).get("plan", {}).get("experiment_parameter", {}).get("value"),
