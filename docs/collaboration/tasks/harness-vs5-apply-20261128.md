@@ -39,7 +39,7 @@ declared.json(사람이 쓴 학습·평가 계약) → register_missing → runn
 ## 3-3. 결과물
 
 - 모델: `models/registry.jsonl`에 Challenger 1건(`train_applied/<key>.json` 기록으로 멱등).
-- 판정: `promotion/verdicts/<평가 key>.json`(verdict·reasons·`promoted: false`·평가 결과 전체: 누락률·오탐률·분모·부트스트랩·민감도·보류 상한) + 장부 `promotion_verdict` 한 줄 + Supervisor 장부 `apply_drain` 줄. **champion 포인터·승격 예산·봉인 평가는 건드리지 않는다**(시험이 `champion.promote` 호출 금지·포인터 파일 없음을 확인).
+- 판정: `promotion/verdicts/<평가 key>.json`(verdict·reasons·`promoted: false`·평가 결과 전체: 누락률·오탐률·분모·부트스트랩·민감도·보류 상한) + 장부 `promotion_verdict` 한 줄 + Supervisor 장부 `apply_drain` 줄. **champion 포인터·승격 예산·봉인 평가는 건드리지 않는다**(시험이 `champion.promote` 호출 금지(mock)와 `champion.read_current` 없음을 확인, C 로그가 `models/champion.json` 없음을 확인).
 
 ## 3-4. 실패 처리
 
@@ -128,7 +128,7 @@ declared.json(사람이 쓴 학습·평가 계약) → register_missing → runn
 
 # 8. 한계·리스크
 
-1. 실제 학습·평가 executor가 없다. 합성 가짜 executor로만 경로를 확인했다. `rows.json`을 만드는 실제 평가 실행기(사진 추론 포함)가 없고 학습·평가 유형은 `ALLOWED`(sandbox 안 쓰기 가능한 파일)·B군 활성화·승인과 별개 문제다.
+1. 실제 학습·평가 executor가 없다. 합성 가짜 executor로만 경로를 확인했다. `rows.json`을 만드는 실제 평가 실행기(사진 추론 포함)가 없다.
 2. 판정은 학습 데이터와 평가 행의 카드 그룹 겹침(평가 독립성)을 다시 확인하지 않는다. Silver 입력 단계의 `protected` 검사에 맡긴다(그 단계도 호출부가 없다: 4-1). 평가 행 안의 eval_tier 사이 겹침과 sealed 행은 `promotion.evaluate`가 막는다.
 3. 판정은 모델 적격성(eligibility·감사 완료)을 확인하지 않는다. 승격 실행 때 `champion.promote`가 한다(미승인).
 4. 영구 거절된 작업은 회차마다 적용기 프로세스가 다시 뜬다(알림은 한 번). 거절 기록으로 건너뛰는 개선은 보류.
