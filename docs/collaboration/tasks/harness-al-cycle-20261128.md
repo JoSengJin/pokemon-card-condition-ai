@@ -85,7 +85,7 @@ D7 요구 중 "PLAN_GATE 대기·거절을 라벨 부족 신호로 쓰지 않음
 
 기존 합성 시험 확인: VS3(`test_harness_vs3_{entry,fixes,gate,gate_flow,doc_commit}`)·B5-11(`test_harness_b5_e2e_synthetic`)·dedupe·graph·supervisor 계약·B5 예산 깊이·복구·Silver 재라벨·논리 구역 시험 61개가 그대로 통과(개발 중 관련 시험).
 
-전체 하네스 시험: 대상 SHA 637f18d(코드 동일, 이후 문서 커밋만 추가) 기준 Python 3.12(.venv) 575개 통과·Python 3.9(/usr/bin/python3) 575개 통과, 실패 0. 간헐 실패 이력이 있는 `test_kill9_while_waiting_then_restart_resumes`도 이번엔 통과. 로그: `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/al-cycle-venv.log`, `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/al-cycle-system.log`(저장소 밖 scratchpad). 직전 기준 551 + 새 24.
+전체 하네스 시험: 대상 SHA 637f18d(코드 동일, 이후 문서 커밋만 추가) 기준 Python 3.12(.venv) 575개 통과·Python 3.9(/usr/bin/python3) 575개 통과, 실패 0. 간헐 실패 이력이 있는 `test_kill9_while_waiting_then_restart_resumes`도 이번엔 통과. 로그: `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/al-cycle-venv.log`, `/private/tmp/claude-501/-Users-jueun-WebstormProjects-pokemon-card-condition/6702a9d6-a8c8-4aa0-96a9-bc66158eb3db/scratchpad/logs/al-cycle-system.log`(저장소 밖 scratchpad). 새 시험 24개 포함, 이전 합계는 직접 재지 않았다.
 
 ## 롤백
 
