@@ -16,8 +16,8 @@
 import os
 
 from . import contract as ct
-from . import active_learning, ledger, logical_zones, relabel, silver_policy, silver_store
-from .jsonio import write_json
+from . import active_learning, ledger, logical_zones, relabel, silver_policy, silver_store, states
+from .jsonio import read_json, write_json
 from .active_learning import ActiveLearningError
 
 TASK_TYPE = "al_select"  # dedupe.PLAIN_TYPES에 같은 이름으로 등록한다(시험이 일치를 확인)
@@ -25,10 +25,15 @@ CANDIDATES, PROTECTED, SETTINGS = "al/candidates.json", "al/protected.json", "al
 OUTPUTS = ["selection.json", "human_queue.json"]
 NEED_LABEL_CODES = frozenset()  # Q1: 비어 있음 = 선언 0건. 추천안(미결정): bootstrap_unmeasured·bootstrap_too_few_cards·false_alarm_unmeasured
 APPROVED_INPUTS = {}  # Q2·Q3: 사용자가 승인한 {입력 경로: SHA-256}. 비어 있으면 declare는 아무것도 하지 않는다
+CRITERIA_VERSION = ""  # 대기열 키의 기준 판본(출처 미정: 비어 있음 = pending_queue가 아무것도 하지 않는다). 사람 화면 발급(gold_issue·relabel)은 여기서 부르지 않는다
+QUEUED = "al_queue_recorded"  # 장부 줄: task_key 하나당 한 번(record_queue 반영 표시)
 
 
 class AlCycleError(ValueError):
     pass
+
+
+QUEUE_ERRORS = (AlCycleError, relabel.RelabelError, silver_policy.PolicyError)  # 한 작업의 대기열 기록 거절(Supervisor가 그 작업만 알린다)
 
 
 def load_inputs(task_dir, contract):
@@ -80,6 +85,28 @@ def record_queue(root, now, task_key, result, criteria_version, completed=()):
                 seen.add(key)
                 accepted.append(row["key"])
     return {"ok": True, "accepted": accepted, "rejected": rejected}
+
+
+def pending_queue(root):
+    """대기열에 아직 기록하지 않은 VERIFIED al_select 작업의 ({task_key: out/human_queue.json 내용}, {"al_queue:<task_key>": 사유}). 읽기만 한다.
+    기록 표시는 장부 줄 QUEUED. NEED_LABEL_CODES·APPROVED_INPUTS·CRITERIA_VERSION 중 하나라도 비면(기본) 아무것도 읽지 않고 ({}, {})."""
+    if not (NEED_LABEL_CODES and APPROVED_INPUTS and CRITERIA_VERSION):
+        return {}, {}
+    done = {d.get("task_key") for d in ledger.events(os.path.join(root, "ledger.jsonl"), QUEUED) if isinstance(d, dict)}
+    tasks, found, notes = os.path.join(root, "tasks"), {}, {}
+    for key in sorted(os.listdir(tasks)) if os.path.isdir(tasks) else []:
+        try:
+            task = read_json(os.path.join(tasks, ct.check_key(key), "contract.json"), {})
+            if key in done or not isinstance(task, dict) or task.get("task_type") != TASK_TYPE \
+                    or states.state_of(states.facts(os.path.join(tasks, key)), False) != states.VERIFIED:
+                continue
+            queue = read_json(os.path.join(tasks, key, "out", OUTPUTS[1]), None)
+            if queue is None:
+                raise AlCycleError("%s가 없다" % OUTPUTS[1])
+            found[key] = queue
+        except (ValueError, OSError, ct.ContractError) as exc:  # 작업 폴더가 아니거나 읽을 수 없는 출력: 그 작업만 알린다
+            notes["al_queue:" + key] = "%s: %s" % (type(exc).__name__, str(exc)[:200])
+    return found, notes
 
 
 def run_select(contract, out_dir, task_dir=None):

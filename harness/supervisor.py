@@ -15,7 +15,7 @@
   작업의 선언 자리 모양, 깨진 시각 미상 한도 횟수 기록)는 그 작업만 대기·거절하고 알린다(2차 결함 G5·G9·G11). INTEGRITY_HALT는 장부·상태
   무결성 오류에 남긴다.
 - 실행: python -m harness.supervisor --root R [--claude-bin B] [--executors mod:ATTR] [--max-cycles N] [--poll S]
-호출 깊이: run → runner.drain은 별도 프로세스라 세지 않는다. run → _live(2)·withdrawal.withdraw(4, 래퍼 없이 직접)·opstate.clear_auto(3)·graph.register_missing(3)·graph.note_rejected(1)·plan_gate.gate(3, VS3: 선언을 읽은 뒤 register_missing 전)·
+호출 깊이: run → runner.drain은 별도 프로세스라 세지 않는다. run → _live(2)·withdrawal.withdraw(4, 래퍼 없이 직접)·opstate.clear_auto(3)·graph.register_missing(3)·graph.note_rejected(1)·al_cycle.pending_queue(3, states.facts 경유)·al_cycle.record_queue(4, silver_store.load → ledger.verify → _check_line)·plan_gate.gate(3, VS3: 선언을 읽은 뒤 register_missing 전)·
 claude_job.pick(2)·execute(3)·settle(3)·_apply(apply_main.pending → states.facts → cas.sha_file = 4, 반영은 별도 프로세스)이라 최대 4다. 모듈 맨 아래 __main__ 블록은 _args와 run만 부른다.
 - root는 절대 경로로 바꿔 쓴다(runner는 cwd=REPO에서 돌기 때문에 상대 경로면 다른 폴더를 본다).
 """
@@ -163,6 +163,16 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
                 applied = [r for r in _apply(root, now_fn()) if r["ok"] and not r.get("already")]  # VS5: 학습 등록·채점 판정(승격은 하지 않는다)
                 if applied:
                     summary["applied"] = summary.get("applied", []) + applied
+                found, notes = al_cycle.pending_queue(root)  # D7: VERIFIED al_select의 human_queue를 대기열 장부에 기록만 한다(기본은 빈 결과, 사람 화면 발급 없음)
+                for key, queue in found.items():  # 함수로 묶지 않는다: record_queue 아래 호출 깊이가 이미 3이라 run 안에서 직접 부른다
+                    try:
+                        done = al_cycle.record_queue(root, now_fn(), key, queue, al_cycle.CRITERIA_VERSION)
+                        ledger.append(os.path.join(root, "ledger.jsonl"), now_fn(), al_cycle.QUEUED,
+                                      {"task_key": key, "accepted": len(done["accepted"]), "rejected": done["rejected"]})
+                    except al_cycle.QUEUE_ERRORS as exc:
+                        notes["al_queue:" + key] = "%s: %s" % (type(exc).__name__, str(exc)[:200])
+                if notes:
+                    graph.note_rejected(root, notes, now_fn())
                 eff = summary["state"]
                 gate = state["conditions"].get(eff) if eff in opstate.RATE_LIMITED else None
                 if gate is not None and not gate.get("exhausted") and gate.get("next_try_at") is not None \
