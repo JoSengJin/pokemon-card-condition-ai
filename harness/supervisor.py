@@ -28,7 +28,7 @@ import subprocess
 import sys
 import time
 
-from . import claude_job, dedupe, evidence, graph, ledger, opstate, plan_gate, silver_store, withdrawal
+from . import apply_main, claude_job, dedupe, evidence, graph, ledger, opstate, plan_gate, silver_store, withdrawal
 from .jsonio import read_json
 
 POLL_S = 60.0
@@ -36,6 +36,8 @@ INTEGRITY_EXIT = 3  # harness.runner의 장부 무결성 종료 코드(runner.IN
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DECLARED = os.path.join("supervisor", "declared.json")
 RUNNER = [sys.executable, "-m", "harness.runner"]  # runner 하위 프로세스 명령(뒤에 root·executors·--max 1)
+APPLY = [sys.executable, "-m", "harness.apply_main"]  # 적용기 하위 프로세스 명령(뒤에 root, VS5)
+APPLY_TOTAL_S = 1800.0  # 임시 기본값: 적용기 한 번(학습 등록·판정 몇 건)의 총 시간. 넘기면 사람 확인 정지
 PYTHON_TOTAL_S = 3 * 3600.0  # 임시 기본값: runner 한 번(작업 1개)의 총 시간. 기존 실험 최대 113분보다 길어야 한다(시험이 대조)
 
 
@@ -78,6 +80,28 @@ def _python(root, executors, now, total_s=None, source_root=None):
                        "cause": cause, "signal": -proc.returncode if proc.returncode < 0 else None,
                        "duration_s": round(time.monotonic() - started, 3)})
     return proc.returncode, executed if proc.returncode == 0 and type(executed) is int else 0
+
+
+def _apply(root, now):
+    """VS5: VERIFIED 학습·평가 작업의 결과를 반영하는 적용기(apply_main)를 별도 프로세스로 한 번 돌린다. 적용할 것이 없으면 프로세스를 띄우지 않는다.
+    새로 반영한 것이 있으면 장부(apply_drain), 영구 거절 사유는 알림 한 번(graph.note_rejected). 대기(정지·후보 미적용)는 남기지 않는다.
+    비정상 종료·시간 초과·출력 불명은 반영 상태를 알 수 없으므로 예외로 올려 INTEGRITY_HALT가 되게 한다(run의 except). 결과 목록."""
+    if not apply_main.pending(root):
+        return []
+    proc = subprocess.run(APPLY + [root], cwd=REPO, stdin=subprocess.DEVNULL, capture_output=True, text=True, errors="replace",
+                          timeout=APPLY_TOTAL_S, start_new_session=True)
+    try:
+        results = json.loads(proc.stdout.strip().split("\n")[-1])
+    except ValueError:
+        results = None
+    if proc.returncode != 0 or not isinstance(results, list):
+        raise RuntimeError("적용기 실패(종료 코드 %s): %s" % (proc.returncode, evidence.mask(proc.stderr, 300)))
+    if any(r["ok"] and not r.get("already") for r in results):
+        ledger.append(os.path.join(root, "ledger.jsonl"), now, "apply_drain", {"results": results})
+    waiting = ("candidate_not_applied",)
+    graph.note_rejected(root, {"apply:%s:%s" % (r["kind"], r["task_key"]): r["reason"] for r in results
+                               if not r["ok"] and r["reason"] not in waiting and not r["reason"].startswith("halted:")}, now)
+    return results
 
 
 def _live(root, summary):
@@ -135,6 +159,9 @@ def run(root, claude_bin=None, executors=None, max_cycles=None, poll_s=POLL_S, n
                 state = _live(root, summary)  # Python 처리 뒤·clear_auto 직전
                 if state is None:
                     continue
+                applied = [r for r in _apply(root, now_fn()) if r["ok"] and not r.get("already")]  # VS5: 학습 등록·채점 판정(승격은 하지 않는다)
+                if applied:
+                    summary["applied"] = summary.get("applied", []) + applied
                 eff = summary["state"]
                 gate = state["conditions"].get(eff) if eff in opstate.RATE_LIMITED else None
                 if gate is not None and not gate.get("exhausted") and gate.get("next_try_at") is not None \
