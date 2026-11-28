@@ -11,7 +11,13 @@ Supervisor `--executors`)에 등록했다. runner가 sandbox 안에서 부르므
 - 계획 JSON은 계약에서만 만든다: run_conditions.config.plan(실행 조건: reference_result·acceptance·code_changes 등, 논리 키에 들어감)
   + 설명 키 hypothesis_id·description{hypothesis, change, success_criterion, failure_criterion}(논리 키에서 빠짐: 문구만 다른 같은 실험은
   dedupe가 중복으로 거절). config.plan이 설명 키를 덮어쓰면 거절. 그 밖의 plan 내용 검사는 ./experiment(prepare)가 한다.
-- 실행 전 code_sha를 workdir HEAD와 다시 대조한다(dedupe.verify_code, 추적 파일 변경도 거절).
+- 실행 전 code_sha 대조(dedupe.verify_code, 추적 파일 변경도 거절)는 sandbox 밖 runner가 한다(runner._execute). sandbox는 저장소 git 폴더 읽기를
+  거절하므로(봉인 파일이 git 객체에 있다) 어댑터는 git을 쓰지 않는다: runner가 verify_code 직후 record_code로 code_sha 커밋의 파일별 git blob SHA를
+  <작업 폴더>/code-check.json(sandbox가 쓰지 못하는 고정 위치, 경로는 runner가 넣는 환경변수 CHECK_ENV)에 쓰고, 어댑터(execute)는 check_code로 그
+  파일만 읽어 code_sha·source_root가 이 실행과 같은지, 목록의 모든 추적 파일이 지금 내용(blob SHA 재계산)과 같은지 본다(검증 뒤 실행 대상 변경 차단).
+  파일 없음·링크·형식 오류·불일치·읽기 실패는 refused(실행 안 함). 봉인 경로 목록 아래 추적 파일은 sandbox가 읽을 수 없어 목록에서 빼고
+  sealed_skipped에 남긴다(목록은 artifacts/ 아래 자료뿐이고 실행 코드가 아니다: tests/test_harness_code_check). 계약 필드는 이 결과에 쓰이지 않는다.
+  run()을 직접 부르면(시험·runner 밖) 예전처럼 verify_code를 직접 한다.
 - 결과 해석(interpret): 종료 코드와 record.json 상태가 함께 맞아야 한다. 0+completed(+result.json 해시가 record files와 같음) = 완료,
   1+failed = 실험 자체 실패(결정적), 128 초과+interrupted = 중단, 출력에 기록 줄이 없고 1(잠금 사용 중)·2(계획 오류) 안내문이며 실행 전후
   workdir/artifacts/experiments 목록이 같음 = 실행 안 됨(not_started: 예산 차감 취소 대상, 결정 3. 실제 ./experiment는 prepare가 실험 폴더를 만든 뒤
@@ -24,15 +30,18 @@ Supervisor `--executors`)에 등록했다. runner가 sandbox 안에서 부르므
   sandbox 안에서는 sandbox_child가 종류와 status를 결과 줄로 넘긴다(sandbox.ChildError.kind·status).
 - workdir: runner가 실행 직전 code_sha를 대조한 source_root(환경변수 SOURCE_ENV, runner가 넣는다). 없으면 refused.
 한계: 시간 초과 때 subprocess.run은 직접 자식만 죽인다(실제 ./experiment가 띄운 프로세스 그룹은 남을 수 있다 → 결과 불명으로 둔다).
-호출 깊이: execute → run → interpret → cas.sha_file (3), run → dedupe.verify_code (1), run → build_plan (1).
+호출 깊이: execute → run → interpret → cas.sha_file (3), run → dedupe.verify_code (1), run → build_plan (1), execute → check_code (1),
+runner._execute → record_code → claude_perm.sealed_paths·jsonio.write_json (runner.main 기준 4).
 """
+import hashlib
 import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 
-from . import cas, dedupe
+from . import cas, claude_perm, dedupe
 from .contract import ContractError
 from .jsonio import write_json
 
@@ -44,6 +53,8 @@ _ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "en_US.UTF-8", "PYTHONI
          "CARD_CONDITION_AUTO_CHILD": "1"}  # A4: development_review.enabled()를 끈다(./review --auto의 Codex·Gemini 호출 차단, 설정·세션 ID와 무관)
 NO_AI_KEYS = ("gemini_calls_allowed", "codex_model_calls_allowed")
 SOURCE_ENV = "HARNESS_SOURCE_ROOT"
+CHECK_ENV, CHECK_NAME = "HARNESS_CODE_CHECK", "code-check.json"  # runner가 넣는 환경변수(경로), 작업 폴더 안 고정 파일 이름
+MODES = ("100644", "100755", "120000")  # 추적 파일 모드(일반·실행·링크). 폴더 안 submodule(160000) 등은 검증 못 하므로 거절
 
 
 class ExperimentError(Exception):
@@ -101,13 +112,80 @@ def interpret(code, stdout, workdir, command, hypothesis_id):
     return "unknown", folder
 
 
-def run(task, out_dir, workdir, timeout=None):
-    """계약의 실험 하나를 <workdir>/experiment로 실행한다. 완료면 OUTPUTS(out_dir 안 사본) 목록, 아니면 ExperimentError."""
+def record_code(task, task_dir, source_root):
+    """runner(sandbox 밖)가 verify_code 직후 부른다. code_sha 커밋의 파일별 {경로: [모드, git blob SHA]}를 <task_dir>/code-check.json에 쓰고 그
+    경로를 돌려준다(sandbox는 작업 폴더에 쓰지 못한다). 봉인 경로 목록 아래 파일은 sandbox가 읽을 수 없어 files에서 빼고 sealed_skipped에 남긴다.
+    git을 못 읽거나 submodule 같은 모드가 있으면 예외(runner가 실행하지 않는다). 말단."""
+    top, sha = os.path.realpath(source_root), str(task["run_conditions"]["code_sha"]).lower()
+    if not dedupe._SHA.fullmatch(sha):
+        raise ValueError("code_sha 형식이 틀렸다")
+    env = dict({k: v for k, v in os.environ.items() if not k.startswith("GIT_")}, GIT_OPTIONAL_LOCKS="0")
+    shown = subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", top, "ls-tree", "-r", "-z", "--full-tree", sha + "^{tree}"], env=env,
+                           capture_output=True, timeout=120, check=False)
+    if shown.returncode != 0:
+        raise ValueError("code_sha 커밋의 파일 목록을 읽지 못함")
+    sealed, files, skipped = claude_perm.sealed_paths([claude_perm.REPO, top]), {}, []
+    for entry in filter(None, shown.stdout.split(b"\0")):
+        meta, _, rel = entry.decode("utf-8").partition("\t")
+        mode, kind, blob = meta.split(" ")
+        if kind != "blob" or mode not in MODES:
+            raise ValueError("검증할 수 없는 추적 항목(%s %s): %s" % (mode, kind, rel))
+        spot = os.path.join(top, rel)
+        if any(os.path.commonpath([spot, s]) == s for s in sealed):
+            skipped.append(rel)
+        else:
+            files[rel] = [mode, blob]
+    path = os.path.join(os.path.realpath(task_dir), CHECK_NAME)
+    write_json(path, {"code_sha": sha, "source_root": top, "files": files, "sealed_skipped": sorted(skipped)})
+    return path
+
+
+def check_code(task, workdir):
+    """어댑터(sandbox 안)가 실행 직전 부른다. runner가 쓴 code-check.json(경로는 환경변수 CHECK_ENV만, 계약 필드는 쓰지 않는다)을 O_NOFOLLOW로
+    읽어 code_sha·source_root가 이 실행과 같고 files의 모든 파일이 지금 내용·모드(blob SHA 재계산, git 없음)와 같으며 실행 파일 experiment가 목록에
+    있는지 본다. 하나라도 어긋나거나 읽을 수 없으면 ExperimentError(deterministic, refused). 말단."""
+    path, top = os.environ.get(CHECK_ENV), os.path.realpath(workdir)
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as handle:
+            seen = os.fstat(fd)
+            data = json.loads(handle.read().decode("utf-8")) if stat.S_ISREG(seen.st_mode) and seen.st_nlink == 1 else None
+        files = data["files"]
+        if os.path.basename(path) != CHECK_NAME or os.path.realpath(path) != path or set(data) != {"code_sha", "source_root", "files", "sealed_skipped"} \
+                or data["code_sha"] != str(task["run_conditions"]["code_sha"]).lower() or data["source_root"] != top \
+                or not isinstance(files, dict) or "experiment" not in files or not isinstance(data["sealed_skipped"], list):
+            raise ValueError("code-check 내용이 이 실행과 맞지 않는다")
+        for rel, (mode, blob) in files.items():
+            if mode not in MODES or os.path.isabs(rel) or ".." in rel.split("/"):
+                raise ValueError("code-check 항목 형식 오류: %r" % (rel,))
+            spot = os.path.join(top, rel)
+            if mode == "120000":
+                target = os.fsencode(os.readlink(spot))
+                digest = hashlib.sha1(b"blob %d\0" % len(target) + target)
+            else:
+                digest = hashlib.sha1()
+                with open(os.open(spot, os.O_RDONLY | os.O_NOFOLLOW), "rb") as handle:
+                    seen = os.fstat(handle.fileno())
+                    digest.update(b"blob %d\0" % seen.st_size)
+                    for chunk in iter(lambda: handle.read(1 << 20), b""):
+                        digest.update(chunk)
+                    if bool(seen.st_mode & 0o100) != (mode == "100755") or not stat.S_ISREG(seen.st_mode):
+                        raise ValueError("모드 불일치: %s" % rel)
+            if digest.hexdigest() != blob:
+                raise ValueError("검증 뒤 내용이 바뀌었다: %s" % rel)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise ExperimentError("deterministic", {"status": "refused", "detail": "code_sha 확인 결과(code-check)를 믿을 수 없다: %s: %s" % (type(exc).__name__, exc)})
+
+
+def run(task, out_dir, workdir, timeout=None, checked=False):
+    """계약의 실험 하나를 <workdir>/experiment로 실행한다. 완료면 OUTPUTS(out_dir 안 사본) 목록, 아니면 ExperimentError.
+    checked=True(execute만)면 code_sha 대조를 runner 결과(check_code)로 이미 했다."""
     if task.get("task_type") != "experiment" or sorted(task.get("outputs") or []) != sorted(OUTPUTS):
         raise ExperimentError("deterministic", {"status": "refused", "detail": "experiment 유형·outputs %s만 받는다" % (OUTPUTS,)})
     plan = build_plan(task)
     try:
-        dedupe.verify_code(task, workdir)  # 실행 직전 code_sha = workdir HEAD, 추적 파일 변경 없음
+        if not checked:
+            dedupe.verify_code(task, workdir)  # 실행 직전 code_sha = workdir HEAD, 추적 파일 변경 없음
     except ContractError as exc:
         raise ExperimentError("deterministic", {"status": "refused", "detail": str(exc)})
     command = task["run_conditions"]["command"]
@@ -142,7 +220,8 @@ def execute(task, out_dir):
     workdir = os.environ.get(SOURCE_ENV)
     if not workdir:
         raise ExperimentError("deterministic", {"status": "refused", "detail": "%s 없음(runner 밖에서 불림)" % SOURCE_ENV})
-    return run(task, out_dir, workdir)
+    check_code(task, workdir)
+    return run(task, out_dir, workdir, checked=True)
 
 
 EXECUTORS = {"experiment": execute}

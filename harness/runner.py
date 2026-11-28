@@ -102,7 +102,8 @@ def _execute(root, executors, task, out_dir, source_root):
     실험·학습·평가는 실행 직전에 입력을 source_root에서 작업 폴더 in/으로 복사하며 복사본 SHA를 계약과 대조한다(다르거나 폴더 밖·링크·봉인
     이름이면 executor를 부르지 않고 결정적 실패, 검증 결함 F3). executor는 그 사본을 읽는다(sandbox 경로는 HARNESS_INPUT_DIR, 2차 결함 G6).
     3차 결함: code_sha를 source_root HEAD와 다시 대조하고(H1), executor에는 command의 자리표시자 {input:<경로>}를 사본 절대 경로로 바꾼
-    계약 사본을 넘긴다(H7, 계약 파일은 그대로). executor가 원본을 직접 읽는 것은 막지 않는다(한계)."""
+    계약 사본을 넘긴다(H7, 계약 파일은 그대로). 위 verify_code 결과는 experiment_exec.record_code가 파일별 git blob SHA 목록(작업 폴더
+    code-check.json, sandbox가 쓰지 못한다)으로 어댑터에 전달한다(실패하면 executor를 부르지 않는다). executor가 원본을 직접 읽는 것은 막지 않는다(한계)."""
     called = False
     try:
         if task["task_type"] in dedupe.CONDITION_TYPES:  # 실행 직전 code_sha를 source_root HEAD와 다시 대조(3차 결함 H1)
@@ -112,6 +113,7 @@ def _execute(root, executors, task, out_dir, source_root):
             task = dict(task, run_conditions=dict(cond, command=[dedupe.PLACEHOLDER.sub(  # 3차 H7: 자리표시자 → 대조한 사본의 절대 경로
                 lambda m: os.path.join(copies, os.path.normpath(m.group(1))), arg) for arg in cond["command"]]))
             os.environ[experiment_exec.SOURCE_ENV] = os.path.realpath(source_root)  # 실험 어댑터의 workdir(sandbox 자식도 물려받는다)
+            os.environ[experiment_exec.CHECK_ENV] = experiment_exec.record_code(task, os.path.dirname(os.path.abspath(out_dir)), source_root)  # 6c564d4 뒤 sandbox는 git을 못 읽는다: 위 verify_code 결과를 어댑터에 전달(작업 폴더 code-check.json)
         called = True
         produced = executors[task["task_type"]](task, out_dir)
         if sorted(produced) != sorted(task["outputs"]):
