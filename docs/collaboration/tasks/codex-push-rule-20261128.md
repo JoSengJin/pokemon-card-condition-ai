@@ -3,7 +3,7 @@
 ```text
 task_id: codex-push-rule-20261128
 owner: Codex
-status: implementing
+status: ready_for_review
 depends_on: []
 base_sha: 17bd21fa59eeb1a37e91c062ef315573be81db6c
 branch: codex/codex-push-rule-20261128
@@ -27,9 +27,20 @@ experiment: 해당 없음 (모델 학습·추론·실험·라벨 작업 없음)
 done:
 - 사용자 승인 범위로 기본 checkout의 추적 변경·스테이지·진행 중 Git 작업을 확인하고, 선점과 전용 worktree 생성을 완료했다.
 - 판정 전에 고정 표 18행을 그대로 옮겼다. 규칙 제안·임시 사본 검사 도구·합성 시험을 작성했고, Codex CLI 0.164.0에서 합성 시험 6개와 계약 표 대조가 통과했다.
-next: 현재 규칙의 사본으로 고정 표를 검증하고, 적용·롤백 안내와 HTML 근거를 작성한다.
+- 현재 사용자 규칙 사본의 고정 판정과 두 입력 SHA-256 불변을 확인했다. 적용·복구 안내와 HTML 근거를 작성하고 검증했다.
+next: 메인 Claude가 작업 브랜치 tip과 계약 기준으로 검토한다.
 unrecovered: []
 handoff:
+- 검증 코드 SHA: ca71cc25dbda5555428134dc16c26c8ebb9a7c65. 이 인계 커밋은 안내·HTML·계약만 더한다. 인계 커밋 SHA는 작업 브랜치 tip을 참조한다.
+- 변경 파일: 이 계약 문서와 allowed_files의 5개. 검사기·시험·prompt 제안을 추가하고 적용·확인·롤백 안내와 근거 HTML을 기록했다.
+- 구조(AST 검사): check_push_rules.py 0→3개, test_check_push_rules.py 0→7개. 같은 프로세스의 신규 함수 사이 최대 전이 1회(main → policy_decision 또는 classify). 합성 시험이 검사기를 새 프로세스로 실행하는 경로는 unittest → 시험 메서드 → run_check → 검사기 main → policy_decision이며, 첫 unittest 호출을 포함해 4회다.
+- 검사(작업 루트, Codex CLI 0.164.0): 위 test_check_push_rules.py 명령 종료 0, 6개 통과. 위 check_push_rules.py 명령 종료 0. 필수 5/5, 보존 6/6, 관찰 0 일치·7 한계. 두 입력의 SHA-256은 실행 전후 동일. CLI 성공 출력의 판정만 사용했다.
+- 현재 규칙 사본의 일부 판정은 계약 배경의 과거 allow 관찰과 다르게 나왔다. 과거 근거는 보존했고 현재 수용 기준을 바꾸지 않았다. 합성 시험에서 allow와 prompt가 함께 적용되면 prompt가 이기는 것을 별도로 확인했다.
+- 고정 표 18행 순서·명령·분류 대조, HTML 표와 합성 TSV 18행 대조, HTML 상대 링크 검사, README의 sh -n, git diff --check, 기준 SHA 대비 허용 경로 대조 통과.
+- HTML: tools/diagnostics/codex-push-rule-20261128/report.html. macOS open 종료 0, Chrome에 제목과 일치한 탭 생성 확인. 브라우저 관찰 도구의 file: 접근 제한으로 화면 렌더는 미확인이다. 진척 정본 PROGRESS_CRITERIA.md와 development-progress.json의 78/100(v1.14, 동일기준 대비 0%p)을 표시했다.
+- 미검증·리스크: 실제 승인창과 재시작 후 규칙 적용은 확인하지 않았다. 관찰 변형 7행은 두 입력 사본에서 제한과 일치하지 않았다. 모델 성능 변화는 미측정이다.
+- 롤백: 통합 전에는 채택을 보류할 수 있고, 통합 후에는 통합 커밋을 revert한다. 제안 규칙을 직접 설치한 경우 README의 추가 파일 제거 절차를 따른다.
+- 적용 절차: pair-coding, Ponytail, 완료 전 검증, short-request-reading. PAIR_CODING.md와 docs/AGENT_START.md의 계약을 기준으로 base_sha부터 직접 대조했다. 외부 모델 검토는 작업 계약의 금지 범위다.
 ```
 
 ## 첫 체크포인트 사용자 승인 원문

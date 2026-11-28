@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Codex push 규칙 판정 결과</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #1d2c3a; background: #f4f7fa; }
+    body { margin: 0; }
+    main { max-width: 68rem; padding: 2rem 1rem 3rem; margin: auto; line-height: 1.6; }
+    section, header { padding: 1.25rem; background: white; border: 1px solid #cbd9e3; border-radius: .6rem; margin-bottom: 1rem; }
+    h1, h2 { line-height: 1.25; margin-top: 0; }
+    p:last-child { margin-bottom: 0; }
+    .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; }
+    .results div { padding: .7rem; background: #e8f2f9; border-radius: .35rem; }
+    .results dd { margin: 0; font-weight: bold; font-size: 1.2rem; }
+    .table { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .5rem; text-align: left; border-bottom: 1px solid #d6e0ea; }
+    thead { background: #e8f2f9; }
+    code { overflow-wrap: anywhere; }
+    a { color: #124e77; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Codex push 규칙 판정 결과</h1>
+    <p>현재 사용자 규칙의 사본과 제안을 비교한 결과, 필수·보존 11행이 모두 통과했습니다. 관찰 7행에는 제한 규칙이 일치하지 않았습니다.</p>
+    <dl class="results">
+      <div><dt>필수</dt><dd>5/5 통과</dd></div>
+      <div><dt>보존</dt><dd>6/6 통과</dd></div>
+      <div><dt>관찰</dt><dd>0 일치 · 7 한계</dd></div>
+    </dl>
+    <p>검증 코드 SHA <code>ca71cc25dbda5555428134dc16c26c8ebb9a7c65</code> · Codex CLI 0.164.0</p>
+    <p>카드 분석 프로젝트 진척 <strong>78/100</strong> · <code>usable-card-analysis-v1.14</code> · 동일 기준 대비 0%p<br>
+      <a href="../../../PROGRESS_CRITERIA.md">진척 기준</a> · <a href="../../../development-progress.json">점수 기록</a></p>
+  </header>
+  <section>
+    <h2>합성 규칙으로 재현한 18행</h2>
+    <p>표의 ‘현재’는 시험용 합성 입력의 판정입니다. ‘미일치’는 입력 파일에서 적용된 규칙이 없다는 뜻입니다.</p>
+    <div class="table" tabindex="0" role="region" aria-label="고정 명령 판정표">
+      <table aria-label="합성 규칙 판정">
+        <thead><tr><th scope="col">분류</th><th scope="col">명령</th><th scope="col">현재</th><th scope="col">적용안</th><th scope="col">결과</th></tr></thead>
+        <tbody>
+        <tr><th scope="row">필수</th><td><code>git push</code></td><td>미일치</td><td>prompt</td><td>통과</td></tr>
+        <tr><th scope="row">필수</th><td><code>git push origin main</code></td><td>allow</td><td>prompt</td><td>통과</td></tr>
+        <tr><th scope="row">필수</th><td><code>git push origin HEAD:main</code></td><td>미일치</td><td>prompt</td><td>통과</td></tr>
+        <tr><th scope="row">필수</th><td><code>./develop -- git push</code></td><td>allow</td><td>prompt</td><td>통과</td></tr>
+        <tr><th scope="row">필수</th><td><code>./develop -- git push origin main</code></td><td>allow</td><td>prompt</td><td>통과</td></tr>
+        <tr><th scope="row">보존</th><td><code>git commit -m x</code></td><td>미일치</td><td>미일치</td><td>통과</td></tr>
+        <tr><th scope="row">보존</th><td><code>git fetch origin main</code></td><td>미일치</td><td>미일치</td><td>통과</td></tr>
+        <tr><th scope="row">보존</th><td><code>git status</code></td><td>미일치</td><td>미일치</td><td>통과</td></tr>
+        <tr><th scope="row">보존</th><td><code>git diff --cached --name-only</code></td><td>미일치</td><td>미일치</td><td>통과</td></tr>
+        <tr><th scope="row">보존</th><td><code>./develop -- git commit -m x</code></td><td>allow</td><td>allow</td><td>통과</td></tr>
+        <tr><th scope="row">보존</th><td><code>./develop -- git status</code></td><td>allow</td><td>allow</td><td>통과</td></tr>
+        <tr><th scope="row">관찰</th><td><code>git -C . push origin main</code></td><td>미일치</td><td>미일치</td><td>한계</td></tr>
+        <tr><th scope="row">관찰</th><td><code>git -c push.default=current push</code></td><td>미일치</td><td>미일치</td><td>한계</td></tr>
+        <tr><th scope="row">관찰</th><td><code>/usr/bin/git push origin main</code></td><td>미일치</td><td>미일치</td><td>한계</td></tr>
+        <tr><th scope="row">관찰</th><td><code>env git push origin main</code></td><td>미일치</td><td>미일치</td><td>한계</td></tr>
+        <tr><th scope="row">관찰</th><td><code>/bin/zsh -lc &quot;git push origin main&quot;</code></td><td>미일치</td><td>미일치</td><td>한계</td></tr>
+        <tr><th scope="row">관찰</th><td><code>./develop -- /usr/bin/git push origin main</code></td><td>미일치</td><td>미일치</td><td>한계</td></tr>
+        <tr><th scope="row">관찰</th><td><code>git send-pack origin main</code></td><td>미일치</td><td>미일치</td><td>한계</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section>
+    <h2>변경과 검증</h2>
+    <ul>
+      <li><code>check_push_rules.py</code>가 규칙 임시 사본으로만 명령 토큰을 판정하고, <code>proposed.rules</code>가 두 접두사에 <code>prompt</code>를 제안합니다.</li>
+      <li><code>python3 tools/diagnostics/codex-push-rule-20261128/test_check_push_rules.py</code> · 종료 0, 합성 시험 6개 통과.</li>
+      <li><code>python3 tools/diagnostics/codex-push-rule-20261128/check_push_rules.py --rules ~/.codex/rules/default.rules --candidate tools/diagnostics/codex-push-rule-20261128/proposed.rules</code> · 종료 0, 두 입력의 실행 전후 SHA-256 일치.</li>
+      <li>고정표와 코드의 분류·순서 18행 대조, 허용 경로 검사와 <code>git diff --check</code> 통과.</li>
+      <li><a href="README.md">README.md</a>에 적용·확인·롤백 절차를 기록했습니다. <a href="../../../docs/collaboration/tasks/codex-push-rule-20261128.md">작업 계약</a>에 체크포인트와 인계를 남겼습니다.</li>
+    </ul>
+  </section>
+  <section>
+    <h2>적용 범위와 롤백</h2>
+    <p>제안의 두 접두사에 일치하는 실행에는 추가 승인 요청이 생길 수 있습니다. 실제 승인창, 재시작 후 규칙 로딩, push 실행 효과는 미검증입니다. 모델 학습·추론·성능 비교도 수행하지 않았습니다.</p>
+    <p>통합 전에는 메인이 통합 여부를 결정합니다. 통합 후 코드 롤백은 통합 커밋을 되돌립니다. 규칙을 설치했다면 안내에 따라 추가 파일만 제거하고 Codex를 재시작합니다.</p>
+  </section>
+</main>
+</body>
+</html>
