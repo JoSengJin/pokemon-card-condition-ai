@@ -17,13 +17,16 @@
 - 프로필: 쓰기 기본 거절. launchd·LaunchServices·AppleScript를 거쳐 sandbox 밖에서 명령을 돌리는 실행 파일(DENY_EXEC) 실행과 Apple Event
   보내기도 거절한다. 3차 결함 H9: 네트워크 전부(network*: 로컬·외부 TCP·UDP·bind·유닉스 소켓. executor 계약에 네트워크가 필요 없다:
   모델 가중치 내려받기 같은 네트워크가 필요한 executor는 실패하며, 켜려면 별도 결정), localhost 나가기, LaunchServices 열기(lsopen),
-  launchservicesd mach-lookup도 거절한다(DENY_MORE). 실제 경로(realpath)로 적는다.
+  launchservicesd mach-lookup도 거절한다(DENY_MORE). 4차 결함 I7: mach-lookup은 기본 거절이고 MACH_ALLOW(opendirectoryd libinfo = pwd.getpwuid
+  사용자 정보 조회, 없으면 KeyError)만 허용한다(DNS·URL 내려받기 데몬·클립보드·로그인 항목·백그라운드 작업 등록·LaunchServices·창 서버·TCC 등
+  XPC 서비스 이름을 찾지 못한다). 이 macOS에서 정상 executor 시험·표준 라이브러리 동작(사용자·시각·로케일·임시 파일·하위 프로세스·sqlite·
+  ssl 문맥·uuid1·numpy) 확인. 한계: GPU(Metal)·키체인·DNS 등 mach 서비스가 필요한 executor는 실패한다(넓히려면 사용자 결정). 실제 경로(realpath)로 적는다.
 - sandbox-exec가 없거나 시험 실행이 실패하면 available()이 False이고 runner는 executor를 실행하지 않는다(fail-closed).
 - 결과: 자식이 마지막 줄에 JSON({"ok": true, "produced"} | {"ok": false, "kind", "error"})을 낸다. 자식이 신호로 죽으면 kind=interrupted
   (runner가 작업권을 남겨 다음 claim이 INTERRUPTED 규칙대로 다룬다), JSON이 없거나 산출물을 거절하면 deterministic.
 - 한계(인계): 같은 macOS 사용자의 다른 프로세스(Codex·대화형 Claude·사용자 셸)는 막지 못한다(OS 사용자 분리 D-7 보류). sandbox는 쓰기·
-  위 실행 파일·네트워크·lsopen·launchservicesd 조회만 막는다(읽기·프로세스 신호·그 밖의 mach/XPC 서비스는 막지 않는다). executor 코드가
-  실행 파일 없이 launchd 자체(bootstrap)나 다른 XPC 서비스에 직접 요청을 보내는 경로는 막지 못한다(시스템 상태를 바꾸는 시험이라 하지 않았다). sandbox-exec는 Apple이 폐기 예정으로 표시한 도구다. 홈 캐시(~/.cache 등)에
+  위 실행 파일·네트워크·lsopen·mach 이름 조회(MACH_ALLOW 밖)만 막는다(읽기·프로세스 신호는 막지 않는다). 이미 가진 포트(bootstrap 포트 자체,
+  상속받은 포트)로 보내는 요청과 MACH_ALLOW 서비스 요청은 막지 않는다(메시지를 보내는 시험은 하지 않았다). sandbox-exec는 Apple이 폐기 예정으로 표시한 도구다. 홈 캐시(~/.cache 등)에
   써야 하는 라이브러리는 sandbox 안에서 실패한다(TMPDIR·staging만 쓸 수 있다).
 호출 깊이: sandboxed·run_one → profile·safefs.open_regular·safefs.replace_new·safefs.publish(말단) 1.
 """
@@ -47,8 +50,10 @@ DEVICES = ("/dev/null",)  # 쓰기를 허용하는 장치 파일(이것뿐)
 DENY_EXEC = ("/bin/launchctl", "/usr/bin/open", "/usr/bin/osascript")  # sandbox 밖(launchd·LaunchServices·AppleScript)에서 명령을 돌리는 도구
 MAX_OUTPUT_BYTES = 1 << 30  # 산출물 파일 하나의 크기 상한(임시값 1 GiB, 3차 결함 H4: 넘으면 결정적 실패)
 MAX_STDOUT_BYTES = 1 << 24  # sandbox 자식 표준 출력 상한(임시값 16 MiB, 결과 JSON 한 줄이면 충분하다)
+MACH_ALLOW = ("com.apple.system.opendirectoryd.libinfo",)  # 4차 I7: 기본 거절 뒤 허용하는 mach 이름(사용자 정보 조회 pwd.getpwuid, 읽기)
 DENY_MORE = ('(deny network*)', '(deny network-outbound (remote ip "localhost:*"))', '(deny lsopen)',
-             '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd"))')  # 3차 결함 H9(이 macOS에서 문법·효과 확인)
+             '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd"))',  # 3차 결함 H9(이 macOS에서 문법·효과 확인)
+             '(deny mach-lookup)') + tuple('(allow mach-lookup (global-name "%s"))' % n for n in MACH_ALLOW)  # 4차 결함 I7
 
 
 class ChildError(Exception):
