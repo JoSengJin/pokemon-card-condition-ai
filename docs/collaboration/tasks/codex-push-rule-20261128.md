@@ -3,7 +3,7 @@
 ```text
 task_id: codex-push-rule-20261128
 owner: Codex
-status: ready_for_review
+status: integrated
 depends_on: []
 base_sha: 17bd21fa59eeb1a37e91c062ef315573be81db6c
 branch: codex/codex-push-rule-20261128
@@ -28,7 +28,7 @@ done:
 - 사용자 승인 범위로 기본 checkout의 추적 변경·스테이지·진행 중 Git 작업을 확인하고, 선점과 전용 worktree 생성을 완료했다.
 - 판정 전에 고정 표 18행을 그대로 옮겼다. 규칙 제안·임시 사본 검사 도구·합성 시험을 작성했고, Codex CLI 0.164.0에서 합성 시험 6개와 계약 표 대조가 통과했다.
 - 현재 사용자 규칙 사본의 고정 판정과 두 입력 SHA-256 불변을 확인했다. 적용·복구 안내와 HTML 근거를 작성하고 검증했다.
-next: 메인 Claude가 작업 브랜치 tip과 계약 기준으로 검토한다.
+next: 없음. push, 규칙 적용, worktree 정리는 사용자 결정이다. 아래 "통합 기록" 참조.
 unrecovered: []
 handoff:
 - 검증 코드 SHA: ca71cc25dbda5555428134dc16c26c8ebb9a7c65. 이 인계 커밋은 안내·HTML·계약만 더한다. 인계 커밋 SHA는 작업 브랜치 tip을 참조한다.
@@ -48,6 +48,17 @@ handoff:
 ```text
 사용자 승인(codex-push-rule-20261128에만 적용): 기본 작업 폴더의 기존 미추적 항목은 PAIR_CODING.md §4의 "깨끗하지 않음"으로 보지 않는다. 추적 파일 변경·스테이지·진행 중 Git 작업이 없으면 pair-coding 시작 2\~3단계를 스킬 명령 그대로 진행해라. 미추적 파일은 읽거나 옮기거나 커밋하지 마라. 이 승인 문장을 첫 체크포인트의 계약에 기록해라.
 ```
+
+## 통합 기록 (메인 Claude, 2026-11-28)
+
+- 사용자 승인: `pair-coding 통합` (직전에 알린 범위: 커밋 3개 통합, 검사 재실행, HTML 열기, 이 기록 커밋, claim 삭제. push·worktree 정리·규칙 적용 제외).
+- `a6020d7`, `ca71cc2`, `43a9f93` → `1faafcb`, `55af117`, `87624af` (cherry-pick -x, 통합 전 main `e1fd52a`).
+- 통합 코드 `87624af`에서 재실행: 시험 6/6 종료 0. 검사기 종료 0, 필수 5/5, 보존 6/6, 관찰 7개 모두 한계. 입력 해시 불변, diff --check 통과, 브랜치와 작업 파일 동일.
+- 신원 대조: claim `de5e304`의 Codex 세션 기록 1개, 생성 형식 일치. 세션 ID 대입·`--no-verify`·`reset --hard`·셸 명령 `push`는 검색되지 않음(문자열 검색이며 증명은 아님). reflog 미사용.
+- HTML: `open` 종료 0. 렌더는 에이전트가 확인하지 않음. 요약은 실제 규칙 결과, 표는 합성 규칙 결과.
+- 안내문에 빠진 미검증: 자동 승인 검토가 사람 대신 승인할 가능성, `codex exec`의 prompt 처리.
+- 알려진 한계: 옛 `./develop -- git` allow가 있으면 제안을 적용해도 `./develop -- git -C . push`는 allow(합성 규칙으로 확인). 현재 `default.rules`에는 이 줄이 없다.
+- 실전에서 발견한 스킬 문제: ① 스킬 첫머리가 "초안 — 비활성"으로 남음 ② PAIR_CODING.md §4의 "기본 checkout이 깨끗할 때" 조건이 스킬 열기·시작에 없어 첫 시작이 멈춤(1회 예외 승인) ③ 스킬의 기본 push 승인 문구가 이번 건별 승인 결정과 다름 ④ claim 삭제 수정 af36511 미통합.
 
 ## 배경
 
