@@ -1,4 +1,6 @@
-"""`./experiment` 실행 어댑터(B5-8, 합성 단계). **실제 ./experiment 연결: 미완료.** 어떤 executor 표에도 등록하지 않았고 runner가 부르지 않는다.
+"""`./experiment` 실행 어댑터(B5-8, 합성 단계). **실제 ./experiment 연결: 미완료.** executor 표 EXECUTORS(`harness.experiment_exec:EXECUTORS`,
+Supervisor `--executors`)에 등록했다. runner가 sandbox 안에서 부르므로 저장소 artifacts/ 쓰기가 막혀 실험 기록을 남기는 실행은 결과 불명이 된다
+(sandbox 원칙 유지, 진입점 시험 tests/test_harness_b5_experiment_run_faults가 고정).
 
 사용자 결정(2026-11-28): B5는 실행 어댑터 계약과 합성 시험까지 하고 기존 sandbox 보안 원칙(executor는 실행별 staging에만 쓴다)을 유지한다.
 실제 연결(저장소 artifacts/ 쓰기·workspace.lock이 필요해 sandbox 밖 실행이 된다)의 최소 권한·실행 경로는 첫 실험 후보 승인 때 검토한다
@@ -11,13 +13,16 @@
   dedupe가 중복으로 거절). config.plan이 설명 키를 덮어쓰면 거절. 그 밖의 plan 내용 검사는 ./experiment(prepare)가 한다.
 - 실행 전 code_sha를 workdir HEAD와 다시 대조한다(dedupe.verify_code, 추적 파일 변경도 거절).
 - 결과 해석(interpret): 종료 코드와 record.json 상태가 함께 맞아야 한다. 0+completed(+result.json 해시가 record files와 같음) = 완료,
-  1+failed = 실험 자체 실패(결정적), 128 초과+interrupted = 중단, 출력에 기록 줄이 없고 1(잠금 사용 중)·2(계획 오류) 안내문 = 실행 안 됨
-  (not_started: 예산 차감 취소 후보, 결정 3). 그 밖(불일치·running·기록 경로가 workdir/artifacts/experiments 밖·명령/가설 불일치·시간 초과·
-  신호로 죽음)은 결과 불명(unknown).
-- 오류는 ExperimentError(종류, {"status", ...}). 종류는 runner 실패 종류와 같다: deterministic(거절·실패·not_started),
-  interrupted(중단·결과 불명: 작업권을 남겨 INTERRUPTED → 결과 확인 전 대기. 재실행 안전 목록은 비어 있어 자동 재실행되지 않는다).
+  1+failed = 실험 자체 실패(결정적), 128 초과+interrupted = 중단, 출력에 기록 줄이 없고 1(잠금 사용 중)·2(계획 오류) 안내문이며 실행 전후
+  workdir/artifacts/experiments 목록이 같음 = 실행 안 됨(not_started: 예산 차감 취소 대상, 결정 3. 실제 ./experiment는 prepare가 실험 폴더를 만든 뒤
+  명령을 실행하고, 그 뒤의 OSError·ValueError에도 2 안내문을 내므로 목록이 바뀌면 결과 불명이다). 그 밖(불일치·running·기록 경로가
+  workdir/artifacts/experiments 밖·명령/가설 불일치·시간 초과·신호로 죽음)은 결과 불명(unknown). refused(계약 거절)도 실험 프로세스를 띄우기 전이다.
+- 오류는 ExperimentError(종류, {"status", ...}). 종류는 runner 실패 종류와 같다(recovery.kind_of가 args[0]을 쓴다): deterministic(거절·실패·
+  not_started), interrupted(중단·결과 불명: 작업권을 남겨 INTERRUPTED → 결과 확인 전 대기. 재실행 안전 목록은 비어 있어 자동 재실행되지 않는다).
+  sandbox 안에서는 sandbox_child가 종류와 status를 결과 줄로 넘긴다(sandbox.ChildError.kind·status).
+- workdir: runner가 실행 직전 code_sha를 대조한 source_root(환경변수 SOURCE_ENV, runner가 넣는다). 없으면 refused.
 한계: 시간 초과 때 subprocess.run은 직접 자식만 죽인다(실제 ./experiment가 띄운 프로세스 그룹은 남을 수 있다 → 결과 불명으로 둔다).
-호출 깊이: run → interpret → cas.sha_file (2), run → dedupe.verify_code (1), run → build_plan (1).
+호출 깊이: execute → run → interpret → cas.sha_file (3), run → dedupe.verify_code (1), run → build_plan (1).
 """
 import json
 import os
@@ -34,10 +39,16 @@ TEXT_KEYS = ("hypothesis", "change", "success_criterion", "failure_criterion")
 _LINE = re.compile(r"^실험 기록: (.+) / 상태: (\S+)$", re.M)
 _NOT_STARTED = {1: "다른 개발·실험·검토가 진행 중입니다", 2: "실험 계획·기준 결과·코드 경로를 확인하세요"}
 _ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "en_US.UTF-8", "PYTHONIOENCODING": "utf-8"}
+SOURCE_ENV = "HARNESS_SOURCE_ROOT"
 
 
 class ExperimentError(Exception):
     """args = (종류 deterministic|interrupted, {"status": refused|failed|not_started|interrupted|unknown, "detail": ...})."""
+
+    @property
+    def status(self):
+        """args[1]의 status(없으면 None). runner는 not_started·refused일 때만 이 시도의 예산 차감을 취소한다."""
+        return self.args[1].get("status") if len(self.args) > 1 and isinstance(self.args[1], dict) else None
 
 
 def build_plan(task):
@@ -95,6 +106,8 @@ def run(task, out_dir, workdir, timeout=None):
         raise ExperimentError("deterministic", {"status": "refused", "detail": str(exc)})
     command = task["run_conditions"]["command"]
     write_json(os.path.join(out_dir, "plan.json"), plan)
+    base = os.path.join(workdir, "artifacts", "experiments")
+    seen = sorted(os.listdir(base)) if os.path.isdir(base) else None  # 실행 전 실험 폴더 목록(not_started 확인용)
     argv = [os.path.join(workdir, "experiment"), "--plan", os.path.join(os.path.abspath(out_dir), "plan.json"), "--"] + list(command)
     try:
         done = subprocess.run(argv, cwd=workdir, env=_ENV, stdin=subprocess.DEVNULL, capture_output=True, encoding="utf-8",
@@ -104,6 +117,8 @@ def run(task, out_dir, workdir, timeout=None):
     except OSError as exc:  # 실행 파일을 띄우지 못함: 실행되지 않았음이 확인된 경우
         raise ExperimentError("deterministic", {"status": "not_started", "detail": str(exc)})
     status, folder = interpret(done.returncode, done.stdout, workdir, list(command), plan["hypothesis_id"])
+    if status == "not_started" and (sorted(os.listdir(base)) if os.path.isdir(base) else None) != seen:
+        status = "unknown"  # 안내문이 있어도 새 실험 폴더가 생겼다: 실행되지 않았음을 확정할 수 없다
     info = {"status": status, "return_code": done.returncode, "experiment_dir": folder}
     if status == "completed":
         for name in ("record.json", "result.json"):
@@ -114,3 +129,14 @@ def run(task, out_dir, workdir, timeout=None):
             return list(OUTPUTS)
         info["status"] = "unknown"
     raise ExperimentError("deterministic" if status in ("failed", "not_started") else "interrupted", info)
+
+
+def execute(task, out_dir):
+    """executor 표 항목(runner 계약 (contract, out_dir) -> 출력 목록). workdir = runner가 넣은 SOURCE_ENV(대조한 source_root)."""
+    workdir = os.environ.get(SOURCE_ENV)
+    if not workdir:
+        raise ExperimentError("deterministic", {"status": "refused", "detail": "%s 없음(runner 밖에서 불림)" % SOURCE_ENV})
+    return run(task, out_dir, workdir)
+
+
+EXECUTORS = {"experiment": execute}

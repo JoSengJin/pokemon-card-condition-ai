@@ -44,7 +44,9 @@ def main(argv):
         produced = table[argv[2]](json.loads(sys.stdin.read()), argv[3])
         reply = {"ok": True, "produced": list(produced)}
     except (Exception, SystemExit) as exc:  # noqa: BLE001 — runner와 같은 규칙(recovery.kind_of)으로 종류를 정해 돌려준다
-        reply = {"ok": False, "kind": recovery.kind_of(exc), "error": "%s: %s" % (type(exc).__name__, exc)}
+        status = getattr(exc, "status", None)  # 실험 어댑터의 상태(not_started 등): runner가 예산 차감 취소 여부를 정한다(B5-4)
+        reply = {"ok": False, "kind": recovery.kind_of(exc), "error": "%s: %s" % (type(exc).__name__, exc),
+                 "status": status if isinstance(status, str) else None}
     sys.stdout = real
     print(json.dumps(reply, ensure_ascii=False), flush=True)
     return 0

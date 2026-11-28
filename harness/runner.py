@@ -13,8 +13,16 @@
   장부 체인 손상(LedgerError)은 무결성 문제라 drain 전체를 멈추고 요약에 INTEGRITY를 남기며 종료 코드 3을 낸다. 데몬·예산·한도 감지는 하지 않는다(3단계).
 - 완료 표시(작업 계약 2단계): executor가 정상 반환하면 산출물 해시로 complete.json을 원자 저장한 뒤 complete한다. claim 계획이 adopt
   (중단 전에 표시까지 남겼다)면 executor를 부르지 않고 complete만 한다.
+- 실험 예산(B5-4, 사용자 결정 3 2026-11-28 "실행 시작 시 차감"): 실험·학습·평가 작업은 claim 뒤·executor 직전에 budget.charge(experiment, 1,
+  key=논리 실험 키 dedupe.logical_key)를 한 번 부른다. 확인과 차감은 charge 한 번(예산 잠금 안)이다. 같은 논리 실험의 재시도·재개(한도 뒤·체크포인트·
+  인프라 장애 복구)는 같은 키라 already(다시 빼지 않는다). 거절(한도·정지)이면 작업권을 지워 놓고(PENDING) 실행하지 않는다. 예산 장부·상태 손상은
+  사용량을 모르므로 실행하지 않고 무결성 정지(종료 코드 3). 완료 표시를 반영만 하는 adopt는 차감하지 않는다.
+  취소: 이번 시도가 새로 한 차감(seq)만, 실행되지 않았음이 확인된 결정적 실패일 때만(executor 전 대조·사본 실패 = not_started, 어댑터
+  not_started·refused) budget.cancel한다. 결과 불명(interrupted)·실험 실패·출력 불일치는 차감 유지. 취소는 실패 기록보다 먼저 한다(그 사이 kill이면
+  작업권이 남아 INTERRUPTED → 결과 확인 대기, 다시 실행되면 새로 차감). executor 상태는 sandbox 결과 줄(ChildError.status)로 받는다.
 - 호출 깊이: main -> drain -> queue.claim/complete/fail(각각 깊이 2 이하)이라 최대 4다. drain -> manifest.build -> safe_path는 3.
-  executor는 호출자 코드(동적 호출)이며 이 깊이에 포함하지 않았다.
+  drain -> budget.charge/cancel -> ledger.verify -> _check_line은 3, drain -> dedupe.logical_key -> _command는 2.
+  executor는 호출자 코드(동적 호출)이며 이 깊이에 포함하지 않았다(experiment_exec.execute 자체 깊이 3).
 """
 import json
 import os
@@ -22,13 +30,14 @@ import sys
 import time
 
 from . import contract as ct
-from . import cas, claude_perm, dedupe, ledger, lease, manifest, queue, recovery, sandbox, states
+from . import budget, cas, claude_perm, dedupe, experiment_exec, ledger, lease, manifest, opstate, queue, recovery, sandbox, states
 from .jsonio import read_json, write_json
 
 
 INTEGRITY_EXIT = 3  # 장부 무결성 오류로 drain이 중단된 경우의 종료 코드
 SANDBOX_EXIT = 5  # sandbox-exec를 쓸 수 없어 executor를 실행하지 않은 경우의 종료 코드
 EXECUTOR_TABLE_EXIT = 6  # executor 표를 sandbox 안에서 읽지 못해(감싼 표 거절 등) 아무것도 실행하지 않은 경우의 종료 코드(3차 결함 H10)
+NOT_RUN = ("not_started", "refused")  # 실행되지 않았음이 확인된 상태(이 시도의 예산 차감 취소 대상, B5-4)
 
 
 class OutputMismatch(Exception):
@@ -74,11 +83,13 @@ def _scan(root, executors):
 
 
 def _execute(root, executors, task, out_dir, source_root):
-    """executor를 실행한다. 정상이면 None, 오류면 (실패 종류, 설명). 종류는 1단계 규칙(recovery.kind_of).
+    """executor를 실행한다. 정상이면 None, 오류면 (실패 종류, 설명, 상태). 종류는 1단계 규칙(recovery.kind_of). 상태는 executor를 부르기 전
+    실패(대조·사본)면 "not_started", executor 오류면 그 status(실험 어댑터, sandbox는 ChildError.status) 또는 None.
     실험·학습·평가는 실행 직전에 입력을 source_root에서 작업 폴더 in/으로 복사하며 복사본 SHA를 계약과 대조한다(다르거나 폴더 밖·링크·봉인
     이름이면 executor를 부르지 않고 결정적 실패, 검증 결함 F3). executor는 그 사본을 읽는다(sandbox 경로는 HARNESS_INPUT_DIR, 2차 결함 G6).
     3차 결함: code_sha를 source_root HEAD와 다시 대조하고(H1), executor에는 command의 자리표시자 {input:<경로>}를 사본 절대 경로로 바꾼
     계약 사본을 넘긴다(H7, 계약 파일은 그대로). executor가 원본을 직접 읽는 것은 막지 않는다(한계)."""
+    called = False
     try:
         if task["task_type"] in dedupe.CONDITION_TYPES:  # 실행 직전 code_sha를 source_root HEAD와 다시 대조(3차 결함 H1)
             dedupe.verify_code(task, source_root)
@@ -86,14 +97,16 @@ def _execute(root, executors, task, out_dir, source_root):
             copies, cond = os.path.join(os.path.dirname(os.path.abspath(out_dir)), "in"), task["run_conditions"]
             task = dict(task, run_conditions=dict(cond, command=[dedupe.PLACEHOLDER.sub(  # 3차 H7: 자리표시자 → 대조한 사본의 절대 경로
                 lambda m: os.path.join(copies, os.path.normpath(m.group(1))), arg) for arg in cond["command"]]))
+            os.environ[experiment_exec.SOURCE_ENV] = os.path.realpath(source_root)  # 실험 어댑터의 workdir(sandbox 자식도 물려받는다)
+        called = True
         produced = executors[task["task_type"]](task, out_dir)
         if sorted(produced) != sorted(task["outputs"]):
             raise OutputMismatch("executor가 돌려준 출력 목록이 계약의 outputs와 다르다: %r" % (produced,))
-    except sandbox.ChildError as exc:  # sandbox 안 실패: 자식이 정한 종류(transient|deterministic|interrupted)와 원래 오류 문구
-        return exc.kind, str(exc)
+    except sandbox.ChildError as exc:  # sandbox 안 실패: 자식이 정한 종류(transient|deterministic|interrupted)·상태와 원래 오류 문구
+        return exc.kind, str(exc), exc.status
     except (Exception, SystemExit) as exc:  # executor가 sys.exit()를 내도 runner가 죽지 않고 결정적 실패로 기록한다
-        return recovery.kind_of(exc), "%s: %s" % (type(exc).__name__, exc)  # KeyboardInterrupt는 그대로 전파한다
-    return None
+        return recovery.kind_of(exc), "%s: %s" % (type(exc).__name__, exc), getattr(exc, "status", None) if called else "not_started"
+    return None  # KeyboardInterrupt는 그대로 전파한다
 
 
 def _note(summary, parked, key, kind, detail):
@@ -143,7 +156,29 @@ def drain(root, executors, now_fn=time.time, max_tasks=None, source_root=None):
                 task, out_dir = read_json(os.path.join(task_dir, "contract.json")), os.path.join(task_dir, "out")
                 os.makedirs(out_dir, exist_ok=True)
                 adopt = res["plan"]["action"] == "adopt"  # 완료 표시가 이미 맞다: executor를 다시 부르지 않고 반영만 한다
+                spent, spend_key = None, None
+                if not adopt and task["task_type"] in dedupe.CONDITION_TYPES:  # 실행 시작 시 실험 예산 차감(B5-4, 키 = 논리 실험 키)
+                    try:
+                        spend_key = dedupe.logical_key(task)
+                        spent = budget.charge(root, "experiment", 1, now_fn(), key=spend_key)
+                    except (budget.BudgetError, opstate.OpStateError, ledger.LedgerError) as exc:  # 사용량을 모른다: 실행하지 않고 무결성 정지
+                        lease.release(res["lease"], remove=True)
+                        summary["integrity"] = "INTEGRITY: budget: %s: %s" % (type(exc).__name__, exc)
+                        return summary
+                    except _RECORDING_ERRORS as exc:  # 이 작업만(계약 키 계산·기록 오류): 실행하지 않고 작업권을 지워 놓는다
+                        spent = {"ok": False, "reason": "error: %s: %s" % (type(exc).__name__, exc)}
+                    if not spent["ok"]:
+                        lease.release(res["lease"], remove=True)
+                        progressed |= _note(summary, parked, key, "stopped", "budget_refused:%s" % spent["reason"])
+                        continue
                 error = None if adopt else _execute(root, executors, task, out_dir, source_root or sandbox.REPO)
+                if error is not None and error[0] == "deterministic" and error[2] in NOT_RUN and spent and "seq" in spent:
+                    try:  # 실행되지 않았음이 확인됐다: 이번 시도가 새로 한 차감만 되돌린다(재시도의 already 차감은 되돌리지 않는다)
+                        undo = budget.cancel(root, "experiment", spend_key, spent["seq"], now_fn())
+                        if not undo["ok"]:
+                            summary["warnings"].append([key, "budget_cancel_refused: %s" % undo["reason"]])
+                    except (budget.BudgetError, ledger.LedgerError, OSError) as exc:  # 취소하지 못하면 차감 유지(보수적)
+                        summary["warnings"].append([key, "budget_cancel_error: %s: %s" % (type(exc).__name__, exc)])
                 if error is not None and error[0] == "interrupted":  # 작업권 기록은 남기고 잠금만 놓는다 → 다음 claim이 INTERRUPTED로 본다
                     lease.release(res["lease"])
                     progressed |= _note(summary, parked, key, "stopped", "executor_killed: %s" % error[1])

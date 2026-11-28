@@ -14,6 +14,7 @@ import os
 import socket
 
 from . import checkpoint, dedupe, states
+from .experiment_exec import ExperimentError
 from .contract import RUN_ID, new_run_id
 from .jsonio import write_json
 
@@ -27,7 +28,10 @@ RERUN_SAFE_TYPES = frozenset()  # 재실행 안전으로 확인해 등록한 tas
 
 
 def kind_of(exc):
-    """예외 -> 실패 종류. 네트워크 단절·시간 초과만 일시적, 나머지(코드 오류 포함)는 결정적이다."""
+    """예외 -> 실패 종류. 네트워크 단절·시간 초과만 일시적, 나머지(코드 오류 포함)는 결정적이다. 실험 어댑터 오류는 어댑터가 정한 종류
+    (deterministic|interrupted: 결과 불명은 작업권을 남겨 확인 대기, B5-8)."""
+    if isinstance(exc, ExperimentError) and exc.args[:1] in (("deterministic",), ("interrupted",)):
+        return exc.args[0]
     return "transient" if isinstance(exc, (ConnectionError, TimeoutError, socket.timeout)) else "deterministic"
 
 
