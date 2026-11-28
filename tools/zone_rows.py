@@ -22,10 +22,11 @@ BOX_IN = '정상·결함만 행으로 둔다. 상자 미확인 사진의 구역�
 
 
 def parse(text):
-    """'id/side=확인|미확인;box:l,t,r,b;area:state;...' lines. An unknown state or shape is refused with its line number."""
+    """'id/side=확인|미확인;box:l,t,r,b;area:state;...' lines; '#' lines are comments, as in tools/rater_gate.py.
+    An unknown state or shape is refused with its line number."""
     answers, seen = [], set()
     for number, line in enumerate(text.splitlines(), 1):
-        if not line.strip():
+        if not line.strip() or line.strip().startswith('#'):
             continue
         try:
             head, box, *zones = line.strip().split(';')
@@ -122,7 +123,9 @@ def main(argv=None):
             provenance = json.loads(args.provenance.read_text(encoding='utf-8'))
             if not isinstance(provenance, dict) or provenance.get('answer_sha256') != hashlib.sha256(data).hexdigest():
                 raise ValueError('provenance 기록이 이 답 파일의 것이 아님')
-        rows, exclusions = build(parse(data.decode('utf-8')), backs(args.intakes), args.kind, args.box == 'confirmed-only', provenance)
+            if provenance.get('comparison_complete') is not True:  # shown only; excluding such rows is undecided (D-7)
+                print('주의: AI 대조가 완전하다고 기록되지 않음. 행은 빼지 않음. provenance의 incomplete를 확인할 것', file=sys.stderr)
+        rows, exclusions = build(parse(data.decode('utf-8-sig')), backs(args.intakes), args.kind, args.box == 'confirmed-only', provenance)
         measures = json.loads(args.measures.read_text(encoding='utf-8')) if args.measures else {}
         write_new(args.out, {'rows.json': rows, 'exclusions.json': exclusions, 'row_facts.json': facts(rows, measures, provenance)})
     except (OSError, ValueError, KeyError) as error:
