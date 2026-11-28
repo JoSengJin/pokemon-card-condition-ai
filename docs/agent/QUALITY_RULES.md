@@ -171,7 +171,7 @@ worker나 모델 코드의 리뷰 입력에 아래 8줄을 넣는다. 실행기�
 | `judge-before-peeking` (먼저 판정하고 보기, 옛 번호 Q03) | 문서 연결됨 | 작업별 필독 | — |
 | `explicit-verdict-merge` (판정 합치는 법 밝히기, 옛 번호 Q04) | 문서 연결됨 | 작업별 필독 | — |
 | `label-agreement-watch` (라벨 일치도 관리, 옛 번호 Q05) | 문서 연결됨, 값 고정 | `LABELING_PROTOCOL.md` "라벨 일치도 관리" | — |
-| `label-screen-round-trip` (누른 것 = 가져온 것, 옛 번호 Q06) | 문서 연결됨 + 모서리·관찰 제한·모서리 재판정 화면 시험 추가됨 | `tests/test_corner_label_round_trip.py`, `tests/test_visibility_blind_round_trip.py`. 다른 화면은 만들거나 바꿀 때 추가 | — |
+| `label-screen-round-trip` (누른 것 = 가져온 것, 옛 번호 Q06) | 문서 연결됨 + 모서리·관찰 제한·모서리 재판정 화면 시험 추가됨 | `tests/test_corner_label_round_trip.py`, `tests/test_corner_label_four_state.py`(모서리 v2, 4상태), `tests/test_visibility_blind_round_trip.py`. 다른 화면은 만들거나 바꿀 때 추가 | — |
 | `error-cause-triage` (오류 원인 분류, 옛 번호 Q07) | 문서 연결됨 | `COMMON_EXPERIMENT_RECORDS.md` | — |
 | `fresh-labels-test-first` (새 라벨 1회 평가, 옛 번호 Q08) | 문서 연결됨 | 작업별 필독 | 실행 때마다 기존 실험 승인 |
 | `zero-denominator-unmeasured` (분모 0은 미측정, 옛 번호 Q09) | 문서 연결됨 + 코드·시험 추가됨 | `card_condition/acceptance_caps.py`, `tests/test_acceptance_caps.py` | — |
