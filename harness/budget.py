@@ -11,7 +11,11 @@
   죽은 경우(마지막 줄의 prev가 저장한 꼬리)만 정상으로 인정한다. 꼬리 파일이 없으면 GENESIS로 본다(줄이 있으면 거절).
   한계: 장부와 꼬리 파일을 함께 지우거나 함께 고치면 알 수 없다(같은 root 안의 복제본이다. 외부 복제는 DESIGN 9절 cardeval 몫).
 - now는 유한한 epoch 초 숫자만 받는다(NaN·무한대·bool·문자열은 BudgetError).
-호출 깊이: charge → usage → ledger.verify → _check_line (3), charge → opstate.set_condition → opstate.load → read_json (3).
+호출 깊이(B5-3, 동작 불변으로 펼침): charge는 최대 2회 전이다(charge → ledger.verify → _check_line, charge → opstate.load → read_json,
+charge → opstate.notify → ledger.append). 호출 지점 runner.main → drain → charge와 supervisor.run → claude_job.execute → charge가 4를 넘지 않게
+usage(→ ledger.verify)를 거치지 않고 같은 검증을 _tally로 나눴고, BUDGET_EXCEEDED 전이는 opstate.set_condition과 같은 단계(opstate.lock 안에서
+load → 상태 파일 원자 저장 → root/ledger.jsonl opstate_transition 한 줄)를 여기에 펼쳤다. 어긋나면 tests/test_harness_b5_budget_depth.py의
+set_condition 동치 시험이 잡는다. opstate 쪽 전이 규칙을 바꾸면 이 펼친 부분도 같이 바꾼다.
 """
 import datetime
 import fcntl
@@ -45,6 +49,15 @@ def period_of(kind, now, seal_cycle=None):
     return "week:%04d-W%02d" % (year, week)
 
 
+def _tally(problems, rows, tail, kind, period):
+    """검증 결과(problems)·장부 줄·저장한 꼬리로 (kind, period) 사용량 합. 손상·잘림이면 BudgetError. 다른 함수를 부르지 않는다."""
+    if any(p["problem"] != "tail_mismatch" for p in problems):
+        raise BudgetError("예산 장부 손상: %s" % problems[:3])
+    if problems and not (rows and rows[-1]["prev"] == tail):  # 꼬리 기록 전에 죽은 한 줄만 허용한다
+        raise BudgetError("예산 장부 꼬리 불일치(잘림·삭제 의심): %s" % problems)
+    return sum(r["data"]["amount"] for r in rows if r["data"].get("kind") == kind and r["data"].get("period") == period)
+
+
 def usage(root, kind, period):
     """장부 체인과 저장한 꼬리를 검증한 뒤 (kind, period)의 사용량 합. 장부가 손상·잘렸으면 BudgetError."""
     path = os.path.join(root, BUDGET)
@@ -53,15 +66,11 @@ def usage(root, kind, period):
     except (ValueError, AttributeError) as exc:
         raise BudgetError("예산 꼬리 기록 손상: %s" % exc)
     problems = ledger.verify(path, expected_tail=tail)
-    if any(p["problem"] != "tail_mismatch" for p in problems):
-        raise BudgetError("예산 장부 손상: %s" % problems[:3])
     rows = []
-    if os.path.exists(path):
+    if not any(p["problem"] != "tail_mismatch" for p in problems) and os.path.exists(path):
         with open(path, "r", encoding="utf-8") as handle:
             rows = [json.loads(raw) for raw in handle]
-    if problems and not (rows and rows[-1]["prev"] == tail):  # 꼬리 기록 전에 죽은 한 줄만 허용한다
-        raise BudgetError("예산 장부 꼬리 불일치(잘림·삭제 의심): %s" % problems)
-    return sum(r["data"]["amount"] for r in rows if r["data"].get("kind") == kind and r["data"].get("period") == period)
+    return _tally(problems, rows, tail, kind, period)
 
 
 def charge(root, kind, amount, now, seal_cycle=None, actor="harness", key=None):
@@ -82,14 +91,33 @@ def charge(root, kind, amount, now, seal_cycle=None, actor="harness", key=None):
         halted = opstate.effective(opstate.load(root))
         if halted in opstate.HALTING:  # 예산 초과·무결성 정지·사용자 중단·종료 중에는 새 개발 작업을 허락하지 않는다
             return dict(result, ok=False, reason="halted:" + halted, used=None)
-        used = usage(root, kind, period)  # 장부 검증도 여기서 한다(손상이면 BudgetError)
-        if key is not None and os.path.exists(os.path.join(root, BUDGET)):
-            with open(os.path.join(root, BUDGET), "r", encoding="utf-8") as handle:
-                if any((row["data"].get("kind"), row["data"].get("key")) == (kind, key) for row in map(json.loads, handle)):
-                    return dict(result, ok=True, already=True, used=used)
+        path = os.path.join(root, BUDGET)  # usage와 같은 검증(깊이를 줄이려고 usage를 거치지 않는다. 손상이면 BudgetError)
+        try:
+            tail = read_json(os.path.join(root, TAIL), {}).get("hash", ledger.GENESIS)
+        except (ValueError, AttributeError) as exc:
+            raise BudgetError("예산 꼬리 기록 손상: %s" % exc)
+        problems = ledger.verify(path, expected_tail=tail)
+        rows = []
+        if not any(p["problem"] != "tail_mismatch" for p in problems) and os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as handle:
+                rows = [json.loads(raw) for raw in handle]
+        used = _tally(problems, rows, tail, kind, period)
+        if key is not None and any((row["data"].get("kind"), row["data"].get("key")) == (kind, key) for row in rows):
+            return dict(result, ok=True, already=True, used=used)
         if used + amount > limit:
             info = dict(result, used=used)
-            opstate.set_condition(root, opstate.BUDGET_EXCEEDED, now, actor, "개발 예산 초과: %s" % kind, info)
+            reason = "개발 예산 초과: %s" % kind
+            with open(os.path.join(root, opstate.LOCK), "a") as op_guard:  # opstate.set_condition과 같은 전이(펼침, 모듈 설명 참조)
+                fcntl.flock(op_guard.fileno(), fcntl.LOCK_EX)
+                state = opstate.load(root)
+                if state.get("unreadable") or not actor:
+                    raise opstate.OpStateError("운영 상태 파일이 손상되어 덮어쓰지 않거나 실행자가 없다")
+                before = opstate.effective(state)
+                state["conditions"][opstate.BUDGET_EXCEEDED] = dict(info, since=now, actor=actor, reason=reason)
+                write_json(os.path.join(root, opstate.OPSTATE), state)
+                ledger.append(os.path.join(root, "ledger.jsonl"), now, "opstate_transition", {
+                    "op": "set", "condition": opstate.BUDGET_EXCEEDED, "effective_before": before,
+                    "effective_after": opstate.effective(state), "actor": actor, "reason": reason, "extra": info})
             opstate.notify(root, now, "budget_exceeded", "개발 예산 초과(재승인 필요): %s %s" % (kind, period), info)
             return dict(info, ok=False, reason="limit")
         entry = ledger.append(os.path.join(root, BUDGET), now, "charge", dict(
