@@ -79,6 +79,44 @@ class PlanGateSealTest(unittest.TestCase):
         self.assertNotIn(os.path.realpath(os.path.join(world[1], HIDDEN)), seen)
         self.assertTrue(got["reason"].startswith("waiting") and "20300113T000000-00000007" in got["reason"], got["reason"])
 
+    def _hashes(self, world, name, hashes, **kw):
+        """개발 폴더 name에 같은 조건의 기록을 심고 source_hashes만 hashes로 바꾼다."""
+        self._record(world[1], name, **kw)
+        path = os.path.join(world[1], "artifacts", "experiments", name, "record.json")
+        with open(path, encoding="utf-8") as handle:
+            record = json.load(handle)
+        record["source_hashes"] = hashes
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(record, handle)
+
+    def test_hard_link_to_a_sealed_record_waits_without_opening_it(self):
+        world = self._world()
+        dev = os.path.join(world[1], "artifacts", "experiments", "20300114T000000-11111111")
+        os.makedirs(dev)
+        for name in ("record.json", "plan.json"):  # 봉인 폴더의 파일을 개발 폴더에 하드 링크(이름·상위 폴더 검사를 피한다)
+            os.link(os.path.join(world[1], "artifacts", "experiments", SEALED, name), os.path.join(dev, name))
+        got, seen = self._opened(world)
+        self.assertEqual([p for p in seen if p.startswith(os.path.realpath(dev))], [])
+        self.assertTrue(got["reason"].startswith("waiting") and "하드 링크" in got["reason"], got["reason"])
+
+    def test_absolute_or_parent_source_hash_keys_wait_without_hashing(self):
+        outside = tempfile.NamedTemporaryFile("w", delete=False)
+        self.addCleanup(os.unlink, outside.name)
+        outside.close()
+        for key in (outside.name, "../" + os.path.basename(outside.name), "a/../../x"):
+            world = self._world()
+            self._hashes(world, "20300115T000000-22222222", {key: "0" * 64})
+            got, seen = self._opened(world)
+            self.assertNotIn(os.path.realpath(outside.name), seen, key)
+            self.assertTrue(got["reason"].startswith("waiting") and "20300115T000000-22222222" in got["reason"], (key, got["reason"]))
+
+    def test_a_record_with_another_condition_is_not_hashed_and_does_not_hold_the_plan(self):
+        world = self._world()
+        self._hashes(world, "20300116T000000-33333333", {HIDDEN: "0" * 64, "/etc/hosts": "0" * 64}, value=0.85)  # 조건이 다름: 해시가 필요 없다
+        got, seen = self._opened(world)
+        self.assertNotIn(os.path.realpath(os.path.join(world[1], HIDDEN)), seen)
+        self.assertIsNone(got["reason"], got["reason"])
+
     def test_unreadable_seal_list_blocks_the_comparison_fail_closed(self):
         world = self._world()
         got = self._chain({"over": {"value": 0.8}}, world=world)

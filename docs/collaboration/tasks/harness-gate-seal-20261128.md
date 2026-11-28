@@ -36,6 +36,15 @@
 - `/usr/bin/python3`로 같은 명령: 602개 OK(421초).
 - 한 번에 하나씩 실행. 로그: scratchpad `gate-seal/venv.log`·`sys.log`.
 
+## 독립 검증 반영 (e4c15c8 이후)
+
+- F1(필수, 하드 링크 우회): 봉인 폴더의 `record.json`·`plan.json`을 개발 폴더에 하드 링크하면 (장치, inode)·상위 폴더 검사를 피해 열렸다. `seal_check.under`가 봉인이 아닌 일반 파일이 `st_nlink > 1`이면 `ValueError`를 낸다(`stage_inputs` F11과 같은 처리) → 그 계획만 `waiting`. 봉인 판정이 먼저라 봉인 폴더 안의 파일은 그대로 건너뛴다. 시험 `test_hard_link_to_a_sealed_record_waits_without_opening_it`, 결함 주입(`> 1`을 `> 99`로)하면 이 시험이 실패.
+- 권고 1: 같은 조건 기록의 `source_hashes` 키가 절대 경로이거나 `..` 조각이 있으면 해시하지 않고 `ValueError`(대기). 시험 `test_absolute_or_parent_source_hash_keys_wait_without_hashing`, 검사를 빼면 실패.
+- 권고 2: `source_hashes` 검사를 plan·command 동등 비교 뒤로 옮겼다(해시가 실제로 필요할 때만). 조건이 다른 기록 하나가 새 계획을 대기시키지 않는다. 시험 `test_a_record_with_another_condition_is_not_hashed_and_does_not_hold_the_plan`.
+- 하지 않음(메인이 사용자 결정으로 처리): 권고 3(load 이후 경로·심볼릭 링크 경쟁 조건), 권고 4(git status의 봉인 추적 파일 재해시).
+- 앞 절의 "하드 링크는 막지 않는다" 미확인 항목은 이 수정으로 해소됐다.
+- 시험: `test_harness_vs3*` 28개 OK, `test_harness_seal*` 12개 OK, 전체 `.venv/bin/python` 605개 OK(355초, 3.9 전체 실행은 메모리 때문에 생략).
+
 ## 롤백
 
 `git revert <커밋>` 또는 브랜치 폐기. `plan_gate._external`의 `seal_check` 3줄과 새 파일 2개뿐이다.

@@ -153,7 +153,7 @@ def _external(src, new):
     판별할 수 없는 기록(record.json이 없는 실험 폴더, 읽을 수 없음, 형식·상태, plan.json이 record의 SHA와 다름, 같은 조건인데 코드 해시를 못 냄)이
     하나라도 있으면 Hold(waiting). 기록 형식의 근거는 card_condition/experiment_record.py(prepare·records) 코드뿐이다(실제 기록은 열어 보지 않았다).
     봉인 보호(2026-11-28 신뢰 경계 조사): Supervisor는 sandbox 밖이라, 봉인 경로 목록(harness/sealed_paths.json) 아래 실험 폴더·record.json·plan.json은 열기 전에
-    seal_check로 걸러 건너뛴다(내용·해시 모두 안 읽음). source_hashes가 봉인 경로를 가리키는 기록은 해시하지 않고 Hold(waiting). 목록 오류도 Hold(waiting).
+    seal_check로 걸러 건너뛴다(내용·해시 모두 안 읽음). 같은 조건(plan·command 같음)인 기록의 source_hashes가 봉인·절대·`..` 경로를 가리키면 해시하지 않고 Hold(waiting). 하드 링크 기록(nlink>1)도 Hold(waiting). 목록 오류도 Hold(waiting).
     건너뛴 폴더는 비교하지 않으므로 봉인 실험과 같은 조건의 새 계획은 못 잡는다(한계, 거절 쪽이 아니라 통과 쪽 공백).
     한계: ./experiment는 code_changes 파일 해시만 남기므로 그 밖 코드가 달라도 같다고 본다(거절 쪽). 회차마다 모든 기록을 읽는다(기록 수에 비례)."""
     base = os.path.join(src, "artifacts", "experiments")
@@ -171,11 +171,11 @@ def _external(src, new):
             ok = isinstance(record, dict) and isinstance(plan, dict) and record.get("schema_version") == 1 and record.get("status") in _RECORD_STATUS \
                 and isinstance(record.get("command"), list) and isinstance(record.get("source_hashes"), dict) \
                 and record["files"]["plan.json"] == cas.sha_file(os.path.join(folder, "plan.json"))
-            if ok and any(seal_check.under(os.path.join(src, p), sealed) for p in record["source_hashes"]):
-                raise ValueError("source_hashes가 봉인 경로를 가리킨다")  # 해시하려고 봉인 파일을 열지 않는다: 판별 불가(대기)
             same = ok and {k: v for k, v in plan.items() if k not in _NOTES} == mine and len(record["command"]) == len(command) \
-                and all(a == b or dedupe.PLACEHOLDER.search(b) for a, b in zip(record["command"], command)) \
-                and all(cas.sha_file(os.path.join(src, p)) == h for p, h in record["source_hashes"].items())
+                and all(a == b or dedupe.PLACEHOLDER.search(b) for a, b in zip(record["command"], command))  # 같은 조건일 때만 해시가 필요하다
+            if same and any(os.path.isabs(p) or ".." in p.split("/") or seal_check.under(os.path.join(src, p), sealed) for p in record["source_hashes"]):
+                raise ValueError("source_hashes가 절대·상위 경로이거나 봉인 경로를 가리킨다")  # 해시하려고 봉인 파일을 열지 않는다: 판별 불가(대기)
+            same = same and all(cas.sha_file(os.path.join(src, p)) == h for p, h in record["source_hashes"].items())
         except (OSError, ValueError, LookupError, TypeError, AttributeError, RecursionError) as exc:
             raise Hold("waiting", "판별할 수 없는 ./experiment 기록 %s: %s" % (name, type(exc).__name__))
         if not ok:
