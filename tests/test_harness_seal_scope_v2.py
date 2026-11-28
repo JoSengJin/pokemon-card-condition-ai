@@ -76,6 +76,7 @@ class SealScopeV2Test(unittest.TestCase):
         with mock.patch.dict(os.environ, {sandbox.SOURCE_ENV: w["repo"]}), mock.patch.object(sandbox, "profile", wraps=sandbox.profile) as spy:
             self.assertTrue(sandbox.available())
             self.assertEqual(sorted(sandbox.sandboxed(w["base"], SPEC)), ["peeker"])
+            os.environ.pop(sandbox.SOURCE_ENV)  # main이 --source-root에서 스스로 정해야 한다
             self.assertEqual(runner.main([os.path.join(w["base"], "root"), SPEC, "--source-root", w["repo"], "--max", "0"]), 0)
             self.assertEqual(os.environ[sandbox.SOURCE_ENV], w["repo"])
         vault = os.path.join(w["repo"], "vault")
