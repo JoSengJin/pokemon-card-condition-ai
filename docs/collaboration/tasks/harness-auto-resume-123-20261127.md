@@ -548,3 +548,108 @@ harness 함수 정의 수 전→후(`101bf8d` 기준): `dedupe` 5→6(verify_cod
 
 - 전체: `git revert <이 문서 커밋> 7137726 8baa6af b776f74 fe86096 6f42eba 9c21e8f 3ac39c6`(역순) 또는 `git reset --hard 101bf8d`(이 브랜치만, push 전). 운영 상태 형식 변화: 실험 계약의
   code_sha가 source_root HEAD여야 함(되돌리면 형식만 검사), 작업 폴더 `.out-pending-*` 임시 폴더, 상태 파일 `job_state_invalid` 대기, runner 종료 코드 6. 실운영 root는 아직 없다.
+
+### 4차 결함 수정
+
+작성: Claude(Opus 하위 에이전트), 2026-11-28. 근거: 독립 재검증 `verify-auto-resume-123-r4.md`(I1~I9, 생존 변이 V01·V21), 사용자 결정 원문
+`decisions-b5-b6-20261128.md` "숫자 표기 결정"(2026-11-28). 대상 `df6b78b..` 이 절의 커밋. push·main 통합 안 함. 실제 claude 실행·모델·외부 네트워크 호출·설치·
+시스템 설정 변경·사용자 서비스 접속·메시지 전송·앱 실행 0회(mach 서비스는 sandbox 안 이름 조회만, 메시지 없음). 자동 재개 목록 `claude_perm.AUTO_RESUME`·재실행 안전 목록
+`recovery.RERUN_SAFE_TYPES`는 계속 비어 있다(어떤 유형도 켜지 않음). 새 회귀 시험은 수정 전 코드에서 실패를 확인했다(아래 "수정 전"). 시험 공백(V01·V21)용 단언은 수정 전에도
+통과하므로 변이로 확인했다.
+
+#### 커밋
+
+| 묶음 | SHA | 결함 |
+|---|---|---|
+| 1 | `d53ed63` | I1·I2·I3 숫자 표기(사용자 결정), 등록 경로 예외 = ContractError, task 문서 출처 오표기 정정 |
+| 2 | `ded8e03` | I4 키에 HEAD^{tree}, I5 skip-worktree·assume-unchanged·추적 안 하는 command 파일 거절, V01 시험 |
+| 3 | `4c2995f` | I6 모순된 작업 상태 파일 대기 |
+| 4 | `1b611f3` | I7 sandbox mach-lookup 기본 거절 |
+| 5 | `4c55c81` | I8(V21) 표준 출력 상한 사유, I9 산출물 합계 상한·kill 잔여물 정리 |
+| 5' | `cd4db59` | I2 시험 보강(선언 파일 거대 정수 4400자리: 변이 "선언 parse_int 제거"가 처음에 살아남아 고침) |
+| 6 | 이 문서 커밋 | 이 절 |
+
+#### 결함별 조치·회귀 시험
+
+| # | 조치 | 회귀 시험 | 수정 전 |
+|---|---|---|---|
+| I1·I3 | command 토큰은 숫자로 바꾸지 않는다(글자 그대로). 3차의 decimal 정규화·`_LITERAL`·`_INTEGER` 제거. 숫자 외 정규화(`--opt=value`, `/` 든 토큰 normpath, 저장소 아래 절대 경로, 첫 토큰 python 별칭, config 안 seed)는 그대로다: 숫자 변환에 기대는 부분이 없었다(숫자 모양 토큰에는 `/`가 없어 경로 분기에 닿지 않고, 별칭은 첫 토큰 이름만 본다). config·seed는 `json.dumps` → `json.loads(parse_int=parse_float=dedupe.json_number)` 왕복으로 자료형을 유지하고 같은 자료형 안에서 값으로 본다(1 ≠ 1.0, true ≠ 1, false ≠ 0, [1] ≠ [1.0], -0.0 = 0.0, 0.1 = 1e-1, 문자열 그대로). seed는 정수 필드 그대로(bool·실수 거절은 기존) | `test_harness_dedupe_numbers` 1·2(명령 21쌍 모두 등록, 같은 글자 3종 중복, config 같은 값 5쌍 중복·다른 자료형/값 8쌍 등록) | 실패(`2.5e1`/`25` 중복, config 1/1.0 중복) |
+| I2 | `contract.task_key`·`dedupe.logical_key`·`verify_inputs`가 TypeError·ValueError·RecursionError 등을 ContractError로 바꾼다. NaN·무한대·`MAX_INT_DIGITS`(4000)자리 넘는 정수·JSON 아닌 값·너무 깊은 중첩은 ContractError. Supervisor는 선언 파일을 `parse_int=dedupe.json_number`로 읽어(4000자리 초과 정수 → NaN → 그 선언만 거절: Python 3.12의 정수 변환 상한 ValueError가 파일 전체를 깨지 않고 3.9와 결과가 같다) `RecursionError`도 파일 단위 문제로 처리한다 | `test_harness_dedupe_numbers` 3·4(NaN·±무한대·10^4001·set·5만 단 중첩·거대 seed → ContractError, 등록 없음 / 거대 지수 토큰 graph 등록, 선언 파일의 `1e1000000000000000000`·4001자리 config 선언만 거절·나머지 등록·INTEGRITY_HALT 아님, 10만 단 중첩 선언 파일 → 정지 아님) | 실패(`decimal.InvalidOperation`, 속성 없음) |
+| I4 | 대조는 그대로 HEAD(커밋 SHA, 등록·실행 직전). `verify_code(task, source_root, others)`가 `rev-parse --show-toplevel HEAD HEAD^{tree}`로 tree를 같이 읽고, 다른 등록 계약의 커밋은 `cat-file --batch-check`(한 번)로 tree로 바꿔 `{커밋: tree}`를 돌려준다. `find_duplicate(root, task, key, source_root)`가 먼저 verify_code를 하고 키의 코드 자리(`code`)에 tree를 넣어 비교한다. 이 저장소에 없는 커밋의 계약은 비교하지 않는다. `verify_inputs`는 입력만 본다(git 두 번 부르지 않게) | `test_harness_code_tree` 1(빈 커밋·amend·같은 tree 부모 없는 새 커밋 → enqueue DuplicateTask·graph duplicates, 실제 코드 변경 커밋 → 새 키) | 실패(등록됨) |
+| I5 | `git ls-files -v -z`에서 `H ` 아닌 표시(skip-worktree `S`, assume-unchanged 소문자, 그 밖)가 하나라도 있으면 거절. command 토큰(`--opt=value`의 값 포함, 자리표시자 제외)을 source_root 기준 글자 경로·실제 경로로 보고, source_root 안의 실제 파일인데 추적 목록에 없으면 거절. 등록·실행 직전 모두 | `test_harness_code_tree` 2·3(두 표시 각각: status는 깨끗한데 enqueue·graph 거절, 표시 전 등록한 작업은 executor 0회·결정적 실패 / `new_exp.py`·`./`·절대 경로·`--run=`·`x/..` 5종 거절, 추적 파일·없는 파일 통과, 커밋 뒤 등록) | 실패(등록됨) |
+| V01 | 코드 변경 없음(시험 공백) | `test_harness_code_tree` 4(`GIT_DIR`·`GIT_INDEX_FILE` = 다른 저장소, `GIT_WORK_TREE` = source_root: 다른 저장소 HEAD 거절·자기 HEAD 등록·실행 직전 대조 통과 executor 1회) | 통과(변이로 확인) |
+| I6 | `claude_job.pick`: 큐 PENDING인데 status `done`·`failed`·`stale`, 또는 status `new`인데 `crash_resumes`가 정수 0이 아니거나(없음·bool 포함) `session_id`가 있으면 기존 `job_state_invalid` 대기·장부·알림 한 번. 사람 해제는 그 작업의 상태 파일 삭제 한 가지(status를 new·done 등으로 고쳐 쓰는 것은 해제가 아니다: 다시 모순으로 대기). rate_limited로 고치는 재개는 기존 규칙대로 AUTO_RESUME(빈 목록)·crash_resumes 상한을 따른다 | `test_harness_job_state` 2(변형 8종 × Supervisor 2회: 독립 작업만 실행·알림 1번·blocked, 파일 삭제 뒤 다시 골라 VERIFIED, 정상 new(0·null)는 첫 실행) | 실패(새 세션 열림, claude 2회) |
+| I7 | `sandbox.DENY_MORE`에 `(deny mach-lookup)` + `MACH_ALLOW`(= `com.apple.system.opendirectoryd.libinfo`)만 허용. 허용 이름 근거: 빈 허용 목록에서 정상 executor 시험은 모두 통과했지만 표준 라이브러리 `pwd.getpwuid`가 KeyError(사용자 정보 조회 불가)라 그 읽기 전용 조회만 허용했다. 같은 프로필에서 사용자·시각·로케일·임시 파일·하위 프로세스·sqlite·ssl 문맥·uuid1·numpy 동작 확인(.venv·/usr/bin/python3) | `test_harness_sandbox_deny`(r4가 조회 성공을 본 18개 이름 조회 1100, 허용 이름만 0, 규칙 문자열, 정상 산출물 생성. lsopen은 -54 또는 -10661: 기본 거절 뒤에는 LaunchServices 서버에 닿지 못해 -10661이 나온다. 둘 다 열리지 않음, 앱 없음 -10814·열림 0이 아님) | 규칙 없음(변이로 확인) |
+| V21 | 코드 변경 없음(시험 공백) | `test_harness_output_limits` 1(표준 출력 상한 → 사유 "표준 출력이 상한") | 통과(변이로 확인) |
+| I9 | `sandbox.MAX_TOTAL_OUTPUT_BYTES`(임시 4 GiB) 넘으면 EFBIG 결정적 실패. 실행 폴더 이름을 `harness-exec-<task_key>-*`로. `sandbox.sweep(task_dir)`: `queue.claim`이 잠금을 잡고 이전 주인이 죽었다고 판정한(`who == "dead"`) 뒤에만 작업 폴더 `.out-pending-*`와 시스템 임시 폴더 `harness-exec-<task_key>-*`를 지운다(링크·폴더 아닌 항목 제외) | `test_harness_output_limits` 1~3(합계 5바이트 상한 → 거절·확정 out/ 비어 있음, 6이면 정상 / 실행 폴더 이름·실행 뒤 없음 / 다른 runner가 잠금을 쥐면 그대로, 잠금을 잡은 뒤 정리, 다른 작업 실행 폴더·링크 대상 그대로) | 실패(속성 없음, 정리 안 됨, 이름에 키 없음) |
+
+#### 바꾼 기존 시험(기대값 변경)
+
+| 시험 | 이전 기대 | 새 기대 | 근거 |
+|---|---|---|---|
+| `test_harness_dedupe_numbers`(파일 다시 씀) | 명령 토큰 `5`/`+5`·`0`/`-0`·`0.5`/`.5`·`0.001`/`1e-3`·`1e-3`/`1E-3`·`2.5e3`/`2.5E+3`·긴 정수/`+`긴 정수 7쌍 = 중복 | 7쌍 모두 등록(다른 키). 다른 값 9쌍은 그대로 등록, I1 쌍(`1e3`/`1000` 등 5쌍)도 등록 | 사용자 결정 2026-11-28 숫자 표기("자료형을 확인할 수 없는 경우 임의로 숫자로 변환하지 않는다", "실험 명령 문자열 전체에 일괄적인 숫자 정규화를 적용하지 않는다") |
+| `test_harness_dedupe_keys.test_registrant_labels…` | config `{"epochs": 1.0}` = `{"epochs": 1}` 중복 | 등록(다른 키). config 안 seed = seed 키 중복은 그대로 | 사용자 결정 2026-11-28 숫자 표기("수치형 파라미터는 자료형과 실제 값을 기준으로 정규화") |
+| `test_harness_dedupe_conditions.test_same_conditions…` | config `{"lr": 1.0}`가 `{"lr": 1}` 작업의 중복 | 등록(다른 키). 같은 자료형(`{"lr": 1}`, risk만 다름)은 중복 | 같음 |
+| `test_harness_sandbox_deny` | lsopen 결과 정확히 -54 | -54 또는 -10661(둘 다 열리지 않음), 그 대신 mach 이름 19개 단언 추가 | I7 기본 거절 뒤에는 LaunchServices 서버 조회가 먼저 막혀 -10661이 나온다(이 macOS에서 직접 확인). 앱 없음(-10814)·열림(0)은 여전히 실패다 |
+
+명령 `0.10`/`0.1` 등록(3차 기대)은 그대로다: 3차 표의 근거 "사용자 지시 2"는 메인 지시(`brief-fix3.md`)의 오표기라 정정했고, 이 기대는 이제 사용자 결정 2026-11-28 숫자 표기가 근거다.
+기대값은 같고 준비만 바꾼 시험: 없음(단언 삭제·약화·skip 없음).
+
+#### 변이 확인(수정본 `4c55c81`, 변이마다 git archive 새 복사본 + 관련 시험 모듈, .venv Python, scratchpad `fix4/mutants4.py`·`mutants4.log`)
+
+r4 생존 V01(verify_code가 사용자 GIT_* 환경을 넘김)·V21(표준 출력 상한 분기 제거) 둘 다 잡힘. 4차 수정 핵심 17개(키에 커밋 SHA·다른 계약 tree 안 구함·skip-worktree 검사·미추적 command 파일 검사·
+종료 status+PENDING·new 모순·정수 자릿수 상한·task_key/logical_key 예외 변환·Supervisor RecursionError·config float 정규화·config 1.0→1 옛 규칙·mach 기본 거절·합계 상한·claim의 sweep·실행 폴더 이름) 중
+16개 잡힘. "Supervisor 선언 parse_int 제거"는 처음 시험의 4001자리가 Python 3.12 정수 변환 상한(4300) 안이라 살아남았고, 시험을 4400자리로 바꿔(`cd4db59`) 그 변이가 잡히는 것을 확인했다
+(/usr/bin/python3 3.9에는 상한이 없어 이 변이는 3.12에서만 드러난다).
+
+#### 재현 스크립트 재실행(수정본 `4c55c81` git archive 복사본, 사본 스크립트만 고침)
+
+- `r4_numbers_probe.py`(원본 그대로): 명령 10쌍 모두 등록(사용자 결정: 글자 그대로), 거대 지수 enqueue 등록, graph 두 선언 모두 등록, Supervisor RUNNING·정상 선언 등록(I2 해결).
+- `r4_code_sha_probe.py`: A 빈 커밋 뒤 같은 실험 → DUP·executor 0회(I4 해결, tree 같음 True). B(추적 안 하는 스크립트 등록)는 이제 등록 단계에서 ContractError라 원래 지점(실행)에 닿지 않아,
+  사본에 B2(등록 때 파일 없음 → 등록 뒤 추적하지 않는 `new_exp.py` 생성)를 더했다: 실행 직전 결정적 실패·executor 0회. A2 amend·같은 tree 새 이력 → DUP. C(표시 전 등록 + skip-worktree) →
+  executor 0회·결정적 실패, C2(표시 뒤 등록: skip-worktree·assume-unchanged) → ContractError(I5 해결). D 같은 크기·mtime 되돌림 → 결정적 실패, E 사용자 GIT_DIR·GIT_WORK_TREE → ContractError,
+  F 링크 source_root 등록·하위 폴더 거절, G 등록 뒤 커밋 → 결정적 실패(모두 r4와 같음).
+- `r4_session_jobfile_probe.py`(원본 그대로): 2) 빈 AUTO_RESUME claude 1회·resume 0. 3) 상한 대기 파일 변형 10종(`[]`·모르는 status·crash_resumes 삭제·null·status done·failed·stale·new·
+  crash_resumes true·session_id 숫자) 모두 변형 뒤 claude 추가 0회·최종 blocked(I6 해결: r4에서는 done·failed·stale·new가 새 세션 1회).
+- `r4_declared_mismatch.py`(원본 그대로, PYTHONPATH에 r3 폴더): 기본·`big` 모두 RUNNING·독립 작업 완료. `big`의 거대 지수 선언은 이제 숫자 단계가 아니라 원래 공격 지점(입력 SHA 대조)까지 가서
+  그 선언만 거절된다(거절 3건·알림 3번, I2 해결).
+- `r4_pending_kill.py`(사본: 두 번째 runner 뒤 잔여물 확인 항목 추가): 복사 중 kill -9 → `.out-pending-*` 75 MB와 `harness-exec-<키>-*` 남음, complete.json 없음, INTERRUPTED. 두 번째 runner는
+  await_result(실행 0)이면서 잠금을 잡은 뒤 두 잔여물을 지웠다(I9 해결, 남은 것 0).
+
+#### 구조(함수 수·호출 깊이)
+
+harness 함수 정의 수 전→후(`df6b78b` 기준): `dedupe` 6→6(`_number` → `json_number`), `sandbox` 4→5(`sweep`), `queue` 6→6, `contract` 5→5, `jsonio` 2→2, `supervisor` 4→4, `claude_job` 6→6, `graph` 4→4.
+새 시험: `code_tree` 5, `output_limits` 5. 고친 시험: `dedupe_numbers` 4→7(+λ2), `job_state` 4→5, `sandbox_deny` 3+λ4 그대로, `dedupe_keys` 7, `dedupe_conditions` 6. 7 초과 시험 파일은 기존 것뿐.
+최대 호출 깊이 4, 초과 0(`structure_measure.py`). 새·바뀐 경로: `supervisor.run → graph.register_missing → dedupe.find_duplicate → verify_code`(3)·`→ logical_key → _command`(4), `queue.enqueue → find_duplicate → verify_code`(2),
+`runner.main → drain → queue.claim → sandbox.sweep`(3). `json_number`는 json 콜백(정적 미집계, 말단).
+
+#### 검사 결과
+
+- 전체 시험(`PYTHONDONTWRITEBYTECODE=1 <python> -m unittest discover -s tests -p "test_harness_*.py"`, 공용 잠금 안, git archive 복사본): `d53ed63` 작업 트리 418개 OK(두 Python),
+  `ded8e03` OK(두 Python), `4c55c81` 426개 OK·종료 코드 0(.venv 3.12, /usr/bin/python3 3.9).
+- `cd4db59`(시험 한 줄 변경)은 `test_harness_dedupe_numbers` 모듈만 두 Python으로 OK. 이 문서 커밋은 문서만 바꿨다.
+- `git diff --check df6b78b`: 문제 없음.
+- **미완료**: 최종 HEAD(`cd4db59`·이 문서 커밋) 기준 전체 시험 재실행은 하지 않았다(사용자 체크포인트 지시 2026-11-28: 새 작업 보류, 새로 시작하지 않음). r4 재현 스크립트 5종은 위대로 `4c55c81`에서 실행했다.
+
+#### 남는 한계(판별 불가·fail-closed로 둔 것 포함)
+
+- I1·I3(사용자 결정에 따른 한계): 명령 토큰은 자료형을 알 수 없어 `1e3`과 `1000`, `0.10`과 `0.1`, `+5`와 `5`를 다르게 본다. 같은 실험이 명령 안 숫자 표기만 바꿔 다시 등록·실행될 수 있다
+  (같은 실험인지 확정할 수 없다). **운영 안내: 수치 파라미터(학습률·에폭·임계값 등)는 command가 아니라 run_conditions.config로 넘겨라. config는 JSON 자료형이 있어 같은 값이면 중복으로 판정된다.**
+  config에서도 int 1과 float 1.0은 다르다(실행 코드가 둘을 같게 써도 다른 실험으로 등록될 수 있다). config 정수는 4000자리, 선언 파일 정수도 4000자리까지만 받는다.
+- I4: 다른 등록 계약의 커밋을 source_root 저장소에서 찾지 못하면(다른 저장소에서 등록, gc로 사라진 커밋) 그 계약과는 비교하지 않는다(같은 실험이 다시 등록될 수 있다). 대조는 여전히 커밋 SHA라
+  등록과 실행 사이에 문서 커밋이 하나라도 생기면 그 작업은 실행 직전 결정적 실패이고, 같은 tree로 다시 등록하면 그 실패 작업의 중복으로 거절된다(사람이 실패 작업을 정리해야 다시 돈다: 중복 실행보다
+  거절 쪽, 지시대로 대조는 HEAD).
+- I5: command 토큰이 이름으로 가리키는 파일만 본다. 폴더 토큰 안 파일, 스크립트가 import하는 추적하지 않는 모듈, 하위 모듈의 `ignore=all` 설정은 보지 않는다. 상대 토큰은 source_root 기준으로 본다
+  (executor의 실제 cwd와 다를 수 있다). sparse-checkout(skip-worktree 사용)을 쓰는 저장소는 실험·학습·평가가 모두 거절된다(fail-closed).
+- I6: 사람 해제는 상태 파일 삭제뿐이다. 같은 사용자 프로세스가 rate_limited·crash_resumes를 함께 고쳐 쓰는 것은 막지 못한다(자동 재개 목록이 비어 있어 지금은 대기로 떨어진다).
+- I7: mach-lookup은 이름 조회만 거절한다. 이미 가진 포트(bootstrap 포트 자체, 상속 포트)로 보내는 요청과 허용 이름(opendirectoryd libinfo) 요청은 막지 않는다(메시지 전송 시험은 하지 않았다).
+  GPU(Metal)·키체인·DNS·cfprefsd 등 mach 서비스가 필요한 executor(실제 학습 라이브러리 일부 가능)는 sandbox 안에서 실패한다. 허용 목록을 넓히려면 사용자 결정이 필요하다(fail-closed로 둠).
+- I9: 정리는 그 작업의 claim에서만 한다(이전 주인이 죽었다고 판정한 뒤). 다시 claim되지 않는 작업(VERIFIED 뒤 등)의 잔여물과 시스템 임시 폴더 위치가 바뀐 경우(TMPDIR 다름)는 남는다.
+  합계 상한 4 GiB는 임시값이다(코드 상수, 명령행 설정 없음).
+- 기존 한계 유지: 3차 절의 H3(인자 순서 등)·H7·H11, setsid 자손, Claude out/ staging 아님, 실환경 미검증(Supervisor → 실제 claude → 큐 반영, 실제 한도 거절 이벤트, 무인 재개, A 옵션 효과).
+
+#### 롤백
+
+- 전체: `git revert <이 문서 커밋> cd4db59 4c55c81 1b611f3 4c2995f ded8e03 d53ed63`(역순) 또는 `git reset --hard df6b78b`(이 브랜치만, push 전).
+- 운영 상태 형식 변화: 실험 논리 키의 코드 자리가 커밋 → tree(되돌리면 이전 키로 다시 계산될 뿐, 저장 형식 변화 없음), 실행 폴더 이름 `harness-exec-<task_key>-*`, sweep이 claim 때 잔여물 삭제,
+  config 1/1.0·명령 숫자 표기 키 변화(같은 계약이 이전 코드와 다른 키를 가질 수 있음). 실운영 root는 아직 없다.
