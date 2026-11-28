@@ -16,7 +16,8 @@ Supervisor `--executors`)에 등록했다. runner가 sandbox 안에서 부르므
   <작업 폴더>/code-check.json(sandbox가 쓰지 못하는 고정 위치, 경로는 runner가 넣는 환경변수 CHECK_ENV)에 쓰고, 어댑터(execute)는 check_code로 그
   파일만 읽어 code_sha·source_root가 이 실행과 같은지, 목록의 모든 추적 파일이 지금 내용(blob SHA 재계산)과 같은지 본다(검증 뒤 실행 대상 변경 차단).
   파일 없음·링크·형식 오류·불일치·읽기 실패는 refused(실행 안 함). 봉인 경로 목록 아래 추적 파일은 sandbox가 읽을 수 없어 목록에서 빼고
-  sealed_skipped에 남긴다(목록은 artifacts/ 아래 자료뿐이고 실행 코드가 아니다: tests/test_harness_code_check). 계약 필드는 이 결과에 쓰이지 않는다.
+  sealed_skipped에 남긴다(그 파일은 sandbox 안에서 읽기·실행이 거절되어 sandbox 안 어댑터·./experiment가 실행할 수 없다: tests/test_harness_sandbox_read.
+  목록 97개는 모두 artifacts/ 아래, 그중 .py 8개는 옛 holdout 폴더의 worker). 계약 필드는 이 결과에 쓰이지 않는다.
   run()을 직접 부르면(시험·runner 밖) 예전처럼 verify_code를 직접 한다.
 - 결과 해석(interpret): 종료 코드와 record.json 상태가 함께 맞아야 한다. 0+completed(+result.json 해시가 record files와 같음) = 완료,
   1+failed = 실험 자체 실패(결정적), 128 초과+interrupted = 중단, 출력에 기록 줄이 없고 1(잠금 사용 중)·2(계획 오류) 안내문이며 실행 전후
