@@ -1,4 +1,4 @@
-"""하네스 제어 명령줄(B6): python -m harness.control status|stop|start --root R. 사용자 중단을 푸는 명령은 없다(B6-5 미구현).
+"""하네스 제어 명령줄(B6): python -m harness.control status|stop|start --root R. 사용자 중단을 푸는 명령은 여기 없다(해제는 harness.control_release).
 
 - status(읽기 전용): status.collect → status_view의 짧은 텍스트(--html이면 정적 HTML)를 표준 출력에 낸다. 파일을 쓰지 않는다.
 - stop: opstate의 USER_STOPPED를 기록한다. 이미 정지면 기존 기록(since·사유)을 그대로 둔다. 상태 파일을 다시 읽어 확인한 사실만 말한다.
@@ -38,7 +38,7 @@ def stop(root, now, reason):
     except OSError as exc:
         return 1, "중단을 기록했는지 확인하지 못함%s: 상태 파일을 읽을 수 없음(%s). 중단됐다고 보지 말 것." % (error, type(exc).__name__)
     if opstate.USER_STOPPED in state["conditions"]:
-        return 0, "중단 기록 확인: USER_STOPPED%s. %s 해제는 사용자만 하며 이 명령줄에는 해제 명령이 없다." % (error, note)
+        return 0, "중단 기록 확인: USER_STOPPED%s. %s 해제는 사람이 python -m harness.control_release(확인 코드 2단계)로 한다." % (error, note)
     now_state = opstate.effective(state)
     held = " 이 상태에서도 Supervisor는 새 작업을 시작하지 않는다." if now_state in opstate.HALTING else \
         " Supervisor가 새 작업을 시작할 수 있다."

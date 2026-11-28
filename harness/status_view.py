@@ -16,7 +16,7 @@ LABELS = {opstate.INTEGRITY_HALT: "무결성 정지", opstate.USER_STOPPED: "사
           opstate.BUDGET_EXCEEDED: "개발 예산 초과", opstate.RATE_LIMITED_SHORT: "사용량 한도(단기)",
           opstate.RATE_LIMITED_WEEKLY: "사용량 한도(주간)", opstate.RATE_LIMITED_UNKNOWN: "사용량 한도(종류 미상)",
           opstate.RUNNING: "정지 조건 없음"}
-TODO = {opstate.INTEGRITY_HALT: "무결성 정지 원인 확인", opstate.USER_STOPPED: "사용자 중단 해제는 사용자만(해제 명령은 아직 없음)",
+TODO = {opstate.INTEGRITY_HALT: "무결성 정지 원인 확인", opstate.USER_STOPPED: "사용자 중단 해제는 사용자만(python -m harness.control_release, 확인 코드 2단계)",
         opstate.DONE: "종료 상태 확인", opstate.BUDGET_EXCEEDED: "예산 재승인 여부 결정"}
 
 

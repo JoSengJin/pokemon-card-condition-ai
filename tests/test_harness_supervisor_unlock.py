@@ -107,10 +107,14 @@ class UnlockTest(unittest.TestCase):
             used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} | \
                    {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)} | \
                    {a.name for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom)) for a in n.names}
-            if name != "unlock.py":
+            # B6-5(pre-b6 결정 1 A): 사람이 직접 실행하는 해제 진입점 control_release.py 한 파일만 더 허용한다(이름 정확 일치, 와일드카드 없음).
+            # 대신 그 파일을 부르는 하네스 코드도 없어야 한다(진입점은 python -m과 hooks/user_prompt_submit.py뿐).
+            if name not in ("unlock.py", "control_release.py"):
                 self.assertFalse(used & {"unlock", "release_interrupts", "release_holder"}, name)
-            if name != "opstate.py":
+            if name not in ("opstate.py", "control_release.py"):
                 self.assertNotIn("clear_by_user", used, name)  # 사용자 해제 함수는 하네스 코드가 부르지 않는다
+            if name != "control_release.py":
+                self.assertNotIn("control_release", used, name)
 
 
 if __name__ == "__main__":

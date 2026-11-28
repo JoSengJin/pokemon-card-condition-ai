@@ -53,7 +53,7 @@ def start(root, claude_bin=None, executors=None, source_root=None, max_cycles=No
     work = "Python 작업: %s · Claude 작업: %s." % ("켬" if executors else "끔(--executors 없음)",
                                               "켬" if claude_bin else "끔(--claude-bin 없음)")
     if state in opstate.HALTING:
-        work += " 정지 상태(%s)라 감시만 하고 어떤 작업도 시작하지 않는다. start는 정지를 풀지 않는다(해제 명령 없음)." % state
+        work += " 정지 상태(%s)라 감시만 하고 어떤 작업도 시작하지 않는다. start는 정지를 풀지 않는다(해제는 harness.control_release)." % state
     elif state in opstate.RATE_LIMITED:
         work += " 사용량 한도 상태(%s)라 Claude 작업은 재개 시각까지 멈춘다." % state
     deadline, pause, locked = time.monotonic() + CONFIRM_S, GRACE_S, False
