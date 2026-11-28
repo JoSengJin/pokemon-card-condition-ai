@@ -18,7 +18,7 @@ import unittest
 from unittest import mock
 
 from harness import contract as ct
-from harness import queue, runner, sandbox, states
+from harness import claude_perm, queue, runner, sandbox, states
 from tests import test_harness_boundary_kit as kit
 from tests.test_harness_git_kit import CODE, git_source
 from tests.test_harness_support import make_contract
@@ -111,7 +111,7 @@ class ExecBoundaryTest(unittest.TestCase):
         root, _ = self._root()
         run = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, run, True)
-        text = sandbox.profile(root, run)
+        text = sandbox.profile(root, run, claude_perm.sealed_paths([sandbox.REPO]))
         real = os.path.realpath(run)
         self.assertIn('(subpath "%s/out")' % real, text)
         self.assertIn('(subpath "%s/tmp")' % real, text)
@@ -121,7 +121,7 @@ class ExecBoundaryTest(unittest.TestCase):
             self.assertIn('(literal "%s")' % path, text)
         for bad in (os.path.join(root, "tasks"), os.path.join(root, "tasks", "k"), root, os.path.join(sandbox.REPO, "harness")):
             with self.assertRaises(ValueError, msg=bad):
-                sandbox.profile(root, bad)
+                sandbox.profile(root, bad, claude_perm.sealed_paths([sandbox.REPO]))
 
 
 if __name__ == "__main__":

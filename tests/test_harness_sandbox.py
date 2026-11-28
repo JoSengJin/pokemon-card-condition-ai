@@ -12,7 +12,7 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
-from harness import lease, opstate, queue, runner, sandbox, states
+from harness import claude_perm, lease, opstate, queue, runner, sandbox, states
 from tests.test_harness_runner_kit import count, run, spawn_runner, task
 
 
@@ -41,7 +41,7 @@ class SandboxTest(unittest.TestCase):
         self.assertEqual((code, json.loads(printed.getvalue())["executed"], count(marks, "U")), (runner.SANDBOX_EXIT, 0, 0))
         self.assertEqual(states.state_of(states.facts(os.path.join(root, "tasks", key)), False), states.PENDING)
         with self.assertRaises(ValueError):  # 프로필에 안전하게 적을 수 없는 경로는 거절
-            sandbox.profile('/tmp/a"b')
+            sandbox.profile('/tmp/a"b', None, claude_perm.sealed_paths([sandbox.REPO]))
 
     def test_executor_child_ends_when_its_runner_is_killed(self):
         root, marks = tempfile.mkdtemp(), tempfile.mkdtemp()

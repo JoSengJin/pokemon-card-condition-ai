@@ -80,7 +80,7 @@ class SealedReadTest(unittest.TestCase):
 
     def test_sealed_reads_are_refused_in_sandbox_but_normal_reads_and_stdlib_work(self):
         base, src, _ = fake_repo(self)
-        text = sandbox.profile(os.path.join(base, "root"), tempfile.mkdtemp(dir=base))
+        text = sandbox.profile(os.path.join(base, "root"), tempfile.mkdtemp(dir=base), claude_perm.sealed_paths([sandbox.REPO, src]))
         for rel in ("vault", "loose.json", "hidden"):  # 링크 항목(alias)은 실제 경로(hidden)로 적힌다
             self.assertIn('(subpath "%s")' % os.path.join(src, rel), text)
         self.assertEqual(self._run(base, src), dict({p: "denied:1" for p in PROBES[:8]}, open_ok="ok", stdlib="ok"))
@@ -123,13 +123,20 @@ class SealedReadTest(unittest.TestCase):
                 os.remove(listing)
                 os.symlink(good, listing)
             with self.assertRaises(ValueError, msg=bad):
-                sandbox.profile(os.path.join(base, "root"))
+                claude_perm.sealed_paths([sandbox.REPO, src])
             self.assertFalse(sandbox.available(), bad)
+            task = make_contract("F", task_type="peeker", inputs={"src": src})
+            final = os.path.join(base, "root", "tasks", ct.task_key(task), "out")
+            with self.assertRaises(ValueError, msg=bad):  # executor를 실행하지 않는다(산출물 없음)
+                sandbox.run_one(os.path.join(base, "root"), SPEC, "peeker", task, final)
+            self.assertFalse(os.path.exists(os.path.join(final, "result.txt")), bad)
             sha = sha_file(os.path.join(src, "open", "ok.json"))
             with self.assertRaises(ValueError, msg=bad):
                 claude_perm.stage_inputs(os.path.join(base, "task"), {"inputs": {"open/ok.json": sha}}, src, os.path.join(base, "root"))
 
     def test_tracked_list_loads_and_holds_only_data_paths(self):
+        with self.assertRaises(ValueError):  # 프로필은 봉인 경로 목록 없이 만들지 않는다
+            sandbox.profile(tempfile.gettempdir(), None, [])
         with open(claude_perm.SEALED_LIST, encoding="utf-8") as handle:
             listed = json.load(handle)["paths"]
         self.assertIn("artifacts/d1-testset-20261103", listed)

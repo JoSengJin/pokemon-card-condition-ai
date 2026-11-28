@@ -11,7 +11,7 @@
 - 실험·학습·평가 executor는 runner가 실행 직전에 SHA를 확인해 복사한 사본(작업 폴더 in/, sandbox가 쓰기를 허용하지 않는다)을 읽는다:
   환경변수 HARNESS_INPUT_DIR(G6). 원본 폴더 읽기는 봉인 경로 목록(claude_perm.sealed_paths: 저장소와 runner가 넣은 HARNESS_SOURCE_ROOT
   기준 실제 경로) 아래만 거절한다(deny file-read* subpath, 2026-11-28 이 macOS에서 읽기·stat·목록·링크 경유·하드 링크 만들기 거절 실측).
-  목록이 없거나 링크·형식 오류면 프로필을 만들지 않는다(ValueError: available()은 False, executor를 실행하지 않는다).
+  목록이 없거나 링크·형식 오류면 sealed_paths가 ValueError(available()은 False, run_one·sandboxed는 executor를 실행하지 않는다).
 - 프로세스 그룹: executor 자식은 새 세션(start_new_session)으로 띄우고, 끝나면 그 그룹을 KILL한다(G7). 자식은 runner가 죽으면 0.1초 안에
   자기 그룹째 끝낸다(sandbox_child._watch). 한계: setsid로 새 세션을 만든 자손은 그룹 밖이라 남는다(pid를 모른다). 그런 자손도 sandbox를
   물려받아 그 실행 폴더 밖에는 쓰지 못하고, 확정 out/은 바꾸지 못한다. 표준 출력은 이름 없는 임시 파일로 받아(파이프 아님) 그런 자손이
@@ -33,7 +33,7 @@
   써야 하는 라이브러리는 sandbox 안에서 실패한다(TMPDIR·staging만 쓸 수 있다).
 - 잔여물(4차 결함 I9): runner가 반영 중 kill되면 작업 폴더의 .out-pending-*와 실행 폴더 harness-exec-<task_key>-*가 남는다. 다음 runner가 그 작업의
   작업권을 잡은 뒤 sweep이 지운다(queue.claim). 산출물 합계 크기 상한은 MAX_TOTAL_OUTPUT_BYTES.
-호출 깊이: available·sandboxed·run_one → profile → claude_perm.sealed_paths(말단) 2, run_one → safefs.open_regular·safefs.replace_new·safefs.publish(말단) 1, sweep 0(queue.claim에서 부른다).
+호출 깊이: available·sandboxed·run_one → profile·claude_perm.sealed_paths(말단, 호출자가 읽어 profile에 넘긴다) 1, run_one → safefs.open_regular·safefs.replace_new·safefs.publish(말단) 1, sweep 0(queue.claim에서 부른다).
 """
 import errno
 import functools
@@ -72,12 +72,13 @@ class ChildError(Exception):
     status = None
 
 
-def profile(root, run_dir=None):
+def profile(root, run_dir, sealed):
     """SBPL 문자열: 쓰기 기본 거절 + run_dir/out·run_dir/tmp·DEVICES만 허용(run_dir 자체와 그 밖 자리는 거절). run_dir은 하네스 root·저장소
     (REPO) 밖이어야 한다. 경로에 따옴표·역슬래시가 있거나 위치가 맞지 않으면 ValueError(프로필을 안전하게 적을 수 없다).
-    봉인 경로 목록(저장소·HARNESS_SOURCE_ROOT 기준) 읽기는 거절한다. 목록이 없거나 틀리면 sealed_paths가 ValueError(fail-closed)."""
+    sealed(호출자가 claude_perm.sealed_paths로 읽은 실제 경로 목록)의 읽기는 거절한다. 비어 있으면 ValueError(목록 없이 만들지 않는다)."""
     base, run = os.path.realpath(root), os.path.realpath(run_dir) if run_dir else None
-    sealed = sealed_paths([REPO, os.environ.get(SOURCE_ENV)])
+    if not sealed:
+        raise ValueError("봉인 경로 목록 없이 sandbox 프로필을 만들지 않는다")
     if any('"' in p or "\\" in p for p in [base] + ([run] if run else []) + list(DENY_EXEC) + sealed):
         raise ValueError("sandbox 프로필에 쓸 수 없는 경로")
     if run and any(os.path.commonpath([inner, run]) == inner for inner in (base, os.path.realpath(REPO))):
@@ -94,7 +95,7 @@ def available():
     if not os.path.isfile(SANDBOX_EXEC):
         return False
     try:
-        done = subprocess.run([SANDBOX_EXEC, "-p", profile(REPO), "/usr/bin/true"], stdin=subprocess.DEVNULL,
+        done = subprocess.run([SANDBOX_EXEC, "-p", profile(REPO, None, sealed_paths([REPO])), "/usr/bin/true"], stdin=subprocess.DEVNULL,
                               capture_output=True, timeout=30, check=False)
     except (OSError, subprocess.SubprocessError, ValueError):  # ValueError: 봉인 경로 목록 없음·링크·형식 오류(fail-closed)
         return False
@@ -108,6 +109,7 @@ def run_one(root, spec, task_type, task, out_dir):
     3차 결함: 확정 out/은 실행 전에 O_NOFOLLOW로 연 fd로만 반영한다(링크면 실행하지 않는다, S09). 산출물은 모두 검사해 하네스 소유 임시 폴더
     (작업 폴더의 .out-pending-*)에 연 순간의 fstat 크기까지만 복사한 뒤 한 번에 옮긴다: 하나라도 거절되면 확정 out/은 그대로다(H5).
     산출물 하나가 MAX_OUTPUT_BYTES, 표준 출력이 MAX_STDOUT_BYTES를 넘으면 결정적 실패다(H4)."""
+    sealed = sealed_paths([REPO, os.environ.get(SOURCE_ENV)])  # 봉인 경로 목록 오류면 ValueError: 아무것도 만들거나 실행하지 않는다
     try:
         os.makedirs(out_dir, exist_ok=True)
         final = os.open(out_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)  # 확정 out/이 링크면 ELOOP: 실행하지 않는다
@@ -123,7 +125,7 @@ def run_one(root, spec, task_type, task, out_dir):
         held = os.open(stage, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)  # 실행 전에 연 staging: 이름이 바뀌어도 이 폴더만 읽는다
         try:
             with tempfile.TemporaryFile() as said, tempfile.TemporaryFile() as noise:
-                child = subprocess.Popen([SANDBOX_EXEC, "-p", profile(root, run)] + CHILD + ["run", spec, task_type, stage], cwd=REPO,
+                child = subprocess.Popen([SANDBOX_EXEC, "-p", profile(root, run, sealed)] + CHILD + ["run", spec, task_type, stage], cwd=REPO,
                                          env=env, stdin=subprocess.PIPE, stdout=said, stderr=noise, start_new_session=True)
                 child.communicate(json.dumps(task, ensure_ascii=False).encode("utf-8"))
                 try:
@@ -202,7 +204,7 @@ def sweep(task_dir):
 
 def sandboxed(root, spec):
     """sandbox 안에서 spec(module:ATTR)의 유형 목록을 읽어 {task_type: run_one 부분 적용} dict를 만든다. 실패는 ChildError."""
-    done = subprocess.run([SANDBOX_EXEC, "-p", profile(root)] + CHILD + ["list", spec], cwd=REPO, stdin=subprocess.DEVNULL,
+    done = subprocess.run([SANDBOX_EXEC, "-p", profile(root, None, sealed_paths([REPO]))] + CHILD + ["list", spec], cwd=REPO, stdin=subprocess.DEVNULL,
                           capture_output=True, text=True, errors="replace", check=False)
     try:
         names = json.loads(done.stdout.strip().split("\n")[-1])

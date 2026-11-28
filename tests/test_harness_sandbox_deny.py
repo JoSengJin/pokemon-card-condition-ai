@@ -18,7 +18,7 @@ import tempfile
 import unittest
 
 from harness import contract as ct
-from harness import sandbox
+from harness import claude_perm, sandbox
 from tests.test_harness_support import make_contract
 
 SPEC = "tests.test_harness_sandbox_deny:EXECUTORS"
@@ -78,7 +78,7 @@ class SandboxDenyTest(unittest.TestCase):
             self.addCleanup(listener.close)
             listener.bind(where)
             listener.listen(5)
-        text = sandbox.profile(root, tempfile.mkdtemp(dir=base))
+        text = sandbox.profile(root, tempfile.mkdtemp(dir=base), claude_perm.sealed_paths([sandbox.REPO]))
         for rule in ("(deny network*)", '(deny network-outbound (remote ip "localhost:*"))', "(deny lsopen)",
                      '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd"))', "(deny mach-lookup)",
                      '(allow mach-lookup (global-name "com.apple.system.opendirectoryd.libinfo"))'):
