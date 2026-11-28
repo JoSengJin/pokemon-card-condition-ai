@@ -13,11 +13,11 @@
   입력 사본이 없어 fail-closed로 실패한다(Q3와 함께 정한다). run_select를 직접 호출하는 시험만 입력 폴더를 인자로 준다.
 호출 깊이: declare → need_labels → ledger.events → _load 3(supervisor.run 기준 +1 = 4). load_inputs → logical_zones.read_input 1, → active_learning.check_inputs → protected_reason 2.
 """
-import json
 import os
 
 from . import contract as ct
-from . import active_learning, logical_zones, relabel, silver_policy, silver_store
+from . import active_learning, ledger, logical_zones, relabel, silver_policy, silver_store
+from .jsonio import write_json
 from .active_learning import ActiveLearningError
 
 TASK_TYPE = "al_select"  # dedupe.PLAIN_TYPES에 같은 이름으로 등록한다(시험이 일치를 확인)
@@ -80,3 +80,43 @@ def record_queue(root, now, task_key, result, criteria_version, completed=()):
                 seen.add(key)
                 accepted.append(row["key"])
     return {"ok": True, "accepted": accepted, "rejected": rejected}
+
+
+def run_select(contract, out_dir, task_dir=None):
+    """executor 표 항목(runner 계약 (contract, out_dir) -> 출력 목록). 입력 사본 위치 = task_dir 또는 환경변수 HARNESS_INPUT_DIR의 위 폴더.
+    승인된 Silver 정책 범위를 아직 정하지 않아(scopes 없음) 선별한 항목은 모두 사람 큐로 간다. 반환 OUTPUTS."""
+    if contract.get("task_type") != TASK_TYPE or contract.get("outputs") != OUTPUTS:
+        raise AlCycleError("%s 유형과 outputs %s만 받는다" % (TASK_TYPE, OUTPUTS))
+    if task_dir is None:
+        copies = os.environ.get("HARNESS_INPUT_DIR")
+        if not copies:  # runner가 이 유형에는 아직 입력 사본을 만들지 않는다: 읽을 수 없으면 실행하지 않는다
+            raise AlCycleError("입력 사본 위치(HARNESS_INPUT_DIR)가 없다")
+        task_dir = os.path.dirname(copies)
+    got = load_inputs(task_dir, contract)
+    res = active_learning.select(got["candidates"], got["protected"], got["config"], got["budget"], got["seed"], [])
+    write_json(os.path.join(out_dir, OUTPUTS[0]), {"selected": res["selected"]})
+    write_json(os.path.join(out_dir, OUTPUTS[1]), {"human_queue": res["human_queue"]})
+    return list(OUTPUTS)
+
+
+EXECUTORS = {TASK_TYPE: run_select}  # --executors harness.al_cycle:EXECUTORS (운영 표에는 아직 붙이지 않는다)
+
+
+def need_labels(root):
+    """승격 판정 줄(promotion_verdict) 중 사유가 NEED_LABEL_CODES에 드는 판정의 task_key(정렬). 코드 집합이 비면 빈 목록. 읽기만 한다."""
+    found = ledger.events(os.path.join(root, "ledger.jsonl"), "promotion_verdict")
+    return sorted({d["task_key"] for d in found if isinstance(d, dict) and isinstance(d.get("task_key"), str) and isinstance(d.get("reasons"), list)
+                   and NEED_LABEL_CODES.intersection(r for r in d["reasons"] if isinstance(r, str))})
+
+
+def declare(root, declared):
+    """declared({task_key: 계약})에 need_labels 판정마다 al_select 계약(seed·depends_on = 그 판정 작업)을 더해 돌려준다. 같은 입력은 같은 결과.
+    NEED_LABEL_CODES 또는 APPROVED_INPUTS가 비어 있으면(기본) 읽지도 않고 declared를 그대로 돌려준다."""
+    if not isinstance(declared, dict) or not NEED_LABEL_CODES or not APPROVED_INPUTS:
+        return declared
+    added = {}
+    for key in need_labels(root):
+        task = {"task_type": TASK_TYPE, "inputs": dict(APPROVED_INPUTS), "outputs": list(OUTPUTS), "depends_on": [key], "needs_llm": False,
+                "needs_vision": False, "risk": "low", "retry_policy": {"max_transient_retries": 0}, "escalation_level": 0}
+        added[ct.task_key(task)] = task
+    return dict(declared, **added)
