@@ -250,6 +250,14 @@ source_root 쪽 worktree 목록은 **그 폴더 안에 중첩된 것만** 더한
 | remove | 봉인 아님(worker.py 1개) | 1 | 파일 이름만 확인 |
 | remove | 봉인 아님(plan·worker만) | 1 | 파일 이름만 확인 |
 
+## 계보 폴더 보강 (2026-11-28, 차단 강화만)
+
+사용자 D4 "미확인은 확인 전 차단"의 후속. 실험 폴더의 `result.json`은 정답 rows를 포함하는데(`card_condition/experiment_record.py:225`) 이름 glob(`reference.json`·`observations.json`) 밖이라 열려 있었다. `harness/sealed_paths.json`에 **폴더 전체** 22개를 추가했다(144 → 166항목, 메인 추가 20개 포함 186항목, 기존 항목·glob 2줄은 그대로).
+- 근거(메타데이터 `plan.json`·`record.json`만 사용, 봉인 파일 내용 열람 0건): B 계보 봉인 19(참조 사슬 16 + 명령 인자의 worker가 봉인 폴더 3), B 후보 3(worker 코드에 봉인 폴더 경로 글자: `20261021T204152-d9cd6f88`, `20261115T214158-7d77f37b`, `20261115T222335-d9dacbe8`). 분류 스크립트·결과는 메인 scratchpad `trust/lineage.py`·`lineage-detail.json`.
+- 시험: `tests/test_harness_seal_lineage.py`(2건) — 실제 목록에 22+20개가 모두 있고 기존 glob이 남아 있음, 합성 폴더의 result.json·evaluation.json·index.html·images가 sandbox 안에서 EPERM(PermissionError)으로 거절되고 목록 밖 폴더는 읽힘(항목을 빼면 열림).
+- 메인 추가(같은 날): 위 22개와 기존 실험 폴더 항목의 result.json을 참조 사슬(plan.json의 reference_result·required_cohorts)로 이어받는 실험 폴더 **20개**를 전이 폐포로 계산해 폴더 전체로 추가했다(166 → 186항목). 내용에 정답이 이어지는지는 열어보지 않았으므로 D4 "미확인은 확인 전 차단"으로 막는다. 해제는 사용자 결정. 목록은 시험 `CLOSURE`. ② `jpeg-resize-factorial-execution-20261116/audit.py`가 `card-a-eval-20261113`·`card-fa-judgment-20261113`도 읽는다(이 둘은 목록·분류에 없음). ③ 폴더명·이름 근거이며 내용 기준 완전성은 미확인.
+- 롤백: 이 커밋 `git revert`(목록 22항목·시험·이 절). 되돌리면 해당 result.json 등이 sandbox 안에서 다시 읽힌다.
+
 ## 한계·미확인
 
 - **같은 macOS 사용자의 sandbox 밖 프로세스**(Codex·대화형 Claude·사용자 셸)는 여전히 봉인 자료를 읽을 수 있다(OS 사용자 분리 D-7 범위).

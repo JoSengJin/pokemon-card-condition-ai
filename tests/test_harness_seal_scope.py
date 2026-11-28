@@ -122,7 +122,7 @@ class SealScopeTest(unittest.TestCase):
             listed = json.load(handle)["paths"]
         with open(claude_perm.OUTSIDE_LIST, encoding="utf-8") as handle:
             roots = json.load(handle)["roots"]
-        self.assertEqual((len(listed), len(roots)), (144, 156))
+        self.assertEqual((len(listed), len(roots)), (186, 156))  # 계보 폴더 보강 42항목(2026-11-28)
         for needed in ("artifacts/cohort2-seal-20261123", "artifacts/cohort-seal-20261123", "artifacts/d1-testset-20261103", "artifacts/d1b-surface-20261104",
                        "artifacts/c4-expansion-20261103/answers-holdout-5.txt", "artifacts/ebay-independent-20261119-a", "artifacts/experiments/*/reference.json"):
             self.assertIn(needed, listed)
