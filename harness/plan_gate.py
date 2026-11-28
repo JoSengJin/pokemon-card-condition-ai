@@ -30,10 +30,10 @@ Supervisor가 회차마다 declared.json을 읽은 뒤 gate를 부르고, gate�
 gate → _derive → verify_code·_head·_diff·build_plan 2, gate → _screen → task_key 2, gate → note_rejected → append 2.
 """
 import json
-import math
 import os
 import re
 import subprocess
+import sys
 
 from . import contract as ct
 from . import budget, claude_perm, dedupe, experiment_exec, graph, ledger, states
@@ -46,7 +46,9 @@ VARIABLE = ("experiment_parameter", "value")  # 승인 변수(점이 든 키로 
 PARAM_KEYS = ("name", "baseline", "value", "scope")
 _EID = re.compile(r"\d{8}T\d{6}-[0-9a-f]{8}")  # experiment_record.prepare의 실험 폴더 이름
 _MISSING = object()
-_PLAN_ERRORS = (ValueError, TypeError, KeyError, AttributeError, RecursionError, OSError, subprocess.SubprocessError,
+# 한 계획의 검사에서 나는 예외(그 계획만 대기). Claude 파일 내용으로 생길 수 있는 부류를 모두 넣는다(D1: 산술 OverflowError 등은 ArithmeticError,
+# KeyError·IndexError는 LookupError, 인코딩 오류는 ValueError). 장부·운영 상태 오류(LedgerError·OpStateError)는 넣지 않는다(전체 정지 유지).
+_PLAN_ERRORS = (ValueError, TypeError, LookupError, ArithmeticError, AttributeError, RecursionError, OSError, subprocess.SubprocessError,
                 budget.BudgetError, experiment_exec.ExperimentError)  # ContractError는 ValueError
 
 
@@ -114,7 +116,8 @@ def _derive(root, parent, analyze_key, source_root):
         raise Hold("refused", "변수 하나(%s)가 아니다: 실제 차이 %s, 선언 %r" % (".".join(VARIABLE), [".".join(p) for p in changed[:5]],
                                                                    nxt["variable"][:80]))
     value = nxt["plan"]["experiment_parameter"]["value"]
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+    # float 범위 비교: int도 예외 없이 본다(D1: 거대 정수의 math.isfinite는 OverflowError. 기존 check_experiment_parameter도 받지 못하는 값)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not -sys.float_info.max <= value <= sys.float_info.max:
         raise Hold("refused", "experiment_parameter.value는 유한한 숫자여야 한다")
     head = _head(source_root)
     new = dict(parent, depends_on=[analyze_key], run_conditions=dict(
