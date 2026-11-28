@@ -152,7 +152,7 @@ def _external(src, new):
     new의 command와 같고(자리표시자 {input:…} 자리는 실행 때 사본 경로로 바뀌므로 아무 값), record.source_hashes가 지금 원본 파일과 같음.
     판별할 수 없는 기록(record.json이 없는 실험 폴더, 읽을 수 없음, 형식·상태, plan.json이 record의 SHA와 다름, 같은 조건인데 코드 해시를 못 냄)이
     하나라도 있으면 Hold(waiting). 기록 형식의 근거는 card_condition/experiment_record.py(prepare·records) 코드뿐이다(실제 기록은 열어 보지 않았다).
-    봉인 보호(2026-11-28 신뢰 경계 조사): Supervisor는 sandbox 밖이라, 봉인 경로 목록(harness/sealed_paths.json) 아래 실험 폴더·record.json·plan.json은 열기 전에
+    봉인 보호(2026-11-28 신뢰 경계 조사): Supervisor는 sandbox 밖이라, 봉인 경로 목록(harness/sealed_paths.json)·저장소 밖 봉인 루트(sealed_outside_roots.json·다른 worktree) 아래 실험 폴더·record.json·plan.json은 열기 전에
     seal_check로 걸러 건너뛴다(내용·해시 모두 안 읽음). 같은 조건(plan·command 같음)인 기록의 source_hashes가 봉인·절대·`..` 경로를 가리키면 해시하지 않고 Hold(waiting). 하드 링크 기록(nlink>1)도 Hold(waiting). 목록 오류도 Hold(waiting).
     건너뛴 폴더는 비교하지 않으므로 봉인 실험과 같은 조건의 새 계획은 못 잡는다(한계, 거절 쪽이 아니라 통과 쪽 공백).
     한계: ./experiment는 code_changes 파일 해시만 남기므로 그 밖 코드가 달라도 같다고 본다(거절 쪽). 회차마다 모든 기록을 읽는다(기록 수에 비례)."""
