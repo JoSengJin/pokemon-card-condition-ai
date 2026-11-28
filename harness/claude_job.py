@@ -39,15 +39,18 @@ rate_limited|done|failed|blocked|stale), session_id, crash_resumes, mode, run_to
   그 뒤는 사람 확인이다. 자동 재개가 꺼진 유형은 한도에 부딪힌 작업이 대기로 바뀌고 다음 시도는 다른 독립 작업이 쓴다(최대 4개 작업).
   횟수 기록이 깨졌거나(JSON 오류) 값이 이상하면 소진으로 본다(2차 결함 G9). 횟수는 claude 실행이 성공해야만 0이 된다: 사람이 소진 조건을
   풀어도 기록은 3으로 남아 다음 시각 미상 한도는 다시 시도 없이 바로 소진된다(의도된 보수적 동작. 다시 세려면 사람이 기록 파일을 지운다).
-- 모델·effort는 route.route(정책 v1)로 정하고 실행마다 route_record와 실행 증거(claude_run_evidence)를 남긴다. 실제 적용 확인(T7)은 주장하지 않는다.
-호출 깊이(시작 함수 기준): pick 2, execute 3(run_once → scan → 말단, _record_run → record_decision → append), settle 3(queue.claim·complete).
+- 모델·effort는 route.route(정책 v1)에 이전 실패 이력(route_history.history, VS4)을 넣어 정하고, 이력 오류(RouteHistoryError)·pending 결정은
+  그 작업만 대기시킨다(route_history_invalid·route_pending). 실행마다 route_record와 실행 증거(claude_run_evidence)를 남긴다. 실제 적용 확인(T7)은 주장하지 않는다.
+호출 깊이(시작 함수 기준): pick 2, execute 3(run_once → scan → 말단, _record_run → record_decision → append, history → facts → 말단),
+settle 3(queue.claim·complete).
 """
 import functools
 import os
 import uuid
 
 from . import contract as ct
-from . import cas, claude_perm, claude_run, evidence, ledger, lease, manifest, opstate, queue, ratelimit, recovery, route, states
+from . import cas, claude_perm, claude_run, evidence, ledger, lease, manifest, opstate, queue, ratelimit, recovery, route, route_history
+from . import states
 from .jsonio import read_json, write_json
 
 JOBS = os.path.join("supervisor", "claude")  # 작업별 상태 <task_key>.json·<task_key>.pid
@@ -203,7 +206,15 @@ def execute(root, job, claude_bin, now_fn, runner=None, env=None, limits=None, s
             return {"kind": "held", "mode": None, "result": {"hold_reason": _CAP % used}}
         job["crash_resumes"] = used + 1
     env = claude_perm.env_of(env if env is not None else os.environ)  # --help 확인에도 같은 허용 env만 넘긴다
-    decision = route.route(contract, [], route.load_policy())
+    policy = route.load_policy()
+    try:  # 이전 실패 이력(B5-6, 결정론 검사 작업의 기록). 손상·귀속 위반이면 이력을 비우지 않고(낮은 모델로 되돌아간다) 이 작업만 대기
+        history = route_history.history(root, key, policy)
+    except route_history.RouteHistoryError as exc:
+        return {"kind": "held", "mode": None, "result": {"hold_reason": "route_history_invalid: %s" % exc}}
+    decision = route.route(contract, history, policy)
+    if decision["pending"]:  # 정책의 중단: pending 결정에도 model(최상위)이 남으므로 여기서 멈춰야 반복 실행이 없다
+        route.record_decision(root, decision, None, {"task_key": key})  # 실행하지 않았으므로 applied는 null
+        return {"kind": "held", "mode": None, "result": {"hold_reason": "route_pending: %s" % decision["reason"]}}
     decision = route.with_support(decision, route.probe_cli_support(
         run=functools.partial(claude_run.help_text, claude_bin, runner, env)))
     if decision["model"] is None:  # 정책상 LLM 미사용 유형인데 needs_llm=true: 계약 문제이며 실행하지 않는다
