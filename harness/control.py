@@ -1,4 +1,4 @@
-"""하네스 제어 명령줄(B6): python -m harness.control status|stop --root R. 사용자 중단을 푸는 명령은 없다(B6-5 미구현).
+"""하네스 제어 명령줄(B6): python -m harness.control status|stop|start --root R. 사용자 중단을 푸는 명령은 없다(B6-5 미구현).
 
 - status(읽기 전용): status.collect → status_view의 짧은 텍스트(--html이면 정적 HTML)를 표준 출력에 낸다. 파일을 쓰지 않는다.
 - stop: opstate의 USER_STOPPED를 기록한다. 이미 정지면 기존 기록(since·사유)을 그대로 둔다. 상태 파일을 다시 읽어 확인한 사실만 말한다.
@@ -6,7 +6,8 @@
   실행자 이름 control_cli는 출처 기록일 뿐 사용자 인증이 아니다. 누가 부르든 중단은 켤 수 있다(막는 방향이라 허용).
   쓰기를 막는 실제 강제는 executor의 OS sandbox다: sandbox 안에서 부른 stop은 실패하고 실패했다고 말한다(같은 macOS 사용자의 다른
   프로세스는 막지 않는다).
-- 종료 코드: 0 확인됨, 1 실패·확인 못 함·하네스 root 아님, 2 명령줄 오류.
+- start: control_start.start 참조(Supervisor를 별도 세션으로 띄운다. 정지는 풀지 않는다).
+- 종료 코드: 0 확인됨, 1 실패·확인 못 함·하네스 root 아님, 2 명령줄 오류, 4 start인데 이미 실행 중.
 호출 깊이: main → status.collect → status_tasks.scan → states.facts → 말단 4, main → stop → opstate.set_condition → ledger.append 3.
 """
 import argparse
@@ -14,7 +15,7 @@ import os
 import sys
 import time
 
-from . import opstate, status, status_view
+from . import control_start, opstate, status, status_view
 
 ACTOR = "control_cli"
 
@@ -51,7 +52,10 @@ def main(argv):
     shown.add_argument("--html", action="store_true", help="정적 HTML로 출력")
     halting = commands.add_parser("stop", help="사용자 중단 기록(실행 중 작업은 끊지 않음)", allow_abbrev=False)
     halting.add_argument("--reason", default="")
-    for command in (shown, halting):
+    starting = commands.add_parser("start", help="Supervisor를 띄운다(명시한 실행기만 연결, 정지는 풀지 않음)", allow_abbrev=False)
+    for flag, kind in (("--claude-bin", str), ("--executors", str), ("--source-root", str), ("--max-cycles", int), ("--poll", float)):
+        starting.add_argument(flag, type=kind)
+    for command in (shown, halting, starting):
         command.add_argument("--root", required=True, help="하네스 root 폴더")
     try:
         args = parser.parse_args(argv)
@@ -63,6 +67,10 @@ def main(argv):
         return 1
     if args.command == "stop":
         code, message = stop(root, time.time(), args.reason.strip() or "control CLI: 중단")
+        print(message)
+        return code
+    if args.command == "start":
+        code, message = control_start.start(root, args.claude_bin, args.executors, args.source_root, args.max_cycles, args.poll)
         print(message)
         return code
     render = status_view.render_html if args.html else status_view.render_text

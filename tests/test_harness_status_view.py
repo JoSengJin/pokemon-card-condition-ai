@@ -53,6 +53,7 @@ class StatusViewTest(unittest.TestCase):
         both = summary((opstate.RATE_LIMITED_SHORT, {"next_try_at": NOW + 600}), (opstate.USER_STOPPED, {}))
         self.assertIn("사용자 중단", line(both, "상태:"))
         self.assertIn("없음", line(both, "자동 재개:"))
+        self.assertIn("정지는 자동으로 풀리지 않음", line(both, "자동 재개:"))
         self.assertNotIn("분 뒤", line(both, "자동 재개:"))  # 한도 시각이 지나도 사용자 중단은 안 풀린다
         self.assertIn("사용자만", line(both, "사람이 할 일:"))
         self.assertIn("예산 재승인", line(summary((opstate.BUDGET_EXCEEDED, {})), "사람이 할 일:"))

@@ -1,10 +1,12 @@
-"""B6 사칭 방지: sandbox 안 executor가 제어 진입점(stop)을 부르거나 상태 파일을 고쳐도 사용자 중단은 바뀌지 않는다. runner가 쓰는 것과 같은
+"""B6 사칭 방지: sandbox 안 executor가 제어 진입점(stop·start)이나 Supervisor를 부르거나 상태 파일을 고쳐도 사용자 중단은 바뀌지 않는다. runner가 쓰는 것과 같은
 sandbox.run_one(실제 sandbox-exec 하위 프로세스, 운영 프로필 그대로)으로 이 모듈의 EXECUTORS를 실행한다. 한계: sandbox 밖의 같은 macOS 사용자
 프로세스(대화형 Claude·Codex·셸)는 막지 않는다."""
 import io
 import json
 import os
 import pathlib
+import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -30,6 +32,8 @@ def meddle(task, out_dir):
         with redirect_stdout(printed):  # 하위 프로세스 없이 함수를 직접 부르는 경로
             direct = control.main([command, "--root", root])
         got[command] = [done.returncode, done.stdout, direct, printed.getvalue()]
+    got["supervisor"] = subprocess.run([sys.executable, "-m", "harness.supervisor", "--root", root, "--max-cycles", "1"],
+                                       capture_output=True, timeout=60).returncode != 0
     tries = {"clear_by_user": partial(opstate.clear_by_user, root, opstate.USER_STOPPED, time.time(), "사칭", actor="user"),
              "overwrite": partial(open, state, "w"),
              "replace": partial(write_json, state, {"conditions": {}}),
@@ -53,7 +57,13 @@ def attack(root, commands):
     out_dir = os.path.join(tempfile.mkdtemp(), "out")
     job = {"inputs": {"root": root, "commands": commands}, "outputs": ["result.txt"]}
     sandbox.run_one(root, "tests.test_harness_control_sandbox:EXECUTORS", "meddle", job, out_dir)
-    return json.loads(pathlib.Path(out_dir, "result.txt").read_text(encoding="utf-8"))
+    said = pathlib.Path(out_dir, "result.txt").read_text(encoding="utf-8")
+    for pid in map(int, re.findall(r"pid (\d+)", said)):  # 시험이 실패하는 경우(sandbox 안 start 성공)에도 프로세스를 남기지 않는다
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    return json.loads(said)
 
 
 class ControlSandboxTest(unittest.TestCase):
@@ -66,7 +76,13 @@ class ControlSandboxTest(unittest.TestCase):
         with redirect_stdout(io.StringIO()):
             self.assertEqual(control.main(["stop", "--root", self.root]), 0)
         before = tree(self.root)
-        got = attack(self.root, "stop")
+        got = attack(self.root, "stop start")
+        self.assertIs(got.pop("supervisor"), True)
+        code, out, direct, printed = got.pop("start")
+        self.assertEqual((code, direct), (1, 1), out)
+        for text in (out, printed):
+            self.assertIn("시작하지 못함", text)
+            self.assertNotIn("pid ", text)
         self.assertEqual({k: v for k, v in got.items() if k != "stop"},
                          dict.fromkeys(("clear_by_user", "overwrite", "replace", "remove", "move_folder", "ledger"),
                                        "PermissionError"))
