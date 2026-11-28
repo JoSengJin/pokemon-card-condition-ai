@@ -5,18 +5,29 @@ import subprocess
 import sys
 from unittest import mock
 
-from harness import checkpoint, lease, queue
+from harness import checkpoint, dedupe, lease, manifest, queue
+from harness.contract import COMPLETION
+from harness.jsonio import write_json
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BOOT = "boot-test-1"
 RUNNER_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"  # sysctl(부팅 식별자)은 필요하고 claude는 없는 PATH
 SHA_A = "ab" * 32
+# 재실행 안전으로 등록한 것처럼 볼 시험용 유형(작업 계약 2단계 R1: 실제 등록 목록 recovery.RERUN_SAFE_TYPES는 비어 있다).
+# 재실행·재개 절차 자체를 시험하는 기존 시험만 이 목록으로 patch한다. 등록하지 않은 유형의 대기는 test_harness_policy_regress가 본다.
+RERUN_SAFE = frozenset(["unit-" + c for c in "abcdefghijklmnopqrstuvwxyz"] + ["calc", "flaky", "slow", "oom", "buggy", "exiter"])
+# 검증 결함 F3: 등록 가능한 작업 유형은 코드의 고정 목록(dedupe.PLAIN_TYPES·CONDITION_TYPES)뿐이다. 시험용 합성 유형(make_contract 기본
+# "unit-<tag>"·시험 executor 이름)은 이 시험 프로세스에서만 목록에 더한다(정확한 이름만, 변형 이름은 그대로 거절: test_harness_dedupe_conditions).
+TEST_TYPES = frozenset(RERUN_SAFE | {"unit-r1", "unit-r1b", "ok", "nap", "bad", "wrong", "unknown_type", "nobody", "link", "ki",
+                                     "intruder", "extra", "exit"})
+dedupe.PLAIN_TYPES = dedupe.PLAIN_TYPES | TEST_TYPES
 
 WORKER = r'''
 import os, sys, time
-from harness import lease, queue
+from harness import lease, queue, recovery
 root, key, boot, gate = sys.argv[1:5]
 lease.boot_id = lambda: boot  # 합성 부팅 식별자(claim은 lease.boot_id()와 대조한다)
+recovery.RERUN_SAFE_TYPES = frozenset(["unit-a"])  # 재실행 절차 시험용 등록 유형(start_workers의 계약 유형)
 while not os.path.exists(gate):
     time.sleep(0.005)
 res = queue.claim(root, key, os.getpid(), boot, time.time())
@@ -90,7 +101,7 @@ def alive_with(boot=BOOT, pid_alive=None):
 
 
 def finish(root, task, now, payload=b"v1"):
-    """enqueue -> claim -> 산출물 쓰기 -> complete(합성 정상 완료). (task_key, run_id)."""
+    """enqueue -> claim -> 산출물 쓰기 -> 완료 표시(runner와 같은 형식) -> complete(합성 정상 완료). (task_key, run_id)."""
     key = queue.enqueue(root, task, now)
     res = claim(root, key, os.getpid(), BOOT, now)
     for rel in task["outputs"]:
@@ -98,6 +109,8 @@ def finish(root, task, now, payload=b"v1"):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as handle:
             handle.write(payload)
+    out_dir = os.path.join(root, "tasks", key, "out")
+    write_json(os.path.join(root, "tasks", key, COMPLETION), {"task_key": key, "outputs": manifest.build(out_dir, task["outputs"])})
     queue.complete(root, key, res["run_id"], res["lease"], now + 1)
     return key, res["run_id"]
 

@@ -6,7 +6,7 @@ import pathlib
 import subprocess
 import sys
 
-from tests.test_harness_support import REPO, RUNNER_PATH, make_contract
+from tests.test_harness_support import REPO, RERUN_SAFE, RUNNER_PATH, make_contract
 
 
 def task(name, task_type="calc", n="10", fails="0", **kw):
@@ -39,11 +39,31 @@ def link_result(out_dir, elsewhere):
     return ["result.txt"]
 
 
+RUNNER_WRAP = (  # 시험 전용: runner 하위 프로세스 안에서만 재실행 안전 목록을 TEST_RERUN_SAFE(쉼표 목록)로 바꾼 뒤 runner.main을 부른다
+    "import json, os, sys\nfrom harness import recovery, runner, sandbox\n"
+    "recovery.RERUN_SAFE_TYPES = frozenset(filter(None, os.environ.get('TEST_RERUN_SAFE', '').split(',')))\n"
+    # 시험 관찰 통로: sandbox는 기본 쓰기 거절이라 시험 executor의 실행 표식 폴더(HARNESS_MARK_DIR, 하네스 root·저장소 밖 임시 폴더)만
+    # 이 시험 프로세스의 프로필에 덧붙인다. 실제 runner(python -m harness.runner)의 프로필은 그대로다(시험 test_harness_sandbox_writes).
+    "if os.environ.get('HARNESS_MARK_DIR'):\n"
+    "    _base = sandbox.profile\n"
+    "    sandbox.profile = lambda *a: _base(*a) + '\\n(allow file-write* (subpath %s))' % json.dumps("
+    "os.path.realpath(os.environ['HARNESS_MARK_DIR']))\n"
+    "sys.exit(runner.main(sys.argv[1:]))\n")
+WRAPPED_RUNNER = [sys.executable, "-c", RUNNER_WRAP]  # supervisor.RUNNER 대체(시험 전용)
+SUPERVISOR_MARKED = [sys.executable, "-c", (  # python -m harness.supervisor와 같되 runner만 WRAPPED_RUNNER(시험 표식 폴더 허용)
+    "import json, sys\nfrom harness import supervisor\nfrom tests.test_harness_runner_kit import WRAPPED_RUNNER\n"
+    "supervisor.RUNNER = WRAPPED_RUNNER\nresult = supervisor.run(**supervisor._args(sys.argv[1:]))\n"
+    "print(json.dumps(result, sort_keys=True, ensure_ascii=False), flush=True)\n"
+    "sys.exit(4 if result.get('already_running') else 0)\n")]
+
+
 def spawn_runner(root, marks, extra_env=None, args=()):
-    """실제 하위 프로세스로 runner를 실행한다. 환경은 새로 만든다: PATH에 claude 없음, 모델 관련 환경변수 없음."""
-    env = {"PATH": RUNNER_PATH, "HARNESS_MARK_DIR": marks, "PYTHONDONTWRITEBYTECODE": "1"}
+    """실제 하위 프로세스로 runner를 실행한다. 환경은 새로 만든다: PATH에 claude 없음, 모델 관련 환경변수 없음.
+    재실행 절차 시험용으로 기본은 시험 executor 유형을 재실행 안전으로 본다(extra_env의 TEST_RERUN_SAFE로 바꿀 수 있다)."""
+    env = {"PATH": RUNNER_PATH, "HARNESS_MARK_DIR": marks, "PYTHONDONTWRITEBYTECODE": "1",
+           "TEST_RERUN_SAFE": ",".join(sorted(RERUN_SAFE)), "HARNESS_TEST_ROOT": root}  # 공격 시험 executor가 노릴 하네스 root(G1 뒤 out_dir은 staging)
     env.update(extra_env or {})
-    return subprocess.Popen([sys.executable, "-m", "harness.runner", root, "tests.test_harness_executors:EXECUTORS",
+    return subprocess.Popen([sys.executable, "-c", RUNNER_WRAP, root, "tests.test_harness_executors:EXECUTORS",
                              *args], cwd=REPO, env=env, stdout=subprocess.PIPE, text=True)
 
 

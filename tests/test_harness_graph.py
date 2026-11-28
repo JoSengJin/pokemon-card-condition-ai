@@ -67,13 +67,15 @@ class GraphTest(unittest.TestCase):
             self.assertEqual(result, {"eligible": [key_f], "registered": []})  # 실패 정책은 claim/recover가 판단
 
     def test_declared_key_must_match_the_contract_hash(self):
-        with tempfile.TemporaryDirectory() as root:
-            with self.assertRaises(graph.GraphError):
-                graph.register_missing(root, {"0" * 64: make_contract()}, T0, alive_with())
+        with tempfile.TemporaryDirectory() as root:  # 2차 결함 G5: 예외로 전체를 멈추지 않고 그 선언만 거절(이전 기대: GraphError)
+            got = graph.register_missing(root, {"0" * 64: make_contract()}, T0, alive_with())
+            self.assertEqual((got["registered"], list(got["rejected"])), ([], ["0" * 64]))
+            self.assertIn("GraphError", got["rejected"]["0" * 64])
+            self.assertFalse(os.path.exists(os.path.join(root, "tasks", "0" * 64)))
 
     def test_register_missing_validates_each_contract_before_writing_it(self):
         with tempfile.TemporaryDirectory() as root:
             invalid = make_contract(outputs=[])  # 키는 계약 해시와 맞지만 계약 자체가 규칙 위반
-            with self.assertRaises(contract.ContractError):
-                graph.register_missing(root, {contract.task_key(invalid): invalid}, T0, alive_with())
+            got = graph.register_missing(root, {contract.task_key(invalid): invalid}, T0, alive_with())  # 2차 G5(이전 기대: ContractError)
+            self.assertIn("ContractError", got["rejected"][contract.task_key(invalid)])
             self.assertFalse(os.path.exists(os.path.join(root, "tasks", contract.task_key(invalid))))

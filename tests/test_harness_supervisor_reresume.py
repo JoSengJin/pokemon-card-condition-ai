@@ -1,4 +1,5 @@
-"""재검증 지적: 실패한 --resume 실행 중에 건 정지 뒤에는 새 세션을 열지 않는다 · claude 출력의 U+2028은 이벤트를 쪼개지 않는다."""
+"""재검증 지적: 실패한 --resume 실행 중에 건 정지 뒤에는 새 세션을 열지 않는다(2단계 R4 뒤로는 --resume 실패 자체가 그 작업 대기)
+· claude 출력의 U+2028은 이벤트를 쪼개지 않는다."""
 import functools
 import json
 import tempfile
@@ -6,6 +7,7 @@ import time
 import unittest
 
 from harness import claude_job, claude_run, opstate
+from tests.test_harness_resume_kit import allow_resume
 from tests.test_harness_supervisor_kit import llm_task
 
 
@@ -28,8 +30,10 @@ class ReresumeTest(unittest.TestCase):
             root, modes = tempfile.mkdtemp(), []
             llm_task(root)
             job = dict(claude_job.pick(root, 1.0), session_id="s-1", status="rate_limited")
-            outcome = claude_job.execute(root, job, "claude", time.time, functools.partial(stop_then_fail, root, name, modes))
-            self.assertEqual((modes, claude_job.settle(root, job, outcome, 3.0)), ([True], "halted"), name)
+            with allow_resume(self, "misanalysis_general"):
+                outcome = claude_job.execute(root, job, "claude", time.time, functools.partial(stop_then_fail, root, name, modes))
+            # 새 세션 없음(modes [True]). R4: 한도가 아닌 --resume 실패는 정지 여부와 무관하게 그 작업을 대기시킨다(이전 기대 "halted")
+            self.assertEqual((modes, claude_job.settle(root, job, outcome, 3.0)), ([True], "blocked"), name)
 
     def test_line_separator_characters_in_claude_output_do_not_split_events(self):
         line = json.dumps({"type": "result", "subtype": "success", "is_error": False, "result": "a b\u0085c"},

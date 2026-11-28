@@ -7,12 +7,13 @@ import tempfile
 import unittest
 from unittest import mock
 
-from harness import cas, checkpoint, contract, ledger, lease, queue, recovery, states
-from tests.test_harness_support import BOOT, claim, alive_with, dead_lease, finish, fingerprint, make_contract
+from harness import cas, checkpoint, contract, jsonio, ledger, lease, manifest, queue, recovery, states
+from tests.test_harness_support import RERUN_SAFE, BOOT, claim, alive_with, dead_lease, finish, fingerprint, make_contract
 
 T0 = 1_000_000.0
 
 
+@mock.patch.object(recovery, "RERUN_SAFE_TYPES", RERUN_SAFE)  # 재실행 절차 시험: 등록 유형으로 본다
 class RecoveryTest(unittest.TestCase):
     def test_delete_after_complete_is_restored_from_cas_and_verified(self):
         with tempfile.TemporaryDirectory() as root:
@@ -47,6 +48,8 @@ class RecoveryTest(unittest.TestCase):
             res = claim(root, key, os.getpid(), BOOT, T0 + 4)
             self.assertTrue(res["ok"])
             out.write_bytes(b"rerun")
+            jsonio.write_json(os.path.join(tdir, contract.COMPLETION),  # runner가 executor 정상 반환 뒤 쓰는 완료 표시
+                              {"task_key": key, "outputs": manifest.build(os.path.join(tdir, "out"), ["result.txt"])})
             queue.complete(root, key, res["run_id"], res["lease"], T0 + 5)
             self.assertEqual(states.classify(tdir, T0, alive), states.VERIFIED)
 

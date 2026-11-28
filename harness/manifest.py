@@ -28,11 +28,11 @@ def safe_path(out_dir, rel):
 
 
 def build(out_dir, outputs):
-    """모든 선언 산출물의 해시. 없거나 링크를 거치면 오류(부분 완료·root 밖 읽기 금지)."""
+    """모든 선언 산출물의 해시. 없거나(FileNotFoundError) 링크를 거치거나 일반 파일이 아니면(폴더·FIFO 등: 읽다가 멈추지 않게, ValueError) 오류(부분 완료·root 밖 읽기 금지)."""
     result = {}
     for rel in outputs:
         path = safe_path(out_dir, rel)
-        if path is None or os.path.islink(path):
-            raise ValueError("산출물 경로가 out/ 밖이거나 심볼릭 링크를 거친다: %s" % rel)
+        if path is None or os.path.islink(path) or (os.path.exists(path) and not os.path.isfile(path)):  # 없으면 아래에서 FileNotFoundError
+            raise ValueError("산출물 경로가 out/ 밖이거나 심볼릭 링크를 거치거나 일반 파일이 아니다: %s" % rel)
         result[rel] = sha_file(path)
     return result

@@ -102,14 +102,17 @@ class RunnerProcessTest(unittest.TestCase):
             i, bad, fine = pair("oom")
             kb, kf = queue.enqueue(root, bad, T0), queue.enqueue(root, fine, T0)
             procs = []
-            for _ in range(5):  # 독 작업은 SIGKILL로 runner를 죽인다: 2번 인수·재실행(총 3회 실행) 뒤 정지해야 한다
+            for _ in range(5):  # 독 작업은 SIGKILL로 executor를 죽인다: 2번 인수·재실행(총 3회 실행) 뒤 정지해야 한다
                 proc = spawn_runner(root, marks)
                 self.addCleanup(proc.kill)
                 procs.append((proc, proc.communicate(timeout=120)[0]))
-            self.assertEqual([p.returncode for p, _ in procs], [-signal.SIGKILL] * 3 + [0, 0])
-            fourth, fifth = (json.loads(out) for _, out in procs[3:])
+            # 3단계: executor는 sandbox 하위 프로세스라 그것만 죽고 runner는 작업권 기록을 남긴 채 놓는다(이전: runner 자체가 -9로 죽음)
+            self.assertEqual([p.returncode for p, _ in procs], [0] * 5)
+            first, fourth, fifth = (json.loads(procs[k][1]) for k in (0, 3, 4))
+            self.assertEqual((first["done"], list(first["stopped"])), ([kf], [kb]))  # 독립 작업은 첫 runner에서 끝난다
+            self.assertTrue(first["stopped"][kb].startswith("executor_killed"))
             self.assertEqual((fourth["done"], fourth["stopped"], fourth["stop_reasons"]),
-                             ([kf], {kb: "needs_failure_policy"}, {kb: "too_many_interrupts"}))
+                             ([], {kb: "needs_failure_policy"}, {kb: "too_many_interrupts"}))
             self.assertEqual((fifth["executed"], fifth["stopped"]), (0, {kb: "needs_failure_policy"}))  # 이후 drain은 건드리지 않는다
             self.assertEqual(len(glob.glob(os.path.join(marks, "P%d-run-*" % i))), 3)  # 최초 1회 + 이어받아 2회
             self.assertEqual(len(glob.glob(os.path.join(marks, "N%d-run-*" % i))), 1)  # 독립 작업은 한 번 실행됐다

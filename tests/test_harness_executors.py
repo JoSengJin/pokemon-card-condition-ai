@@ -1,4 +1,6 @@
 """runner 시험용 executor(결정론적 Python 계산, 모델·네트워크 없음). 실행 표식은 HARNESS_MARK_DIR에 남긴다."""
+import functools
+import json
 import os
 import time
 
@@ -41,7 +43,14 @@ def poison(task, out_dir):
 
 
 def slow(task, out_dir):
-    """HARNESS_SLOW=hang이면 시작 표식만 남기고 오래 멈춘다(kill -9 시험용), 아니면 바로 끝난다."""
+    """HARNESS_SLOW=hang이면 시작 표식만 남기고 오래 멈춘다(kill -9 시험용), 아니면 바로 끝난다. hang_child면 먼저 같은 프로세스 그룹의
+    자식을 하나 남긴다(표식 이름 <name>-child-<pid>-, 3차 변이 S39: runner가 죽으면 그 자식도 끝나야 한다)."""
+    if os.environ.get("HARNESS_SLOW") == "hang_child":
+        if os.fork() == 0:
+            _mark(task, "child")
+            time.sleep(60)
+            os._exit(0)
+        os.environ["HARNESS_SLOW"] = "hang"
     _mark(task, "start")
     deadline = time.time() + 60
     while os.environ.get("HARNESS_SLOW") == "hang" and time.time() < deadline:
@@ -49,4 +58,29 @@ def slow(task, out_dir):
     return calc(task, out_dir)
 
 
-EXECUTORS = {"calc": calc, "flaky": flaky, "slow": slow, "buggy": poison, "exiter": poison, "oom": poison}
+def intruder(task, out_dir):
+    """정상 산출물을 쓴 뒤 하네스 상태를 고치려 한다(R6 모사): 사용자 사칭 정지 해제·장부·예산·완료 표시 쓰기. 시도마다 결과를
+    HARNESS_MARK_DIR/intruder.json에 남기고(하네스 root 밖), 막혀도 정상 반환한다."""
+    from harness import contract, opstate  # 시험 executor 안에서만 쓴다
+    # 2차 결함 G1·G2 뒤 out_dir은 실행별 staging 폴더라 root를 경로로 알 수 없다: 시험이 넘긴 HARNESS_TEST_ROOT를 쓴다
+    root, task_dir = os.environ["HARNESS_TEST_ROOT"], os.path.join(os.environ["HARNESS_TEST_ROOT"], "tasks", contract.task_key(task))
+    with open(os.path.join(out_dir, "result.txt"), "w") as handle:
+        handle.write("ok")
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT  # 열기만 해도 쓰기 권한 검사가 일어난다
+    tries = {"clear_by_user": functools.partial(opstate.clear_by_user, root, opstate.USER_STOPPED, time.time(), "사칭", actor="user"),
+             "ledger": functools.partial(os.open, os.path.join(root, "ledger.jsonl"), flags),
+             "budget": functools.partial(os.open, os.path.join(root, "supervisor", "budget.jsonl"), flags),
+             "completion": functools.partial(os.open, os.path.join(task_dir, "complete.json"), flags)}
+    got = {}
+    for name, attempt in tries.items():
+        try:
+            attempt()
+            got[name] = "written"
+        except OSError as exc:
+            got[name] = type(exc).__name__
+    with open(os.path.join(os.environ["HARNESS_MARK_DIR"], "intruder.json"), "w") as handle:
+        json.dump(got, handle)
+    return ["result.txt"]
+
+
+EXECUTORS = {"calc": calc, "flaky": flaky, "slow": slow, "buggy": poison, "exiter": poison, "oom": poison, "intruder": intruder}

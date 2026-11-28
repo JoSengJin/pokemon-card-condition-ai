@@ -4,13 +4,15 @@ import os
 import pathlib
 import tempfile
 import unittest
+from unittest import mock
 
-from harness import contract, lease, queue, states
-from tests.test_harness_support import BOOT, claim, alive_with, finish, make_contract
+from harness import contract, lease, queue, recovery, states
+from tests.test_harness_support import RERUN_SAFE, BOOT, claim, alive_with, finish, make_contract
 
 T0 = 1_000_000.0
 
 
+@mock.patch.object(recovery, "RERUN_SAFE_TYPES", RERUN_SAFE)  # 재실행 절차 시험: 등록 유형으로 본다
 class StateGuardsTest(unittest.TestCase):
     def test_retry_run_after_a_failure_is_running_and_its_own_failure_makes_it_failed(self):
         with tempfile.TemporaryDirectory() as root:

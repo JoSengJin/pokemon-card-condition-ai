@@ -7,11 +7,12 @@ import tempfile
 import unittest
 from unittest import mock
 
-from harness import lease, queue, unlock
+from harness import lease, queue, recovery, unlock
 from tests.test_harness_supervisor_kit import events
-from tests.test_harness_support import BOOT, REPO, claim, dead_lease, make_contract
+from tests.test_harness_support import RERUN_SAFE, BOOT, REPO, claim, dead_lease, make_contract
 
 
+@mock.patch.object(recovery, "RERUN_SAFE_TYPES", RERUN_SAFE)  # 재실행 절차 시험: 등록 유형으로 본다
 class UnlockTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()

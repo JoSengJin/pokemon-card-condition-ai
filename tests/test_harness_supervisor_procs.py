@@ -8,7 +8,8 @@ import unittest
 
 from harness import ledger, opstate, queue, runner, states, supervisor
 from tests.test_harness_runner_kit import task
-from tests.test_harness_supervisor_kit import REPO, SUPERVISOR, events, llm_task, make_fake, runs
+from tests.test_harness_resume_kit import resumable_supervisor
+from tests.test_harness_supervisor_kit import REPO, events, llm_task, make_fake, runs
 
 
 def until(want, what, root, arg=None, timeout=30.0):
@@ -32,7 +33,9 @@ class SupervisorProcessTest(unittest.TestCase):
         self.root = tempfile.mkdtemp()
 
     def spawn(self, claude, env, *extra):
-        proc = subprocess.Popen(SUPERVISOR + ["--root", self.root, "--claude-bin", claude, "--poll", "0.3", *extra],
+        # 재개 절차 시험: 하위 프로세스 Supervisor 안에서 이 유형의 자동 재개를 켠다(3단계 활성화 목록, 합성 증거)
+        argv = resumable_supervisor(self, "misanalysis_general")
+        proc = subprocess.Popen(argv + ["--root", self.root, "--claude-bin", claude, "--poll", "0.3", *extra],
                                 cwd=REPO, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.addCleanup(proc.wait)
         self.addCleanup(proc.kill)

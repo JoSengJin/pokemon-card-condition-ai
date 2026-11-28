@@ -3,13 +3,15 @@ import os
 import pathlib
 import tempfile
 import unittest
+from unittest import mock
 
-from harness import lease, manifest, queue, states
-from tests.test_harness_support import BOOT, claim, alive_with, finish, make_contract
+from harness import lease, manifest, queue, recovery, states
+from tests.test_harness_support import RERUN_SAFE, BOOT, claim, alive_with, finish, make_contract
 
 T0 = 1_000_000.0
 
 
+@mock.patch.object(recovery, "RERUN_SAFE_TYPES", RERUN_SAFE)  # 손상 뒤 재실행 절차 시험: 등록 유형으로 본다(미등록은 대기, 검증 N1)
 class PathSafetyTest(unittest.TestCase):
     def test_safe_path_rejects_traversal_links_and_non_strings(self):
         with tempfile.TemporaryDirectory() as tmp:

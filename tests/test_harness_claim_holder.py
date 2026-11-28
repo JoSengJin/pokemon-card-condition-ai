@@ -9,8 +9,8 @@ import types
 import unittest
 from unittest import mock
 
-from harness import holder, lease, queue, states
-from tests.test_harness_support import BOOT, EXEC_CLAIM, REPO, alive_with, claim, make_contract
+from harness import holder, lease, queue, recovery, states
+from tests.test_harness_support import RERUN_SAFE, BOOT, EXEC_CLAIM, REPO, alive_with, claim, make_contract
 
 T0 = 1_000_000.0
 
@@ -22,6 +22,7 @@ def stale(root, key, pid, boot=BOOT, **extra):
     lease.release(handle)
 
 
+@mock.patch.object(recovery, "RERUN_SAFE_TYPES", RERUN_SAFE)  # 재실행 절차 시험: 등록 유형으로 본다
 class ClaimHolderTest(unittest.TestCase):
     def test_claim_for_another_pid_or_a_made_up_boot_is_rejected_before_touching_anything(self):
         with tempfile.TemporaryDirectory() as root:

@@ -70,7 +70,8 @@ def classify_kind(value):
 
 def scan(lines, returncode):
     """출력 줄 → 요약 dict. 해석 못 한 줄은 bad_lines로 센다(무시하지 않고 기록)."""
-    found = {"session_id": None, "init": None, "result": None, "rate_limit": None, "events": 0, "bad_lines": 0}
+    found = {"session_id": None, "init": None, "result": None, "rate_limit": None, "events": 0, "bad_lines": 0,
+             "last_event": None}
     limits = []
     for raw in lines:
         if not raw.strip():
@@ -84,6 +85,7 @@ def scan(lines, returncode):
             found["bad_lines"] += 1
             continue
         found["events"] += 1
+        found["last_event"] = str(event.get("type"))[:40]  # 마지막 이벤트 종류(실행 증거용)
         if found["session_id"] is None and isinstance(event.get("session_id"), str):
             found["session_id"] = event["session_id"]
         if event.get("type") == "system" and event.get("subtype") == "init" and found["init"] is None:

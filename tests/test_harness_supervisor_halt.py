@@ -12,8 +12,8 @@ import unittest
 from unittest import mock
 
 from harness import budget, claude_job, opstate, queue, states, supervisor
-from tests.test_harness_runner_kit import task
-from tests.test_harness_supervisor_kit import REPO, SUPERVISOR, llm_task, make_fake, runs
+from tests.test_harness_runner_kit import SUPERVISOR_MARKED, WRAPPED_RUNNER, task
+from tests.test_harness_supervisor_kit import REPO, llm_task, make_fake, runs
 
 EXEC = "tests.test_harness_executors:EXECUTORS"
 WED = calendar.timegm((2030, 1, 9, 1, 0, 0))
@@ -44,7 +44,7 @@ class HaltMidCycleTest(unittest.TestCase):
         claude, log, env = make_fake(self, [{"do": "success"}])
         llm_task(root)
         keys = [queue.enqueue(root, task(n, task_type="nap"), 1.0) for n in ("a", "b", "c")]
-        proc = subprocess.Popen(SUPERVISOR + ["--root", root, "--claude-bin", claude, "--max-cycles", "3", "--poll", "0.2",
+        proc = subprocess.Popen(SUPERVISOR_MARKED + ["--root", root, "--claude-bin", claude, "--max-cycles", "3", "--poll", "0.2",
                                               "--executors", "tests.test_harness_supervisor_halt:EXECUTORS"],
                                 cwd=REPO, env=dict(env, HARNESS_MARK_DIR=marks), stdout=subprocess.PIPE,
                                 stderr=subprocess.DEVNULL, text=True)
@@ -71,13 +71,14 @@ class HaltMidCycleTest(unittest.TestCase):
             opstate.set_condition(root, opstate.RATE_LIMITED_SHORT, 1.0, "supervisor", "한도", {"next_try_at": 0.0})
             hook = functools.partial(_after, name, getattr(owner, attr))
             with mock.patch.dict(os.environ, {"HARNESS_MARK_DIR": tempfile.mkdtemp()}), \
+                    mock.patch.object(supervisor, "RUNNER", WRAPPED_RUNNER), \
                     mock.patch.object(owner, attr, side_effect=hook) as hooked:
                 out = supervisor.run(root, claude, EXEC, max_cycles=2, poll_s=0, env=env)
             where = (attr, count, name)
             self.assertEqual((hooked.call_count, out["state"], out["claude_runs"]), (1, name, 0), where)
             verified = [states.state_of(states.facts(os.path.join(root, "tasks", k)), False) == states.VERIFIED for k in py]
             cond = opstate.load(root)["conditions"]
-            picked = os.path.exists(os.path.join(root, claude_job.JOB))
+            picked = bool(os.path.isdir(os.path.join(root, claude_job.JOBS)) and os.listdir(os.path.join(root, claude_job.JOBS)))
             if attr == "_python":  # 작업 1개 처리 뒤 정지: 다음 Python 작업·한도 해제·Claude 고르기 모두 안 함
                 self.assertEqual((out["python_runs"], sorted(verified), opstate.RATE_LIMITED_SHORT in cond, picked),
                                  (1, [False, True][:count], True, False), where)
