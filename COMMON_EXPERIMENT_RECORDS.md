@@ -45,6 +45,10 @@
 
 `result.json`의 주 평가와 각 `required_cohorts` 항목에 `acceptance_caps`가 추가된다. 누락 상한(`max_fn`)은 결함 행이, 오탐 상한(`max_fp`)은 정상 행이 1 이상일 때만 `passed`/`failed`이고 0이면 `unmeasured`다. `unmeasured`는 통과가 아니며 보고에 "미측정"으로 적는다. `acceptance_passed`는 나머지 측정된 조건으로 정해지는 값 그대로이므로 과거 판정은 바뀌지 않는다. 따라서 `acceptance_passed=true`만 보고 누락·오탐 상한을 모두 통과했다고 쓰지 말고 `acceptance_caps`를 함께 읽는다.
 
+## 사이드카 (선택, 2026-11-27)
+
+계획에 `sidecars`(`exclusions`·`row_facts`의 `path`·`sha256`, 선택 `bands`·`preregistration`)를 넣으면 실행기가 child 시작 전에 해시·형식을 검사해 본문을 `reference.json`에 동결하고, 결과에 `strata_table`(배경 × 해상도 층 × 판정 주체 × 점수 구간 × 정답의 건수, 후보 `after`·대조 `before`)을 더한다. `exclusions`의 칸별 남긴 정상·결함 수가 주 평가 행과 다르거나, `row_facts`의 행 id가 평가 행과 하나라도 빠지거나 남거나, 분기 의존(`branch_dependent`) 사전 등록에 `branch_observed`(A/B/C)와 근거 파일이 없으면 거절한다. **칸이 없으면 그대로 실행**하며 `reference.json`·`result.json`에 새 키가 생기지 않는다. `rater_kind`는 `ai_suspect`·`unknown`만 받는다(`ai_identical` 행은 평가에서 빼야 하고, `human`은 증거 형식이 정해지기 전까지 거절). 중복 JSON 키도 거절한다. `기준 판본 불일치`는 아직 세는 도구가 없어 0은 **미측정**이다. 표와 구간은 기술용이다. `acceptance_passed`와 판정 문턱 0.5를 바꾸지 않으며 정확도 개선의 근거가 아니다. 형식 정본: [T0 계약](docs/collaboration/tasks/record-sidecars-20261127.md).
+
 ## Worker 입력·출력
 
 실행기는 아래 환경변수를 worker에 전달한다. 키나 환경변수 전체를 기록하지 않는다.
