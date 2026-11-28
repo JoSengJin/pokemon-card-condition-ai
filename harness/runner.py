@@ -7,7 +7,9 @@
   계약 outputs를 검사해 새 파일로 복사한다). sandbox를 쓸 수 없으면 아무것도 실행하지 않고
   SANDBOX_EXIT로 끝난다(fail-closed). 하위 프로세스 실행은 sandbox.py에 있다. drain에 dict를 직접 넘기는 경로(시험)는 sandbox가 없다.
 - sandbox 안 executor가 신호로 죽으면(메모리 부족 등) 작업권 기록을 남긴 채 놓아 다음 claim이 INTERRUPTED 규칙(2단계 R1)대로 다룬다.
-- LLM 작업(needs_llm=true)과 그것에 (간접으로) 의존하는 작업은 건드리지 않는다(claim도 하지 않으므로 장부에도 안 남는다).
+- LLM 작업(needs_llm=true)과, VERIFIED가 아닌 LLM 작업에 (간접으로) 의존하는 작업은 건드리지 않는다(claim도 하지 않으므로 장부에도 안 남는다).
+  VS3(2026-11-28): VERIFIED인 LLM 작업은 더 이상 오염원이 아니다(PLAN_GATE가 등록한 다음 실험이 ANALYZE에 의존한다). LLM 작업에 직·간접 의존하는
+  실험·학습·평가는 PLAN_GATE가 만든 계약과 같을 때만 등록된다(plan_gate). 미검증·실행 중·실패·대기·손상 LLM 의존은 그대로 막는다.
 - 일시적 실패는 1단계 규칙대로 최대 2회 재시도한 뒤 정지, 결정적 실패·needs_failure_policy·blocked·
   holder_alive_without_lock은 우회하지 않고 요약에 남기고 그 작업만 멈춘다.
   장부 체인 손상(LedgerError)은 무결성 문제라 drain 전체를 멈추고 요약에 INTEGRITY를 남기며 종료 코드 3을 낸다. 데몬·예산·한도 감지는 하지 않는다(3단계).
@@ -61,7 +63,7 @@ def _scan(root, executors):
     state = {k: states.state_of(i, False) for k, i in infos.items()}
     contracts = {k: i["contract"] for k, i in infos.items() if i["contract"] is not None}
     llm = {k for k, c in contracts.items() if c["needs_llm"]}
-    tainted = set(llm)
+    tainted = {k for k in llm if state[k] != states.VERIFIED}  # VERIFIED LLM 작업 자체도 아래 상태 검사로 실행하지 않는다
     while True:  # LLM 작업에 직접·간접으로 의존하는 작업
         more = {k for k, c in contracts.items() if k not in tainted and any(d in tainted for d in c["depends_on"])}
         if not more:
