@@ -28,7 +28,9 @@
   위 실행 파일·네트워크·lsopen·mach 이름 조회(MACH_ALLOW 밖)만 막는다(읽기·프로세스 신호는 막지 않는다). 이미 가진 포트(bootstrap 포트 자체,
   상속받은 포트)로 보내는 요청과 MACH_ALLOW 서비스 요청은 막지 않는다(메시지를 보내는 시험은 하지 않았다). sandbox-exec는 Apple이 폐기 예정으로 표시한 도구다. 홈 캐시(~/.cache 등)에
   써야 하는 라이브러리는 sandbox 안에서 실패한다(TMPDIR·staging만 쓸 수 있다).
-호출 깊이: sandboxed·run_one → profile·safefs.open_regular·safefs.replace_new·safefs.publish(말단) 1.
+- 잔여물(4차 결함 I9): runner가 반영 중 kill되면 작업 폴더의 .out-pending-*와 실행 폴더 harness-exec-<task_key>-*가 남는다. 다음 runner가 그 작업의
+  작업권을 잡은 뒤 sweep이 지운다(queue.claim). 산출물 합계 크기 상한은 MAX_TOTAL_OUTPUT_BYTES.
+호출 깊이: sandboxed·run_one → profile·safefs.open_regular·safefs.replace_new·safefs.publish(말단) 1, sweep 0(queue.claim에서 부른다).
 """
 import errno
 import functools
@@ -50,6 +52,8 @@ DEVICES = ("/dev/null",)  # 쓰기를 허용하는 장치 파일(이것뿐)
 DENY_EXEC = ("/bin/launchctl", "/usr/bin/open", "/usr/bin/osascript")  # sandbox 밖(launchd·LaunchServices·AppleScript)에서 명령을 돌리는 도구
 MAX_OUTPUT_BYTES = 1 << 30  # 산출물 파일 하나의 크기 상한(임시값 1 GiB, 3차 결함 H4: 넘으면 결정적 실패)
 MAX_STDOUT_BYTES = 1 << 24  # sandbox 자식 표준 출력 상한(임시값 16 MiB, 결과 JSON 한 줄이면 충분하다)
+MAX_TOTAL_OUTPUT_BYTES = 1 << 32  # 한 실행의 산출물 합계 크기 상한(임시값 4 GiB, 4차 결함 I9: 넘으면 결정적 실패)
+RUN_PREFIX, PENDING_PREFIX = "harness-exec-", ".out-pending-"  # 실행 폴더(시스템 임시 폴더, + task_key) / 반영 임시 폴더(작업 폴더)
 MACH_ALLOW = ("com.apple.system.opendirectoryd.libinfo",)  # 4차 I7: 기본 거절 뒤 허용하는 mach 이름(사용자 정보 조회 pwd.getpwuid, 읽기)
 DENY_MORE = ('(deny network*)', '(deny network-outbound (remote ip "localhost:*"))', '(deny lsopen)',
              '(deny mach-lookup (global-name "com.apple.coreservices.launchservicesd"))',  # 3차 결함 H9(이 macOS에서 문법·효과 확인)
@@ -99,7 +103,7 @@ def run_one(root, spec, task_type, task, out_dir):
         final = os.open(out_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)  # 확정 out/이 링크면 ELOOP: 실행하지 않는다
     except OSError as exc:
         raise ChildError("확정 out/이 링크이거나 폴더가 아니다: %s (%s)" % (out_dir, exc))
-    run, pending = tempfile.mkdtemp(prefix="harness-exec-"), None
+    run, pending = tempfile.mkdtemp(prefix="%s%s-" % (RUN_PREFIX, os.path.basename(os.path.dirname(os.path.abspath(out_dir))))), None
     stage, env = os.path.join(run, "out"), dict(os.environ, TMPDIR=os.path.join(run, "tmp"))
     if task_type in CONDITION_TYPES:
         env["HARNESS_INPUT_DIR"] = os.path.join(os.path.dirname(os.path.abspath(out_dir)), "in")
@@ -132,13 +136,16 @@ def run_one(root, spec, task_type, task, out_dir):
                     reason = "executor가 돌려준 출력 목록이 계약의 outputs와 다르다: %r" % (reply["produced"],)
                 else:
                     try:  # 계약 outputs만, 링크·하드 링크·특수 파일·폴더·상한 초과를 거절하며 임시 폴더에 모두 복사한 뒤 한 번에 옮긴다
-                        pending = tempfile.mkdtemp(prefix=".out-pending-", dir=os.path.dirname(os.path.abspath(out_dir)))
+                        pending, total = tempfile.mkdtemp(prefix=PENDING_PREFIX, dir=os.path.dirname(os.path.abspath(out_dir))), 0
                         for rel in task["outputs"]:
                             src = open_regular(held, rel)
                             try:
                                 size = os.fstat(src).st_size
+                                total += size
                                 if size > MAX_OUTPUT_BYTES:
                                     raise OSError(errno.EFBIG, "산출물이 상한(%d바이트)을 넘었다: %d" % (MAX_OUTPUT_BYTES, size), rel)
+                                if total > MAX_TOTAL_OUTPUT_BYTES:  # 4차 결함 I9
+                                    raise OSError(errno.EFBIG, "산출물 합계가 상한(%d바이트)을 넘었다: %d" % (MAX_TOTAL_OUTPUT_BYTES, total), rel)
                                 replace_new(os.path.join(pending, rel), src, limit=size)
                             finally:
                                 os.close(src)
@@ -162,6 +169,22 @@ def run_one(root, spec, task_type, task, out_dir):
     failure = ChildError(reason)
     failure.kind = kind
     raise failure
+
+
+def sweep(task_dir):
+    """작업 폴더 task_dir(root/tasks/<task_key>)의 이전 실행 잔여물을 지운다(4차 결함 I9): 작업 폴더의 PENDING_PREFIX* 폴더와 시스템 임시 폴더의
+    RUN_PREFIX<task_key>-* 폴더. 그 작업의 작업권(잠금)을 잡고 이전 주인이 죽었다고 판정한 뒤에만 부른다(queue.claim): 그 작업을 반영 중인 runner가
+    없다. 링크·폴더가 아닌 항목은 건드리지 않는다(따라가지 않는다). 지우지 못한 것은 그대로 둔다(최선 노력, 다음 claim이 다시 지운다)."""
+    key = os.path.basename(os.path.normpath(task_dir))
+    for folder, prefix in ((task_dir, PENDING_PREFIX), (tempfile.gettempdir(), "%s%s-" % (RUN_PREFIX, key))):
+        try:
+            names = [n for n in os.listdir(folder) if n.startswith(prefix)]
+        except OSError:
+            continue
+        for name in names:
+            path = os.path.join(folder, name)
+            if not os.path.islink(path) and os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
 
 
 def sandboxed(root, spec):

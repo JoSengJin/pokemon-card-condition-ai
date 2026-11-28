@@ -12,7 +12,7 @@ import fcntl
 import os
 
 from . import contract as ct
-from . import cas, claude_perm, dedupe, holder, ledger, lease, manifest, opstate, recovery, states
+from . import cas, claude_perm, dedupe, holder, ledger, lease, manifest, opstate, recovery, sandbox, states
 from .jsonio import read_json, write_json
 
 
@@ -86,6 +86,7 @@ def claim(root, key, pid, boot, now, current=None):
         shown = states.CORRUPT if restored else state  # 복구 전 상태를 보고한다
         who = holder.verdict(info["held"], boot) if state == states.INTERRUPTED else "dead"
         if who == "dead":
+            sandbox.sweep(task_dir)  # 4차 결함 I9: 잠금을 잡았고 이전 주인이 없다 → 이전 kill이 남긴 반영 임시·실행 폴더 정리
             plan = recovery.decide(task_dir, state, info, now, current, restored)
         else:  # 잠금 없이 주인이 살아 있거나 판정 불가: 인수하지 않고 사유를 장부에 남긴다
             why = "holder_alive_without_lock" if who == "alive" else "blocked"
