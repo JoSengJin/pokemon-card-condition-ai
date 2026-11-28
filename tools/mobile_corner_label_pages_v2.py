@@ -16,6 +16,7 @@ from tools import mobile_corner_label_pages as v1
 
 STATES = ['미확인', '정상', '결함', '판단 불가']
 CARD_MM, MODEL_PX_MM, QUALITY = (63, 88), 15.27, 92
+PHONE_MAX_MB = 1.2  # 2026-11-29 phone test: 1.04 and 1.2 MB pages opened, 3.6 and 6.0 MB did not. Command-line default.
 SCALE = 1.0  # shortcut: never downscale; a smaller value must still pass display_ok or the page is refused
 STYLE = v1.STYLE + '.c[data-s="판단 불가"]{background:#e8a600aa}.c[data-s="미확인"] i::after{content:"탭";font-weight:400;opacity:.8}'
 STYLE += '.tip{margin:4px 0;font-weight:700}'  # 2026-11-29 phone test: the cells were not tapped (the person judged by eye only)
@@ -113,6 +114,7 @@ def main(review_jsonl, ids_text, out_path, side='back', per_page=None, max_mb=No
 
 
 if __name__ == '__main__':
-    # argv: review ids out [per_page or 0] [max_mb]
-    for written in main(*sys.argv[1:4], 'back', int(sys.argv[4]) if len(sys.argv) > 4 and int(sys.argv[4]) else None, float(sys.argv[5]) if len(sys.argv) > 5 else None):
-        print(written, written.stat().st_size)
+    # argv: review ids out [per_page or 0] [max_mb, default PHONE_MAX_MB]
+    cap = float(sys.argv[5]) if len(sys.argv) > 5 else PHONE_MAX_MB
+    for written in main(*sys.argv[1:4], 'back', int(sys.argv[4]) if len(sys.argv) > 4 and int(sys.argv[4]) else None, cap):
+        print(written, written.stat().st_size, 'OVER PHONE LIMIT (one photo alone): may not open' if written.stat().st_size > cap * 1e6 * 1.05 else '')
